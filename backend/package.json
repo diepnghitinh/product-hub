@@ -1,0 +1,88 @@
+{
+  "name": "product-hub-backend",
+  "version": "0.1.0",
+  "description": "product-hub API — NestJS + Mongoose (MongoDB) clean/hexagonal DDD",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "nest build && tsc-alias -p tsconfig.build.json",
+    "format": "prettier --write \"src/**/*.ts\" \"libs/**/*.ts\"",
+    "start": "node -r ts-node/register/transpile-only -r tsconfig-paths/register src/main.ts",
+    "start:dev": "node --watch -r ts-node/register/transpile-only -r tsconfig-paths/register src/main.ts",
+    "start:prod": "node dist/src/main",
+    "lint": "eslint \"{src,libs,test}/**/*.ts\" --fix",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.2",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.1.2",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/mongoose": "^11.0.4",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-express": "^11.1.2",
+    "@nestjs/swagger": "^11.2.0",
+    "@nestjs/terminus": "^11.0.0",
+    "bcryptjs": "^2.4.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "exceljs": "^4.4.0",
+    "helmet": "^8.1.0",
+    "mongoose": "^8.24.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "uuid": "^11.0.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.5",
+    "@nestjs/schematics": "^11.0.2",
+    "@nestjs/testing": "^11.1.2",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.0",
+    "@types/passport-jwt": "^4.0.1",
+    "@types/uuid": "^10.0.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.2.0",
+    "source-map-support": "^0.5.21",
+    "ts-jest": "^29.1.2",
+    "ts-loader": "^9.5.1",
+    "ts-node": "^10.9.2",
+    "tsc-alias": "^1.8.10",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.5.4"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": ".",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "src/**/*.(t|j)s"
+    ],
+    "coverageDirectory": "./coverage",
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@core/(.*)$": "<rootDir>/libs/core/$1",
+      "^@shared/(.*)$": "<rootDir>/libs/shared/$1",
+      "^@application/(.*)$": "<rootDir>/src/application/$1",
+      "^@infrastructure/(.*)$": "<rootDir>/src/infrastructure/$1",
+      "^@presentation/(.*)$": "<rootDir>/src/presentation/$1",
+      "^@module-shared/(.*)$": "<rootDir>/src/shared/$1"
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

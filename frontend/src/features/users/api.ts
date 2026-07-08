@@ -1,0 +1,51 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
+import type { ListResponse, UserDto } from '@/types/dto';
+import type { Role } from '@/types/enums';
+
+/**
+ * Canonical query-hook pattern. Admin-only endpoints — pass `enabled: false`
+ * for non-admins so the list isn't fetched.
+ */
+export function useUsers(
+  params?: { page?: number; limit?: number; search?: string },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ['users', params],
+    queryFn: () => apiGet<ListResponse<UserDto>>('/users', params),
+    enabled,
+  });
+}
+
+export interface CreateUserInput {
+  name: string;
+  email: string;
+  password: string;
+  role?: Role;
+}
+
+export function useCreateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateUserInput) => apiPost<UserDto>('/users', input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+
+export function useUpdateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: { name?: string; role?: Role } }) =>
+      apiPatch<UserDto>(`/users/${id}`, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+
+export function useDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiDelete<{ ok: true }>(`/users/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}

@@ -1,0 +1,16 @@
+services:
+  db:
+    image: mongo:7
+    container_name: producthub-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: producthub
+      MONGO_INITDB_ROOT_PASSWORD: producthub
+      MONGO_INITDB_DATABASE: producthub
+    ports:
+      - '27017:27017'
+    volumes:
+      - producthub-mongo-data:/data/db
+
+volumes:
+  producthub-mongo-data:
