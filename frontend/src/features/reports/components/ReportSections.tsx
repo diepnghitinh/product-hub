@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ArrowRightLeft } from 'lucide-react';
 import { ColorSelect, type ColorOption } from '@/components/ui';
+import { CaseEditDialog } from './CaseEditDialog';
 import type {
   BulletsSection,
   CardsSection,
@@ -616,6 +617,7 @@ function Testing({
   };
 
   const [assignee, setAssignee] = useState('all');
+  const [editingCase, setEditingCase] = useState<TestCaseData | null>(null);
   const owners = useMemo(() => {
     const set = new Set<string>();
     for (const c of cases) if (c.owner) set.add(c.owner);
@@ -813,7 +815,18 @@ function Testing({
                       </td>
                     )}
                     <td style={{ fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>
-                      {c.shortId}
+                      {canWrite ? (
+                        <button
+                          type="button"
+                          className="case-open-btn"
+                          title="Open &amp; edit test case"
+                          onClick={() => setEditingCase(c)}
+                        >
+                          {c.shortId}
+                        </button>
+                      ) : (
+                        c.shortId
+                      )}
                     </td>
                     <td>
                       {canWrite ? (
@@ -896,6 +909,19 @@ function Testing({
             </tbody>
           </table>
         </>
+      )}
+
+      {editingCase && (
+        <CaseEditDialog
+          key={editingCase.id}
+          testCase={editingCase}
+          users={users}
+          onClose={() => setEditingCase(null)}
+          onSave={(updated) => {
+            setCase(updated.id, updated);
+            setEditingCase(null);
+          }}
+        />
       )}
     </div>
   );
