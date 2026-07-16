@@ -24,6 +24,7 @@ export class RoadmapRepository
         title: doc.title,
         description: doc.description,
         items: doc.items ?? [],
+        columns: doc.columns ?? [],
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
       },
@@ -41,6 +42,7 @@ export class RoadmapRepository
       title: roadmap.title,
       description: roadmap.description,
       items: roadmap.items,
+      columns: roadmap.columns,
       createdAt: roadmap.createdAt,
       updatedAt: roadmap.updatedAt,
     };

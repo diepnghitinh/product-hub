@@ -7,6 +7,7 @@ export { Select, type SelectOption, type SelectProps } from './Select';
 export { ColorSelect, type ColorOption, type ColorSelectProps } from './ColorSelect';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './Combobox';
 export { DatePicker, type DatePickerProps } from './DatePicker';
+export { RichTextEditor, type RichTextEditorProps } from './RichTextEditor';
 export { MultiSelect, type MultiSelectOption, type MultiSelectProps } from './MultiSelect';
 export { TagInput, type TagInputProps } from './TagInput';
 export {

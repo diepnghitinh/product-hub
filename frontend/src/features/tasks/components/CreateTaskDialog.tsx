@@ -2,7 +2,6 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { Button, Combobox, Dialog, Field, Input, Textarea } from '@/components/ui';
 import { t } from '@/i18n';
 import { useAuth } from '@/lib/auth';
-import { ROADMAP_PHASE_LABEL } from '@/types/enums';
 import { useRoadmaps } from '@/features/roadmaps/api';
 import { useCreateTask } from '../api';
 
@@ -33,7 +32,7 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
       ...(roadmaps ?? []).flatMap((r) =>
         (r.items ?? []).map((it) => ({
           value: it.id,
-          label: `${r.title} · ${ROADMAP_PHASE_LABEL[it.phase]} · ${it.title}`,
+          label: `${r.title} · ${r.columns?.find((c) => c.key === it.phase)?.label ?? it.phase} · ${it.title}`,
         })),
       ),
     ],
@@ -48,7 +47,7 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
         map.set(it.id, {
           roadmapId: r.id,
           projectId: r.projectId,
-          label: `${ROADMAP_PHASE_LABEL[it.phase]} · ${it.title}`,
+          label: `${r.columns?.find((c) => c.key === it.phase)?.label ?? it.phase} · ${it.title}`,
         }),
       ),
     );

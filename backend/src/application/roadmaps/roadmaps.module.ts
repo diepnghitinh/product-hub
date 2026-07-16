@@ -6,6 +6,7 @@ import {
   GetRoadmapUseCase,
   UpdateRoadmapUseCase,
   ReplaceRoadmapItemsUseCase,
+  ReplaceRoadmapColumnsUseCase,
   DeleteRoadmapUseCase,
 } from './use-cases/roadmap.use-cases';
 
@@ -15,6 +16,7 @@ const useCases = [
   GetRoadmapUseCase,
   UpdateRoadmapUseCase,
   ReplaceRoadmapItemsUseCase,
+  ReplaceRoadmapColumnsUseCase,
   DeleteRoadmapUseCase,
 ];
 

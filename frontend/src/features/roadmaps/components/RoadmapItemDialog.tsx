@@ -5,8 +5,8 @@ import {
   DatePicker,
   Dialog,
   Input,
+  RichTextEditor,
   Select,
-  Textarea,
 } from '@/components/ui';
 import { t } from '@/i18n';
 import { useAuth } from '@/lib/auth';
@@ -17,26 +17,25 @@ import {
   ROADMAP_DIFFICULTY_LABEL,
   ROADMAP_ITEM_STATUS_LABEL,
   ROADMAP_ITEM_STATUSES,
-  ROADMAP_PHASE_LABEL,
-  ROADMAP_PHASES,
   RoadmapDifficulty,
   RoadmapItemStatus,
-  RoadmapPhase,
 } from '@/types/enums';
-import type { RoadmapItem } from '@/types/dto';
+import type { RoadmapColumn, RoadmapItem } from '@/types/dto';
 
 interface RoadmapItemDialogProps {
   open: boolean;
   onClose: () => void;
   item?: RoadmapItem;
-  defaultPhase?: RoadmapPhase;
+  defaultPhase?: string;
   onSave: (item: RoadmapItem) => void;
   /** Parent roadmap context — enables the Tasks panel when editing an item. */
   roadmapId?: string;
   projectId?: string;
+  /** The roadmap's columns — drive the Phase picker + the item's column label. */
+  columns?: RoadmapColumn[];
 }
 
-function emptyItem(phase: RoadmapPhase): RoadmapItem {
+function emptyItem(phase: string): RoadmapItem {
   return {
     id: crypto.randomUUID(),
     title: '',
@@ -74,13 +73,16 @@ export function RoadmapItemDialog({
   onSave,
   roadmapId,
   projectId,
+  columns,
 }: RoadmapItemDialogProps) {
   const { canManageDelivery, canEditDelivery: canWrite } = useAuth();
   // People list is admin/product-only; only fetch it for those who can assign.
   const { data: usersData } = useUsers({ limit: 100 }, canManageDelivery);
   const users = usersData?.items ?? [];
 
-  const [form, setForm] = useState<RoadmapItem>(item ?? emptyItem(defaultPhase ?? RoadmapPhase.NOW));
+  const [form, setForm] = useState<RoadmapItem>(
+    item ?? emptyItem(defaultPhase ?? columns?.[0]?.key ?? 'now'),
+  );
 
   const set = (patch: Partial<RoadmapItem>) => setForm((f) => ({ ...f, ...patch }));
   const num = (v: string) => Number(v) || 0;
@@ -138,18 +140,19 @@ export function RoadmapItemDialog({
           >
             {t('roadmaps.description')}
           </label>
-          <Textarea
-            id="ri-desc"
+          <RichTextEditor
             value={form.description}
-            onChange={(e) => set({ description: e.target.value })}
-            className="min-h-[300px] flex-1 resize-y leading-relaxed"
+            onChange={(html) => set({ description: html })}
+            placeholder={t('roadmaps.description')}
+            minHeight={260}
+            className="min-h-[300px] flex-1"
           />
           {item && roadmapId && (
             <TaskPanel
               roadmapId={roadmapId}
               projectId={projectId ?? ''}
               itemId={item.id}
-              itemLabel={`${ROADMAP_PHASE_LABEL[item.phase]} · ${item.title}`}
+              itemLabel={`${columns?.find((c) => c.key === item.phase)?.label ?? item.phase} · ${item.title}`}
             />
           )}
         </div>
@@ -263,8 +266,8 @@ export function RoadmapItemDialog({
               <span className={SIDEBAR_LABEL}>{t('roadmaps.phase')}</span>
               <Select
                 value={form.phase}
-                onValueChange={(v) => set({ phase: v as RoadmapPhase })}
-                options={ROADMAP_PHASES.map((p) => ({ value: p, label: ROADMAP_PHASE_LABEL[p] }))}
+                onValueChange={(v) => set({ phase: v })}
+                options={(columns ?? []).map((c) => ({ value: c.key, label: c.label }))}
               />
             </div>
             <div>

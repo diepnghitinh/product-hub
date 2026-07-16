@@ -3,6 +3,7 @@ import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import {
   CreateRoadmapDto,
+  ReplaceRoadmapColumnsDto,
   ReplaceRoadmapItemsDto,
   UpdateRoadmapDto,
 } from '../dtos/roadmap.dtos';
@@ -106,6 +107,32 @@ export class ReplaceRoadmapItemsUseCase
     const roadmap = await this.roadmaps.findById(id);
     if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
     roadmap.replaceItems(dto.items);
+    await this.roadmaps.update(roadmap);
+    return Result.ok(roadmap);
+  }
+}
+
+@Injectable()
+export class ReplaceRoadmapColumnsUseCase
+  implements
+    IUsecaseExecute<
+      { id: string; tenantId: string; dto: ReplaceRoadmapColumnsDto },
+      Result<RoadmapEntity>
+    >
+{
+  constructor(@Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository) {}
+  async execute({
+    id,
+    tenantId,
+    dto,
+  }: {
+    id: string;
+    tenantId: string;
+    dto: ReplaceRoadmapColumnsDto;
+  }): Promise<Result<RoadmapEntity>> {
+    const roadmap = await this.roadmaps.findById(id);
+    if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
+    roadmap.replaceColumns(dto.columns);
     await this.roadmaps.update(roadmap);
     return Result.ok(roadmap);
   }

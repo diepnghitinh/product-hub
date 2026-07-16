@@ -11,12 +11,29 @@ export interface RoadmapAssignee {
   name: string;
 }
 
+/** A configurable board column ("pool"). `key` is the stable value stored on
+ * each item's `phase`; `label` and `color` are editable per roadmap. */
+export interface RoadmapColumn {
+  key: string;
+  label: string;
+  color: string;
+}
+
+/** Seeded for roadmaps that have no columns yet (existing + newly created). */
+export const DEFAULT_ROADMAP_COLUMNS: RoadmapColumn[] = [
+  { key: RoadmapPhase.NOW, label: 'Now', color: 'hsl(248 53% 58%)' },
+  { key: RoadmapPhase.NEXT, label: 'Next', color: 'hsl(38 92% 50%)' },
+  { key: RoadmapPhase.LATER, label: 'Later', color: 'hsl(220 9% 46%)' },
+  { key: RoadmapPhase.DONE, label: 'Done', color: 'hsl(142 55% 40%)' },
+];
+
 /** A single roadmap item. RICE score is derived, not stored. */
 export interface RoadmapItemData {
   id: string;
   title: string;
   description: string;
-  phase: RoadmapPhase;
+  /** The column ("pool") this item sits in — a `RoadmapColumn.key`. */
+  phase: string;
   status: RoadmapItemStatus;
   difficulty: RoadmapDifficulty;
   /** RICE inputs. */

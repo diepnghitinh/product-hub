@@ -1,5 +1,16 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, Input, Select, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -12,7 +23,8 @@ import {
   BUG_SEVERITY_LABEL,
   BugSeverity,
   BugStatus,
-  DEFAULT_BUG_STATUSES,} from '@/types/enums';
+  DEFAULT_BUG_STATUSES,
+} from '@/types/enums';
 import type { BugDto } from '@/types/dto';
 import { CreateBugDialog } from './components/CreateBugDialog';
 import { useBugs, useSetBugStatus } from './api';
@@ -26,8 +38,73 @@ const SEVERITY_DOT: Record<BugSeverity, string> = {
   [BugSeverity.CRITICAL]: 'bg-destructive',
 };
 
+/** Bug card visual — shared by the column list and the lifted drag overlay. */
+function BugCard({ bug, overlay = false }: { bug: BugDto; overlay?: boolean }) {
+  return (
+    <article
+      className={cn(
+        'flex flex-col gap-2 rounded-xl border bg-card p-3 text-card-foreground shadow-sm transition-colors hover:border-foreground/20',
+        overlay ? 'w-[256px] rotate-3 cursor-grabbing shadow-2xl' : 'cursor-pointer',
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <span
+          className={cn('mt-1.5 size-2 shrink-0 rounded-full', SEVERITY_DOT[bug.severity])}
+          title={BUG_SEVERITY_LABEL[bug.severity]}
+        />
+        <span className="text-[13px] leading-snug">{bug.title}</span>
+      </div>
+      <div className="flex justify-between text-[11px] text-muted-foreground">
+        <span>{bug.assigneeName || t('bugs.unassigned')}</span>
+        <span>{timeAgo(bug.updatedAt)}</span>
+      </div>
+    </article>
+  );
+}
+
+/** A bug card that can be picked up. Stays in place (dimmed) while the overlay
+ * shows the lifted copy; a plain click (no drag) opens the bug. */
+function DraggableBug({
+  bug,
+  disabled,
+  onOpen,
+}: {
+  bug: BugDto;
+  disabled: boolean;
+  onOpen: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: bug.id, disabled });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      onClick={onOpen}
+      className={cn('touch-none', isDragging && 'opacity-40')}
+    >
+      <BugCard bug={bug} />
+    </div>
+  );
+}
+
+/** A status column that accepts dropped cards; highlights while hovered. */
+function DroppableColumn({ id, children }: { id: string; children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'flex min-h-[120px] w-[280px] shrink-0 flex-col rounded-xl border bg-muted/40 p-3 transition-shadow',
+        isOver && 'ring-2 ring-primary',
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function BugsBoardPage() {
-  const { user, canEditDelivery: canWrite } = useAuth();
+  const { canEditDelivery: canWrite } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const projectId = params.get('projectId') || undefined;
@@ -39,7 +116,7 @@ export function BugsBoardPage() {
   const [search, setSearch] = useState('');
   const [severity, setSeverity] = useState<BugSeverity | ''>('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [dragId, setDragId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const { data, isLoading } = useBugs({
     search: search || undefined,
@@ -53,13 +130,18 @@ export function BugsBoardPage() {
 
   const bugs = data?.items ?? [];
   const byStatus = (status: BugStatus) => bugs.filter((b) => b.status === status);
+  const activeBug = bugs.find((b) => b.id === activeId) ?? null;
 
-  function onDrop(status: BugStatus) {
-    if (dragId) {
-      const bug = bugs.find((b) => b.id === dragId);
-      if (bug && bug.status !== status) setStatus.mutate({ id: dragId, status });
-    }
-    setDragId(null);
+  // A little drag distance is required before a card lifts, so clicks still open the bug.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  function onDragEnd(e: DragEndEvent) {
+    setActiveId(null);
+    const { active, over } = e;
+    if (!over) return;
+    const bug = bugs.find((b) => b.id === active.id);
+    const status = over.id as BugStatus;
+    if (bug && bug.status !== status) setStatus.mutate({ id: bug.id, status });
   }
 
   return (
@@ -110,58 +192,47 @@ export function BugsBoardPage() {
           {t('bugs.empty')}
         </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-3">
-          {columns.map((col) => {
-            const status = col.key;
-            const items = byStatus(status);
-            return (
-              <div
-                key={status}
-                className="flex min-h-[120px] min-w-[220px] flex-1 flex-col rounded-xl border bg-muted/40 p-3"
-                onDragOver={(e) => canWrite && e.preventDefault()}
-                onDrop={() => canWrite && onDrop(status)}
-              >
-                <div className="mb-3 flex items-center justify-between px-1">
-                  <span className="flex items-center gap-2 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">
-                    <span
-                      className="size-2 shrink-0 rounded-full"
-                      style={{ background: col.color }}
-                      aria-hidden
-                    />
-                    {col.label}
-                  </span>
-                  <Badge variant="muted">{items.length}</Badge>
-                </div>
-                <div className="flex flex-1 flex-col gap-2">
-                  {items.map((bug: BugDto) => (
-                    <article
-                      key={bug.id}
-                      className="flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-3 text-card-foreground shadow-sm transition-colors hover:border-foreground/20"
-                      draggable={canWrite}
-                      onDragStart={() => setDragId(bug.id)}
-                      onClick={() => navigate(`/bugs/${bug.id}`)}
-                    >
-                      <div className="flex items-start gap-2">
-                        <span
-                          className={cn(
-                            'mt-1.5 size-2 shrink-0 rounded-full',
-                            SEVERITY_DOT[bug.severity],
-                          )}
-                          title={BUG_SEVERITY_LABEL[bug.severity]}
-                        />
-                        <span className="text-[13px] leading-snug">{bug.title}</span>
-                      </div>
-                      <div className="flex justify-between text-[11px] text-muted-foreground">
-                        <span>{bug.assigneeName || t('bugs.unassigned')}</span>
-                        <span>{timeAgo(bug.updatedAt)}</span>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <DndContext
+          sensors={sensors}
+          onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))}
+          onDragEnd={onDragEnd}
+          onDragCancel={() => setActiveId(null)}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-3">
+            {columns.map((col) => {
+              const status = col.key;
+              const items = byStatus(status);
+              return (
+                <DroppableColumn key={status} id={status}>
+                  <div className="mb-3 flex items-center justify-between px-1">
+                    <span className="flex items-center gap-2 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">
+                      <span
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ background: col.color }}
+                        aria-hidden
+                      />
+                      {col.label}
+                    </span>
+                    <Badge variant="muted">{items.length}</Badge>
+                  </div>
+                  <div className="flex flex-1 flex-col gap-2">
+                    {items.map((bug) => (
+                      <DraggableBug
+                        key={bug.id}
+                        bug={bug}
+                        disabled={!canWrite}
+                        onOpen={() => navigate(`/bugs/${bug.id}`)}
+                      />
+                    ))}
+                  </div>
+                </DroppableColumn>
+              );
+            })}
+          </div>
+          <DragOverlay dropAnimation={null}>
+            {activeBug ? <BugCard bug={activeBug} overlay /> : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {createOpen && (

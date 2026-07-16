@@ -256,11 +256,19 @@ export interface RoadmapAssignee {
   name: string;
 }
 
+/** A configurable board column ("pool"): `key` is stored on each item's `phase`. */
+export interface RoadmapColumn {
+  key: string;
+  label: string;
+  color: string;
+}
+
 export interface RoadmapItem {
   id: string;
   title: string;
   description: string;
-  phase: RoadmapPhase;
+  /** The column ("pool") this item sits in — a `RoadmapColumn.key`. */
+  phase: string;
   status: RoadmapItemStatus;
   difficulty: RoadmapDifficulty;
   reach: number;
@@ -283,6 +291,7 @@ export interface RoadmapDto {
   title: string;
   description: string;
   items: RoadmapItem[];
+  columns: RoadmapColumn[];
   itemCount: number;
   createdAt: string;
   updatedAt: string;
@@ -318,13 +327,22 @@ export interface KeyResult {
   title: string;
   progress: number;
   owner: string;
+  /** Weight (%) within its objective. */
+  weight: number;
+  /** OKR status key ('' = no status). */
+  status: string;
 }
 
 export interface Objective {
   id: string;
   title: string;
   keyResults: KeyResult[];
+  /** Weighted rollup of this objective's key results (0–100). */
   progress: number;
+  /** Weight (%) within the milestone. */
+  weight: number;
+  status: string;
+  notes: string;
 }
 
 export interface MilestoneDto {

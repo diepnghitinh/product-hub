@@ -6,13 +6,18 @@ export class KeyResultDto {
   @ApiProperty() title: string;
   @ApiProperty() progress: number;
   @ApiProperty() owner: string;
+  @ApiProperty() weight: number;
+  @ApiProperty() status: string;
 }
 
 export class ObjectiveDto {
   @ApiProperty() id: string;
   @ApiProperty() title: string;
   @ApiProperty({ type: [KeyResultDto] }) keyResults: KeyResultDto[];
-  @ApiProperty({ description: 'Average of this objective’s key results' }) progress: number;
+  @ApiProperty() weight: number;
+  @ApiProperty() status: string;
+  @ApiProperty() notes: string;
+  @ApiProperty({ description: 'Weighted rollup of this objective’s key results' }) progress: number;
 }
 
 /** Flat milestone shape with per-objective + overall progress rollups. */

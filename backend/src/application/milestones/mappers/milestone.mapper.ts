@@ -1,5 +1,5 @@
 import { MilestoneEntity } from '../domain/milestone.entity';
-import { avgProgress, milestoneProgress } from '../domain/milestone.types';
+import { milestoneProgress, objectiveProgress } from '../domain/milestone.types';
 import { MilestoneResponseDto } from '../dtos/milestone.response.dto';
 
 export class MilestoneMapper {
@@ -10,11 +10,23 @@ export class MilestoneMapper {
       title: milestone.title,
       timeframe: milestone.timeframe,
       status: milestone.status,
+      // Defensive defaults so objectives/KRs created before weight/status/notes
+      // existed still return a clean, typed shape.
       objectives: milestone.objectives.map((o) => ({
         id: o.id,
         title: o.title,
-        keyResults: o.keyResults ?? [],
-        progress: avgProgress(o.keyResults ?? []),
+        keyResults: (o.keyResults ?? []).map((k) => ({
+          id: k.id,
+          title: k.title,
+          progress: k.progress ?? 0,
+          owner: k.owner ?? '',
+          weight: k.weight ?? 0,
+          status: k.status ?? '',
+        })),
+        weight: o.weight ?? 0,
+        status: o.status ?? '',
+        notes: o.notes ?? '',
+        progress: objectiveProgress(o),
       })),
       roadmapIds: milestone.roadmapIds,
       progress: milestoneProgress(milestone.objectives),

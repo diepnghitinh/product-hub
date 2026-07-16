@@ -1,7 +1,11 @@
 import { AggregateRoot, UniqueEntityID } from '@core/domain';
 import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
-import { RoadmapItemData } from '../types/roadmap-item.type';
+import {
+  DEFAULT_ROADMAP_COLUMNS,
+  RoadmapColumn,
+  RoadmapItemData,
+} from '../types/roadmap-item.type';
 import { RoadmapProps } from './roadmap.props';
 
 /** A Roadmap holds prioritized items across Now/Next/Later/Done horizons. */
@@ -17,6 +21,7 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
       title: string;
       description?: string;
       items?: RoadmapItemData[];
+      columns?: RoadmapColumn[];
       createdAt?: Date;
       updatedAt?: Date;
     },
@@ -37,6 +42,7 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
           title: props.title.trim(),
           description: props.description?.trim() || '',
           items: props.items ?? [],
+          columns: props.columns?.length ? props.columns : DEFAULT_ROADMAP_COLUMNS,
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
         },
@@ -63,6 +69,9 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
   get items(): RoadmapItemData[] {
     return this.props.items;
   }
+  get columns(): RoadmapColumn[] {
+    return this.props.columns;
+  }
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -82,6 +91,11 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
 
   replaceItems(items: RoadmapItemData[]): void {
     this.props.items = items;
+    this.touch();
+  }
+
+  replaceColumns(columns: RoadmapColumn[]): void {
+    this.props.columns = columns;
     this.touch();
   }
 

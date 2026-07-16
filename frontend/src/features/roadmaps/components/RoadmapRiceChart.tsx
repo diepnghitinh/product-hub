@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ROADMAP_ITEM_STATUS_LABEL, ROADMAP_PHASE_LABEL } from '@/types/enums';
-import type { RoadmapItem } from '@/types/dto';
+import { ROADMAP_ITEM_STATUS_LABEL } from '@/types/enums';
+import type { RoadmapColumn, RoadmapItem } from '@/types/dto';
 
 function niceMax(v: number): number {
   if (v <= 5) return 5;
@@ -21,7 +21,13 @@ const truncate = (s: string, n: number) => (s.length <= n ? s : `${s.slice(0, n 
  * colour = Confidence (red → green). Quadrants label the trade-offs. Theme-aware
  * (shadcn tokens); ported from the legacy roadmap RICE chart.
  */
-export function RoadmapRiceChart({ items }: { items: RoadmapItem[] }) {
+export function RoadmapRiceChart({
+  items,
+  columns,
+}: {
+  items: RoadmapItem[];
+  columns: RoadmapColumn[];
+}) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const scored = items.filter((i) => i.effort > 0 || i.impact > 0 || i.reach > 0);
 
@@ -53,7 +59,7 @@ export function RoadmapRiceChart({ items }: { items: RoadmapItem[] }) {
   const ink = 'hsl(var(--muted-foreground))';
 
   return (
-    <div className="relative rounded-xl border bg-card p-3">
+    <div className="relative w-full rounded-xl border bg-card p-3">
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="w-full"
@@ -122,7 +128,9 @@ export function RoadmapRiceChart({ items }: { items: RoadmapItem[] }) {
         <div className="pointer-events-none absolute right-4 top-4 w-56 rounded-lg border bg-popover p-3 text-popover-foreground shadow-md">
           <div className="text-sm font-semibold leading-snug">{active.title}</div>
           <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">
-            <span className="rounded bg-muted px-1.5 py-0.5">{ROADMAP_PHASE_LABEL[active.phase]}</span>
+            <span className="rounded bg-muted px-1.5 py-0.5">
+              {columns.find((c) => c.key === active.phase)?.label ?? active.phase}
+            </span>
             <span className="rounded bg-muted px-1.5 py-0.5">{ROADMAP_ITEM_STATUS_LABEL[active.status]}</span>
             <span className="rounded bg-muted px-1.5 py-0.5">{active.progress}%</span>
           </div>

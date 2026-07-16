@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
-import { RoadmapItemData } from '../domain/types/roadmap-item.type';
+import { RoadmapColumn, RoadmapItemData } from '../domain/types/roadmap-item.type';
 
 export class CreateRoadmapDto {
   @ApiProperty({ example: 'Q3 Roadmap' })
@@ -43,4 +43,10 @@ export class ReplaceRoadmapItemsDto {
   @ApiProperty({ type: 'array', items: { type: 'object' } })
   @IsArray()
   items: RoadmapItemData[];
+}
+
+export class ReplaceRoadmapColumnsDto {
+  @ApiProperty({ type: 'array', items: { type: 'object' } })
+  @IsArray()
+  columns: RoadmapColumn[];
 }

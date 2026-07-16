@@ -1,5 +1,5 @@
 import { RoadmapEntity } from '../domain/entities/roadmap.entity';
-import { riceScore } from '../domain/types/roadmap-item.type';
+import { DEFAULT_ROADMAP_COLUMNS, riceScore } from '../domain/types/roadmap-item.type';
 import { RoadmapResponseDto } from '../dtos/roadmap.response.dto';
 
 export class RoadmapMapper {
@@ -19,6 +19,7 @@ export class RoadmapMapper {
         assignees: item.assignees ?? [],
         rice: riceScore(item),
       })),
+      columns: roadmap.columns?.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS,
       itemCount: roadmap.items.length,
       createdAt: roadmap.createdAt,
       updatedAt: roadmap.updatedAt,

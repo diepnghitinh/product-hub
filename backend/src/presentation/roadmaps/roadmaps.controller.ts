@@ -18,10 +18,12 @@ import {
   GetRoadmapUseCase,
   UpdateRoadmapUseCase,
   ReplaceRoadmapItemsUseCase,
+  ReplaceRoadmapColumnsUseCase,
   DeleteRoadmapUseCase,
 } from '@application/roadmaps/use-cases/roadmap.use-cases';
 import {
   CreateRoadmapDto,
+  ReplaceRoadmapColumnsDto,
   ReplaceRoadmapItemsDto,
   UpdateRoadmapDto,
 } from '@application/roadmaps/dtos/roadmap.dtos';
@@ -38,6 +40,7 @@ export class RoadmapsController {
     private readonly getRoadmap: GetRoadmapUseCase,
     private readonly updateRoadmap: UpdateRoadmapUseCase,
     private readonly replaceItems: ReplaceRoadmapItemsUseCase,
+    private readonly replaceColumns: ReplaceRoadmapColumnsUseCase,
     private readonly deleteRoadmap: DeleteRoadmapUseCase,
   ) {}
 
@@ -93,6 +96,19 @@ export class RoadmapsController {
     @Body() dto: ReplaceRoadmapItemsDto,
   ): Promise<RoadmapResponseDto> {
     const result = await this.replaceItems.execute({ id, tenantId: auth.tenantId, dto });
+    if (result.isFailure) throw new EntityNotFoundException(result.error as string);
+    return RoadmapMapper.toResponseDto(result.getValue());
+  }
+
+  @Put(':id/columns')
+  @Roles(Role.ADMIN, Role.PRODUCT)
+  @ApiOperation({ summary: 'Replace roadmap columns (pools)' })
+  async putColumns(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: ReplaceRoadmapColumnsDto,
+  ): Promise<RoadmapResponseDto> {
+    const result = await this.replaceColumns.execute({ id, tenantId: auth.tenantId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return RoadmapMapper.toResponseDto(result.getValue());
   }

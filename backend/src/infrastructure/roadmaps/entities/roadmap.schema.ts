@@ -1,6 +1,9 @@
 import { Schema } from 'mongoose';
 import { v4 as uuid } from 'uuid';
-import { RoadmapItemData } from '@application/roadmaps/domain/types/roadmap-item.type';
+import {
+  RoadmapColumn,
+  RoadmapItemData,
+} from '@application/roadmaps/domain/types/roadmap-item.type';
 
 export interface RoadmapDoc {
   _id: string;
@@ -9,6 +12,7 @@ export interface RoadmapDoc {
   title: string;
   description: string;
   items: RoadmapItemData[];
+  columns: RoadmapColumn[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +25,7 @@ export const RoadmapSchema = new Schema<RoadmapDoc>(
     title: { type: String, required: true, maxlength: 160 },
     description: { type: String, default: '' },
     items: { type: [Schema.Types.Mixed], default: [] } as unknown as RoadmapItemData[],
+    columns: { type: [Schema.Types.Mixed], default: [] } as unknown as RoadmapColumn[],
   },
   { timestamps: true },
 );

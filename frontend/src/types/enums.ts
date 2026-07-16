@@ -306,6 +306,36 @@ export const ROADMAP_PHASE_LABEL: Record<RoadmapPhase, string> = {
   [RoadmapPhase.DONE]: 'Done',
 };
 
+/** Column accent per phase (shadcn theme tokens — no new brand colors).
+ * Now = brand focus, Next = amber, Later = muted, Done = green. */
+export const ROADMAP_PHASE_COLOR: Record<RoadmapPhase, string> = {
+  [RoadmapPhase.NOW]: 'hsl(var(--primary))',
+  [RoadmapPhase.NEXT]: 'hsl(var(--warning))',
+  [RoadmapPhase.LATER]: 'hsl(var(--muted-foreground))',
+  [RoadmapPhase.DONE]: 'hsl(var(--success))',
+};
+
+/** Fallback columns if a roadmap somehow has none (backend seeds these; mirror it). */
+export const DEFAULT_ROADMAP_COLUMNS: { key: string; label: string; color: string }[] = [
+  { key: 'now', label: 'Now', color: 'hsl(248 53% 58%)' },
+  { key: 'next', label: 'Next', color: 'hsl(38 92% 50%)' },
+  { key: 'later', label: 'Later', color: 'hsl(220 9% 46%)' },
+  { key: 'done', label: 'Done', color: 'hsl(142 55% 40%)' },
+];
+
+/** Preset palette for a roadmap column's colour — `value` is the stored CSS colour. */
+export const ROADMAP_COLUMN_PALETTE: { value: string; label: string; color: string }[] = [
+  { label: 'Violet', value: 'hsl(248 53% 58%)', color: 'hsl(248 53% 58%)' },
+  { label: 'Blue', value: 'hsl(212 72% 52%)', color: 'hsl(212 72% 52%)' },
+  { label: 'Teal', value: 'hsl(180 52% 40%)', color: 'hsl(180 52% 40%)' },
+  { label: 'Green', value: 'hsl(142 55% 40%)', color: 'hsl(142 55% 40%)' },
+  { label: 'Amber', value: 'hsl(38 92% 50%)', color: 'hsl(38 92% 50%)' },
+  { label: 'Orange', value: 'hsl(18 80% 54%)', color: 'hsl(18 80% 54%)' },
+  { label: 'Red', value: 'hsl(0 70% 58%)', color: 'hsl(0 70% 58%)' },
+  { label: 'Pink', value: 'hsl(330 68% 56%)', color: 'hsl(330 68% 56%)' },
+  { label: 'Slate', value: 'hsl(220 9% 46%)', color: 'hsl(220 9% 46%)' },
+];
+
 export const ROADMAP_ITEM_STATUSES: RoadmapItemStatus[] = [
   RoadmapItemStatus.IDEA,
   RoadmapItemStatus.PLANNED,
@@ -342,6 +372,33 @@ export const MILESTONE_STATUS_LABEL: Record<MilestoneStatus, string> = {
   [MilestoneStatus.ACTIVE]: 'Active',
   [MilestoneStatus.COMPLETED]: 'Completed',
   [MilestoneStatus.ARCHIVED]: 'Archived',
+};
+
+/** Qualitative OKR status for an objective / key result ('' = no status). */
+export enum OkrStatus {
+  ON_TRACK = 'on-track',
+  AT_RISK = 'at-risk',
+  OFF_TRACK = 'off-track',
+  DONE = 'done',
+}
+export const OKR_STATUSES: OkrStatus[] = [
+  OkrStatus.ON_TRACK,
+  OkrStatus.AT_RISK,
+  OkrStatus.OFF_TRACK,
+  OkrStatus.DONE,
+];
+export const OKR_STATUS_LABEL: Record<OkrStatus, string> = {
+  [OkrStatus.ON_TRACK]: 'On track',
+  [OkrStatus.AT_RISK]: 'At risk',
+  [OkrStatus.OFF_TRACK]: 'Off track',
+  [OkrStatus.DONE]: 'Done',
+};
+/** Status dot colour (semantic tokens — no new brand colours). */
+export const OKR_STATUS_COLOR: Record<OkrStatus, string> = {
+  [OkrStatus.ON_TRACK]: 'hsl(var(--success))',
+  [OkrStatus.AT_RISK]: 'hsl(var(--warning))',
+  [OkrStatus.OFF_TRACK]: 'hsl(var(--destructive))',
+  [OkrStatus.DONE]: 'hsl(var(--info))',
 };
 
 /** Task workflow columns, in order. */
