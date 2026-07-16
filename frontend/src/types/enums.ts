@@ -252,6 +252,29 @@ export const BUG_STATUS_LABEL: Record<BugStatus, string> = {
   [BugStatus.CLOSED]: 'Closed',
 };
 
+/** A tenant-configurable bug board column. `key` is the fixed workflow value;
+ * `label`, `color` and order are admin-editable (see AdminSettingsPage). */
+export interface BugStatusConfig {
+  key: BugStatus;
+  label: string;
+  color: string;
+}
+
+export const DEFAULT_BUG_STATUS_COLOR: Record<BugStatus, string> = {
+  [BugStatus.OPEN]: '#6b7280',
+  [BugStatus.IN_PROGRESS]: '#2563eb',
+  [BugStatus.BLOCKED]: '#dc2626',
+  [BugStatus.RESOLVED]: '#16a34a',
+  [BugStatus.CLOSED]: '#4b5563',
+};
+
+/** Client fallback until the tenant's board columns load (mirrors the backend). */
+export const DEFAULT_BUG_STATUSES: BugStatusConfig[] = BUG_STATUSES.map((key) => ({
+  key,
+  label: BUG_STATUS_LABEL[key],
+  color: DEFAULT_BUG_STATUS_COLOR[key],
+}));
+
 export const INBOX_KIND_LABEL: Record<InboxKind, string> = {
   [InboxKind.MENTION]: 'Mention',
   [InboxKind.ASSIGNED_BUG]: 'Assigned',

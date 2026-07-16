@@ -29,6 +29,21 @@ export class CreateBugDto {
   @IsString()
   projectId?: string;
 
+  @ApiPropertyOptional({ description: 'Link to the test case this bug came from' })
+  @IsOptional()
+  @IsString()
+  caseId?: string;
+
+  @ApiPropertyOptional({ description: 'Human-readable label of the linked case' })
+  @IsOptional()
+  @IsString()
+  caseLabel?: string;
+
+  @ApiPropertyOptional({ description: 'Link to the report/feature the case belongs to' })
+  @IsOptional()
+  @IsString()
+  reportId?: string;
+
   @ApiPropertyOptional({ description: 'Assignee user id' })
   @IsOptional()
   @IsString()

@@ -1,21 +1,36 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import { Button, Field, Input, Select, Spinner, Textarea } from '@/components/ui';
+import {
+  Button,
+  Combobox,
+  Field,
+  Input,
+  MultiSelect,
+  Select,
+  Spinner,
+  Textarea,
+} from '@/components/ui';
 import { t } from '@/i18n';
 import { BackLink } from '@/components/BackLink';
 import { timeAgo } from '@/lib/format';
 import {
   BUG_SEVERITIES,
   BUG_SEVERITY_LABEL,
-  BUG_STATUS_LABEL,
-  BUG_STATUSES,
   BugSeverity,
   BugStatus,
+  DEFAULT_BUG_STATUSES,
   Role,
 } from '@/types/enums';
+import type { CommentDto } from '@/types/dto';
 import { useUsers } from '@/features/users/api';
-import { useComments, useCreateComment } from '@/features/activity/api';
+import {
+  useComments,
+  useCreateComment,
+  useDeleteComment,
+  useUpdateComment,
+} from '@/features/activity/api';
+import { useBugStatuses } from '@/features/settings/api';
 import { useBug, useDeleteBug, useSetBugStatus, useUpdateBug } from './api';
 import { SeverityBadge } from './components/SeverityBadge';
 
@@ -35,6 +50,10 @@ export function BugDetailPage() {
   const remove = useDeleteBug();
   const { data: usersData } = useUsers({ limit: 100 }, isAdmin); // admin-only; assignee/mentions
   const users = usersData?.items ?? [];
+
+  const { data: statusConfig } = useBugStatuses();
+  const columns = statusConfig?.length ? statusConfig : DEFAULT_BUG_STATUSES;
+  const statusLabel = (k: BugStatus) => columns.find((c) => c.key === k)?.label ?? k;
 
   const { data: comments } = useComments(bugId);
   const createComment = useCreateComment(bugId ?? '');
@@ -121,13 +140,12 @@ export function BugDetailPage() {
                 <p className="text-sm text-muted-foreground">{t('activity.empty')}</p>
               ) : (
                 (comments ?? []).map((c) => (
-                  <div key={c.id} className="border-l-2 border-border pl-3">
-                    <div className="mb-0.5 flex items-baseline gap-2 text-sm">
-                      <span className="font-semibold">{c.authorName}</span>
-                      <span className="text-xs text-muted-foreground">{timeAgo(c.createdAt)}</span>
-                    </div>
-                    <p className="whitespace-pre-wrap text-sm">{c.body}</p>
-                  </div>
+                  <CommentItem
+                    key={c.id}
+                    comment={c}
+                    bugId={bugId ?? ''}
+                    canEdit={canWrite && (c.authorId === user?.id || isAdmin)}
+                  />
                 ))
               )}
             </div>
@@ -140,25 +158,18 @@ export function BugDetailPage() {
                   placeholder={t('activity.placeholder')}
                 />
                 {isAdmin && users.length > 0 && (
-                  <label className="flex items-center gap-2 text-sm">
+                  <div className="flex items-center gap-2 text-sm">
                     <span className="shrink-0 text-muted-foreground">{t('activity.notify')}:</span>
-                    <Select
-                      className="h-auto min-h-9"
-                      multiple
+                    <MultiSelect
+                      className="min-w-0 flex-1"
+                      placeholder={t('activity.notifyPlaceholder')}
                       value={mentionIds}
-                      onChange={(e) =>
-                        setMentionIds(Array.from(e.target.selectedOptions).map((o) => o.value))
-                      }
-                    >
-                      {users
+                      onChange={setMentionIds}
+                      options={users
                         .filter((u) => u.id !== user?.id)
-                        .map((u) => (
-                          <option key={u.id} value={u.id}>
-                            {u.name}
-                          </option>
-                        ))}
-                    </Select>
-                  </label>
+                        .map((u) => ({ value: u.id, label: u.name }))}
+                    />
+                  </div>
                 )}
                 <div className="flex justify-end">
                   <Button size="sm" onClick={postComment} loading={createComment.isPending}>
@@ -178,14 +189,14 @@ export function BugDetailPage() {
                 value={bug.status}
                 onChange={(e) => setStatus.mutate({ id: bug.id, status: e.target.value as BugStatus })}
               >
-                {BUG_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {BUG_STATUS_LABEL[s]}
+                {columns.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
                   </option>
                 ))}
               </Select>
             ) : (
-              <span className="text-sm">{BUG_STATUS_LABEL[bug.status]}</span>
+              <span className="text-sm">{statusLabel(bug.status)}</span>
             )}
           </div>
 
@@ -210,17 +221,15 @@ export function BugDetailPage() {
           <div className="flex flex-col gap-1">
             <span className={ROW_LABEL}>{t('bugs.assignee')}</span>
             {isAdmin ? (
-              <Select
-                value={bug.assigneeId}
-                onChange={(e) => save({ assigneeId: e.target.value })}
-              >
-                <option value="">{t('bugs.unassigned')}</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </Select>
+              <Combobox
+                value={bug.assigneeId || ''}
+                onChange={(v) => save({ assigneeId: v })}
+                placeholder={t('bugs.unassigned')}
+                options={[
+                  { value: '', label: t('bugs.unassigned') },
+                  ...users.map((u) => ({ value: u.id, label: u.name })),
+                ]}
+              />
             ) : (
               <span className="text-sm">{bug.assigneeName || t('bugs.unassigned')}</span>
             )}
@@ -240,6 +249,23 @@ export function BugDetailPage() {
             <span className="text-sm">{bug.reporterName || '—'}</span>
           </div>
 
+          {bug.caseId && bug.caseLabel && (
+            <div className="flex flex-col gap-1">
+              <span className={ROW_LABEL}>{t('bugs.linkedCase')}</span>
+              {bug.projectId && bug.reportId ? (
+                <Link
+                  to={`/projects/${bug.projectId}/reports/${bug.reportId}`}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                >
+                  <span aria-hidden>🔗</span>
+                  {bug.caseLabel}
+                </Link>
+              ) : (
+                <span className="text-sm">{bug.caseLabel}</span>
+              )}
+            </div>
+          )}
+
           {isAdmin && (
             <Button
               variant="ghost"
@@ -255,6 +281,79 @@ export function BugDetailPage() {
           )}
         </aside>
       </div>
+    </div>
+  );
+}
+
+/** One comment in the activity thread — with inline edit + delete for the author (or admins). */
+function CommentItem({
+  comment,
+  bugId,
+  canEdit,
+}: {
+  comment: CommentDto;
+  bugId: string;
+  canEdit: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(comment.body);
+  const update = useUpdateComment(bugId);
+  const remove = useDeleteComment(bugId);
+  const edited = comment.updatedAt && comment.updatedAt !== comment.createdAt;
+
+  function saveEdit() {
+    const body = draft.trim();
+    if (!body) return;
+    if (body === comment.body) {
+      setEditing(false);
+      return;
+    }
+    update.mutate({ id: comment.id, input: { body } }, { onSuccess: () => setEditing(false) });
+  }
+
+  return (
+    <div className="group border-l-2 border-border pl-3">
+      <div className="mb-0.5 flex items-baseline gap-2 text-sm">
+        <span className="font-semibold">{comment.authorName}</span>
+        <span className="text-xs text-muted-foreground">{timeAgo(comment.createdAt)}</span>
+        {edited && <span className="text-xs text-muted-foreground">· {t('activity.edited')}</span>}
+        {canEdit && !editing && (
+          <span className="ml-auto flex gap-2.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setDraft(comment.body);
+                setEditing(true);
+              }}
+            >
+              {t('common.edit')}
+            </button>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-destructive"
+              onClick={() => confirm(t('activity.confirmDelete')) && remove.mutate(comment.id)}
+            >
+              {t('common.delete')}
+            </button>
+          </span>
+        )}
+      </div>
+      {editing ? (
+        <div className="mt-1 flex flex-col gap-2">
+          <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus />
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button size="sm" onClick={saveEdit} loading={update.isPending}>
+              {t('common.save')}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="whitespace-pre-wrap text-sm">{comment.body}</p>
+      )}
     </div>
   );
 }

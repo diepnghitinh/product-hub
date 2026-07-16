@@ -19,6 +19,7 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
       mentions?: string[];
       images?: string[];
       createdAt?: Date;
+      updatedAt?: Date;
     },
     id?: UniqueEntityID,
   ): Result<CommentEntity> {
@@ -31,6 +32,7 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
     const bodyGuard = Guard.againstEmptyString(props.body, 'body');
     if (!bodyGuard.succeeded) return Result.fail(bodyGuard.message);
 
+    const createdAt = props.createdAt || new Date();
     return Result.ok(
       new CommentEntity(
         {
@@ -42,7 +44,8 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
           body: props.body.trim(),
           mentions: Array.from(new Set(props.mentions ?? [])),
           images: props.images ?? [],
-          createdAt: props.createdAt || new Date(),
+          createdAt,
+          updatedAt: props.updatedAt || createdAt,
         },
         id,
       ),
@@ -75,5 +78,23 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
   }
   get createdAt(): Date {
     return this.props.createdAt;
+  }
+  get updatedAt(): Date {
+    return this.props.updatedAt;
+  }
+
+  /** Edit an existing comment's body/mentions (bumps updatedAt). */
+  edit(fields: { body?: string; mentions?: string[]; images?: string[] }): Result<void> {
+    if (fields.body !== undefined) {
+      const bodyGuard = Guard.againstEmptyString(fields.body, 'body');
+      if (!bodyGuard.succeeded) return Result.fail(bodyGuard.message);
+      this.props.body = fields.body.trim();
+    }
+    if (fields.mentions !== undefined) {
+      this.props.mentions = Array.from(new Set(fields.mentions));
+    }
+    if (fields.images !== undefined) this.props.images = fields.images;
+    this.props.updatedAt = new Date();
+    return Result.ok();
   }
 }

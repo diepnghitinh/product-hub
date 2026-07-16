@@ -11,6 +11,9 @@ export interface BugDoc {
   status: BugStatus;
   type: string;
   projectId: string;
+  caseId: string;
+  caseLabel: string;
+  reportId: string;
   assigneeId: string;
   assigneeName: string;
   reporterId: string;
@@ -30,6 +33,9 @@ export const BugSchema = new Schema<BugDoc>(
     status: { type: String, enum: Object.values(BugStatus), default: BugStatus.OPEN },
     type: { type: String, default: '' },
     projectId: { type: String, default: '', index: true },
+    caseId: { type: String, default: '', index: true },
+    caseLabel: { type: String, default: '' },
+    reportId: { type: String, default: '', index: true },
     assigneeId: { type: String, default: '', index: true },
     assigneeName: { type: String, default: '' },
     reporterId: { type: String, default: '' },

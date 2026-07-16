@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, ProgressBar, Spinner } from '@/components/ui';
+import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { BackLink } from '@/components/BackLink';
 import {
@@ -14,6 +15,7 @@ import {
 } from '@/types/enums';
 import type { RoadmapItem } from '@/types/dto';
 import { RoadmapItemDialog } from './components/RoadmapItemDialog';
+import { RoadmapRiceChart } from './components/RoadmapRiceChart';
 import { useDeleteRoadmap, useReplaceRoadmapItems, useRoadmap } from './api';
 
 // Mobile-first: columns stack vertically on small screens, then become a
@@ -44,6 +46,7 @@ export function RoadmapBoardPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sortRice, setSortRice] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [view, setView] = useState<'board' | 'chart'>('board');
 
   if (isLoading) {
     return (
@@ -102,9 +105,37 @@ export function RoadmapBoardPage() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant={sortRice ? 'primary' : 'secondary'} size="sm" onClick={() => setSortRice((v) => !v)}>
-            {t('roadmaps.sortRice')}
-          </Button>
+          <div className="inline-flex rounded-md border p-0.5">
+            <button
+              type="button"
+              className={cn(
+                'rounded px-3 py-1 text-sm transition-colors',
+                view === 'board'
+                  ? 'bg-accent font-medium text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              onClick={() => setView('board')}
+            >
+              Board
+            </button>
+            <button
+              type="button"
+              className={cn(
+                'rounded px-3 py-1 text-sm transition-colors',
+                view === 'chart'
+                  ? 'bg-accent font-medium text-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              onClick={() => setView('chart')}
+            >
+              RICE chart
+            </button>
+          </div>
+          {view === 'board' && (
+            <Button variant={sortRice ? 'primary' : 'secondary'} size="sm" onClick={() => setSortRice((v) => !v)}>
+              {t('roadmaps.sortRice')}
+            </Button>
+          )}
           {isAdmin && (
             <Button
               variant="ghost"
@@ -120,6 +151,9 @@ export function RoadmapBoardPage() {
         </div>
       </header>
 
+      {view === 'chart' ? (
+        <RoadmapRiceChart items={items} />
+      ) : (
       <div className={BOARD}>
         {ROADMAP_PHASES.map((phase) => (
           <div
@@ -189,6 +223,7 @@ export function RoadmapBoardPage() {
           </div>
         ))}
       </div>
+      )}
 
       {dialogOpen && (
         <RoadmapItemDialog

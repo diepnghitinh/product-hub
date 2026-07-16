@@ -13,6 +13,7 @@ export class AppSettingsRepository implements IAppSettingsRepository {
     const result = AppSettingsEntity.create({
       tenantId: doc.tenantId,
       webhooks: doc.webhooks ?? [],
+      bugStatuses: doc.bugStatuses,
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
     });
@@ -30,7 +31,11 @@ export class AppSettingsRepository implements IAppSettingsRepository {
     await this.model
       .findOneAndUpdate(
         { tenantId: settings.tenantId },
-        { tenantId: settings.tenantId, webhooks: settings.webhooks },
+        {
+          tenantId: settings.tenantId,
+          webhooks: settings.webhooks,
+          bugStatuses: settings.bugStatuses,
+        },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       )
       .exec();

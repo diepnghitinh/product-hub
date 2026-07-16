@@ -20,6 +20,9 @@ export class BugEntity extends AggregateRoot<BugProps> {
       status?: BugStatus;
       type?: string;
       projectId?: string;
+      caseId?: string;
+      caseLabel?: string;
+      reportId?: string;
       assigneeId?: string;
       assigneeName?: string;
       reporterId: string;
@@ -50,6 +53,9 @@ export class BugEntity extends AggregateRoot<BugProps> {
           status: props.status ?? BugStatus.OPEN,
           type: props.type?.trim() || '',
           projectId: props.projectId || '',
+          caseId: props.caseId || '',
+          caseLabel: props.caseLabel || '',
+          reportId: props.reportId || '',
           assigneeId: props.assigneeId || '',
           assigneeName: props.assigneeName || '',
           reporterId: props.reporterId,
@@ -87,6 +93,15 @@ export class BugEntity extends AggregateRoot<BugProps> {
   get projectId(): string {
     return this.props.projectId;
   }
+  get caseId(): string {
+    return this.props.caseId;
+  }
+  get caseLabel(): string {
+    return this.props.caseLabel;
+  }
+  get reportId(): string {
+    return this.props.reportId;
+  }
   get assigneeId(): string {
     return this.props.assigneeId;
   }
@@ -115,6 +130,9 @@ export class BugEntity extends AggregateRoot<BugProps> {
     severity?: BugSeverity;
     type?: string;
     projectId?: string;
+    caseId?: string;
+    caseLabel?: string;
+    reportId?: string;
   }): void {
     if (fields.title !== undefined) {
       if (!fields.title.trim()) throw new Error('title cannot be empty');
@@ -124,6 +142,9 @@ export class BugEntity extends AggregateRoot<BugProps> {
     if (fields.severity !== undefined) this.props.severity = fields.severity;
     if (fields.type !== undefined) this.props.type = fields.type.trim();
     if (fields.projectId !== undefined) this.props.projectId = fields.projectId;
+    if (fields.caseId !== undefined) this.props.caseId = fields.caseId;
+    if (fields.caseLabel !== undefined) this.props.caseLabel = fields.caseLabel;
+    if (fields.reportId !== undefined) this.props.reportId = fields.reportId;
     this.touch();
   }
 

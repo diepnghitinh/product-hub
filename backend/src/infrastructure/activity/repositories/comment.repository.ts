@@ -27,6 +27,7 @@ export class CommentRepository
         mentions: doc.mentions,
         images: doc.images,
         createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
       },
       new UniqueEntityID(doc._id),
     );
@@ -45,6 +46,7 @@ export class CommentRepository
       mentions: comment.mentions,
       images: comment.images,
       createdAt: comment.createdAt,
+      updatedAt: comment.updatedAt,
     };
   }
 
@@ -55,6 +57,11 @@ export class CommentRepository
       .lean<CommentDoc[]>()
       .exec();
     return docs.map((d) => this.toDomain(d));
+  }
+
+  async findById(tenantId: string, id: string): Promise<CommentEntity | null> {
+    const doc = await this.model.findOne({ _id: id, tenantId }).lean<CommentDoc>().exec();
+    return doc ? this.toDomain(doc) : null;
   }
 
   async findMentionsForUser(
@@ -73,5 +80,15 @@ export class CommentRepository
 
   async append(comment: CommentEntity): Promise<void> {
     await this.model.create(this.toDocument(comment));
+  }
+
+  async update(comment: CommentEntity): Promise<void> {
+    await this.model
+      .findByIdAndUpdate(comment.id.toString(), this.toDocument(comment), { new: true })
+      .exec();
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.model.findByIdAndDelete(id).exec();
   }
 }

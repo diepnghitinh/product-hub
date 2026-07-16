@@ -25,4 +25,7 @@ export class CommentResponseDto {
 
   @ApiProperty()
   createdAt: Date;
+
+  @ApiProperty({ description: 'Equals createdAt unless the comment was edited' })
+  updatedAt: Date;
 }

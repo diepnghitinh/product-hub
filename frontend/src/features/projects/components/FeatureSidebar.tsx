@@ -11,6 +11,7 @@ import {
 import {
   useCreateReport,
   useDeleteReport,
+  useReorderReports,
   useUpdateReport,
 } from '@/features/reports/api';
 
@@ -58,10 +59,44 @@ export function FeatureSidebar({
   const createReport = useCreateReport(projectId);
   const updateReport = useUpdateReport(projectId);
   const deleteReport = useDeleteReport(projectId);
+  const reorderReports = useReorderReports(projectId);
   const navigate = useNavigate();
 
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropId, setDropId] = useState<string | null>(null);
   useEffect(() => setCollapsed(readCollapsed()), []);
+
+  // Drag a feature onto another to reorder (and move it into that feature's group).
+  const handleDrop = useCallback(
+    (targetGroupId: string) => {
+      const draggedId = dragId;
+      const beforeId = dropId;
+      setDragId(null);
+      setDropId(null);
+      if (!draggedId || draggedId === beforeId) return;
+      const dragged = reports.find((r) => r.id === draggedId);
+      if (!dragged) return;
+      const others = reports.filter((r) => r.id !== draggedId);
+      let idx = beforeId ? others.findIndex((r) => r.id === beforeId) : -1;
+      if (idx < 0) {
+        const groupIdxs = others
+          .map((r, i) => (r.groupId === targetGroupId ? i : -1))
+          .filter((i) => i >= 0);
+        idx = groupIdxs.length ? groupIdxs[groupIdxs.length - 1] + 1 : others.length;
+      }
+      const next = [
+        ...others.slice(0, idx),
+        { ...dragged, groupId: targetGroupId },
+        ...others.slice(idx),
+      ];
+      if (dragged.groupId !== targetGroupId) {
+        updateReport.mutate({ id: draggedId, input: { groupId: targetGroupId } });
+      }
+      reorderReports.mutate(next.map((r) => r.id));
+    },
+    [dragId, dropId, reports, reorderReports, updateReport],
+  );
 
   const base = `/projects/${projectId}`;
   const groupList = groups ?? [];
@@ -153,11 +188,49 @@ export function FeatureSidebar({
     return (
       <div className="group-items">
         {list.map((item) => (
-          <div className="nav-item-row" key={item.id}>
-            <NavLink
-              to={`${base}/reports/${item.id}`}
-              className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
+          <div key={item.id}>
+            {isAdmin && dragId && dropId === item.id && dragId !== item.id && (
+              <div className="drop-indicator" aria-hidden />
+            )}
+            <div
+              className={`nav-item-row${dragId === item.id ? ' is-dragging' : ''}`}
+              draggable={isAdmin}
+              onDragStart={isAdmin ? () => setDragId(item.id) : undefined}
+              onDragEnd={
+                isAdmin
+                  ? () => {
+                      setDragId(null);
+                      setDropId(null);
+                    }
+                  : undefined
+              }
+              onDragOver={
+                isAdmin && dragId
+                  ? (e) => {
+                      e.preventDefault();
+                      if (dropId !== item.id) setDropId(item.id);
+                    }
+                  : undefined
+              }
+              onDrop={
+                isAdmin
+                  ? (e) => {
+                      e.preventDefault();
+                      handleDrop(item.groupId);
+                    }
+                  : undefined
+              }
             >
+              {isAdmin && (
+                <span className="drag-handle" aria-hidden title="Drag to reorder">
+                  ⋮⋮
+                </span>
+              )}
+              <NavLink
+                to={`${base}/reports/${item.id}`}
+                draggable={false}
+                className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
+              >
               <span className="nav-item-main">
                 <span className="label">{item.label || item.title}</span>
                 {item.featureId && <span className="idx">{item.featureId}</span>}
@@ -186,6 +259,7 @@ export function FeatureSidebar({
                 </button>
               </div>
             )}
+            </div>
           </div>
         ))}
         {canWrite && groupId && (

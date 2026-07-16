@@ -5,6 +5,10 @@ export { PasswordInput } from './PasswordInput';
 export { Textarea } from './Textarea';
 export { Select } from './Select';
 export { ColorSelect, type ColorOption, type ColorSelectProps } from './ColorSelect';
+export { Combobox, type ComboboxOption, type ComboboxProps } from './Combobox';
+export { DatePicker, type DatePickerProps } from './DatePicker';
+export { MultiSelect, type MultiSelectOption, type MultiSelectProps } from './MultiSelect';
+export { TagInput, type TagInputProps } from './TagInput';
 export {
   SelectMenu,
   SelectMenuValue,
@@ -38,6 +42,7 @@ export {
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './tooltip';
 export { Checkbox } from './checkbox';
+export { RadioGroup, RadioGroupItem } from './radio-group';
 export { Switch } from './switch';
 export { Avatar, AvatarImage, AvatarFallback } from './avatar';
 export { ScrollArea, ScrollBar } from './scroll-area';

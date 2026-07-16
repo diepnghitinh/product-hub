@@ -11,4 +11,6 @@ export interface CommentProps {
   mentions: string[];
   images: string[];
   createdAt: Date;
+  /** Set to createdAt on creation; bumped whenever the body is edited. */
+  updatedAt: Date;
 }

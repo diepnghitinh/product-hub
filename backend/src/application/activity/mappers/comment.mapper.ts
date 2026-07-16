@@ -12,6 +12,7 @@ export class CommentMapper {
       mentions: comment.mentions,
       images: comment.images,
       createdAt: comment.createdAt,
+      updatedAt: comment.updatedAt,
     };
   }
 

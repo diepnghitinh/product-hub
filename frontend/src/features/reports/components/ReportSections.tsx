@@ -55,6 +55,14 @@ interface SectionProps<S extends ReportSection = ReportSection> {
   features?: { id: string; label: string; featureId: string }[];
   /** Move a test case from this report to another feature (report). */
   onMoveCase?: (caseData: TestCaseData, targetReportId: string) => void;
+  /** Open the "Import test cases" dialog for this report. */
+  onImport?: () => void;
+  /** Count of linked bugs per test-case id — drives the Bugs column badge. */
+  bugCountByCase?: Record<string, number>;
+  /** Open "Report bug" prefilled + linked to a test case. */
+  onCreateBug?: (opts: { caseId: string; caseLabel: string }) => void;
+  /** Navigate to the Bugs board filtered to a test case's linked bugs. */
+  onOpenBugs?: (opts: { caseId: string; caseLabel: string }) => void;
   onChange: (updated: ReportSection) => void;
   onDelete: () => void;
   onMoveUp: () => void;
@@ -586,9 +594,16 @@ function Testing({
   users = [],
   features = [],
   onMoveCase,
+  onImport,
+  bugCountByCase,
+  onCreateBug,
+  onOpenBugs,
   onChange,
   ...rest
 }: SectionProps<TestingSection>) {
+  const bugsEnabled = !!onCreateBug || !!onOpenBugs;
+  const caseLabelOf = (c: TestCaseData) =>
+    [c.shortId, c.area].filter(Boolean).join(' · ') || c.shortId || 'Test case';
   const banner = section.banner ?? { title: '', description: '' };
   const coverage = section.coverage ?? [];
   const cases = section.cases ?? [];
@@ -762,10 +777,24 @@ function Testing({
         </>
       )}
 
-      {cases.length > 0 && (
+      {(cases.length > 0 || (canWrite && !!onImport)) && (
         <>
-          <h3>Test Case Summary</h3>
-          <table>
+          <h3>
+            Test Case Summary
+            {canWrite && onImport && (
+              <span className="h3-actions">
+                <button type="button" className="inline-btn" onClick={onImport}>
+                  ↥ Import
+                </button>
+              </span>
+            )}
+          </h3>
+          {cases.length === 0 ? (
+            <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
+              No test cases yet — use Import to add them from a file.
+            </p>
+          ) : (
+            <table>
             <thead>
               <tr>
                 {canWrite && <th style={{ width: 1 }} aria-label="Reorder" />}
@@ -774,6 +803,7 @@ function Testing({
                 <th>Type</th>
                 <th>Result</th>
                 <th>Owner</th>
+                {bugsEnabled && <th>Bugs</th>}
               </tr>
             </thead>
             <tbody>
@@ -893,13 +923,46 @@ function Testing({
                         <span style={{ color: 'var(--muted)' }}>{c.owner || '—'}</span>
                       )}
                     </td>
+                    {bugsEnabled && (
+                      <td>
+                        <span className="case-bug-cell">
+                          {(() => {
+                            const n = bugCountByCase?.[c.id] ?? 0;
+                            return n > 0 && onOpenBugs ? (
+                              <button
+                                type="button"
+                                className="case-bug-link"
+                                title={`View ${n} linked bug${n === 1 ? '' : 's'}`}
+                                onClick={() => onOpenBugs({ caseId: c.id, caseLabel: caseLabelOf(c) })}
+                              >
+                                🐞 {n}
+                              </button>
+                            ) : !onCreateBug ? (
+                              <span className="case-bug-none">—</span>
+                            ) : null;
+                          })()}
+                          {canWrite && onCreateBug && (
+                            <button
+                              type="button"
+                              className="case-bug-add"
+                              title="Report a bug for this test case"
+                              onClick={() =>
+                                onCreateBug({ caseId: c.id, caseLabel: caseLabelOf(c) })
+                              }
+                            >
+                              + Bug
+                            </button>
+                          )}
+                        </span>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
               {shownCases.length === 0 && (
                 <tr>
                   <td
-                    colSpan={canWrite ? 6 : 5}
+                    colSpan={(canWrite ? 6 : 5) + (bugsEnabled ? 1 : 0)}
                     style={{ textAlign: 'center', color: 'var(--muted)' }}
                   >
                     No test cases for this assignee.
@@ -908,6 +971,7 @@ function Testing({
               )}
             </tbody>
           </table>
+          )}
         </>
       )}
 

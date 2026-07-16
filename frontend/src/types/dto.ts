@@ -3,6 +3,7 @@ import {
   AuditEntityType,
   BugSeverity,
   BugStatus,
+  BugStatusConfig,
   FeatureStatus,
   InboxKind,
   MilestoneStatus,
@@ -207,6 +208,9 @@ export interface BugDto {
   status: BugStatus;
   type: string;
   projectId: string;
+  caseId: string;
+  caseLabel: string;
+  reportId: string;
   assigneeId: string;
   assigneeName: string;
   reporterId: string;
@@ -225,6 +229,7 @@ export interface CommentDto {
   mentions: string[];
   images: string[];
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface InboxItemDto {
@@ -324,6 +329,7 @@ export interface WebhookConfig {
 export interface AppSettingsDto {
   tenantId: string;
   webhooks: WebhookConfig[];
+  bugStatuses: BugStatusConfig[];
 }
 
 export interface PublicProjectView {

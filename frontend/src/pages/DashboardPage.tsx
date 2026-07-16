@@ -4,7 +4,7 @@ import { Spinner } from '@/components/ui';
 import { PageHeader } from '@/components/PageHeader';
 import { Icon, type IconName } from '@/components/Icon';
 import { t } from '@/i18n';
-import { BugStatus } from '@/types/enums';
+import { BugStatus, ROADMAP_PHASE_LABEL, ROADMAP_PHASES } from '@/types/enums';
 import { ProjectCard } from '@/features/projects/components/ProjectCard';
 import { useProjects } from '@/features/projects/api';
 import { useProjectStats } from '@/features/reports/api';
@@ -132,11 +132,25 @@ export function DashboardPage() {
                 className="flex flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground transition-colors hover:border-foreground/20"
               >
                 <h3 className="font-medium">{r.title}</h3>
-                <div className="text-sm text-muted-foreground">
-                  <span>
+                {r.items && r.items.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {ROADMAP_PHASES.map((ph) => {
+                      const n = r.items.filter((i) => i.phase === ph).length;
+                      return n > 0 ? (
+                        <span
+                          key={ph}
+                          className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+                        >
+                          {n} {ROADMAP_PHASE_LABEL[ph].toLowerCase()}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
                     {r.itemCount} {t('roadmaps.items')}
-                  </span>
-                </div>
+                  </div>
+                )}
               </Link>
             ))}
           </div>

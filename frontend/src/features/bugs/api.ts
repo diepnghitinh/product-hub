@@ -8,6 +8,8 @@ export interface BugQuery {
   severity?: BugSeverity;
   assigneeId?: string;
   projectId?: string;
+  caseId?: string;
+  reportId?: string;
   search?: string;
 }
 
@@ -17,6 +19,9 @@ export interface CreateBugInput {
   severity?: BugSeverity;
   type?: string;
   projectId?: string;
+  caseId?: string;
+  caseLabel?: string;
+  reportId?: string;
   assigneeId?: string;
 }
 
@@ -26,6 +31,9 @@ export interface UpdateBugInput {
   severity?: BugSeverity;
   type?: string;
   projectId?: string;
+  caseId?: string;
+  caseLabel?: string;
+  reportId?: string;
   assigneeId?: string;
 }
 

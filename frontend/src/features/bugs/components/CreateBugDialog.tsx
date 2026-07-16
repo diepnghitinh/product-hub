@@ -7,9 +7,22 @@ import { useCreateBug } from '../api';
 interface CreateBugDialogProps {
   open: boolean;
   onClose: () => void;
+  /** Pre-attach the new bug to a project (from the project Bugs tab). */
+  defaultProjectId?: string;
+  /** Pre-link the new bug to a test case (from the Testing table). */
+  defaultCaseId?: string;
+  defaultCaseLabel?: string;
+  defaultReportId?: string;
 }
 
-export function CreateBugDialog({ open, onClose }: CreateBugDialogProps) {
+export function CreateBugDialog({
+  open,
+  onClose,
+  defaultProjectId,
+  defaultCaseId,
+  defaultCaseLabel,
+  defaultReportId,
+}: CreateBugDialogProps) {
   const create = useCreateBug();
   const [title, setTitle] = useState('');
   const [severity, setSeverity] = useState<BugSeverity>(BugSeverity.MEDIUM);
@@ -21,7 +34,15 @@ export function CreateBugDialog({ open, onClose }: CreateBugDialogProps) {
     if (!title.trim()) return;
     setError(null);
     create.mutate(
-      { title: title.trim(), severity, description: description.trim() },
+      {
+        title: title.trim(),
+        severity,
+        description: description.trim(),
+        projectId: defaultProjectId || undefined,
+        caseId: defaultCaseId || undefined,
+        caseLabel: defaultCaseLabel || undefined,
+        reportId: defaultReportId || undefined,
+      },
       {
         onSuccess: () => {
           setTitle('');
@@ -54,6 +75,13 @@ export function CreateBugDialog({ open, onClose }: CreateBugDialogProps) {
         {error && (
           <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}
+          </div>
+        )}
+        {defaultCaseLabel && (
+          <div className="mb-4 flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-foreground">
+            <span aria-hidden>🔗</span>
+            <span className="text-muted-foreground">{t('bugs.linkedCase')}</span>
+            <span className="font-medium">{defaultCaseLabel}</span>
           </div>
         )}
         <Field label={t('bugs.title2')} htmlFor="b-title">

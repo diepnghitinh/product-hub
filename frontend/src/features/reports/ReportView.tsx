@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { apiGet } from '@/lib/api';
+import { DatePicker } from '@/components/ui';
 import { t } from '@/i18n';
 import {
   FeatureStatus,
@@ -11,7 +12,10 @@ import {
 } from '@/types/enums';
 import type { ReportDto, ReportSection, TestCaseData, TestingSection } from '@/types/dto';
 import { useUsers } from '@/features/users/api';
+import { useBugs } from '@/features/bugs/api';
+import { CreateBugDialog } from '@/features/bugs/components/CreateBugDialog';
 import { ReportSectionBlock } from './components/ReportSections';
+import { ImportTestCasesDialog } from './components/ImportTestCasesDialog';
 import {
   useReplaceSections,
   useReport,
@@ -70,6 +74,23 @@ export function ReportView() {
   const replaceSections = useReplaceSections(projectId ?? '');
   const { data: usersData } = useUsers({ limit: 100 }, !!isAdmin);
   const userNames = usersData?.items.map((u) => u.name || u.email) ?? [];
+  const [importOpen, setImportOpen] = useState(false);
+  const navigate = useNavigate();
+
+  // Bug ↔ test-case linking: count linked bugs per case for this report.
+  const [bugForCase, setBugForCase] = useState<{ caseId: string; caseLabel: string } | null>(null);
+  const { data: bugData } = useBugs(effectiveId ? { reportId: effectiveId } : undefined);
+  const bugCountByCase = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const b of bugData?.items ?? []) if (b.caseId) map[b.caseId] = (map[b.caseId] ?? 0) + 1;
+    return map;
+  }, [bugData]);
+  const openBugsForCase = ({ caseId, caseLabel }: { caseId: string; caseLabel: string }) => {
+    const params = new URLSearchParams({ caseId, case: caseLabel });
+    if (projectId) params.set('projectId', projectId);
+    if (effectiveId) params.set('reportId', effectiveId);
+    navigate(`/bugs?${params.toString()}`);
+  };
 
   const sections = report?.sections ?? [];
 
@@ -235,14 +256,10 @@ export function ReportView() {
             <span className="label">Reported</span>
             <span className="value">
               {canWrite ? (
-                <input
-                  className="edit-feature-id"
-                  type="date"
-                  style={{ width: 'auto' }}
+                <DatePicker
+                  className="h-8 w-[176px]"
                   value={report.reported}
-                  onChange={(e) =>
-                    update.mutate({ id: report.id, input: { reported: e.target.value } })
-                  }
+                  onChange={(v) => update.mutate({ id: report.id, input: { reported: v } })}
                 />
               ) : (
                 report.reported
@@ -303,6 +320,10 @@ export function ReportView() {
                 users={owners}
                 features={otherFeatures}
                 onMoveCase={moveCase}
+                onImport={() => setImportOpen(true)}
+                bugCountByCase={bugCountByCase}
+                onCreateBug={(opts) => setBugForCase(opts)}
+                onOpenBugs={openBugsForCase}
                 onChange={(updated) => updateAt(i, updated)}
                 onDelete={() => {
                   if (window.confirm('Remove this section and its contents?')) deleteAt(i);
@@ -322,6 +343,26 @@ export function ReportView() {
       {canWrite && (
         <AddSectionFab
           onAdd={(type) => saveSections([...sections, newSection(type, sections.length + 1)])}
+        />
+      )}
+
+      {importOpen && projectId && (
+        <ImportTestCasesDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          projectId={projectId}
+          reportId={report.id}
+        />
+      )}
+
+      {bugForCase && (
+        <CreateBugDialog
+          open
+          onClose={() => setBugForCase(null)}
+          defaultProjectId={projectId}
+          defaultCaseId={bugForCase.caseId}
+          defaultCaseLabel={bugForCase.caseLabel}
+          defaultReportId={report.id}
         />
       )}
     </>

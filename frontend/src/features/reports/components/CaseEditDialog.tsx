@@ -12,7 +12,7 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { Button, Input, Select, Textarea } from '@/components/ui';
+import { Button, Combobox, Input, Textarea } from '@/components/ui';
 import type { TestCaseData } from '@/types/dto';
 
 interface CaseEditDialogProps {
@@ -109,15 +109,18 @@ export function CaseEditDialog({ testCase, users, onClose, onSave }: CaseEditDia
 
               <label className="flex flex-col gap-1.5">
                 <SectionLabel icon={User}>Owner</SectionLabel>
-                <Select value={draft.owner} onChange={(e) => patch({ owner: e.target.value })}>
-                  <option value="">— Unassigned —</option>
-                  {users.map((u) => (
-                    <option key={u} value={u}>
-                      {u}
-                    </option>
-                  ))}
-                  {!ownerKnown && <option value={draft.owner}>{draft.owner}</option>}
-                </Select>
+                <Combobox
+                  value={draft.owner || ''}
+                  onChange={(v) => patch({ owner: v })}
+                  placeholder="— Unassigned —"
+                  options={[
+                    { value: '', label: '— Unassigned —' },
+                    ...users.map((u) => ({ value: u, label: u })),
+                    ...(!ownerKnown && draft.owner
+                      ? [{ value: draft.owner, label: draft.owner }]
+                      : []),
+                  ]}
+                />
               </label>
 
               <label className="flex flex-col gap-1.5">

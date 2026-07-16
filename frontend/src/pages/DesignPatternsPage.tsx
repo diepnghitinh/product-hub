@@ -14,12 +14,17 @@ import {
   CardTitle,
   Checkbox,
   ColorSelect,
+  Combobox,
+  DatePicker,
   Dialog,
   Field,
   Input,
   Label,
   Menu,
+  MultiSelect,
   ProgressBar,
+  RadioGroup,
+  RadioGroupItem,
   Select,
   Switch,
   Table,
@@ -32,6 +37,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  TagInput,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -80,6 +86,22 @@ const priorityOptions = [
   { value: 'critical', label: 'Critical', color: 'hsl(0 72% 51%)' },
 ];
 
+const assigneeOptions = [
+  { value: 'ava', label: 'Ava Nguyen' },
+  { value: 'liam', label: 'Liam Park' },
+  { value: 'mia', label: 'Mia Chen' },
+  { value: 'noah', label: 'Noah Kim' },
+  { value: 'olivia', label: 'Olivia Tran' },
+];
+
+const labelOptions = [
+  { value: 'bug', label: 'Bug' },
+  { value: 'feature', label: 'Feature' },
+  { value: 'ui', label: 'UI' },
+  { value: 'backend', label: 'Backend' },
+  { value: 'docs', label: 'Docs' },
+];
+
 const surfaces: Array<[string, string]> = [
   ['background', 'bg-background'],
   ['card', 'bg-card'],
@@ -100,6 +122,11 @@ export function DesignPatternsPage() {
   const [switchOn, setSwitchOn] = useState(true);
   const [checked, setChecked] = useState(true);
   const [priority, setPriority] = useState('high');
+  const [notify, setNotify] = useState('email');
+  const [assignee, setAssignee] = useState('');
+  const [labels, setLabels] = useState<string[]>(['bug', 'ui']);
+  const [tags, setTags] = useState<string[]>(['design', 'urgent']);
+  const [date, setDate] = useState('');
 
   return (
     <div>
@@ -217,6 +244,39 @@ export function DesignPatternsPage() {
         </div>
       </Section>
 
+      {/* Advanced form controls */}
+      <Section title="Advanced form controls">
+        <div className="grid max-w-2xl grid-cols-1 gap-x-6 sm:grid-cols-2">
+          <Field label="Combobox (searchable)" htmlFor="dp-combobox">
+            <Combobox
+              id="dp-combobox"
+              options={assigneeOptions}
+              value={assignee}
+              onChange={setAssignee}
+              placeholder="Assign to…"
+              searchPlaceholder="Search people…"
+            />
+          </Field>
+          <Field label="Multi-select" htmlFor="dp-multi">
+            <MultiSelect
+              id="dp-multi"
+              options={labelOptions}
+              value={labels}
+              onChange={setLabels}
+              placeholder="Add labels…"
+            />
+          </Field>
+          <Field label="Date picker" htmlFor="dp-date">
+            <DatePicker id="dp-date" value={date} onChange={setDate} placeholder="Pick a date" />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Tag input" htmlFor="dp-tags">
+              <TagInput id="dp-tags" value={tags} onChange={setTags} />
+            </Field>
+          </div>
+        </div>
+      </Section>
+
       {/* Toggles */}
       <Section title="Toggles">
         <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
@@ -237,6 +297,24 @@ export function DesignPatternsPage() {
             </Label>
           </div>
         </div>
+      </Section>
+
+      {/* Radio group */}
+      <Section title="Radio group">
+        <RadioGroup value={notify} onValueChange={setNotify}>
+          {[
+            { value: 'email', label: 'Email' },
+            { value: 'sms', label: 'SMS' },
+            { value: 'push', label: 'Push notification' },
+          ].map((opt) => (
+            <div key={opt.value} className="flex items-center gap-2">
+              <RadioGroupItem value={opt.value} id={`dp-radio-${opt.value}`} />
+              <Label htmlFor={`dp-radio-${opt.value}`} className="cursor-pointer font-normal">
+                {opt.label}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
       </Section>
 
       {/* Progress */}

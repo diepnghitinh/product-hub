@@ -29,6 +29,15 @@ export class BugResponseDto {
   projectId: string;
 
   @ApiProperty()
+  caseId: string;
+
+  @ApiProperty()
+  caseLabel: string;
+
+  @ApiProperty()
+  reportId: string;
+
+  @ApiProperty()
   assigneeId: string;
 
   @ApiProperty()

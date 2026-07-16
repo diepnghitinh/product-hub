@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Badge, Menu, ProgressBar } from '@/components/ui';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
+import { ENVIRONMENT_LABEL, ProjectEnvironment } from '@/types/enums';
 import type { ProjectDto, ProjectStatsDto } from '@/types/dto';
 import { EnvironmentBadge } from './EnvironmentBadge';
 import { ProjectFormDialog, type ProjectFormValues } from './ProjectFormDialog';
@@ -57,6 +58,17 @@ export function ProjectCard({ project, canWrite, canArchive, stats }: ProjectCar
       onClick: togglePin,
     });
     items.push({ label: t('projects.edit'), onClick: () => setEditOpen(true) });
+    items.push({ label: t('projects.environment'), onClick: () => {}, disabled: true });
+    for (const env of [
+      ProjectEnvironment.DEVELOPMENT,
+      ProjectEnvironment.STAGING,
+      ProjectEnvironment.PRODUCTION,
+    ]) {
+      items.push({
+        label: `${project.environment === env ? '✓ ' : '   '}${ENVIRONMENT_LABEL[env]}`,
+        onClick: () => update.mutate({ id: project.id, input: { environment: env } }),
+      });
+    }
   }
   if (canArchive) {
     items.push({ label: t('projects.archive'), onClick: onArchive, danger: true });

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge, Button, Spinner } from '@/components/ui';
 import { t } from '@/i18n';
@@ -11,6 +11,7 @@ import { useInbox, useMarkInboxSeen } from './api';
 export function InboxPage() {
   const { data, isLoading } = useInbox();
   const markSeen = useMarkInboxSeen();
+  const [tab, setTab] = useState<'all' | InboxKind>('all');
 
   // Mark everything read when the inbox is opened.
   useEffect(() => {
@@ -18,20 +19,50 @@ export function InboxPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.unseenCount]);
 
-  const items = data?.items ?? [];
+  const allItems = data?.items ?? [];
+  const items = tab === 'all' ? allItems : allItems.filter((i) => i.kind === tab);
+
+  const tabs: { key: 'all' | InboxKind; label: string }[] = [
+    { key: 'all', label: t('inbox.tabAll') },
+    { key: InboxKind.MENTION, label: t('inbox.tabMentions') },
+    { key: InboxKind.ASSIGNED_BUG, label: t('inbox.tabAssigned') },
+  ];
 
   return (
     <div>
       <PageHeader
         title={t('inbox.title')}
         actions={
-          items.length > 0 ? (
+          allItems.length > 0 ? (
             <Button variant="ghost" size="sm" onClick={() => markSeen.mutate()}>
               {t('inbox.markSeen')}
             </Button>
           ) : undefined
         }
       />
+
+      {allItems.length > 0 && (
+        <div className="mb-4 inline-flex rounded-md border p-0.5">
+          {tabs.map(({ key, label }) => {
+            const count = key === 'all' ? allItems.length : allItems.filter((i) => i.kind === key).length;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={cn(
+                  'rounded px-3 py-1 text-sm transition-colors',
+                  tab === key
+                    ? 'bg-accent font-medium text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {label} <span className="text-xs text-muted-foreground">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="grid place-items-center rounded-xl border border-dashed p-8">

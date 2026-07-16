@@ -1,11 +1,13 @@
 import { AggregateRoot, UniqueEntityID } from '@core/domain';
 import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
+import { BugStatusConfig, DEFAULT_BUG_STATUSES } from '@application/bugs/domain/enums/bug.enums';
 import { WebhookConfig } from './webhook.types';
 
 interface AppSettingsProps {
   tenantId: string;
   webhooks: WebhookConfig[];
+  bugStatuses: BugStatusConfig[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,7 +20,13 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
   }
 
   static create(
-    props: { tenantId: string; webhooks?: WebhookConfig[]; createdAt?: Date; updatedAt?: Date },
+    props: {
+      tenantId: string;
+      webhooks?: WebhookConfig[];
+      bugStatuses?: BugStatusConfig[];
+      createdAt?: Date;
+      updatedAt?: Date;
+    },
     id?: UniqueEntityID,
   ): Result<AppSettingsEntity> {
     const guard = Guard.againstNullOrUndefined(props.tenantId, 'tenantId');
@@ -29,6 +37,8 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
         {
           tenantId: props.tenantId,
           webhooks: props.webhooks ?? [],
+          // Fall back to the shipped defaults for tenants that predate the field.
+          bugStatuses: props.bugStatuses?.length ? props.bugStatuses : DEFAULT_BUG_STATUSES,
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
         },
@@ -46,6 +56,9 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
   get webhooks(): WebhookConfig[] {
     return this.props.webhooks;
   }
+  get bugStatuses(): BugStatusConfig[] {
+    return this.props.bugStatuses;
+  }
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -55,6 +68,11 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
 
   setWebhooks(webhooks: WebhookConfig[]): void {
     this.props.webhooks = webhooks;
+    this.props.updatedAt = new Date();
+  }
+
+  setBugStatuses(bugStatuses: BugStatusConfig[]): void {
+    this.props.bugStatuses = bugStatuses;
     this.props.updatedAt = new Date();
   }
 }

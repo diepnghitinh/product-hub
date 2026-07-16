@@ -25,7 +25,7 @@ function useInvalidate() {
 export function useCreateRoadmap() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: (input: { title: string; description?: string }) =>
+    mutationFn: (input: { title: string; description?: string; projectId?: string }) =>
       apiPost<RoadmapDto>('/roadmaps', input),
     onSuccess: invalidate,
   });

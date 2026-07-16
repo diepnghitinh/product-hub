@@ -19,6 +19,58 @@ import { HistoryDialog } from '@/features/reports/components/HistoryDialog';
 import { useArchiveProject, useProject } from './api';
 import { useReports } from '@/features/reports/api';
 
+/** Trigger a client-side file download. */
+function downloadFile(name: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** A ready-to-use prompt for generating an importable feature report with an LLM. */
+const EXAMPLE_PROMPT = `You are a senior QA engineer. Produce a **feature report** as JSON for the feature I describe.
+
+Return ONLY valid JSON matching this shape:
+{
+  "title": "Feature Report: <name>",
+  "subtitle": "<one line>",
+  "featureId": "F-001",
+  "module": "<module/area>",
+  "statusVariant": "testing | done | info",
+  "sections": [
+    { "type": "overview", "title": "1. Overview", "paragraphs": ["..."] },
+    { "type": "bullets", "title": "2. Key functions", "items": ["..."] },
+    { "type": "steps", "title": "3. How it works", "steps": [{ "num": 1, "name": "...", "desc": "..." }] },
+    {
+      "type": "testing", "title": "4. Testing status",
+      "banner": { "title": "...", "description": "..." },
+      "coverage": [{ "label": "Happy path", "percent": 100 }],
+      "cases": [
+        {
+          "shortId": "TC-001", "area": "<what is tested>",
+          "type": "Functional | UI | UX | API | Integration | Performance | Security | Regression | Accessibility | Other",
+          "result": "Passed | Failed | Blocked | Retest | Skipped | Untested",
+          "owner": "<name>",
+          "precondition": "...", "testSteps": ["..."],
+          "expectedResult": "...", "actualResult": "", "note": ""
+        }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Write thorough, realistic test cases covering happy path, edge cases, and error handling.
+- Keep step text imperative and concise. Use "Untested" for new cases.
+
+Feature to document:
+<describe your feature here>`;
+
 /**
  * Full-screen project workspace shell: a sticky Topbar (back link, title,
  * environment badge, centered Report/Overview/Roadmap/Bugs tabs, role +
@@ -81,8 +133,7 @@ export function ProjectLayout() {
   const base = `/projects/${project.id}`;
   const path = location.pathname;
   const onSummary = path.endsWith('/summary');
-  const onOverview = path.endsWith('/overview');
-  const onReport = !onSummary && !onOverview;
+  const onReport = !onSummary;
 
   const generated = new Date().toISOString().slice(0, 10);
 
@@ -127,7 +178,11 @@ export function ProjectLayout() {
             role="tab"
             aria-selected={false}
             className="topbar-tab"
-            onClick={() => navigate('/roadmaps')}
+            onClick={() =>
+              navigate(
+                `/roadmaps?projectId=${project.id}&project=${encodeURIComponent(project.title)}`,
+              )
+            }
           >
             {t('project.roadmap')}
           </button>
@@ -136,7 +191,11 @@ export function ProjectLayout() {
             role="tab"
             aria-selected={false}
             className="topbar-tab"
-            onClick={() => navigate('/bugs')}
+            onClick={() =>
+              navigate(
+                `/bugs?projectId=${project.id}&project=${encodeURIComponent(project.title)}`,
+              )
+            }
           >
             {t('project.bugs')}
           </button>
@@ -217,6 +276,36 @@ export function ProjectLayout() {
                   <span className="topbar-menu-item-hint">
                     Test-case update log
                   </span>
+                </button>
+                {canWrite && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="topbar-menu-item"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      downloadFile(
+                        `${project.slug || 'project'}.json`,
+                        JSON.stringify({ project, reports: reports ?? [] }, null, 2),
+                        'application/json',
+                      );
+                    }}
+                  >
+                    <span className="topbar-menu-item-label">Export project</span>
+                    <span className="topbar-menu-item-hint">Download as JSON</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="topbar-menu-item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    downloadFile('feature-report-prompt.md', EXAMPLE_PROMPT, 'text/markdown');
+                  }}
+                >
+                  <span className="topbar-menu-item-label">Download prompt</span>
+                  <span className="topbar-menu-item-hint">For Claude / ChatGPT</span>
                 </button>
                 <button
                   type="button"

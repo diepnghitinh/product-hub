@@ -1,9 +1,19 @@
 import { Module } from '@nestjs/common';
 import { InfrastructureActivityModule } from '@infrastructure/activity/activity.module';
 import { InfrastructureBugsModule } from '@infrastructure/bugs/bugs.module';
-import { GetCommentsUseCase, CreateCommentUseCase } from './use-cases';
+import {
+  GetCommentsUseCase,
+  CreateCommentUseCase,
+  UpdateCommentUseCase,
+  DeleteCommentUseCase,
+} from './use-cases';
 
-const useCases = [GetCommentsUseCase, CreateCommentUseCase];
+const useCases = [
+  GetCommentsUseCase,
+  CreateCommentUseCase,
+  UpdateCommentUseCase,
+  DeleteCommentUseCase,
+];
 
 @Module({
   imports: [InfrastructureActivityModule, InfrastructureBugsModule],

@@ -31,6 +31,9 @@ export class BugRepository
         status: doc.status as BugStatus,
         type: doc.type,
         projectId: doc.projectId,
+        caseId: doc.caseId,
+        caseLabel: doc.caseLabel,
+        reportId: doc.reportId,
         assigneeId: doc.assigneeId,
         assigneeName: doc.assigneeName,
         reporterId: doc.reporterId,
@@ -55,6 +58,9 @@ export class BugRepository
       status: bug.status,
       type: bug.type,
       projectId: bug.projectId,
+      caseId: bug.caseId,
+      caseLabel: bug.caseLabel,
+      reportId: bug.reportId,
       assigneeId: bug.assigneeId,
       assigneeName: bug.assigneeName,
       reporterId: bug.reporterId,
@@ -78,6 +84,8 @@ export class BugRepository
     if (query.severity) filter.severity = query.severity;
     if (query.assigneeId) filter.assigneeId = query.assigneeId;
     if (query.projectId) filter.projectId = query.projectId;
+    if (query.caseId) filter.caseId = query.caseId;
+    if (query.reportId) filter.reportId = query.reportId;
     if (query.search) {
       const re = new RegExp(query.search, 'i');
       filter.$or = [{ title: re }, { description: re }];

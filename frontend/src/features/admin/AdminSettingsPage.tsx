@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, RotateCcw, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
   Button,
@@ -19,10 +19,22 @@ import {
 import { t } from '@/i18n';
 import { PageHeader } from '@/components/PageHeader';
 import { timeAgo } from '@/lib/format';
-import { Role, WEBHOOK_EVENTS, WEBHOOK_EVENT_LABEL, WebhookEvent } from '@/types/enums';
+import {
+  BugStatus,
+  BugStatusConfig,
+  DEFAULT_BUG_STATUSES,
+  Role,
+  WEBHOOK_EVENTS,
+  WEBHOOK_EVENT_LABEL,
+  WebhookEvent,
+} from '@/types/enums';
 import type { CreatedApiKeyDto, WebhookConfig } from '@/types/dto';
 import { useApiKeys, useGenerateApiKey, useRevokeApiKey } from '@/features/api-keys/api';
-import { useSettings, useUpdateWebhooks } from '@/features/settings/api';
+import {
+  useSettings,
+  useUpdateBugStatuses,
+  useUpdateWebhooks,
+} from '@/features/settings/api';
 
 export function AdminSettingsPage() {
   const { user } = useAuth();
@@ -38,10 +50,111 @@ export function AdminSettingsPage() {
     <div>
       <PageHeader title={t('settings.title')} />
       <div className="space-y-6">
+        <BugStatusesSection />
         <ApiKeysSection />
         <WebhooksSection />
       </div>
     </div>
+  );
+}
+
+function BugStatusesSection() {
+  const { data, isLoading } = useSettings();
+  const save = useUpdateBugStatuses();
+  const [rows, setRows] = useState<BugStatusConfig[]>([]);
+
+  useEffect(() => {
+    if (data?.bugStatuses?.length) setRows(data.bugStatuses);
+  }, [data]);
+
+  function update(key: BugStatus, patch: Partial<BugStatusConfig>) {
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+  function move(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= rows.length) return;
+    setRows((rs) => {
+      const copy = [...rs];
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+      return copy;
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-start justify-between gap-4">
+        <div className="space-y-1.5">
+          <CardTitle>{t('settings.bugStatuses')}</CardTitle>
+          <CardDescription>{t('settings.bugStatusesHint')}</CardDescription>
+        </div>
+        <Button
+          className="shrink-0"
+          size="sm"
+          variant="ghost"
+          onClick={() => setRows(DEFAULT_BUG_STATUSES)}
+        >
+          <RotateCcw className="mr-1.5 size-3.5" />
+          {t('settings.resetDefaults')}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="grid place-items-center rounded-xl border border-dashed p-8">
+            <Spinner />
+          </div>
+        ) : (
+          <div className="divide-y rounded-xl border">
+            {rows.map((r, i) => (
+              <div key={r.key} className="flex flex-wrap items-center gap-3 p-3 sm:gap-4 sm:px-4">
+                <div className="flex flex-col">
+                  <button
+                    type="button"
+                    className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+                    aria-label={t('settings.moveUp')}
+                    disabled={i === 0}
+                    onClick={() => move(i, -1)}
+                  >
+                    <ArrowUp className="size-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+                    aria-label={t('settings.moveDown')}
+                    disabled={i === rows.length - 1}
+                    onClick={() => move(i, 1)}
+                  >
+                    <ArrowDown className="size-3.5" />
+                  </button>
+                </div>
+                <input
+                  type="color"
+                  className="size-8 shrink-0 cursor-pointer rounded-md border bg-transparent p-0.5"
+                  value={r.color}
+                  aria-label={t('settings.statusColor')}
+                  onChange={(e) => update(r.key, { color: e.target.value })}
+                />
+                <Input
+                  className="min-w-0 flex-1 sm:max-w-xs"
+                  value={r.label}
+                  placeholder={t('settings.statusLabel')}
+                  onChange={(e) => update(r.key, { label: e.target.value })}
+                />
+                <span className="font-mono text-xs text-muted-foreground">{r.key}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="justify-end">
+        <Button
+          onClick={() => save.mutate(rows)}
+          loading={save.isPending}
+          disabled={rows.length === 0 || rows.some((r) => !r.label.trim())}
+        >
+          {t('settings.saveBugStatuses')}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
 

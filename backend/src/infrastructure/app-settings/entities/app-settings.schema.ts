@@ -1,11 +1,13 @@
 import { Schema } from 'mongoose';
 import { v4 as uuid } from 'uuid';
+import { BugStatusConfig } from '@application/bugs/domain/enums/bug.enums';
 import { WebhookConfig } from '@application/app-settings/domain/webhook.types';
 
 export interface AppSettingsDoc {
   _id: string;
   tenantId: string;
   webhooks: WebhookConfig[];
+  bugStatuses: BugStatusConfig[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -15,6 +17,8 @@ export const AppSettingsSchema = new Schema<AppSettingsDoc>(
     _id: { type: String, default: () => uuid() },
     tenantId: { type: String, required: true, unique: true, index: true },
     webhooks: { type: [Schema.Types.Mixed], default: [] } as unknown as WebhookConfig[],
+    // Left undefined until customized — the domain seeds the shipped defaults.
+    bugStatuses: { type: [Schema.Types.Mixed], default: undefined } as unknown as BugStatusConfig[],
   },
   { timestamps: true },
 );

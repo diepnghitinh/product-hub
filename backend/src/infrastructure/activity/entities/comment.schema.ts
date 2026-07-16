@@ -11,6 +11,7 @@ export interface CommentDoc {
   mentions: string[];
   images: string[];
   createdAt: Date;
+  updatedAt: Date;
 }
 
 export const CommentSchema = new Schema<CommentDoc>(
@@ -23,6 +24,8 @@ export const CommentSchema = new Schema<CommentDoc>(
     body: { type: String, required: true },
     mentions: { type: [String], default: [], index: true },
     images: { type: [String], default: [] },
+    // Managed by the domain entity (equals createdAt until edited).
+    updatedAt: { type: Date },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

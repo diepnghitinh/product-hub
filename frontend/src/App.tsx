@@ -7,7 +7,6 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
 import { DesignPatternsPage } from '@/pages/DesignPatternsPage';
 import { ProjectLayout } from '@/features/projects/ProjectLayout';
-import { ProjectOverview } from '@/features/projects/ProjectOverview';
 import { FeatureSummary } from '@/features/projects/FeatureSummary';
 import { ReportView } from '@/features/reports/ReportView';
 import { BugsBoardPage } from '@/features/bugs/BugsBoardPage';
@@ -36,7 +35,6 @@ export default function App() {
           <Route index element={<ReportView />} />
           <Route path="reports/:reportId" element={<ReportView />} />
           <Route path="summary" element={<FeatureSummary />} />
-          <Route path="overview" element={<ProjectOverview />} />
         </Route>
 
         <Route element={<AppShell />}>

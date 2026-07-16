@@ -43,6 +43,9 @@ export class UpdateBugUseCase
       severity: dto.severity,
       type: dto.type,
       projectId: dto.projectId,
+      caseId: dto.caseId,
+      caseLabel: dto.caseLabel,
+      reportId: dto.reportId,
     });
 
     await this.bugs.update(bug);
