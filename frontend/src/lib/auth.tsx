@@ -7,10 +7,22 @@ import {
 } from 'react';
 import { api, setToken } from './api';
 import type { AuthResponse, UserDto } from '@/types/dto';
+import { Role } from '@/types/enums';
 
 interface AuthState {
   user: UserDto | null;
   loading: boolean;
+  /** Workspace admin: people, settings, and deleting Roadmaps/OKRs. [admin] */
+  isAdmin: boolean;
+  /** Create/edit Planning content — projects, Roadmaps & OKRs.
+   *  [admin, tester, product] */
+  canWrite: boolean;
+  /** Edit Delivery work items — test cases, bugs, tasks.
+   *  [admin, tester, product, developer] */
+  canEditDelivery: boolean;
+  /** Delivery management — archive/delete/share projects, delete bugs, assign
+   *  work (needs the people list). [admin, product] */
+  canManageDelivery: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (
     tenantName: string,
@@ -75,8 +87,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }
 
+  // Derived role gates — single source of truth for the whole app, so components
+  // never re-implement `user?.role === Role.ADMIN`. Mirrors the backend @Roles matrix.
+  const role = user?.role;
+  const isAdmin = role === Role.ADMIN;
+  const canWrite = isAdmin || role === Role.TESTER || role === Role.PRODUCT;
+  const canEditDelivery = canWrite || role === Role.DEVELOPER;
+  const canManageDelivery = isAdmin || role === Role.PRODUCT;
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        isAdmin,
+        canWrite,
+        canEditDelivery,
+        canManageDelivery,
+        login,
+        register,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

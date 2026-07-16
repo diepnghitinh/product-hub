@@ -53,7 +53,7 @@ export class BugsController {
   }
 
   @Post()
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Report a bug' })
   async create(
     @AuthUser() auth: JwtPayload,
@@ -81,7 +81,7 @@ export class BugsController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Update a bug' })
   async update(
     @AuthUser() auth: JwtPayload,
@@ -94,7 +94,7 @@ export class BugsController {
   }
 
   @Patch(':id/status')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Move a bug to another column' })
   async changeStatus(
     @AuthUser() auth: JwtPayload,
@@ -107,7 +107,7 @@ export class BugsController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.PRODUCT)
   @ApiOperation({ summary: 'Delete a bug (admin)' })
   async remove(
     @AuthUser() auth: JwtPayload,

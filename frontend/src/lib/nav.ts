@@ -27,25 +27,25 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [{ path: '/', labelKey: 'nav.home', icon: 'home', end: true }],
   },
   {
+    // Product Discovery — decide what's worth building (the what & why).
+    headingKey: 'navgroup.discovery',
+    items: [
+      { path: '/roadmaps', labelKey: 'nav.roadmaps', icon: 'roadmap' },
+      { path: '/okrs', labelKey: 'nav.milestones', icon: 'milestone' },
+    ],
+  },
+  {
+    // Product Delivery — build & verify it (the how). Engineer-facing.
     headingKey: 'navgroup.delivery',
     items: [
       { path: '/testing', labelKey: 'nav.projects', icon: 'projects' },
       { path: '/bugs', labelKey: 'nav.bugs', icon: 'bug' },
-    ],
-  },
-  {
-    headingKey: 'navgroup.planning',
-    items: [
-      { path: '/roadmaps', labelKey: 'nav.roadmaps', icon: 'roadmap' },
-      { path: '/milestones', labelKey: 'nav.milestones', icon: 'milestone' },
+      { path: '/tasks', labelKey: 'nav.tasks', icon: 'tasks' },
     ],
   },
   {
     headingKey: 'navgroup.you',
-    items: [
-      { path: '/inbox', labelKey: 'nav.inbox', icon: 'inbox', badge: 'inbox' },
-      { path: '/tasks', labelKey: 'nav.tasks', icon: 'tasks' },
-    ],
+    items: [{ path: '/inbox', labelKey: 'nav.inbox', icon: 'inbox', badge: 'inbox' }],
   },
   {
     headingKey: 'navgroup.admin',

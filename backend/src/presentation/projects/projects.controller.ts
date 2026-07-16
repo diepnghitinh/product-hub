@@ -64,7 +64,7 @@ export class ProjectsController {
 
   // Declared before ':id' so it isn't captured as an id param.
   @Get('archived')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.PRODUCT)
   @ApiOperation({ summary: 'List archived projects (admin)' })
   async listArchived(
     @AuthUser() auth: JwtPayload,
@@ -82,7 +82,7 @@ export class ProjectsController {
   }
 
   @Post()
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT)
   @ApiOperation({ summary: 'Create a project' })
   async create(
     @AuthUser() auth: JwtPayload,
@@ -110,7 +110,7 @@ export class ProjectsController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT)
   @ApiOperation({ summary: 'Update a project (title/subtitle/owner/environment/pin)' })
   async update(
     @AuthUser() auth: JwtPayload,
@@ -123,7 +123,7 @@ export class ProjectsController {
   }
 
   @Post(':id/archive')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.PRODUCT)
   @ApiOperation({ summary: 'Archive (soft-delete) a project' })
   async archive(
     @AuthUser() auth: JwtPayload,
@@ -135,7 +135,7 @@ export class ProjectsController {
   }
 
   @Post(':id/share')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT)
   @ApiOperation({ summary: 'Enable/disable the project’s public link' })
   async share(
     @AuthUser() auth: JwtPayload,
@@ -152,7 +152,7 @@ export class ProjectsController {
   }
 
   @Post(':id/restore')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.PRODUCT)
   @ApiOperation({ summary: 'Restore an archived project' })
   async restore(
     @AuthUser() auth: JwtPayload,
@@ -164,7 +164,7 @@ export class ProjectsController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.PRODUCT)
   @ApiOperation({ summary: 'Permanently delete a project (admin)' })
   async remove(
     @AuthUser() auth: JwtPayload,

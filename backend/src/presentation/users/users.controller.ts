@@ -55,7 +55,7 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.PRODUCT)
   @ApiOperation({ summary: 'List users in your tenant' })
   async list(
     @AuthUser() auth: JwtPayload,
@@ -84,7 +84,7 @@ export class UsersController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.PRODUCT)
   @ApiOperation({ summary: 'Get a user by id' })
   async findOne(
     @AuthUser() auth: JwtPayload,

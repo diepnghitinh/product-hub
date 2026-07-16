@@ -6,6 +6,8 @@ import type { TaskStatus } from '@/types/enums';
 export interface TaskQuery {
   status?: TaskStatus;
   assigneeId?: string;
+  /** Tasks assigned to OR created by this user id (the "My Tasks" filter). */
+  mine?: string;
   roadmapItemId?: string;
   roadmapId?: string;
   projectId?: string;

@@ -37,7 +37,6 @@ function writeCollapsed(set: Set<string>) {
 interface FeatureSidebarProps {
   projectId: string;
   canWrite: boolean;
-  isAdmin: boolean;
   reports: ReportDto[];
 }
 
@@ -49,7 +48,6 @@ interface FeatureSidebarProps {
 export function FeatureSidebar({
   projectId,
   canWrite,
-  isAdmin,
   reports,
 }: FeatureSidebarProps) {
   const { data: groups } = useGroups(projectId);
@@ -189,15 +187,15 @@ export function FeatureSidebar({
       <div className="group-items">
         {list.map((item) => (
           <div key={item.id}>
-            {isAdmin && dragId && dropId === item.id && dragId !== item.id && (
+            {canWrite && dragId && dropId === item.id && dragId !== item.id && (
               <div className="drop-indicator" aria-hidden />
             )}
             <div
               className={`nav-item-row${dragId === item.id ? ' is-dragging' : ''}`}
-              draggable={isAdmin}
-              onDragStart={isAdmin ? () => setDragId(item.id) : undefined}
+              draggable={canWrite}
+              onDragStart={canWrite ? () => setDragId(item.id) : undefined}
               onDragEnd={
-                isAdmin
+                canWrite
                   ? () => {
                       setDragId(null);
                       setDropId(null);
@@ -205,7 +203,7 @@ export function FeatureSidebar({
                   : undefined
               }
               onDragOver={
-                isAdmin && dragId
+                canWrite && dragId
                   ? (e) => {
                       e.preventDefault();
                       if (dropId !== item.id) setDropId(item.id);
@@ -213,7 +211,7 @@ export function FeatureSidebar({
                   : undefined
               }
               onDrop={
-                isAdmin
+                canWrite
                   ? (e) => {
                       e.preventDefault();
                       handleDrop(item.groupId);
@@ -221,7 +219,7 @@ export function FeatureSidebar({
                   : undefined
               }
             >
-              {isAdmin && (
+              {canWrite && (
                 <span className="drag-handle" aria-hidden title="Drag to reorder">
                   ⋮⋮
                 </span>
@@ -237,7 +235,7 @@ export function FeatureSidebar({
               </span>
               <span className={`badge-dot ${item.statusVariant}`} />
             </NavLink>
-            {isAdmin && (
+            {canWrite && (
               <div className="row-actions">
                 <button
                   type="button"
@@ -342,7 +340,7 @@ export function FeatureSidebar({
                     <span className="group-title-text">{group.title}</span>
                     <span className="group-count">{items.length}</span>
                   </button>
-                  {isAdmin && (
+                  {canWrite && (
                     <div className="row-actions">
                       <button
                         type="button"
@@ -383,7 +381,7 @@ export function FeatureSidebar({
             </div>
           )}
 
-          {isAdmin && (
+          {canWrite && (
             <button
               type="button"
               className="nav-add nav-add-group"

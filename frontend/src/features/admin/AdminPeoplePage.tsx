@@ -35,8 +35,7 @@ function initials(name: string): string {
 }
 
 export function AdminPeoplePage() {
-  const { user } = useAuth();
-  const isAdmin = user?.role === Role.ADMIN;
+  const { user, isAdmin } = useAuth();
   const { data, isLoading } = useUsers({ limit: 100 }, isAdmin);
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();

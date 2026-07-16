@@ -47,7 +47,7 @@ export class GroupsController {
   }
 
   @Post()
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Add a group to a project (admin)' })
   async create(
     @AuthUser() auth: JwtPayload,
@@ -65,7 +65,7 @@ export class GroupsController {
 
   // Before ':id' so 'reorder' isn't captured as an id.
   @Post('reorder')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Reorder a project’s groups (admin)' })
   async reorder(
     @AuthUser() auth: JwtPayload,
@@ -81,7 +81,7 @@ export class GroupsController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Rename a group (admin)' })
   async update(
     @AuthUser() auth: JwtPayload,
@@ -100,7 +100,7 @@ export class GroupsController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Remove a group and its features (admin)' })
   async remove(
     @AuthUser() auth: JwtPayload,

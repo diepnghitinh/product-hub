@@ -47,8 +47,8 @@ export default function App() {
           <Route path="/tasks" element={<MyTasksPage />} />
           <Route path="/roadmaps" element={<RoadmapsPage />} />
           <Route path="/roadmaps/:roadmapId" element={<RoadmapBoardPage />} />
-          <Route path="/milestones" element={<MilestonesPage />} />
-          <Route path="/milestones/:milestoneId" element={<MilestoneDetailPage />} />
+          <Route path="/okrs" element={<MilestonesPage />} />
+          <Route path="/okrs/:milestoneId" element={<MilestoneDetailPage />} />
           <Route path="/admin/people" element={<AdminPeoplePage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
           <Route path="/design-patterns" element={<DesignPatternsPage />} />

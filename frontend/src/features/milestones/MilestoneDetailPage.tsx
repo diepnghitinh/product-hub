@@ -6,18 +6,14 @@ import { BackLink } from '@/components/BackLink';
 import {
   MILESTONE_STATUS_LABEL,
   MILESTONE_STATUSES,
-  MilestoneStatus,
-  Role,
-} from '@/types/enums';
+  MilestoneStatus,} from '@/types/enums';
 import type { KeyResult, Objective } from '@/types/dto';
 import { useDeleteMilestone, useMilestone, useReplaceObjectives, useUpdateMilestone } from './api';
 
 export function MilestoneDetailPage() {
   const { milestoneId } = useParams<{ milestoneId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const canWrite = user?.role === Role.ADMIN || user?.role === Role.TESTER;
-  const isAdmin = user?.role === Role.ADMIN;
+  const { user, isAdmin, canWrite } = useAuth();
 
   const { data: milestone, isLoading } = useMilestone(milestoneId);
   const update = useUpdateMilestone();
@@ -36,7 +32,7 @@ export function MilestoneDetailPage() {
       <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
         {t('milestones.notFound')}{' '}
         <Link
-          to="/milestones"
+          to="/okrs"
           className="font-medium text-foreground underline-offset-4 hover:underline"
         >
           {t('milestones.title')}
@@ -96,7 +92,7 @@ export function MilestoneDetailPage() {
 
   return (
     <div>
-      <BackLink to="/milestones">{t('milestones.title')}</BackLink>
+      <BackLink to="/okrs">{t('milestones.title')}</BackLink>
 
       <header className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -123,7 +119,7 @@ export function MilestoneDetailPage() {
               size="sm"
               onClick={() => {
                 if (confirm(t('milestones.confirmDelete')))
-                  remove.mutate(milestone.id, { onSuccess: () => navigate('/milestones') });
+                  remove.mutate(milestone.id, { onSuccess: () => navigate('/okrs') });
               }}
             >
               {t('milestones.delete')}

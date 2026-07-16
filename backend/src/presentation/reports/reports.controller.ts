@@ -68,7 +68,7 @@ export class ReportsController {
   }
 
   @Post()
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Add a feature report' })
   async create(
     @AuthUser() auth: JwtPayload,
@@ -85,7 +85,7 @@ export class ReportsController {
   }
 
   @Post('reorder')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Reorder feature reports' })
   async reorder(
     @AuthUser() auth: JwtPayload,
@@ -113,7 +113,7 @@ export class ReportsController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Update report meta (title/label/status/group…)' })
   async update(
     @AuthUser() auth: JwtPayload,
@@ -132,7 +132,7 @@ export class ReportsController {
   }
 
   @Put(':id/sections')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Replace the report document body (auto-save)' })
   async putSections(
     @AuthUser() auth: JwtPayload,
@@ -151,7 +151,7 @@ export class ReportsController {
   }
 
   @Post(':id/testcases/import')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Import test cases (normalized xlsx/JSON rows)' })
   async import(
     @AuthUser() auth: JwtPayload,
@@ -170,7 +170,7 @@ export class ReportsController {
   }
 
   @Patch(':id/testcases/:shortId/result')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Set a test case result (audited)' })
   async setCaseResult(
     @AuthUser() auth: JwtPayload,
@@ -190,7 +190,7 @@ export class ReportsController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Delete a feature report (admin)' })
   async remove(
     @AuthUser() auth: JwtPayload,

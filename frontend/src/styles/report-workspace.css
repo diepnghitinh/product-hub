@@ -151,25 +151,35 @@
   white-space: nowrap;
 }
 
-.brand-up {
-  display: inline-flex;
+/* Breadcrumb: Testing › {Project}. The parent is a muted link; the current
+   crumb is the page's <h1> — emphasized, and truncates when space is tight. */
+.breadcrumb {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
+  gap: 7px;
+  min-width: 0;
+}
+/* Scoped under .topbar to beat `.report-workspace a { color: inherit }`. */
+.topbar .breadcrumb-link {
   font-size: 13px;
   font-weight: 500;
   color: var(--muted);
-  text-decoration: none;
-  background: transparent;
-  border: 0;
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   flex-shrink: 0;
   transition: color 0.12s ease;
 }
-.brand-up:hover {
+.topbar .breadcrumb-link:hover {
   color: var(--text);
+}
+.breadcrumb-sep {
+  color: var(--faint);
+  flex-shrink: 0;
+}
+/* Inherits size/weight/color/ellipsis from `.topbar h1`; needs min-width:0 so
+   it can shrink and ellipsize inside the flex row. */
+.breadcrumb-current {
+  min-width: 0;
 }
 
 .topbar-right {
@@ -337,6 +347,12 @@
   justify-content: center;
   font-size: 16px;
   line-height: 1;
+}
+/* Square icon close button — returns to the previous page. */
+.topbar-close {
+  width: 28px;
+  padding: 0;
+  justify-content: center;
 }
 .topbar-menu-panel {
   position: absolute;

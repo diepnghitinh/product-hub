@@ -36,7 +36,7 @@ export class UpdateCommentUseCase
   }: UpdateCommentRequest): Promise<Result<CommentEntity>> {
     const comment = await this.comments.findById(tenantId, commentId);
     if (!comment || comment.bugId !== bugId) return Result.fail('Comment not found');
-    if (comment.authorId !== userId && role !== Role.ADMIN) {
+    if (comment.authorId !== userId && role !== Role.ADMIN && role !== Role.PRODUCT) {
       return Result.fail(COMMENT_FORBIDDEN);
     }
 

@@ -4,12 +4,11 @@ import { useAuth } from '@/lib/auth';
 import { Badge, Button, Dialog, Field, Input, ProgressBar, Spinner } from '@/components/ui';
 import { t } from '@/i18n';
 import { PageHeader } from '@/components/PageHeader';
-import { MILESTONE_STATUS_LABEL, Role } from '@/types/enums';
+import { MILESTONE_STATUS_LABEL } from '@/types/enums';
 import { useCreateMilestone, useMilestones } from './api';
 
 export function MilestonesPage() {
-  const { user } = useAuth();
-  const canWrite = user?.role === Role.ADMIN || user?.role === Role.TESTER;
+  const { user, canWrite } = useAuth();
   const navigate = useNavigate();
   const { data, isLoading } = useMilestones();
   const create = useCreateMilestone();
@@ -28,7 +27,7 @@ export function MilestonesPage() {
           setOpen(false);
           setTitle('');
           setTimeframe('');
-          navigate(`/milestones/${m.id}`);
+          navigate(`/okrs/${m.id}`);
         },
       },
     );
@@ -61,7 +60,7 @@ export function MilestonesPage() {
             <article
               key={m.id}
               className="flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground transition-colors hover:border-foreground/20"
-              onClick={() => navigate(`/milestones/${m.id}`)}
+              onClick={() => navigate(`/okrs/${m.id}`)}
             >
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-[15px] font-medium">{m.title}</h3>

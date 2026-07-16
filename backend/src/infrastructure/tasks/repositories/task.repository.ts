@@ -83,9 +83,19 @@ export class TaskRepository
     if (query.roadmapItemId) filter.roadmapItemId = query.roadmapItemId;
     if (query.roadmapId) filter.roadmapId = query.roadmapId;
     if (query.projectId) filter.projectId = query.projectId;
+    // "My tasks": assigned to me OR created by me (so tasks I create always show).
+    if (query.mine) {
+      filter.$or = [{ assigneeId: query.mine }, { createdBy: query.mine }];
+    }
     if (query.search) {
       const re = new RegExp(query.search, 'i');
-      filter.$or = [{ title: re }, { description: re }];
+      const searchOr = [{ title: re }, { description: re }];
+      if (filter.$or) {
+        filter.$and = [{ $or: filter.$or }, { $or: searchOr }];
+        delete filter.$or;
+      } else {
+        filter.$or = searchOr;
+      }
     }
 
     const [docs, total] = await Promise.all([

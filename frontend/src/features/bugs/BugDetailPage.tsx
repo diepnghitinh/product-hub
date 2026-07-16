@@ -19,9 +19,7 @@ import {
   BUG_SEVERITY_LABEL,
   BugSeverity,
   BugStatus,
-  DEFAULT_BUG_STATUSES,
-  Role,
-} from '@/types/enums';
+  DEFAULT_BUG_STATUSES,} from '@/types/enums';
 import type { CommentDto } from '@/types/dto';
 import { useUsers } from '@/features/users/api';
 import {
@@ -40,9 +38,7 @@ const ROW_LABEL = 'text-xs font-medium uppercase tracking-wide text-muted-foregr
 export function BugDetailPage() {
   const { bugId } = useParams<{ bugId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const canWrite = user?.role === Role.ADMIN || user?.role === Role.TESTER;
-  const isAdmin = user?.role === Role.ADMIN;
+  const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
 
   const { data: bug, isLoading } = useBug(bugId);
   const update = useUpdateBug();

@@ -43,7 +43,7 @@ export function DashboardPage() {
     { to: '/testing', icon: 'projects', value: projects.length, label: t('home.statProjects') },
     { to: '/bugs', icon: 'bug', value: openBugs, label: t('home.statBugs') },
     { to: '/roadmaps', icon: 'roadmap', value: (roadmaps ?? []).length, label: t('home.statRoadmaps') },
-    { to: '/milestones', icon: 'milestone', value: (milestones ?? []).length, label: t('home.statMilestones') },
+    { to: '/okrs', icon: 'milestone', value: (milestones ?? []).length, label: t('home.statMilestones') },
     { to: '/inbox', icon: 'inbox', value: inbox?.unseenCount ?? 0, label: t('home.statInbox') },
   ];
 

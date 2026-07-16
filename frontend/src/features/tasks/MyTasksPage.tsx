@@ -1,43 +1,57 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Spinner } from '@/components/ui';
+import { Badge, Button, Spinner } from '@/components/ui';
 import { PageHeader } from '@/components/PageHeader';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
-import {
-  TASK_STATUS_COLOR,
+import {  TASK_STATUS_COLOR,
   TASK_STATUS_LABEL,
   TASK_STATUSES,
   TaskStatus,
 } from '@/types/enums';
 import type { TaskDto } from '@/types/dto';
 import { useTasks } from './api';
+import { CreateTaskDialog } from './components/CreateTaskDialog';
 
 /** The engineer's personal queue — every task assigned to them, grouped by
- * status, each linking back to its backlog item's roadmap. */
+ * status, each linking back to its backlog item's roadmap. Tasks can be created
+ * straight from here (auto-assigned to the current user). */
 export function MyTasksPage() {
-  const { user } = useAuth();
-  // Sentinel keeps the list empty (never "all tenant tasks") if the user isn't loaded.
-  const { data, isLoading } = useTasks({ assigneeId: user?.id ?? '__none__' });
+  const { user, canEditDelivery: canWrite } = useAuth();
+  const [createOpen, setCreateOpen] = useState(false);
+
+  // Assigned to me OR created by me — so a task I create always lands here, even
+  // if it wasn't assigned. Sentinel keeps it empty if the user isn't loaded yet.
+  const { data, isLoading } = useTasks({ mine: user?.id ?? '__none__' });
   const tasks = data?.items ?? [];
 
   return (
     <div>
-      <PageHeader title={t('tasks.myTasks')} subtitle={t('tasks.mySubtitle')} />
+      <PageHeader
+        title={t('tasks.myTasks')}
+        subtitle={t('tasks.mySubtitle')}
+        actions={
+          canWrite ? (
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              {t('tasks.new')}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {isLoading ? (
         <div className="grid place-items-center rounded-xl border border-dashed p-8">
           <Spinner />
         </div>
       ) : tasks.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-          {t('tasks.none')}{' '}
-          <Link
-            to="/roadmaps"
-            className="font-medium text-foreground underline-offset-4 hover:underline"
-          >
-            {t('tasks.openRoadmaps')}
-          </Link>
+        <div className="rounded-xl border border-dashed p-8 text-center">
+          <p className="text-muted-foreground">{t('tasks.none')}</p>
+          {canWrite && (
+            <Button size="sm" className="mt-3" onClick={() => setCreateOpen(true)}>
+              {t('tasks.new')}
+            </Button>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-6">
@@ -67,6 +81,8 @@ export function MyTasksPage() {
           })}
         </div>
       )}
+
+      <CreateTaskDialog open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

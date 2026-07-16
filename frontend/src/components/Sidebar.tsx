@@ -7,7 +7,7 @@ import { Icon } from '@/components/Icon';
 import { cn } from '@/lib/utils';
 import { NAV_GROUPS } from '@/lib/nav';
 import { t } from '@/i18n';
-import { ROLE_LABEL, Role } from '@/types/enums';
+import { ROLE_LABEL } from '@/types/enums';
 import { useInbox } from '@/features/inbox/api';
 
 const COLLAPSE_KEY = 'ph_nav_collapsed';
@@ -27,12 +27,11 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const { toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { data: inbox } = useInbox();
   const unseen = inbox?.unseenCount ?? 0;
-  const isAdmin = user?.role === Role.ADMIN;
 
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',

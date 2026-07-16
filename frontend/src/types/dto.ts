@@ -250,6 +250,12 @@ export interface InboxResponseDto {
 }
 
 // ── Roadmaps ─────────────────────────────────────────────────────────────────
+/** A person assigned to a roadmap item — denormalized (id + name). */
+export interface RoadmapAssignee {
+  id: string;
+  name: string;
+}
+
 export interface RoadmapItem {
   id: string;
   title: string;
@@ -263,6 +269,11 @@ export interface RoadmapItem {
   effort: number;
   progress: number;
   rice: number;
+  /** Optional cover / UI-reference image URL ('' when unset). */
+  imageUrl: string;
+  /** Optional start date, ISO `YYYY-MM-DD` ('' when unset). */
+  startDate: string;
+  assignees: RoadmapAssignee[];
 }
 
 export interface RoadmapDto {

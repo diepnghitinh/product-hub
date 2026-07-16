@@ -81,7 +81,7 @@ tracks reality. No fake-door needed on a tool we control.
 - **Priority** and **estimate/effort** fields on a task.
 - **Activity thread on a task** (reuse the existing bug comment thread once backlog/Activity wiring lands — the model already anticipates this).
 - **Sub-tasks / checklist** inside a task; **dependencies** (blocks / blocked-by).
-- **Unlinked personal tasks** (a task with no backlog item) for quick capture.
+- ~~**Unlinked personal tasks** (a task with no backlog item) for quick capture.~~ ✅ **shipped** — the "New task" button on `/tasks` creates a task with an **optional** backlog-item link (roadmap-item picker), auto-assigned to you.
 - **Link a task to a bug** (this task fixes that bug) — the reverse of today's bug→case link.
 - **Board view** of a backlog item's tasks (todo/in-progress/done columns).
 
@@ -123,9 +123,9 @@ from its linked tasks — mirrors how OKR **Individual → Key Result** already 
   **status pill** (the shared `Select` — never a native `<select>`), **assignee** (reuse the bug
   assignee people-picker), optional due date, and a delete affordance. Empty state:
   *"No tasks yet — add the first piece of work."*
-- **"My Tasks"** is a top-level list (its own nav item near Inbox), grouped by `todo / in-progress /
-  done`, each row showing the task + its **backlog-item chip** (click → opens that item). Reuse the
-  Inbox/list layout so it feels native.
+- **"My Tasks"** is a top-level list (its own nav item under **Product Delivery** — the engineer/
+  build side of the sidebar), grouped by `todo / in-progress / done`, each row showing the task + its
+  **backlog-item chip** (click → opens that item). Reuse the Inbox/list layout so it feels native.
 - **Status vocabulary & colour** reuse existing tokens — `todo / in-progress / done` should read like
   the rest of the app (muted → accent → success). **No new brand colours are introduced**; if a
   distinct task-status palette is ever wanted, that's an owner decision first (project colour rule).

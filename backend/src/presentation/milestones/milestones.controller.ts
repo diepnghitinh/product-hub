@@ -49,7 +49,7 @@ export class MilestonesController {
   }
 
   @Post()
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT)
   @ApiOperation({ summary: 'Create a milestone' })
   async create(
     @AuthUser() auth: JwtPayload,
@@ -72,7 +72,7 @@ export class MilestonesController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT)
   @ApiOperation({ summary: 'Update milestone meta' })
   async update(
     @AuthUser() auth: JwtPayload,
@@ -85,7 +85,7 @@ export class MilestonesController {
   }
 
   @Put(':id/objectives')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT)
   @ApiOperation({ summary: 'Replace objectives + key results' })
   async putObjectives(
     @AuthUser() auth: JwtPayload,

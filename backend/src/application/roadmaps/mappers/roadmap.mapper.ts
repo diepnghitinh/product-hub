@@ -10,7 +10,15 @@ export class RoadmapMapper {
       projectId: roadmap.projectId,
       title: roadmap.title,
       description: roadmap.description,
-      items: roadmap.items.map((item) => ({ ...item, rice: riceScore(item) })),
+      // Defensive defaults so items created before image/date/assignees existed
+      // still return a clean, typed shape.
+      items: roadmap.items.map((item) => ({
+        ...item,
+        imageUrl: item.imageUrl ?? '',
+        startDate: item.startDate ?? '',
+        assignees: item.assignees ?? [],
+        rice: riceScore(item),
+      })),
       itemCount: roadmap.items.length,
       createdAt: roadmap.createdAt,
       updatedAt: roadmap.updatedAt,

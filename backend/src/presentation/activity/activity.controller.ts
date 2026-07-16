@@ -38,7 +38,7 @@ export class ActivityController {
   }
 
   @Post()
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Add a comment (mentions notify the inbox)' })
   async create(
     @AuthUser() auth: JwtPayload,
@@ -57,7 +57,7 @@ export class ActivityController {
   }
 
   @Patch(':commentId')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Edit a comment (author or admin)' })
   async update(
     @AuthUser() auth: JwtPayload,
@@ -82,7 +82,7 @@ export class ActivityController {
   }
 
   @Delete(':commentId')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Delete a comment (author or admin)' })
   async remove(
     @AuthUser() auth: JwtPayload,

@@ -5,15 +5,12 @@ import { Button, Dialog, Field, Input, Spinner, Textarea } from '@/components/ui
 import { t } from '@/i18n';
 import { PageHeader } from '@/components/PageHeader';
 import { BackLink } from '@/components/BackLink';
-import { timeAgo } from '@/lib/format';
-import { Role } from '@/types/enums';
-import { useCreateRoadmap, useRoadmaps } from './api';
+import { timeAgo } from '@/lib/format';import { useCreateRoadmap, useRoadmaps } from './api';
 
 const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]';
 
 export function RoadmapsPage() {
-  const { user } = useAuth();
-  const canWrite = user?.role === Role.ADMIN || user?.role === Role.TESTER;
+  const { user, canWrite } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const projectId = params.get('projectId') || undefined;

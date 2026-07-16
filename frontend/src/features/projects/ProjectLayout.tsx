@@ -8,11 +8,11 @@ import {
 } from 'react-router-dom';
 import { useIsMutating } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
-import { ArrowLeft } from 'lucide-react';
+import { ChevronRight, X } from 'lucide-react';
 import { Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
-import { ENVIRONMENT_LABEL, Role } from '@/types/enums';
+import { ENVIRONMENT_LABEL } from '@/types/enums';
 import { FeatureSidebar } from './components/FeatureSidebar';
 import { ShareProjectDialog } from './components/ShareProjectDialog';
 import { HistoryDialog } from '@/features/reports/components/HistoryDialog';
@@ -81,9 +81,7 @@ export function ProjectLayout() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
-  const isAdmin = user?.role === Role.ADMIN;
-  const canWrite = isAdmin || user?.role === Role.TESTER;
+  const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
 
   const { data: project, isLoading, isError } = useProject(projectId);
   const { data: reports } = useReports(projectId);
@@ -141,11 +139,13 @@ export function ProjectLayout() {
     <div className={cn('report-workspace', !collapsed && 'sidebar-open')}>
       <header className="topbar">
         <div className="brand">
-          <Link to="/testing" className="brand-up" title={t('project.back')}>
-            <ArrowLeft className="size-3.5" aria-hidden />
-            {t('nav.projects')}
-          </Link>
-          <h1>{project.title}</h1>
+          <nav className="breadcrumb" aria-label="Breadcrumb">
+            <Link to="/testing" className="breadcrumb-link" title={t('project.back')}>
+              {t('nav.projects')}
+            </Link>
+            <ChevronRight className="breadcrumb-sep" size={14} aria-hidden />
+            <h1 className="breadcrumb-current">{project.title}</h1>
+          </nav>
           <span
             className={`env-badge env-${project.environment}`}
             title={`Environment: ${ENVIRONMENT_LABEL[project.environment]}`}
@@ -349,6 +349,16 @@ export function ProjectLayout() {
           <div className="meta">
             Generated {generated} · Owner: {project.owner || '—'}
           </div>
+
+          <button
+            type="button"
+            className="topbar-btn ghost topbar-close"
+            onClick={() => navigate(-1)}
+            title={t('common.close')}
+            aria-label={t('common.close')}
+          >
+            <X size={16} aria-hidden />
+          </button>
         </div>
       </header>
 
@@ -357,7 +367,6 @@ export function ProjectLayout() {
           <FeatureSidebar
             projectId={project.id}
             canWrite={canWrite}
-            isAdmin={isAdmin}
             reports={reports ?? []}
           />
         )}

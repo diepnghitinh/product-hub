@@ -49,7 +49,7 @@ export class RoadmapsController {
   }
 
   @Post()
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT)
   @ApiOperation({ summary: 'Create a roadmap' })
   async create(
     @AuthUser() auth: JwtPayload,
@@ -72,7 +72,7 @@ export class RoadmapsController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT)
   @ApiOperation({ summary: 'Update roadmap meta' })
   async update(
     @AuthUser() auth: JwtPayload,
@@ -85,7 +85,7 @@ export class RoadmapsController {
   }
 
   @Put(':id/items')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT)
   @ApiOperation({ summary: 'Replace roadmap items' })
   async putItems(
     @AuthUser() auth: JwtPayload,

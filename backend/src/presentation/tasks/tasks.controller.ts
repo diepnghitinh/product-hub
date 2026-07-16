@@ -53,7 +53,7 @@ export class TasksController {
   }
 
   @Post()
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Write a task' })
   async create(
     @AuthUser() auth: JwtPayload,
@@ -81,7 +81,7 @@ export class TasksController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Update a task' })
   async update(
     @AuthUser() auth: JwtPayload,
@@ -94,7 +94,7 @@ export class TasksController {
   }
 
   @Patch(':id/status')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Change a task status (todo/in-progress/done)' })
   async changeStatus(
     @AuthUser() auth: JwtPayload,
@@ -111,7 +111,7 @@ export class TasksController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN, Role.TESTER)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({ summary: 'Delete a task' })
   async remove(
     @AuthUser() auth: JwtPayload,

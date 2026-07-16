@@ -5,6 +5,12 @@ import {
   RoadmapPhase,
 } from '../domain/enums/roadmap.enums';
 
+/** A person assigned to a roadmap item (denormalized id + name). */
+export class RoadmapItemAssigneeDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+}
+
 /** A roadmap item with its derived RICE score. */
 export class RoadmapItemDto {
   @ApiProperty() id: string;
@@ -18,6 +24,9 @@ export class RoadmapItemDto {
   @ApiProperty() confidence: number;
   @ApiProperty() effort: number;
   @ApiProperty() progress: number;
+  @ApiProperty() imageUrl: string;
+  @ApiProperty() startDate: string;
+  @ApiProperty({ type: [RoadmapItemAssigneeDto] }) assignees: RoadmapItemAssigneeDto[];
   @ApiProperty({ description: 'Derived RICE score' }) rice: number;
 }
 

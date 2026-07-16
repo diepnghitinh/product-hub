@@ -8,6 +8,11 @@ export enum Role {
   ADMIN = 'admin',
   TESTER = 'tester',
   GUEST = 'guest',
+  /** Product manager — full Delivery + project management, and create/edit
+   *  (not delete) of Roadmaps & OKRs. */
+  PRODUCT = 'product',
+  /** Developer — maintain Delivery work items (test cases, bugs, tasks) only. */
+  DEVELOPER = 'developer',
 }
 
 export enum ProjectEnvironment {
@@ -131,6 +136,8 @@ export const ROLE_LABEL: Record<Role, string> = {
   [Role.ADMIN]: 'Admin',
   [Role.TESTER]: 'Tester',
   [Role.GUEST]: 'Guest',
+  [Role.PRODUCT]: 'Product',
+  [Role.DEVELOPER]: 'Developer',
 };
 
 export const ENVIRONMENT_LABEL: Record<ProjectEnvironment, string> = {

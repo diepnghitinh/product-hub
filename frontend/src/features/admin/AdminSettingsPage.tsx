@@ -22,9 +22,7 @@ import { timeAgo } from '@/lib/format';
 import {
   BugStatus,
   BugStatusConfig,
-  DEFAULT_BUG_STATUSES,
-  Role,
-  WEBHOOK_EVENTS,
+  DEFAULT_BUG_STATUSES,  WEBHOOK_EVENTS,
   WEBHOOK_EVENT_LABEL,
   WebhookEvent,
 } from '@/types/enums';
@@ -37,8 +35,7 @@ import {
 } from '@/features/settings/api';
 
 export function AdminSettingsPage() {
-  const { user } = useAuth();
-  const isAdmin = user?.role === Role.ADMIN;
+  const { user, isAdmin } = useAuth();
   if (!isAdmin)
     return (
       <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">

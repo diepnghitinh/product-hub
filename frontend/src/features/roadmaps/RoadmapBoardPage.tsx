@@ -8,9 +8,7 @@ import { BackLink } from '@/components/BackLink';
 import {
   ROADMAP_ITEM_STATUS_LABEL,
   ROADMAP_PHASE_LABEL,
-  ROADMAP_PHASES,
-  Role,
-  RoadmapItemStatus,
+  ROADMAP_PHASES,  RoadmapItemStatus,
   RoadmapPhase,
 } from '@/types/enums';
 import type { RoadmapItem } from '@/types/dto';
@@ -33,9 +31,7 @@ const STATUS_VARIANT: Record<RoadmapItemStatus, 'muted' | 'warning' | 'success'>
 export function RoadmapBoardPage() {
   const { roadmapId } = useParams<{ roadmapId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const canWrite = user?.role === Role.ADMIN || user?.role === Role.TESTER;
-  const isAdmin = user?.role === Role.ADMIN;
+  const { user, isAdmin, canWrite } = useAuth();
 
   const { data: roadmap, isLoading } = useRoadmap(roadmapId);
   const replaceItems = useReplaceRoadmapItems();

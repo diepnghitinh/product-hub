@@ -2,9 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Button, Spinner } from '@/components/ui';
 import { PageHeader } from '@/components/PageHeader';
-import { t } from '@/i18n';
-import { Role } from '@/types/enums';
-import { ProjectCard } from '@/features/projects/components/ProjectCard';
+import { t } from '@/i18n';import { ProjectCard } from '@/features/projects/components/ProjectCard';
 import {
   ProjectFormDialog,
   type ProjectFormValues,
@@ -16,10 +14,7 @@ import { useProjectStats } from '@/features/reports/api';
 const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]';
 
 export function ProjectsPage() {
-  const { user } = useAuth();
-  const role = user?.role;
-  const canWrite = role === Role.ADMIN || role === Role.TESTER;
-  const isAdmin = role === Role.ADMIN;
+  const { user, canManageDelivery: isAdmin, canWrite } = useAuth();
 
   const { data, isLoading, isError, refetch } = useProjects({ limit: 100 });
   const create = useCreateProject();

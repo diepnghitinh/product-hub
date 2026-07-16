@@ -14,6 +14,11 @@ export class QueryTaskDto extends PaginationDto {
   @IsString()
   assigneeId?: string;
 
+  @ApiPropertyOptional({ description: 'Tasks assigned to OR created by this user id' })
+  @IsOptional()
+  @IsString()
+  mine?: string;
+
   @ApiPropertyOptional({ description: 'Filter by linked backlog item (roadmap item) id' })
   @IsOptional()
   @IsString()

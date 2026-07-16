@@ -5,9 +5,7 @@ import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { useAuth } from '@/lib/auth';
 import { useUsers } from '@/features/users/api';
-import {
-  Role,
-  TASK_STATUS_COLOR,
+import {  TASK_STATUS_COLOR,
   TASK_STATUS_LABEL,
   TASK_STATUSES,
   TaskStatus,
@@ -35,9 +33,7 @@ interface TaskPanelProps {
  * completed tasks drive the "N of M done" rollup shown above the list.
  */
 export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanelProps) {
-  const { user } = useAuth();
-  const canWrite = user?.role === Role.ADMIN || user?.role === Role.TESTER;
-  const isAdmin = user?.role === Role.ADMIN;
+  const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
 
   // /users is admin-only; testers can't list people, but can still self-assign.
   const { data: usersData } = useUsers({ limit: 100 }, isAdmin);

@@ -5,9 +5,7 @@ import { apiGet } from '@/lib/api';
 import { DatePicker } from '@/components/ui';
 import { t } from '@/i18n';
 import {
-  FeatureStatus,
-  Role,
-  SECTION_TYPE_LABEL,
+  FeatureStatus,  SECTION_TYPE_LABEL,
   SectionType,
 } from '@/types/enums';
 import type { ReportDto, ReportSection, TestCaseData, TestingSection } from '@/types/dto';
@@ -64,9 +62,7 @@ function newSection(type: SectionType, position: number): ReportSection {
 
 export function ReportView() {
   const { projectId, reportId } = useParams<{ projectId: string; reportId: string }>();
-  const { user } = useAuth();
-  const isAdmin = user?.role === Role.ADMIN;
-  const canWrite = isAdmin || user?.role === Role.TESTER;
+  const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
 
   const { data: reports } = useReports(projectId);
   const effectiveId = reportId ?? reports?.[0]?.id;

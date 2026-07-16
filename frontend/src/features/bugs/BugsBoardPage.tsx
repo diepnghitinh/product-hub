@@ -12,9 +12,7 @@ import {
   BUG_SEVERITY_LABEL,
   BugSeverity,
   BugStatus,
-  DEFAULT_BUG_STATUSES,
-  Role,
-} from '@/types/enums';
+  DEFAULT_BUG_STATUSES,} from '@/types/enums';
 import type { BugDto } from '@/types/dto';
 import { CreateBugDialog } from './components/CreateBugDialog';
 import { useBugs, useSetBugStatus } from './api';
@@ -29,8 +27,7 @@ const SEVERITY_DOT: Record<BugSeverity, string> = {
 };
 
 export function BugsBoardPage() {
-  const { user } = useAuth();
-  const canWrite = user?.role === Role.ADMIN || user?.role === Role.TESTER;
+  const { user, canEditDelivery: canWrite } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const projectId = params.get('projectId') || undefined;
