@@ -68,7 +68,7 @@ export function BugsBoardPage() {
   return (
     <div>
       {projectId && (
-        <BackLink to={`/projects/${projectId}`}>{projectName || t('nav.projects')}</BackLink>
+        <BackLink to={`/testing/${projectId}`}>{projectName || t('nav.projects')}</BackLink>
       )}
       <PageHeader
         title={
@@ -88,14 +88,14 @@ export function BugsBoardPage() {
           onChange={(e) => setSearch(e.target.value)}
         />
         <div className="sm:w-44">
-          <Select value={severity} onChange={(e) => setSeverity(e.target.value as BugSeverity | '')}>
-            <option value="">{t('bugs.allSeverities')}</option>
-            {BUG_SEVERITIES.map((s) => (
-              <option key={s} value={s}>
-                {BUG_SEVERITY_LABEL[s]}
-              </option>
-            ))}
-          </Select>
+          <Select
+            value={severity}
+            onValueChange={(v) => setSeverity(v as BugSeverity | '')}
+            options={[
+              { value: '', label: t('bugs.allSeverities') },
+              ...BUG_SEVERITIES.map((s) => ({ value: s, label: BUG_SEVERITY_LABEL[s] })),
+            ]}
+          />
         </div>
         {canWrite && (
           <Button className="sm:ml-auto" onClick={() => setCreateOpen(true)}>

@@ -116,7 +116,12 @@ export enum MilestoneStatus {
   ARCHIVED = 'archived',
 }
 
-export enum IndividualStatus {
+/**
+ * Task workflow status — the checkable state of a piece of engineering work.
+ * (Repurposed from the former orphan `IndividualStatus`; identical values.)
+ * Mirrors the backend `TaskStatus` enum exactly.
+ */
+export enum TaskStatus {
   TODO = 'todo',
   IN_PROGRESS = 'in-progress',
   DONE = 'done',
@@ -330,6 +335,26 @@ export const MILESTONE_STATUS_LABEL: Record<MilestoneStatus, string> = {
   [MilestoneStatus.ACTIVE]: 'Active',
   [MilestoneStatus.COMPLETED]: 'Completed',
   [MilestoneStatus.ARCHIVED]: 'Archived',
+};
+
+/** Task workflow columns, in order. */
+export const TASK_STATUSES: TaskStatus[] = [
+  TaskStatus.TODO,
+  TaskStatus.IN_PROGRESS,
+  TaskStatus.DONE,
+];
+
+export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
+  [TaskStatus.TODO]: 'To do',
+  [TaskStatus.IN_PROGRESS]: 'In progress',
+  [TaskStatus.DONE]: 'Done',
+};
+
+/** Semantic color per task status (shadcn theme tokens — no new brand colors). */
+export const TASK_STATUS_COLOR: Record<TaskStatus, string> = {
+  [TaskStatus.TODO]: 'hsl(var(--muted-foreground))',
+  [TaskStatus.IN_PROGRESS]: 'hsl(var(--info))',
+  [TaskStatus.DONE]: 'hsl(var(--success))',
 };
 
 export const WEBHOOK_EVENTS: WebhookEvent[] = [

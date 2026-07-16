@@ -88,13 +88,12 @@ export function CreateBugDialog({
           <Input id="b-title" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
         </Field>
         <Field label={t('bugs.severity')} htmlFor="b-sev">
-          <Select id="b-sev" value={severity} onChange={(e) => setSeverity(e.target.value as BugSeverity)}>
-            {BUG_SEVERITIES.map((s) => (
-              <option key={s} value={s}>
-                {BUG_SEVERITY_LABEL[s]}
-              </option>
-            ))}
-          </Select>
+          <Select
+            id="b-sev"
+            value={severity}
+            onValueChange={(v) => setSeverity(v as BugSeverity)}
+            options={BUG_SEVERITIES.map((s) => ({ value: s, label: BUG_SEVERITY_LABEL[s] }))}
+          />
         </Field>
         <Field label={t('bugs.description')} htmlFor="b-desc">
           <Textarea id="b-desc" value={description} onChange={(e) => setDescription(e.target.value)} />

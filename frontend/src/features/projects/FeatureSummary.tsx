@@ -276,7 +276,7 @@ export function FeatureSummary() {
                         <tr key={r.id}>
                           <td className="cell-id">{r.featureId || '—'}</td>
                           <td>
-                            <Link className="feature-summary-link" to={`/projects/${projectId}/reports/${r.id}`}>
+                            <Link className="feature-summary-link" to={`/testing/${projectId}/reports/${r.id}`}>
                               {r.label || r.title}
                             </Link>
                             {r.subtitle && <span className="feature-summary-subtle">{r.subtitle}</span>}

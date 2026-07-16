@@ -1,0 +1,46 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+
+export class UpdateTaskDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  title?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ description: 'Linked roadmap (backlog) id' })
+  @IsOptional()
+  @IsString()
+  roadmapId?: string;
+
+  @ApiPropertyOptional({ description: 'The linked backlog item id (empty string to unlink)' })
+  @IsOptional()
+  @IsString()
+  roadmapItemId?: string;
+
+  @ApiPropertyOptional({ description: 'Human-readable label of the linked backlog item' })
+  @IsOptional()
+  @IsString()
+  roadmapItemLabel?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  projectId?: string;
+
+  @ApiPropertyOptional({ description: 'Due date as YYYY-MM-DD (empty string to clear)' })
+  @IsOptional()
+  @IsString()
+  dueDate?: string;
+
+  @ApiPropertyOptional({ description: 'Assignee user id (empty string to unassign)' })
+  @IsOptional()
+  @IsString()
+  assigneeId?: string;
+}

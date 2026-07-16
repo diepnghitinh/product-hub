@@ -98,7 +98,7 @@ export function FeatureSidebar({
     [dragId, dropId, reports, reorderReports, updateReport],
   );
 
-  const base = `/projects/${projectId}`;
+  const base = `/testing/${projectId}`;
   const groupList = groups ?? [];
   const knownGroupIds = new Set(groupList.map((g) => g.id));
   const ungrouped = reports.filter((r) => !knownGroupIds.has(r.groupId));

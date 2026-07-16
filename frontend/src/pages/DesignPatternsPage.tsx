@@ -127,6 +127,7 @@ export function DesignPatternsPage() {
   const [labels, setLabels] = useState<string[]>(['bug', 'ui']);
   const [tags, setTags] = useState<string[]>(['design', 'urgent']);
   const [date, setDate] = useState('');
+  const [selectDemo, setSelectDemo] = useState('');
 
   return (
     <div>
@@ -225,13 +226,16 @@ export function DesignPatternsPage() {
             <Input id="dp-input" placeholder="Type something…" />
           </Field>
           <Field label="Select" htmlFor="dp-select">
-            <Select id="dp-select" defaultValue="">
-              <option value="" disabled>
-                Choose…
-              </option>
-              <option value="a">Option A</option>
-              <option value="b">Option B</option>
-            </Select>
+            <Select
+              id="dp-select"
+              value={selectDemo}
+              onValueChange={setSelectDemo}
+              placeholder="Choose…"
+              options={[
+                { value: 'a', label: 'Option A' },
+                { value: 'b', label: 'Option B' },
+              ]}
+            />
           </Field>
           <div className="sm:col-span-2">
             <Field label="Textarea" htmlFor="dp-textarea">

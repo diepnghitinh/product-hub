@@ -187,14 +187,9 @@ export function BugDetailPage() {
             {canWrite ? (
               <Select
                 value={bug.status}
-                onChange={(e) => setStatus.mutate({ id: bug.id, status: e.target.value as BugStatus })}
-              >
-                {columns.map((c) => (
-                  <option key={c.key} value={c.key}>
-                    {c.label}
-                  </option>
-                ))}
-              </Select>
+                onValueChange={(v) => setStatus.mutate({ id: bug.id, status: v as BugStatus })}
+                options={columns.map((c) => ({ value: c.key, label: c.label }))}
+              />
             ) : (
               <span className="text-sm">{statusLabel(bug.status)}</span>
             )}
@@ -205,14 +200,9 @@ export function BugDetailPage() {
             {canWrite ? (
               <Select
                 value={bug.severity}
-                onChange={(e) => save({ severity: e.target.value as BugSeverity })}
-              >
-                {BUG_SEVERITIES.map((s) => (
-                  <option key={s} value={s}>
-                    {BUG_SEVERITY_LABEL[s]}
-                  </option>
-                ))}
-              </Select>
+                onValueChange={(v) => save({ severity: v as BugSeverity })}
+                options={BUG_SEVERITIES.map((s) => ({ value: s, label: BUG_SEVERITY_LABEL[s] }))}
+              />
             ) : (
               <SeverityBadge severity={bug.severity} />
             )}
@@ -254,7 +244,7 @@ export function BugDetailPage() {
               <span className={ROW_LABEL}>{t('bugs.linkedCase')}</span>
               {bug.projectId && bug.reportId ? (
                 <Link
-                  to={`/projects/${bug.projectId}/reports/${bug.reportId}`}
+                  to={`/testing/${bug.projectId}/reports/${bug.reportId}`}
                   className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
                 >
                   <span aria-hidden>🔗</span>

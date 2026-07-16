@@ -8,6 +8,7 @@ import { GroupsPresentationModule } from './groups/groups.module';
 import { ReportsPresentationModule } from './reports/reports.module';
 import { AuditLogPresentationModule } from './audit-log/audit-log.module';
 import { BugsPresentationModule } from './bugs/bugs.module';
+import { TasksPresentationModule } from './tasks/tasks.module';
 import { ActivityPresentationModule } from './activity/activity.module';
 import { InboxPresentationModule } from './inbox/inbox.module';
 import { RoadmapsPresentationModule } from './roadmaps/roadmaps.module';
@@ -33,6 +34,7 @@ import { AppSettingsPresentationModule } from './app-settings/app-settings.modul
     ReportsPresentationModule,
     AuditLogPresentationModule,
     BugsPresentationModule,
+    TasksPresentationModule,
     ActivityPresentationModule,
     InboxPresentationModule,
     RoadmapsPresentationModule,
@@ -46,6 +48,7 @@ import { AppSettingsPresentationModule } from './app-settings/app-settings.modul
       { path: 'users', module: UsersPresentationModule },
       { path: 'projects', module: ProjectsPresentationModule },
       { path: 'bugs', module: BugsPresentationModule },
+      { path: 'tasks', module: TasksPresentationModule },
       { path: 'roadmaps', module: RoadmapsPresentationModule },
       { path: 'milestones', module: MilestonesPresentationModule },
     ]),

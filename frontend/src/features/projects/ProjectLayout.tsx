@@ -122,7 +122,7 @@ export function ProjectLayout() {
       <div className="report-workspace items-center justify-center">
         <div className="text-center text-sm text-[color:var(--muted)]">
           {t('project.notFound')}{' '}
-          <Link to="/projects" className="font-medium underline">
+          <Link to="/testing" className="font-medium underline">
             {t('project.back')}
           </Link>
         </div>
@@ -130,7 +130,7 @@ export function ProjectLayout() {
     );
   }
 
-  const base = `/projects/${project.id}`;
+  const base = `/testing/${project.id}`;
   const path = location.pathname;
   const onSummary = path.endsWith('/summary');
   const onReport = !onSummary;
@@ -141,7 +141,7 @@ export function ProjectLayout() {
     <div className={cn('report-workspace', !collapsed && 'sidebar-open')}>
       <header className="topbar">
         <div className="brand">
-          <Link to="/projects" className="brand-up" title={t('project.back')}>
+          <Link to="/testing" className="brand-up" title={t('project.back')}>
             <ArrowLeft className="size-3.5" aria-hidden />
             {t('nav.projects')}
           </Link>
@@ -330,7 +330,7 @@ export function ProjectLayout() {
                       setMenuOpen(false);
                       if (confirm(t('projects.confirmArchive')))
                         archive.mutate(project.id, {
-                          onSuccess: () => navigate('/projects'),
+                          onSuccess: () => navigate('/testing'),
                         });
                     }}
                   >

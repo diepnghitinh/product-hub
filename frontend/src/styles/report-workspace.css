@@ -927,6 +927,25 @@
   color: var(--muted);
 }
 
+/* Test Case Summary heading row — title on the left, filter tools on the right. */
+.tc-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+  margin: 18px 0 8px;
+}
+.tc-summary-head h3 {
+  margin: 0;
+}
+.tc-summary-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 .report-header {
   background: var(--surface);
   color: var(--text);
@@ -2504,6 +2523,7 @@
   .add-section-fab,
   .add-section-menu,
   .report-filterbar,
+  .tc-summary-tools,
   .section-controls,
   .cell-controls,
   .row-remove,

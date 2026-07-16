@@ -12,6 +12,7 @@ import { ReportView } from '@/features/reports/ReportView';
 import { BugsBoardPage } from '@/features/bugs/BugsBoardPage';
 import { BugDetailPage } from '@/features/bugs/BugDetailPage';
 import { InboxPage } from '@/features/inbox/InboxPage';
+import { MyTasksPage } from '@/features/tasks/MyTasksPage';
 import { RoadmapsPage } from '@/features/roadmaps/RoadmapsPage';
 import { RoadmapBoardPage } from '@/features/roadmaps/RoadmapBoardPage';
 import { MilestonesPage } from '@/features/milestones/MilestonesPage';
@@ -31,7 +32,7 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         {/* Full-screen project workspace — its own topbar + feature sidebar,
             rendered outside the global AppShell to match the report UI. */}
-        <Route path="/projects/:projectId" element={<ProjectLayout />}>
+        <Route path="/testing/:projectId" element={<ProjectLayout />}>
           <Route index element={<ReportView />} />
           <Route path="reports/:reportId" element={<ReportView />} />
           <Route path="summary" element={<FeatureSummary />} />
@@ -39,10 +40,11 @@ export default function App() {
 
         <Route element={<AppShell />}>
           <Route path="/" element={<DashboardPage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/testing" element={<ProjectsPage />} />
           <Route path="/bugs" element={<BugsBoardPage />} />
           <Route path="/bugs/:bugId" element={<BugDetailPage />} />
           <Route path="/inbox" element={<InboxPage />} />
+          <Route path="/tasks" element={<MyTasksPage />} />
           <Route path="/roadmaps" element={<RoadmapsPage />} />
           <Route path="/roadmaps/:roadmapId" element={<RoadmapBoardPage />} />
           <Route path="/milestones" element={<MilestonesPage />} />

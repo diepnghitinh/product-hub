@@ -3,7 +3,7 @@ export { Button, buttonVariants, type ButtonProps } from './Button';
 export { Input } from './Input';
 export { PasswordInput } from './PasswordInput';
 export { Textarea } from './Textarea';
-export { Select } from './Select';
+export { Select, type SelectOption, type SelectProps } from './Select';
 export { ColorSelect, type ColorOption, type ColorSelectProps } from './ColorSelect';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './Combobox';
 export { DatePicker, type DatePickerProps } from './DatePicker';

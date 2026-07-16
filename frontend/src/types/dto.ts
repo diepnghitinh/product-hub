@@ -13,6 +13,7 @@ import {
   RoadmapPhase,
   Role,
   SectionType,
+  TaskStatus,
   TestResult,
   TestType,
   WebhookEvent,
@@ -272,6 +273,30 @@ export interface RoadmapDto {
   description: string;
   items: RoadmapItem[];
   itemCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Tasks ────────────────────────────────────────────────────────────────────
+/** Flat task shape — mirrors the backend `TaskResponseDto`. Links to a backlog
+ * item (roadmap item) via `roadmapItemId` + a denormalized `roadmapItemLabel`
+ * (same id + human-label pattern as a bug→case link). */
+export interface TaskDto {
+  id: string;
+  tenantId: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  roadmapId: string;
+  roadmapItemId: string;
+  roadmapItemLabel: string;
+  projectId: string;
+  assigneeId: string;
+  assigneeName: string;
+  createdBy: string;
+  createdByName: string;
+  dueDate: string;
+  order: number;
   createdAt: string;
   updatedAt: string;
 }

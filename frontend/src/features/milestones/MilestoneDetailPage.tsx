@@ -110,16 +110,11 @@ export function MilestoneDetailPage() {
             <div className="w-full sm:w-44">
               <Select
                 value={milestone.status}
-                onChange={(e) =>
-                  update.mutate({ id: milestone.id, input: { status: e.target.value as MilestoneStatus } })
+                onValueChange={(v) =>
+                  update.mutate({ id: milestone.id, input: { status: v as MilestoneStatus } })
                 }
-              >
-                {MILESTONE_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {MILESTONE_STATUS_LABEL[s]}
-                  </option>
-                ))}
-              </Select>
+                options={MILESTONE_STATUSES.map((s) => ({ value: s, label: MILESTONE_STATUS_LABEL[s] }))}
+              />
             </div>
           )}
           {isAdmin && (

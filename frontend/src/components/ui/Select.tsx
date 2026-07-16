@@ -1,28 +1,76 @@
-import { forwardRef, type SelectHTMLAttributes } from 'react';
-import { ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { type ReactNode } from 'react';
+import {
+  SelectMenu,
+  SelectMenuContent,
+  SelectMenuItem,
+  SelectMenuTrigger,
+  SelectMenuValue,
+} from './select-menu';
+
+export interface SelectOption {
+  value: string;
+  label: ReactNode;
+  disabled?: boolean;
+}
+
+export interface SelectProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  options: SelectOption[];
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+  id?: string;
+  'aria-label'?: string;
+  'aria-invalid'?: boolean;
+}
+
+// Radix Select forbids empty-string item values; bridge '' ⇄ sentinel so call
+// sites can still model an "all"/"none" option with value="".
+const EMPTY = '__empty__';
 
 /**
- * Styled native <select>. Kept as a native control (it accepts <option> children)
- * so existing call sites work unchanged; shadcn-styled to match the design system.
+ * Non-native dropdown — the default select for the app. Built on Radix
+ * `SelectMenu`, so the option list is real, stylable DOM (never an OS-native
+ * `<select>`) rendered in a portal. Options-based for terse call sites; for
+ * colored/icon items or grouping, drop down to `SelectMenu` directly.
  */
-export const Select = forwardRef<
-  HTMLSelectElement,
-  SelectHTMLAttributes<HTMLSelectElement>
->(function Select({ className, children, ...props }, ref) {
+export function Select({
+  value,
+  onValueChange,
+  options,
+  placeholder,
+  disabled,
+  className,
+  id,
+  'aria-label': ariaLabel,
+  'aria-invalid': ariaInvalid,
+}: SelectProps) {
   return (
-    <div className="relative w-full">
-      <select
-        ref={ref}
-        className={cn(
-          'flex h-9 w-full appearance-none rounded-md border border-input bg-transparent py-1 pl-3 pr-8 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>option]:bg-popover [&>option]:text-popover-foreground',
-          className,
-        )}
-        {...props}
+    <SelectMenu
+      value={value === '' ? EMPTY : value}
+      onValueChange={(v) => onValueChange(v === EMPTY ? '' : v)}
+      disabled={disabled}
+    >
+      <SelectMenuTrigger
+        id={id}
+        aria-label={ariaLabel}
+        aria-invalid={ariaInvalid}
+        className={className}
       >
-        {children}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-    </div>
+        <SelectMenuValue placeholder={placeholder} />
+      </SelectMenuTrigger>
+      <SelectMenuContent>
+        {options.map((o) => (
+          <SelectMenuItem
+            key={o.value || EMPTY}
+            value={o.value === '' ? EMPTY : o.value}
+            disabled={o.disabled}
+          >
+            {o.label}
+          </SelectMenuItem>
+        ))}
+      </SelectMenuContent>
+    </SelectMenu>
   );
-});
+}

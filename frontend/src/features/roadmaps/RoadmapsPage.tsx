@@ -46,7 +46,7 @@ export function RoadmapsPage() {
   return (
     <div>
       {projectId && (
-        <BackLink to={`/projects/${projectId}`}>{projectName || t('nav.projects')}</BackLink>
+        <BackLink to={`/testing/${projectId}`}>{projectName || t('nav.projects')}</BackLink>
       )}
       <PageHeader
         title={projectName ? `${t('roadmaps.title')} — ${projectName}` : t('roadmaps.title')}

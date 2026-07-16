@@ -232,6 +232,8 @@ export function RoadmapBoardPage() {
           item={dialogItem ?? undefined}
           defaultPhase={dialogPhase}
           onSave={upsertItem}
+          roadmapId={roadmap.id}
+          projectId={roadmap.projectId}
         />
       )}
     </div>

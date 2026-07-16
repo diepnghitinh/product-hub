@@ -29,7 +29,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     headingKey: 'navgroup.delivery',
     items: [
-      { path: '/projects', labelKey: 'nav.projects', icon: 'projects' },
+      { path: '/testing', labelKey: 'nav.projects', icon: 'projects' },
       { path: '/bugs', labelKey: 'nav.bugs', icon: 'bug' },
     ],
   },
@@ -42,7 +42,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     headingKey: 'navgroup.you',
-    items: [{ path: '/inbox', labelKey: 'nav.inbox', icon: 'inbox', badge: 'inbox' }],
+    items: [
+      { path: '/inbox', labelKey: 'nav.inbox', icon: 'inbox', badge: 'inbox' },
+      { path: '/tasks', labelKey: 'nav.tasks', icon: 'tasks' },
+    ],
   },
   {
     headingKey: 'navgroup.admin',

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Button, Dialog, Field, Input, Select, Textarea } from '@/components/ui';
 import { t } from '@/i18n';
+import { TaskPanel } from '@/features/tasks/components/TaskPanel';
 import {
   ROADMAP_DIFFICULTIES,
   ROADMAP_DIFFICULTY_LABEL,
@@ -20,9 +21,20 @@ interface RoadmapItemDialogProps {
   item?: RoadmapItem;
   defaultPhase?: RoadmapPhase;
   onSave: (item: RoadmapItem) => void;
+  /** Parent roadmap context — enables the Tasks panel when editing an item. */
+  roadmapId?: string;
+  projectId?: string;
 }
 
-export function RoadmapItemDialog({ open, onClose, item, defaultPhase, onSave }: RoadmapItemDialogProps) {
+export function RoadmapItemDialog({
+  open,
+  onClose,
+  item,
+  defaultPhase,
+  onSave,
+  roadmapId,
+  projectId,
+}: RoadmapItemDialogProps) {
   const [form, setForm] = useState<RoadmapItem>(
     item ?? {
       id: crypto.randomUUID(),
@@ -71,31 +83,25 @@ export function RoadmapItemDialog({ open, onClose, item, defaultPhase, onSave }:
         </Field>
         <div className="mb-4 grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 [&>div]:mb-0">
           <Field label="Phase">
-            <Select value={form.phase} onChange={(e) => set({ phase: e.target.value as RoadmapPhase })}>
-              {ROADMAP_PHASES.map((p) => (
-                <option key={p} value={p}>
-                  {ROADMAP_PHASE_LABEL[p]}
-                </option>
-              ))}
-            </Select>
+            <Select
+              value={form.phase}
+              onValueChange={(v) => set({ phase: v as RoadmapPhase })}
+              options={ROADMAP_PHASES.map((p) => ({ value: p, label: ROADMAP_PHASE_LABEL[p] }))}
+            />
           </Field>
           <Field label={t('roadmaps.status')}>
-            <Select value={form.status} onChange={(e) => set({ status: e.target.value as RoadmapItemStatus })}>
-              {ROADMAP_ITEM_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {ROADMAP_ITEM_STATUS_LABEL[s]}
-                </option>
-              ))}
-            </Select>
+            <Select
+              value={form.status}
+              onValueChange={(v) => set({ status: v as RoadmapItemStatus })}
+              options={ROADMAP_ITEM_STATUSES.map((s) => ({ value: s, label: ROADMAP_ITEM_STATUS_LABEL[s] }))}
+            />
           </Field>
           <Field label={t('roadmaps.difficulty')}>
-            <Select value={form.difficulty} onChange={(e) => set({ difficulty: e.target.value as RoadmapDifficulty })}>
-              {ROADMAP_DIFFICULTIES.map((d) => (
-                <option key={d} value={d}>
-                  {ROADMAP_DIFFICULTY_LABEL[d]}
-                </option>
-              ))}
-            </Select>
+            <Select
+              value={form.difficulty}
+              onValueChange={(v) => set({ difficulty: v as RoadmapDifficulty })}
+              options={ROADMAP_DIFFICULTIES.map((d) => ({ value: d, label: ROADMAP_DIFFICULTY_LABEL[d] }))}
+            />
           </Field>
           <Field label={t('roadmaps.progress')}>
             <Input type="number" min={0} max={100} value={form.progress} onChange={(e) => set({ progress: num(e.target.value) })} />
@@ -117,6 +123,14 @@ export function RoadmapItemDialog({ open, onClose, item, defaultPhase, onSave }:
           <Textarea id="ri-desc" value={form.description} onChange={(e) => set({ description: e.target.value })} />
         </Field>
       </form>
+      {item && roadmapId && (
+        <TaskPanel
+          roadmapId={roadmapId}
+          projectId={projectId ?? ''}
+          itemId={item.id}
+          itemLabel={`${ROADMAP_PHASE_LABEL[item.phase]} · ${item.title}`}
+        />
+      )}
     </Dialog>
   );
 }

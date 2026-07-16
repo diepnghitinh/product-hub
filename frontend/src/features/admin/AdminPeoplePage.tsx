@@ -106,14 +106,9 @@ export function AdminPeoplePage() {
                       <Select
                         value={u.role}
                         disabled={u.id === user?.id}
-                        onChange={(e) => updateUser.mutate({ id: u.id, input: { role: e.target.value as Role } })}
-                      >
-                        {Object.values(Role).map((r) => (
-                          <option key={r} value={r}>
-                            {ROLE_LABEL[r]}
-                          </option>
-                        ))}
-                      </Select>
+                        onValueChange={(v) => updateUser.mutate({ id: u.id, input: { role: v as Role } })}
+                        options={Object.values(Role).map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+                      />
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
@@ -167,13 +162,12 @@ export function AdminPeoplePage() {
             <Input id="u-pass" type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
           </Field>
           <Field label={t('people.role')} htmlFor="u-role">
-            <Select id="u-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as Role })}>
-              {Object.values(Role).map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABEL[r]}
-                </option>
-              ))}
-            </Select>
+            <Select
+              id="u-role"
+              value={form.role}
+              onValueChange={(v) => setForm({ ...form, role: v as Role })}
+              options={Object.values(Role).map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+            />
           </Field>
         </form>
       </Dialog>

@@ -15,6 +15,7 @@ import { useUsers } from '@/features/users/api';
 import { useBugs } from '@/features/bugs/api';
 import { CreateBugDialog } from '@/features/bugs/components/CreateBugDialog';
 import { ReportSectionBlock } from './components/ReportSections';
+import { OwnerSelect } from './components/OwnerSelect';
 import { ImportTestCasesDialog } from './components/ImportTestCasesDialog';
 import {
   useReplaceSections,
@@ -143,7 +144,7 @@ export function ReportView() {
   /** Move a test case out of this report and into another feature's testing section. */
   const moveCase = async (caseData: TestCaseData, targetReportId: string) => {
     const target = await apiGet<ReportDto>(
-      `/projects/${projectId}/reports/${targetReportId}`,
+      `/testing/${projectId}/reports/${targetReportId}`,
     );
     const tSections = [...(target.sections ?? [])];
     let ti = tSections.findIndex((s) => s.type === SectionType.TESTING);
@@ -270,21 +271,11 @@ export function ReportView() {
             <span className="label">Owner</span>
             <span className="value">
               {canWrite ? (
-                <select
-                  className="owner-select"
+                <OwnerSelect
                   value={report.owner || ''}
-                  onChange={(e) => update.mutate({ id: report.id, input: { owner: e.target.value } })}
-                >
-                  <option value="">— Unassigned —</option>
-                  {owners.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                  {report.owner && !owners.includes(report.owner) && (
-                    <option value={report.owner}>{report.owner}</option>
-                  )}
-                </select>
+                  options={owners}
+                  onChange={(owner) => update.mutate({ id: report.id, input: { owner } })}
+                />
               ) : (
                 report.owner
               )}

@@ -40,7 +40,7 @@ export function DashboardPage() {
   const { data: inbox } = useInbox();
 
   const tiles: StatTile[] = [
-    { to: '/projects', icon: 'projects', value: projects.length, label: t('home.statProjects') },
+    { to: '/testing', icon: 'projects', value: projects.length, label: t('home.statProjects') },
     { to: '/bugs', icon: 'bug', value: openBugs, label: t('home.statBugs') },
     { to: '/roadmaps', icon: 'roadmap', value: (roadmaps ?? []).length, label: t('home.statRoadmaps') },
     { to: '/milestones', icon: 'milestone', value: (milestones ?? []).length, label: t('home.statMilestones') },
@@ -78,7 +78,7 @@ export function DashboardPage() {
           </h2>
           <Link
             className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
-            to="/projects"
+            to="/testing"
           >
             {t('home.viewAll')} →
           </Link>

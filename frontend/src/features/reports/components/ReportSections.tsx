@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ArrowRightLeft } from 'lucide-react';
-import { ColorSelect, type ColorOption } from '@/components/ui';
+import { ColorSelect, type ColorOption, Select } from '@/components/ui';
+import { OwnerSelect } from './OwnerSelect';
 import { CaseEditDialog } from './CaseEditDialog';
 import type {
   BulletsSection,
@@ -656,35 +657,6 @@ function Testing({
         onTitle={(title) => onChange({ ...section, title })}
       />
 
-      <div className="report-filterbar">
-        <label className="report-filter">
-          <span className="report-filter-label">Assignee</span>
-          <select
-            className="report-filter-select"
-            value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
-          >
-            <option value="all">Everyone</option>
-            {userName && <option value="me">Assigned to me</option>}
-            <option value="unassigned">Unassigned</option>
-            {owners.length > 0 && (
-              <optgroup label="People">
-                {owners.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-        </label>
-        {assignee !== 'all' && cases.length > 0 && (
-          <span className="report-filter-summary">
-            {shownCases.length} of {cases.length} case{cases.length === 1 ? '' : 's'}
-          </span>
-        )}
-      </div>
-
       <div className="status-card">
         {canWrite ? (
           <>
@@ -779,16 +751,37 @@ function Testing({
 
       {(cases.length > 0 || (canWrite && !!onImport)) && (
         <>
-          <h3>
-            Test Case Summary
-            {canWrite && onImport && (
-              <span className="h3-actions">
+          <div className="tc-summary-head">
+            <h3>Test Case Summary</h3>
+            <div className="tc-summary-tools">
+              {cases.length > 0 && (
+                <label className="report-filter">
+                  <span className="report-filter-label">Assignee</span>
+                  <Select
+                    className="h-8 w-auto min-w-[150px]"
+                    value={assignee}
+                    onValueChange={setAssignee}
+                    options={[
+                      { value: 'all', label: 'Everyone' },
+                      ...(userName ? [{ value: 'me', label: 'Assigned to me' }] : []),
+                      { value: 'unassigned', label: 'Unassigned' },
+                      ...owners.map((o) => ({ value: o, label: o })),
+                    ]}
+                  />
+                </label>
+              )}
+              {assignee !== 'all' && cases.length > 0 && (
+                <span className="report-filter-summary">
+                  {shownCases.length} of {cases.length} case{cases.length === 1 ? '' : 's'}
+                </span>
+              )}
+              {canWrite && onImport && (
                 <button type="button" className="inline-btn" onClick={onImport}>
                   ↥ Import
                 </button>
-              </span>
-            )}
-          </h3>
+              )}
+            </div>
+          </div>
           {cases.length === 0 ? (
             <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
               No test cases yet — use Import to add them from a file.
@@ -903,22 +896,11 @@ function Testing({
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       {canWrite ? (
-                        <select
-                          className="edit-cell"
+                        <OwnerSelect
                           value={c.owner || ''}
-                          aria-label="Owner"
-                          onChange={(e) => setCase(c.id, { owner: e.target.value })}
-                        >
-                          <option value="">— Unassigned —</option>
-                          {users.map((u) => (
-                            <option key={u} value={u}>
-                              {u}
-                            </option>
-                          ))}
-                          {c.owner && !users.includes(c.owner) && (
-                            <option value={c.owner}>{c.owner}</option>
-                          )}
-                        </select>
+                          options={users}
+                          onChange={(owner) => setCase(c.id, { owner })}
+                        />
                       ) : (
                         <span style={{ color: 'var(--muted)' }}>{c.owner || '—'}</span>
                       )}

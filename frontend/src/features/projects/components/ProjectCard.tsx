@@ -78,11 +78,11 @@ export function ProjectCard({ project, canWrite, canArchive, stats }: ProjectCar
     <>
       <article
         className="flex cursor-pointer flex-col gap-3 rounded-xl border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:border-foreground/20 focus-visible:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        onClick={() => navigate(`/projects/${project.id}`)}
+        onClick={() => navigate(`/testing/${project.id}`)}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') navigate(`/projects/${project.id}`);
+          if (e.key === 'Enter') navigate(`/testing/${project.id}`);
         }}
       >
         <div className="flex items-start justify-between gap-2">
