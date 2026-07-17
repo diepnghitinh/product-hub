@@ -1,17 +1,25 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { ChevronLeft, Inbox as InboxIcon } from 'lucide-react';
 import { Badge, Button, Spinner } from '@/components/ui';
 import { t } from '@/i18n';
 import { PageHeader } from '@/components/PageHeader';
 import { timeAgo } from '@/lib/format';
-import { INBOX_KIND_LABEL, InboxKind } from '@/types/enums';
 import { cn } from '@/lib/utils';
+import { INBOX_KIND_LABEL, InboxKind } from '@/types/enums';
+import { BugDetail } from '@/features/bugs/components/BugDetail';
 import { useInbox, useMarkInboxSeen } from './api';
 
+/**
+ * Two-pane inbox (Linear-style): a notification list on the left, the selected
+ * item's detail in the main pane. Every inbox item references a bug, so the main
+ * pane renders the shared <BugDetail>. Full-height; on mobile the list and the
+ * detail swap (tap a row → detail, back arrow → list).
+ */
 export function InboxPage() {
   const { data, isLoading } = useInbox();
   const markSeen = useMarkInboxSeen();
-  const [tab, setTab] = useState<'all' | InboxKind>('all');
+  const [params, setParams] = useSearchParams();
 
   // Mark everything read when the inbox is opened.
   useEffect(() => {
@@ -19,50 +27,34 @@ export function InboxPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.unseenCount]);
 
-  const allItems = data?.items ?? [];
-  const items = tab === 'all' ? allItems : allItems.filter((i) => i.kind === tab);
+  const items = data?.items ?? [];
+  // `?item=` = an explicit tap (drives mobile). Desktop falls back to the first.
+  const tapped = params.get('item');
+  const selected = items.find((i) => i.refId === tapped) ?? items[0];
 
-  const tabs: { key: 'all' | InboxKind; label: string }[] = [
-    { key: 'all', label: t('inbox.tabAll') },
-    { key: InboxKind.MENTION, label: t('inbox.tabMentions') },
-    { key: InboxKind.ASSIGNED_BUG, label: t('inbox.tabAssigned') },
-  ];
+  function select(refId: string) {
+    const next = new URLSearchParams(params);
+    next.set('item', refId);
+    setParams(next, { replace: true });
+  }
+  function clearSelection() {
+    const next = new URLSearchParams(params);
+    next.delete('item');
+    setParams(next, { replace: true });
+  }
 
   return (
-    <div>
+    <div className="flex flex-col sm:h-full">
       <PageHeader
         title={t('inbox.title')}
         actions={
-          allItems.length > 0 ? (
+          items.length > 0 ? (
             <Button variant="ghost" size="sm" onClick={() => markSeen.mutate()}>
               {t('inbox.markSeen')}
             </Button>
           ) : undefined
         }
       />
-
-      {allItems.length > 0 && (
-        <div className="mb-4 inline-flex rounded-md border p-0.5">
-          {tabs.map(({ key, label }) => {
-            const count = key === 'all' ? allItems.length : allItems.filter((i) => i.kind === key).length;
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key)}
-                className={cn(
-                  'rounded px-3 py-1 text-sm transition-colors',
-                  tab === key
-                    ? 'bg-accent font-medium text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {label} <span className="text-xs text-muted-foreground">{count}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       {isLoading ? (
         <div className="grid place-items-center rounded-xl border border-dashed p-8">
@@ -73,33 +65,86 @@ export function InboxPage() {
           {t('inbox.empty')}
         </div>
       ) : (
-        <div className="rounded-xl border bg-card p-2 text-card-foreground shadow-sm">
-          {items.map((item) => (
-            <Link
-              key={`${item.kind}-${item.id}`}
-              to={`/bugs/${item.refId}`}
-              className={cn(
-                'flex items-center gap-3 rounded-md px-4 py-3 text-foreground transition-colors hover:bg-accent [&:not(:last-child)]:border-b',
-                !item.seen && 'bg-muted/50',
-              )}
-            >
-              <Badge
-                variant={item.kind === InboxKind.MENTION ? 'info' : 'muted'}
-                className="shrink-0"
-              >
-                {INBOX_KIND_LABEL[item.kind]}
-              </Badge>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-sm font-medium">{item.title}</span>
-                <span className="text-xs text-muted-foreground">
-                  {item.actorName}{' '}
-                  {item.kind === InboxKind.MENTION ? t('inbox.mentionedYou') : t('inbox.assignedYou')} ·{' '}
-                  {timeAgo(item.createdAt)}
-                </span>
+        <div className="flex min-h-0 flex-1 gap-4 sm:overflow-hidden">
+          {/* Left: notification list */}
+          <div
+            className={cn(
+              'flex min-h-0 w-full flex-col overflow-y-auto rounded-xl border bg-card text-card-foreground shadow-sm md:w-[360px] md:shrink-0',
+              tapped && 'hidden md:flex',
+            )}
+          >
+            {items.map((item) => {
+              const active = selected && item.refId === selected.refId;
+              return (
+                <button
+                  key={`${item.kind}-${item.id}`}
+                  type="button"
+                  onClick={() => select(item.refId)}
+                  className={cn(
+                    'flex items-start gap-3 border-b px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-accent',
+                    active && 'bg-accent',
+                  )}
+                >
+                  <span
+                    className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+                    aria-hidden
+                  >
+                    {(item.actorName || '?').charAt(0).toUpperCase()}
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="flex items-center gap-2">
+                      <Badge
+                        variant={item.kind === InboxKind.MENTION ? 'info' : 'muted'}
+                        className="shrink-0"
+                      >
+                        {INBOX_KIND_LABEL[item.kind]}
+                      </Badge>
+                      {!item.seen && <span className="size-2 shrink-0 rounded-full bg-primary" />}
+                      <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                        {timeAgo(item.createdAt)}
+                      </span>
+                    </span>
+                    <span className="truncate text-sm font-medium">{item.title}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {item.actorName}{' '}
+                      {item.kind === InboxKind.MENTION
+                        ? t('inbox.mentionedYou')
+                        : t('inbox.assignedYou')}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Right: the selected item's detail */}
+          <div
+            className={cn(
+              'min-h-0 w-full flex-1 overflow-y-auto md:block',
+              !tapped && 'hidden md:block',
+            )}
+          >
+            {selected ? (
+              <>
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:hidden"
+                >
+                  <ChevronLeft className="size-4" />
+                  {t('inbox.title')}
+                </button>
+                <BugDetail bugId={selected.refId} onDeleted={clearSelection} />
+              </>
+            ) : (
+              <div className="hidden h-full place-items-center text-center text-muted-foreground md:grid">
+                <div className="flex flex-col items-center gap-2">
+                  <InboxIcon className="size-8 opacity-40" aria-hidden />
+                  <p className="text-sm">{t('inbox.selectPrompt')}</p>
+                </div>
               </div>
-              {!item.seen && <span className="size-2 shrink-0 rounded-full bg-primary" />}
-            </Link>
-          ))}
+            )}
+          </div>
         </div>
       )}
     </div>

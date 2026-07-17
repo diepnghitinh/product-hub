@@ -14,6 +14,7 @@ import { BugDetailPage } from '@/features/bugs/BugDetailPage';
 import { InboxPage } from '@/features/inbox/InboxPage';
 import { MyTasksPage } from '@/features/tasks/MyTasksPage';
 import { TaskDetailPage } from '@/features/tasks/TaskDetailPage';
+import { TeamBoardPage } from '@/features/teams/TeamBoardPage';
 import { RoadmapsPage } from '@/features/roadmaps/RoadmapsPage';
 import { RoadmapBoardPage } from '@/features/roadmaps/RoadmapBoardPage';
 import { MilestonesPage } from '@/features/milestones/MilestonesPage';
@@ -47,6 +48,8 @@ export default function App() {
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/tasks" element={<MyTasksPage />} />
           <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
+          {/* A team's own issue list — renders the bug or task board by issueType. */}
+          <Route path="/teams/:teamId" element={<TeamBoardPage />} />
           <Route path="/roadmaps" element={<RoadmapsPage />} />
           <Route path="/roadmaps/:roadmapId" element={<RoadmapBoardPage />} />
           <Route path="/okrs" element={<MilestonesPage />} />

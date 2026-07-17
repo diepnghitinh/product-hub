@@ -6,6 +6,8 @@ export class BugMapper {
     return {
       id: bug.id.toString(),
       tenantId: bug.tenantId,
+      teamId: bug.teamId,
+      shortId: bug.shortId,
       title: bug.title,
       description: bug.description,
       severity: bug.severity,

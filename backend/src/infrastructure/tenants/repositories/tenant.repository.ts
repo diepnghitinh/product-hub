@@ -34,6 +34,11 @@ export class TenantRepository
     };
   }
 
+  async allIds(): Promise<string[]> {
+    const docs = await this.model.find({}, { _id: 1 }).lean<{ _id: string }[]>().exec();
+    return docs.map((d) => d._id);
+  }
+
   async findById(id: string): Promise<TenantEntity | null> {
     const doc = await this.model.findById(id).lean<TenantDoc>().exec();
     return doc ? this.toDomain(doc) : null;

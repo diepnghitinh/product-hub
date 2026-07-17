@@ -5,11 +5,8 @@ import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { useAuth } from '@/lib/auth';
 import { useUsers } from '@/features/users/api';
-import {  TASK_STATUS_COLOR,
-  TASK_STATUS_LABEL,
-  TASK_STATUSES,
-  TaskStatus,
-} from '@/types/enums';
+import { useTeamStatusesLookup } from '@/features/teams/api';
+import { TaskStatus, TeamIssueType, taskStatusColor } from '@/types/enums';
 import {
   useCreateTask,
   useDeleteTask,
@@ -42,6 +39,9 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
 
   const { data, isLoading } = useTasks({ roadmapItemId: itemId });
   const tasks = data?.items ?? [];
+
+  // Columns are per-team, and these tasks can span teams — resolve per row.
+  const statusesFor = useTeamStatusesLookup();
 
   const create = useCreateTask();
   const update = useUpdateTask();
@@ -114,7 +114,7 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
               >
                 <span
                   className="size-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: TASK_STATUS_COLOR[tk.status] }}
+                  style={{ backgroundColor: taskStatusColor(tk.status) }}
                   aria-hidden
                 />
                 <span
@@ -130,14 +130,18 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
                 {canWrite ? (
                   <Select
                     value={tk.status}
-                    onValueChange={(v) => setStatus.mutate({ id: tk.id, status: v as TaskStatus })}
-                    options={TASK_STATUSES.map((s) => ({ value: s, label: TASK_STATUS_LABEL[s] }))}
+                    onValueChange={(v) => setStatus.mutate({ id: tk.id, status: v })}
+                    options={statusesFor(tk.teamId, TeamIssueType.TASK).map((c) => ({
+                      value: c.key,
+                      label: c.label,
+                    }))}
                     className="h-7 w-[124px]"
                     aria-label={t('roadmaps.status')}
                   />
                 ) : (
                   <span className="text-xs text-muted-foreground">
-                    {TASK_STATUS_LABEL[tk.status]}
+                    {statusesFor(tk.teamId, TeamIssueType.TASK).find((c) => c.key === tk.status)
+                      ?.label ?? tk.status}
                   </span>
                 )}
 

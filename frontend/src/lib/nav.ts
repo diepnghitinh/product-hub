@@ -24,7 +24,10 @@ export interface NavGroup {
 export const NAV_GROUPS: NavGroup[] = [
   {
     headingKey: 'navgroup.overview',
-    items: [{ path: '/', labelKey: 'nav.home', icon: 'home', end: true }],
+    items: [
+      { path: '/', labelKey: 'nav.home', icon: 'home', end: true },
+      { path: '/inbox', labelKey: 'nav.inbox', icon: 'inbox', badge: 'inbox' },
+    ],
   },
   {
     // Product Discovery — decide what's worth building (the what & why).
@@ -37,15 +40,9 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     // Product Delivery — build & verify it (the how). Engineer-facing.
     headingKey: 'navgroup.delivery',
-    items: [
-      { path: '/testing', labelKey: 'nav.projects', icon: 'projects' },
-      { path: '/bugs', labelKey: 'nav.bugs', icon: 'bug' },
-      { path: '/tasks', labelKey: 'nav.tasks', icon: 'tasks' },
-    ],
-  },
-  {
-    headingKey: 'navgroup.you',
-    items: [{ path: '/inbox', labelKey: 'nav.inbox', icon: 'inbox', badge: 'inbox' }],
+    // Bugs + Tasks are no longer listed here — each is a team's issue list and
+    // the sidebar renders those dynamically under "Teams".
+    items: [{ path: '/testing', labelKey: 'nav.projects', icon: 'projects' }],
   },
   {
     headingKey: 'navgroup.admin',

@@ -21,6 +21,7 @@ export class CommentRepository
       {
         tenantId: doc.tenantId,
         bugId: doc.bugId,
+        taskId: doc.taskId,
         authorId: doc.authorId,
         authorName: doc.authorName,
         body: doc.body,
@@ -40,6 +41,7 @@ export class CommentRepository
       _id: comment.id.toString(),
       tenantId: comment.tenantId,
       bugId: comment.bugId,
+      taskId: comment.taskId,
       authorId: comment.authorId,
       authorName: comment.authorName,
       body: comment.body,
@@ -59,6 +61,15 @@ export class CommentRepository
     return docs.map((d) => this.toDomain(d));
   }
 
+  async findByTask(tenantId: string, taskId: string): Promise<CommentEntity[]> {
+    const docs = await this.model
+      .find({ tenantId, taskId })
+      .sort({ createdAt: 1 })
+      .lean<CommentDoc[]>()
+      .exec();
+    return docs.map((d) => this.toDomain(d));
+  }
+
   async findById(tenantId: string, id: string): Promise<CommentEntity | null> {
     const doc = await this.model.findOne({ _id: id, tenantId }).lean<CommentDoc>().exec();
     return doc ? this.toDomain(doc) : null;
@@ -69,8 +80,10 @@ export class CommentRepository
     userId: string,
     limit: number,
   ): Promise<CommentEntity[]> {
+    // Bug comments only — the inbox links mentions to /bugs/. Task-comment
+    // mentions are out of scope for the inbox in v1.
     const docs = await this.model
-      .find({ tenantId, mentions: userId })
+      .find({ tenantId, mentions: userId, bugId: { $ne: '' } })
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean<CommentDoc[]>()

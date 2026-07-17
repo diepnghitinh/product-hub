@@ -56,3 +56,39 @@ export function useDeleteComment(bugId: string) {
     },
   });
 }
+
+// ── Task comments — the task-side twin (own thread, not inbox-linked in v1) ──
+
+export function useTaskComments(taskId: string | undefined) {
+  return useQuery({
+    queryKey: ['task-comments', taskId],
+    queryFn: () => apiGet<CommentDto[]>(`/tasks/${taskId}/comments`),
+    enabled: !!taskId,
+  });
+}
+
+export function useCreateTaskComment(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateCommentInput) =>
+      apiPost<CommentDto>(`/tasks/${taskId}/comments`, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['task-comments', taskId] }),
+  });
+}
+
+export function useUpdateTaskComment(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateCommentInput }) =>
+      apiPatch<CommentDto>(`/tasks/${taskId}/comments/${id}`, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['task-comments', taskId] }),
+  });
+}
+
+export function useDeleteTaskComment(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiDelete<{ ok: true }>(`/tasks/${taskId}/comments/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['task-comments', taskId] }),
+  });
+}

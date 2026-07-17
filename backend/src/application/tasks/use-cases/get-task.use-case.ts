@@ -14,8 +14,9 @@ export class GetTaskUseCase implements IUsecaseExecute<GetTaskRequest, Result<Ta
   constructor(@Inject(ITaskRepository) private readonly tasks: ITaskRepository) {}
 
   async execute({ id, tenantId }: GetTaskRequest): Promise<Result<TaskEntity>> {
-    const task = await this.tasks.findById(id);
-    if (!task || task.tenantId !== tenantId) return Result.fail('Task not found');
+    // `id` is the URL ref: a shortId (TSK-7) or a legacy uuid.
+    const task = await this.tasks.findByRef(tenantId, id);
+    if (!task) return Result.fail('Task not found');
     return Result.ok(task);
   }
 }

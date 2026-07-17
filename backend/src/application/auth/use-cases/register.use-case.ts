@@ -7,6 +7,7 @@ import { IUserRepository } from '@application/users/repositories/user.repository
 import { UserEntity } from '@application/users/domain/entities/user.entity';
 import { ITenantRepository } from '@application/tenants/repositories/tenant.repository';
 import { TenantEntity } from '@application/tenants/domain/entities/tenant.entity';
+import { EnsureDefaultTeamsUseCase } from '@application/teams/use-cases/team.use-cases';
 import { RegisterDto } from '../dtos/register.dto';
 
 export interface AuthResult {
@@ -28,6 +29,7 @@ export class RegisterUseCase
     @Inject(ITenantRepository) private readonly tenants: ITenantRepository,
     private readonly password: PasswordService,
     private readonly jwt: JwtService,
+    private readonly ensureTeams: EnsureDefaultTeamsUseCase,
   ) {}
 
   async execute({ dto }: { dto: RegisterDto }): Promise<Result<AuthResult>> {
@@ -40,6 +42,9 @@ export class RegisterUseCase
     if (tenantResult.isFailure) return Result.fail(tenantResult.error as string);
     const tenant = tenantResult.getValue();
     await this.tenants.save(tenant);
+
+    // Every workspace starts with its two teams (QC · Engineering).
+    await this.ensureTeams.execute({ tenantId: tenant.id.toString() });
 
     const passwordHash = await this.password.hash(dto.password);
     const userResult = UserEntity.create({

@@ -4,9 +4,15 @@ import { TaskStatus } from '../enums/task.enums';
 export interface TaskProps {
   id: UniqueEntityID;
   tenantId: string;
+  /** The team whose issue list this task belongs to. */
+  teamId: string;
+  /** Human-friendly per-tenant reference used in URLs, e.g. `TSK-7`. The
+   * internal UUID remains the real identity. */
+  shortId: string;
   title: string;
   description: string;
-  status: TaskStatus;
+  /** Column key: a built-in `TaskStatus` or a custom column slug. */
+  status: string;
   /** Optional link to the roadmap the backlog item belongs to. */
   roadmapId: string;
   /** The linked backlog item (roadmap item) this task delivers. */

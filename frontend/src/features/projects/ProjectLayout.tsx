@@ -16,8 +16,12 @@ import { ENVIRONMENT_LABEL } from '@/types/enums';
 import { FeatureSidebar } from './components/FeatureSidebar';
 import { ShareProjectDialog } from './components/ShareProjectDialog';
 import { HistoryDialog } from '@/features/reports/components/HistoryDialog';
-import { useArchiveProject, useProject } from './api';
+import { useArchiveProject, useProject, useUpdateProject } from './api';
 import { useReports } from '@/features/reports/api';
+
+/** Width, in characters, for the inline title field — enough to fit the text
+ *  without leaving an empty box after a short name or eating the topbar. */
+const titleSize = (value: string) => Math.max(8, Math.min(value.length + 1, 48));
 
 /** Trigger a client-side file download. */
 function downloadFile(name: string, content: string, type: string) {
@@ -86,7 +90,22 @@ export function ProjectLayout() {
   const { data: project, isLoading, isError } = useProject(projectId);
   const { data: reports } = useReports(projectId);
   const archive = useArchiveProject();
+  const update = useUpdateProject();
   const saving = useIsMutating() > 0;
+
+  /**
+   * Save a renamed title. Blank or unchanged just snaps the field back rather
+   * than writing — the input is uncontrolled, so nothing else would restore it.
+   */
+  function commitTitle(input: HTMLInputElement) {
+    if (!project) return;
+    const title = input.value.trim();
+    if (!title || title === project.title) {
+      input.value = project.title;
+      return;
+    }
+    update.mutate({ id: project.id, input: { title } });
+  }
 
   const [collapsed, setCollapsed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -144,7 +163,39 @@ export function ProjectLayout() {
               {t('nav.projects')}
             </Link>
             <ChevronRight className="breadcrumb-sep" size={14} aria-hidden />
-            <h1 className="breadcrumb-current">{project.title}</h1>
+            {/* Stays an h1 either way, so the page keeps its heading. */}
+            <h1 className="breadcrumb-current">
+              {canWrite ? (
+                <input
+                  // Remounts when the title changes server-side, which is also
+                  // what resets the field after a successful save.
+                  key={project.title}
+                  className="breadcrumb-input"
+                  aria-label={t('projects.rename')}
+                  title={t('projects.rename')}
+                  defaultValue={project.title}
+                  maxLength={160}
+                  size={titleSize(project.title)}
+                  // Grow with the text as you type, without a re-render.
+                  onInput={(e) => {
+                    e.currentTarget.size = titleSize(e.currentTarget.value);
+                  }}
+                  onBlur={(e) => commitTitle(e.currentTarget)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault();
+                      e.currentTarget.value = project.title;
+                      e.currentTarget.blur();
+                    }
+                  }}
+                />
+              ) : (
+                project.title
+              )}
+            </h1>
           </nav>
           <span
             className={`env-badge env-${project.environment}`}

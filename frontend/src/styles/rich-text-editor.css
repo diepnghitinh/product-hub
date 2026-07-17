@@ -123,3 +123,11 @@
   color: hsl(var(--success));
   opacity: 1;
 }
+
+/* Inline images (compressed base64 from the image tool) never overflow the
+   editor column, and keep their rounded frame. */
+.rich-text-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+}

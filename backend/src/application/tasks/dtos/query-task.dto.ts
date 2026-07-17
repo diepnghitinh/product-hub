@@ -21,6 +21,11 @@ export class QueryTaskDto extends PaginationDto {
   @IsString({ each: true })
   assigneeId?: string[];
 
+  @ApiPropertyOptional({ description: "Filter by the team's issue list" })
+  @IsOptional()
+  @IsString()
+  teamId?: string;
+
   @ApiPropertyOptional({ description: 'Tasks assigned to OR created by this user id' })
   @IsOptional()
   @IsString()

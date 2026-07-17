@@ -50,11 +50,25 @@ export function useUpdateMilestone() {
 }
 
 export function useReplaceObjectives() {
+  const qc = useQueryClient();
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: ({ id, objectives }: { id: string; objectives: Objective[] }) =>
       apiPut<MilestoneDto>(`/milestones/${id}/objectives`, { objectives }),
-    onSuccess: invalidate,
+    // Painted straight away: every edit on the detail page is a whole-tree PUT,
+    // and waiting for the round trip made dragging a weight feel like it had
+    // snapped back. The server still has the last word — it re-splits the
+    // weights and recomputes progress, which `invalidate` then pulls in.
+    onMutate: async ({ id, objectives }) => {
+      await qc.cancelQueries({ queryKey: ['milestone', id] });
+      const previous = qc.getQueryData<MilestoneDto>(['milestone', id]);
+      if (previous) qc.setQueryData<MilestoneDto>(['milestone', id], { ...previous, objectives });
+      return { previous };
+    },
+    onError: (_err, { id }, context) => {
+      if (context?.previous) qc.setQueryData(['milestone', id], context.previous);
+    },
+    onSettled: invalidate,
   });
 }
 

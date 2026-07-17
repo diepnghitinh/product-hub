@@ -20,8 +20,9 @@ export const en = {
 
   'navgroup.overview': 'Overview',
   'navgroup.discovery': 'Product Discovery',
+  'navgroup.teams': 'Teams',
   'navgroup.delivery': 'Product Delivery',
-  'navgroup.you': 'You',
+  'navgroup.deliverySettings': 'Delivery settings',
   'navgroup.admin': 'Admin',
 
   'home.greeting': 'Welcome back',
@@ -57,6 +58,7 @@ export const en = {
   'projects.new': 'New project',
   'projects.create': 'Create project',
   'projects.edit': 'Edit project',
+  'projects.rename': 'Rename',
   'projects.empty': 'No projects yet. Create your first one to get started.',
   'projects.emptyGuest': 'No projects have been shared with you yet.',
   'projects.title': 'Title',
@@ -193,8 +195,9 @@ export const en = {
 
   'activity.title': 'Activity',
   'activity.empty': 'No comments yet.',
-  'activity.placeholder': 'Write a comment…',
+  'activity.placeholder': 'Leave a comment…',
   'activity.comment': 'Comment',
+  'activity.mentionHint': 'Type @ to mention',
   'activity.notify': 'Notify',
   'activity.notifyPlaceholder': 'Select people…',
   'activity.edited': 'edited',
@@ -208,11 +211,13 @@ export const en = {
   'inbox.tabAssigned': 'Assigned',
   'inbox.mentionedYou': 'mentioned you',
   'inbox.assignedYou': 'assigned you a bug',
+  'inbox.selectPrompt': 'Select a notification to see its details.',
 
   'roadmaps.title': 'Roadmaps',
   'roadmaps.new': 'New roadmap',
   'roadmaps.create': 'Create roadmap',
   'roadmaps.edit': 'Edit roadmap',
+  'roadmaps.rename': 'Rename roadmap',
   'roadmaps.empty': 'No roadmaps yet.',
   'roadmaps.items': 'items',
   'roadmaps.addItem': 'Add item',
@@ -270,11 +275,16 @@ export const en = {
   'tasks.descriptionLabel': 'Description',
   'tasks.noBacklogItem': 'No backlog item',
   'tasks.assignedToYouHint': 'This task will be assigned to you.',
+  'tasks.search': 'Search tasks…',
   'tasks.viewBoard': 'Board',
   'tasks.viewList': 'List',
   'tasks.notFound': 'Task not found.',
   'tasks.confirmDelete': 'Delete this task?',
   'tasks.createdBy': 'Created by',
+  'tasks.addDescription': 'Add description…',
+  'tasks.properties': 'Properties',
+  'tasks.createdThis': 'created this task',
+  'tasks.someone': 'Someone',
   // Task picker — link an existing task to a backlog item
   'tasks.pick': 'Link existing',
   'tasks.pickTitle': 'Link an existing task',
@@ -311,6 +321,16 @@ export const en = {
   'milestones.newObjective': 'New objective',
   'milestones.newKr': 'New key result',
   'milestones.scoreHint': 'Achievement, 0.0–10.0',
+  'milestones.objectiveWeightHint':
+    'An objective always counts for 100% — its key results divide that between them',
+  'milestones.weightSplit': 'Weight split',
+  'milestones.weightSplitHint': 'Drag to adjust',
+  'milestones.weightDivider': 'Weight between {left} and {right}',
+  'milestones.weightTotal': 'Total',
+  'milestones.distributeEvenly': 'Distribute evenly',
+  'milestones.lockWeight': 'Lock weight — hold this key result steady when others change',
+  'milestones.unlockWeight': 'Unlock weight',
+  'milestones.krWeightHint': 'Share of the objective. The other key results adjust to keep 100%.',
 
   'nav.people': 'People',
   'nav.settings': 'Settings',
@@ -351,6 +371,38 @@ export const en = {
   'settings.bugStatusesHint':
     'Rename, recolor, and reorder the columns on your Bugs board. The underlying workflow stays the same, so filters and reports keep working.',
   'settings.saveBugStatuses': 'Save columns',
+  'settings.addColumn': 'Add column',
+  'settings.columns': 'Board columns',
+  'settings.teamStatusesHint':
+    "This team's board columns. Built-in ones can be renamed, recoloured and reordered, but not removed — reports read them.",
+  'settings.builtIn': 'Built-in',
+  // Task labels — tenant-defined, no built-ins
+  'labels.title': 'Task labels',
+  'labels.hint': 'Labels you can put on tasks. Add your own — there are no built-in labels.',
+  'labels.empty': 'No labels yet.',
+  'labels.add': 'Add label',
+  'labels.name': 'Label name',
+  'labels.color': 'Label colour',
+  'labels.save': 'Save labels',
+
+  // Teams — each team is an area with its own issue list
+  'teams.title': 'Teams',
+  'teams.hint': 'A team is an area with its own issue list. QC and Engineering always exist and can be renamed but not archived.',
+  'teams.notFound': 'Team not found.',
+  'teams.issuesSubtitle': 'This team’s issues.',
+  'teams.add': 'Add team',
+  'teams.icon': 'Team symbol',
+  'teams.name': 'Team name',
+  'teams.issueType': 'Issues',
+  'teams.archive': 'Archive',
+  'teams.unarchive': 'Unarchive',
+  'teams.archived': 'Archived',
+  'teams.confirmArchive': 'Archive this team? Its issues stay, but it leaves the sidebar.',
+  'teams.save': 'Save teams',
+
+  'settings.taskStatuses': 'Task board columns',
+  'settings.taskStatusesHint': 'Rename, recolor, reorder, or add custom columns for the Tasks board.',
+  'settings.saveTaskStatuses': 'Save columns',
   'settings.resetDefaults': 'Reset to defaults',
   'settings.statusColor': 'Column color',
   'settings.statusLabel': 'Column name',
@@ -366,6 +418,9 @@ export const en = {
   'public.viewOnly': 'Read-only shared view',
   'public.notAvailable': 'This link is not available.',
   'public.poweredBy': 'Shared via product-hub',
+
+  // Boards — shared kanban feedback
+  'boards.moveFailed': 'Couldn’t move that card — put it back.',
 
   // Filters — the multi-select filter menu on the bug/task boards
   'filters.title': 'Filter',

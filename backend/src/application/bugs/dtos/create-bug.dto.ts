@@ -48,4 +48,9 @@ export class CreateBugDto {
   @IsOptional()
   @IsString()
   assigneeId?: string;
+
+  @ApiPropertyOptional({ description: "Team whose issue list to create in (defaults to the workspace's team for this type)" })
+  @IsOptional()
+  @IsString()
+  teamId?: string;
 }

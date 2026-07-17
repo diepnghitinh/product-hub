@@ -1,14 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
-import { TaskStatus } from '../domain/enums/task.enums';
 import { TaskEntity } from '../domain/entities/task.entity';
 import { ITaskRepository } from '../repositories/task.repository';
 
 export interface SetTaskStatusRequest {
   id: string;
   tenantId: string;
-  status: TaskStatus;
+  status: string;
 }
 
 /** Move a task to another status (todo/in-progress/done). */

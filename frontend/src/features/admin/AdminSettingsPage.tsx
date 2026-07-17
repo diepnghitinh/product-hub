@@ -4,9 +4,11 @@ import {
   ArrowDown,
   ArrowUp,
   KeyRound,
-  ListChecks,
+  Plus,
   RotateCcw,
   Trash2,
+  Tag,
+  Users,
   Webhook,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -31,17 +33,23 @@ import { PageHeader } from '@/components/PageHeader';
 import { BackLink } from '@/components/BackLink';
 import { timeAgo } from '@/lib/format';
 import {
-  BugStatus,
-  BugStatusConfig,
-  DEFAULT_BUG_STATUSES,  WEBHOOK_EVENTS,
+  WEBHOOK_EVENTS,
   WEBHOOK_EVENT_LABEL,
   WebhookEvent,
+  builtinStatusKeys,
+  defaultStatusesFor,
+  defaultTeamIcon,
 } from '@/types/enums';
 import type { CreatedApiKeyDto, WebhookConfig } from '@/types/dto';
 import { useApiKeys, useGenerateApiKey, useRevokeApiKey } from '@/features/api-keys/api';
+import { TeamsSection } from './TeamsSection';
+// Aliased: the tab loop shadows `Icon` with its own lucide component.
+import { Icon as TeamSymbol } from '@/components/Icon';
+import { useTeams, useUpdateTeamStatuses } from '@/features/teams/api';
+import type { TeamDto } from '@/types/dto';
+import { TaskLabelsSection } from './TaskLabelsSection';
 import {
   useSettings,
-  useUpdateBugStatuses,
   useUpdateWebhooks,
 } from '@/features/settings/api';
 
@@ -52,17 +60,28 @@ const TABS: {
   icon: ComponentType<{ className?: string }>;
   Section: ComponentType;
 }[] = [
-  { key: 'bug-statuses', labelKey: 'settings.bugStatuses', icon: ListChecks, Section: BugStatusesSection },
+  { key: 'teams', labelKey: 'teams.title', icon: Users, Section: TeamsSection },
+  { key: 'task-labels', labelKey: 'labels.title', icon: Tag, Section: TaskLabelsSection },
   { key: 'api-keys', labelKey: 'settings.apiKeys', icon: KeyRound, Section: ApiKeysSection },
   { key: 'webhooks', labelKey: 'settings.webhooks', icon: Webhook, Section: WebhooksSection },
 ];
 
+/** A team's own settings live at ?tab=team:<id>. */
+const TEAM_TAB = 'team:';
+
 export function AdminSettingsPage() {
   const { isAdmin } = useAuth();
+  // Each team gets its own entry — statuses are per-team, so there's no
+  // workspace-wide column editor any more.
+  const { data: teams } = useTeams();
+  const activeTeams = (teams ?? []).filter((x) => !x.archived);
   // Which section is open lives in the URL (?tab=api-keys), so it survives a
   // reload and is linkable — same pattern as the boards' ?view=.
   const [searchParams, setSearchParams] = useSearchParams();
   const param = searchParams.get('tab');
+  const activeTeam = param?.startsWith(TEAM_TAB)
+    ? activeTeams.find((x) => x.id === param.slice(TEAM_TAB.length))
+    : undefined;
   const active = TABS.find((s) => s.key === param) ?? TABS[0];
   const setTab = (key: string) => {
     const next = new URLSearchParams(searchParams);
@@ -110,26 +129,83 @@ export function AdminSettingsPage() {
               </button>
             );
           })}
+
+          {activeTeams.length > 0 && (
+            <>
+              <span className="mt-3 hidden px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:block">
+                {t('navgroup.teams')}
+              </span>
+              {activeTeams.map((team) => {
+                const on = activeTeam?.id === team.id;
+                return (
+                  <button
+                    key={team.id}
+                    type="button"
+                    onClick={() => setTab(`${TEAM_TAB}${team.id}`)}
+                    aria-current={on ? 'page' : undefined}
+                    className={cn(
+                      'flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors md:w-full',
+                      on
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                    )}
+                  >
+                    <TeamSymbol
+                      name={team.icon ?? defaultTeamIcon(team.issueType)}
+                      size={16}
+                      className="shrink-0"
+                    />
+                    {team.name}
+                  </button>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         <div className="min-w-0 flex-1">
-          <active.Section />
+          {activeTeam ? <TeamStatusesSection team={activeTeam} /> : <active.Section />}
         </div>
       </div>
     </div>
   );
 }
 
-function BugStatusesSection() {
-  const { data, isLoading } = useSettings();
-  const save = useUpdateBugStatuses();
-  const [rows, setRows] = useState<BugStatusConfig[]>([]);
+type StatusColumn = { key: string; label: string; color: string };
+
+/**
+ * Shared board-columns editor for the bug + task settings sections. Built-ins
+ * (relabel/recolor/reorder, no delete) and custom columns (add/delete), saved
+ * as one array — the backend enforces that built-ins survive.
+ */
+function StatusColumnsEditor({
+  title,
+  hint,
+  saveLabel,
+  value,
+  defaults,
+  builtinKeys,
+  onSave,
+  saving,
+}: {
+  title: string;
+  hint: string;
+  saveLabel: string;
+  /** Current config from settings (undefined while loading). */
+  value: StatusColumn[] | undefined;
+  defaults: StatusColumn[];
+  builtinKeys: Set<string>;
+  onSave: (rows: StatusColumn[]) => void;
+  saving: boolean;
+}) {
+  const [rows, setRows] = useState<StatusColumn[]>([]);
+  const loading = value === undefined;
 
   useEffect(() => {
-    if (data?.bugStatuses?.length) setRows(data.bugStatuses);
-  }, [data]);
+    if (value?.length) setRows(value);
+  }, [value]);
 
-  function update(key: BugStatus, patch: Partial<BugStatusConfig>) {
+  function update(key: string, patch: Partial<StatusColumn>) {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
   function move(i: number, dir: -1 | 1) {
@@ -141,26 +217,32 @@ function BugStatusesSection() {
       return copy;
     });
   }
+  function addColumn() {
+    // Stable generated slug — the label is editable but the key mustn't change
+    // once items reference it.
+    const taken = new Set(rows.map((r) => r.key));
+    let n = rows.length + 1;
+    while (taken.has(`custom-${n}`)) n += 1;
+    setRows((rs) => [...rs, { key: `custom-${n}`, label: 'New column', color: '#a855f7' }]);
+  }
+  function removeColumn(key: string) {
+    setRows((rs) => rs.filter((r) => r.key !== key));
+  }
 
   return (
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-4">
         <div className="space-y-1.5">
-          <CardTitle>{t('settings.bugStatuses')}</CardTitle>
-          <CardDescription>{t('settings.bugStatusesHint')}</CardDescription>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{hint}</CardDescription>
         </div>
-        <Button
-          className="shrink-0"
-          size="sm"
-          variant="ghost"
-          onClick={() => setRows(DEFAULT_BUG_STATUSES)}
-        >
+        <Button className="shrink-0" size="sm" variant="ghost" onClick={() => setRows(defaults)}>
           <RotateCcw className="mr-1.5 size-3.5" />
           {t('settings.resetDefaults')}
         </Button>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {loading ? (
           <div className="grid place-items-center rounded-xl border border-dashed p-8">
             <Spinner />
           </div>
@@ -202,21 +284,62 @@ function BugStatusesSection() {
                   onChange={(e) => update(r.key, { label: e.target.value })}
                 />
                 <span className="font-mono text-xs text-muted-foreground">{r.key}</span>
+                {builtinKeys.has(r.key) ? (
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {t('settings.builtIn')}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label={t('common.delete')}
+                    className="grid size-7 place-items-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => removeColumn(r.key)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                )}
               </div>
             ))}
+            <div className="p-2">
+              <Button variant="ghost" size="sm" onClick={addColumn}>
+                <Plus className="mr-1.5 size-3.5" />
+                {t('settings.addColumn')}
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>
       <CardFooter className="justify-end">
         <Button
-          onClick={() => save.mutate(rows)}
-          loading={save.isPending}
+          onClick={() => onSave(rows)}
+          loading={saving}
           disabled={rows.length === 0 || rows.some((r) => !r.label.trim())}
         >
-          {t('settings.saveBugStatuses')}
+          {saveLabel}
         </Button>
       </CardFooter>
     </Card>
+  );
+}
+
+/**
+ * A single team's board columns. Statuses are per-team: two task teams can run
+ * completely different workflows. Built-ins for the team's issue type are locked
+ * (the rollups read their keys) — the backend enforces it too.
+ */
+function TeamStatusesSection({ team }: { team: TeamDto }) {
+  const save = useUpdateTeamStatuses();
+  return (
+    <StatusColumnsEditor
+      title={`${team.name} · ${t('settings.columns')}`}
+      hint={t('settings.teamStatusesHint')}
+      saveLabel={t('common.save')}
+      value={team.statuses}
+      defaults={defaultStatusesFor(team.issueType)}
+      builtinKeys={builtinStatusKeys(team.issueType)}
+      onSave={(rows) => save.mutate({ id: team.id, statuses: rows })}
+      saving={save.isPending}
+    />
   );
 }
 

@@ -26,6 +26,8 @@ export class TaskRepository
     const result = TaskEntity.create(
       {
         tenantId: doc.tenantId,
+        teamId: doc.teamId,
+        shortId: doc.shortId,
         title: doc.title,
         description: doc.description,
         status: doc.status as TaskStatus,
@@ -52,6 +54,8 @@ export class TaskRepository
     return {
       _id: task.id.toString(),
       tenantId: task.tenantId,
+      teamId: task.teamId,
+      shortId: task.shortId,
       title: task.title,
       description: task.description,
       status: task.status,
@@ -75,6 +79,37 @@ export class TaskRepository
     return doc ? this.toDomain(doc) : null;
   }
 
+  async findByRef(tenantId: string, ref: string): Promise<TaskEntity | null> {
+    // shortId first (the URL-facing id), then uuid for pre-shortId links.
+    const doc =
+      (await this.model.findOne({ tenantId, shortId: ref }).lean<TaskDoc>().exec()) ??
+      (await this.model.findOne({ tenantId, _id: ref }).lean<TaskDoc>().exec());
+    return doc ? this.toDomain(doc) : null;
+  }
+
+  async findWithoutShortId(): Promise<{ id: string; tenantId: string }[]> {
+    const docs = await this.model
+      .find({ $or: [{ shortId: { $exists: false } }, { shortId: '' }] }, { tenantId: 1 })
+      .sort({ createdAt: 1 })
+      .lean<{ _id: string; tenantId: string }[]>()
+      .exec();
+    return docs.map((d) => ({ id: d._id, tenantId: d.tenantId }));
+  }
+
+  async assignMissingTeam(tenantId: string, teamId: string): Promise<number> {
+    const res = await this.model
+      .updateMany(
+        { tenantId, $or: [{ teamId: { $exists: false } }, { teamId: '' }] },
+        { $set: { teamId } },
+      )
+      .exec();
+    return res.modifiedCount ?? 0;
+  }
+
+  async setShortId(id: string, shortId: string): Promise<void> {
+    await this.model.updateOne({ _id: id }, { $set: { shortId } }).exec();
+  }
+
   async findByTenant(tenantId: string, query: QueryTaskDto): Promise<TaskPaginationResponse> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 200;
@@ -86,6 +121,7 @@ export class TaskRepository
     if (query.roadmapItemId?.length) filter.roadmapItemId = { $in: query.roadmapItemId };
     if (query.roadmapId?.length) filter.roadmapId = { $in: query.roadmapId };
     if (query.projectId?.length) filter.projectId = { $in: query.projectId };
+    if (query.teamId) filter.teamId = query.teamId;
     // "My tasks": assigned to me OR created by me (so tasks I create always show).
     if (query.mine) {
       filter.$or = [{ assigneeId: query.mine }, { createdBy: query.mine }];

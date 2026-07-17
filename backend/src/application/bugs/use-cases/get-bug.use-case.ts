@@ -14,8 +14,9 @@ export class GetBugUseCase implements IUsecaseExecute<GetBugRequest, Result<BugE
   constructor(@Inject(IBugRepository) private readonly bugs: IBugRepository) {}
 
   async execute({ id, tenantId }: GetBugRequest): Promise<Result<BugEntity>> {
-    const bug = await this.bugs.findById(id);
-    if (!bug || bug.tenantId !== tenantId) return Result.fail('Bug not found');
+    // `id` is the URL ref: a shortId (BUG-12) or a legacy uuid.
+    const bug = await this.bugs.findByRef(tenantId, id);
+    if (!bug) return Result.fail('Bug not found');
     return Result.ok(bug);
   }
 }

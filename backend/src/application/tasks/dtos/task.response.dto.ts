@@ -11,6 +11,12 @@ export class TaskResponseDto {
   @ApiProperty()
   tenantId: string;
 
+  @ApiProperty({ description: 'The team whose issue list this is in' })
+  teamId: string;
+
+  @ApiProperty({ description: 'Human-friendly reference used in URLs', example: 'BUG-12' })
+  shortId: string;
+
   @ApiProperty()
   title: string;
 
@@ -18,7 +24,7 @@ export class TaskResponseDto {
   description: string;
 
   @ApiProperty({ enum: TaskStatus })
-  status: TaskStatus;
+  status: string;
 
   @ApiProperty()
   roadmapId: string;

@@ -35,6 +35,11 @@ export class QueryBugDto extends PaginationDto {
   @IsString({ each: true })
   projectId?: string[];
 
+  @ApiPropertyOptional({ description: "Filter by the team's issue list" })
+  @IsOptional()
+  @IsString()
+  teamId?: string;
+
   @ApiPropertyOptional({ description: 'Filter by linked test case id' })
   @IsOptional()
   @IsString()

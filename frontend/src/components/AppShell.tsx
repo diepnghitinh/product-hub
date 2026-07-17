@@ -19,9 +19,13 @@ export function AppShell() {
   // Pathname-only on purpose — each page's non-board views (chart/table/list)
   // scroll inside the full-height shell rather than the shell reading `?view=`.
   const isKanban =
-    pathname === '/bugs' || pathname === '/tasks' || /^\/roadmaps\/[^/]+$/.test(pathname);
-  const fullBleed = isKanban;
-  const fullHeight = isKanban;
+    pathname === '/bugs' ||
+    pathname === '/tasks' ||
+    /^\/roadmaps\/[^/]+$/.test(pathname) ||
+    /^\/teams\/[^/]+$/.test(pathname);
+  // The inbox is a full-height two-pane (list + detail), like the boards.
+  const fullBleed = isKanban || pathname === '/inbox';
+  const fullHeight = isKanban || pathname === '/inbox';
 
   return (
     <div className={cn('flex min-h-[100dvh]', fullHeight && 'sm:h-[100dvh] sm:overflow-hidden')}>

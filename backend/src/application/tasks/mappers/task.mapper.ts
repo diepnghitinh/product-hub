@@ -6,6 +6,8 @@ export class TaskMapper {
     return {
       id: task.id.toString(),
       tenantId: task.tenantId,
+      teamId: task.teamId,
+      shortId: task.shortId,
       title: task.title,
       description: task.description,
       status: task.status,

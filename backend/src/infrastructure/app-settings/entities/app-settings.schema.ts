@@ -1,6 +1,7 @@
 import { Schema } from 'mongoose';
 import { v4 as uuid } from 'uuid';
 import { BugStatusConfig } from '@application/bugs/domain/enums/bug.enums';
+import { TaskStatusConfig, TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import { WebhookConfig } from '@application/app-settings/domain/webhook.types';
 
 export interface AppSettingsDoc {
@@ -8,6 +9,8 @@ export interface AppSettingsDoc {
   tenantId: string;
   webhooks: WebhookConfig[];
   bugStatuses: BugStatusConfig[];
+  taskStatuses: TaskStatusConfig[];
+  taskLabels: TaskLabelConfig[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,6 +22,8 @@ export const AppSettingsSchema = new Schema<AppSettingsDoc>(
     webhooks: { type: [Schema.Types.Mixed], default: [] } as unknown as WebhookConfig[],
     // Left undefined until customized — the domain seeds the shipped defaults.
     bugStatuses: { type: [Schema.Types.Mixed], default: undefined } as unknown as BugStatusConfig[],
+    taskStatuses: { type: [Schema.Types.Mixed], default: undefined } as unknown as TaskStatusConfig[],
+    taskLabels: { type: [Schema.Types.Mixed], default: undefined } as unknown as TaskLabelConfig[],
   },
   { timestamps: true },
 );

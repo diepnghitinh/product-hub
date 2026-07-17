@@ -1,7 +1,12 @@
 import { AggregateRoot, UniqueEntityID } from '@core/domain';
 import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
-import { MilestoneStatus, ObjectiveData } from './milestone.types';
+import {
+  MilestoneStatus,
+  ObjectiveData,
+  ObjectiveInput,
+  normalizeObjectives,
+} from './milestone.types';
 import { MilestoneProps } from './milestone.props';
 
 /** An OKR Milestone: objectives, each with measurable key results. */
@@ -91,8 +96,9 @@ export class MilestoneEntity extends AggregateRoot<MilestoneProps> {
     this.touch();
   }
 
-  replaceObjectives(objectives: ObjectiveData[]): void {
-    this.props.objectives = objectives;
+  /** Objectives are pinned to 100% and their key results re-split to sum to 100. */
+  replaceObjectives(objectives: ObjectiveInput[]): void {
+    this.props.objectives = normalizeObjectives(objectives);
     this.touch();
   }
 

@@ -1,6 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
+import { CounterService } from '@module-shared/services/counter.service';
+import { ITeamRepository } from '@application/teams/repositories/team.repository';
+import { DEFAULT_TEAMS, TeamIssueType } from '@application/teams/domain/enums/team.enums';
 import { IUserRepository } from '@application/users/repositories/user.repository';
 import { CreateTaskDto } from '../dtos/create-task.dto';
 import { TaskEntity } from '../domain/entities/task.entity';
@@ -20,6 +23,8 @@ export class CreateTaskUseCase
   constructor(
     @Inject(ITaskRepository) private readonly tasks: ITaskRepository,
     @Inject(IUserRepository) private readonly users: IUserRepository,
+    private readonly counter: CounterService,
+    @Inject(ITeamRepository) private readonly teams: ITeamRepository,
   ) {}
 
   async execute({
@@ -37,8 +42,16 @@ export class CreateTaskUseCase
       assigneeName = assignee.name;
     }
 
+    // Tasks live in the tenant's task team (Engineering by default).
+    const team = await this.teams.findByKey(
+      tenantId,
+      DEFAULT_TEAMS.find((t) => t.issueType === TeamIssueType.TASK)!.key,
+    );
+
     const created = TaskEntity.create({
       tenantId,
+      teamId: dto.teamId || team?.id.toString() || '',
+      shortId: await this.counter.nextShortId(tenantId, 'TSK'),
       title: dto.title,
       description: dto.description,
       status: dto.status,

@@ -6,7 +6,9 @@ export class KeyResultDto {
   @ApiProperty() title: string;
   @ApiProperty() progress: number;
   @ApiProperty() owner: string;
-  @ApiProperty() weight: number;
+  @ApiProperty({ description: 'Share (%) of the objective. Siblings always sum to 100.' })
+  weight: number;
+  @ApiProperty({ description: 'Held steady while siblings rebalance' }) locked: boolean;
   @ApiProperty() status: string;
 }
 
@@ -14,7 +16,8 @@ export class ObjectiveDto {
   @ApiProperty() id: string;
   @ApiProperty() title: string;
   @ApiProperty({ type: [KeyResultDto] }) keyResults: KeyResultDto[];
-  @ApiProperty() weight: number;
+  @ApiProperty({ description: 'Always 100 — an objective owns all of its own scope' })
+  weight: number;
   @ApiProperty() status: string;
   @ApiProperty() notes: string;
   @ApiProperty({ description: 'Weighted rollup of this objective’s key results' }) progress: number;

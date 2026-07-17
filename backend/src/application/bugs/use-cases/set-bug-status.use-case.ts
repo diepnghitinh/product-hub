@@ -1,14 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
-import { BugStatus } from '../domain/enums/bug.enums';
 import { BugEntity } from '../domain/entities/bug.entity';
 import { IBugRepository } from '../repositories/bug.repository';
 
 export interface SetBugStatusRequest {
   id: string;
   tenantId: string;
-  status: BugStatus;
+  status: string;
 }
 
 /** Move a bug to another column (Kanban drag). */

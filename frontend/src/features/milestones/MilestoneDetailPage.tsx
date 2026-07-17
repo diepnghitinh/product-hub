@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { FileText, Plus, Trash2 } from 'lucide-react';
+import { FileText, Lock, Plus, Trash2, Unlock } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button, Input, ProgressBar, Select, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -16,26 +16,22 @@ import {
 } from '@/types/enums';
 import type { KeyResult, Objective } from '@/types/dto';
 import { useDeleteMilestone, useMilestone, useReplaceObjectives, useUpdateMilestone } from './api';
+import { WeightSplitBar, krLabel } from './components/WeightSplitBar';
+import { OBJECTIVE_WEIGHT, TOTAL_WEIGHT, distributeEvenly, setWeight } from './weights';
 
 // Right-hand column widths, shared by the header + objective/KR rows so they align.
 const COL = {
   status: 'w-[124px] shrink-0',
   score: 'w-[52px] shrink-0 text-center',
-  weight: 'w-[72px] shrink-0',
+  weight: 'w-[104px] shrink-0',
   record: 'w-[44px] shrink-0 text-center',
   del: 'w-8 shrink-0',
 };
 
-/** Even weight split that sums to 100 (remainder to the last). */
-function distribute(count: number): number[] {
-  if (count <= 0) return [];
-  const base = Math.floor(100 / count);
-  const arr = Array<number>(count).fill(base);
-  arr[count - 1] += 100 - base * count;
-  return arr;
-}
-
 const clampPct = (v: string, max = 100) => Math.max(0, Math.min(max, Number(v) || 0));
+
+/** Always 100 once saved — shown so the rule is visible rather than implied. */
+const krTotal = (o: Objective) => o.keyResults.reduce((n, k) => n + k.weight, 0);
 
 /** Qualitative status pill — a colour-dotted Select (read-only chip when locked). */
 function StatusChip({
@@ -133,27 +129,52 @@ export function MilestoneDetailPage() {
       ),
     );
   }
+  /** Re-split one objective's key results, keeping everything else as it was. */
+  function applyKrWeights(oid: string, weights: number[]) {
+    saveObjectives(
+      objectives.map((o) =>
+        o.id === oid
+          ? { ...o, keyResults: o.keyResults.map((k, i) => ({ ...k, weight: weights[i] })) }
+          : o,
+      ),
+    );
+  }
+  function setKrWeight(oid: string, kid: string, desired: number) {
+    const o = objectives.find((x) => x.id === oid);
+    if (o) applyKrWeights(oid, setWeight(o.keyResults, kid, desired));
+  }
+  /** An explicit reset: back to an even split, and the pins come off with it. */
+  function evenSplit(oid: string) {
+    saveObjectives(
+      objectives.map((o) => {
+        if (o.id !== oid) return o;
+        const w = distributeEvenly(o.keyResults.length);
+        return {
+          ...o,
+          keyResults: o.keyResults.map((k, i) => ({ ...k, weight: w[i], locked: false })),
+        };
+      }),
+    );
+  }
   function addObjective() {
-    const next: Objective[] = [
+    saveObjectives([
       ...objectives,
       {
         id: crypto.randomUUID(),
         title: t('milestones.newObjective'),
         keyResults: [],
         progress: 0,
-        weight: 0,
+        weight: OBJECTIVE_WEIGHT,
         status: '',
         notes: '',
       },
-    ];
-    const w = distribute(next.length);
-    saveObjectives(next.map((o, i) => ({ ...o, weight: w[i] })));
+    ]);
   }
   function removeObjective(oid: string) {
-    const next = objectives.filter((o) => o.id !== oid);
-    const w = distribute(next.length);
-    saveObjectives(next.map((o, i) => ({ ...o, weight: w[i] })));
+    saveObjectives(objectives.filter((o) => o.id !== oid));
   }
+  // Adding or removing a key result re-splits the objective evenly rather than
+  // trying to preserve a hand-tuned split around a set that just changed size.
   function addKr(oid: string) {
     saveObjectives(
       objectives.map((o) => {
@@ -166,10 +187,11 @@ export function MilestoneDetailPage() {
             progress: 0,
             owner: '',
             weight: 0,
+            locked: false,
             status: '',
           },
         ];
-        const w = distribute(krs.length);
+        const w = distributeEvenly(krs.length);
         return { ...o, keyResults: krs.map((k, i) => ({ ...k, weight: w[i] })) };
       }),
     );
@@ -179,7 +201,7 @@ export function MilestoneDetailPage() {
       objectives.map((o) => {
         if (o.id !== oid) return o;
         const krs = o.keyResults.filter((k) => k.id !== kid);
-        const w = distribute(krs.length);
+        const w = distributeEvenly(krs.length);
         return { ...o, keyResults: krs.map((k, i) => ({ ...k, weight: w[i] })) };
       }),
     );
@@ -278,23 +300,16 @@ export function MilestoneDetailPage() {
                 <span className={cn(COL.score, 'text-sm font-medium tabular-nums')}>
                   {(o.progress / 10).toFixed(1)}
                 </span>
-                <div className={COL.weight}>
-                  {canWrite ? (
-                    <Input
-                      key={`ow-${o.id}-${o.weight}`}
-                      type="number"
-                      min={0}
-                      max={100}
-                      defaultValue={o.weight}
-                      className="h-8 text-right text-sm"
-                      onBlur={(e) => {
-                        const w = clampPct(e.target.value);
-                        w !== o.weight && patchObjective(o.id, { weight: w });
-                      }}
-                    />
-                  ) : (
-                    <span className="block text-right text-sm tabular-nums">{o.weight}%</span>
-                  )}
+                {/* Fixed, not editable: an objective always counts for all of
+                    itself — the split that matters happens between its KRs. */}
+                <div className={cn(COL.weight, 'flex items-center gap-1')}>
+                  <span
+                    className="flex-1 pr-3 text-right text-sm font-medium tabular-nums text-muted-foreground"
+                    title={t('milestones.objectiveWeightHint')}
+                  >
+                    {OBJECTIVE_WEIGHT}%
+                  </span>
+                  {canWrite && <span className="size-7 shrink-0" aria-hidden />}
                 </div>
                 <span className={cn(COL.record, 'text-sm tabular-nums text-muted-foreground')}>0</span>
                 {canWrite && (
@@ -316,7 +331,7 @@ export function MilestoneDetailPage() {
               {o.keyResults.map((k, ki) => (
                 <div key={k.id} className="flex items-center gap-2 border-b py-2 last:border-b-0">
                   <span className="ml-6 grid h-5 shrink-0 place-items-center rounded-full bg-primary/10 px-1.5 text-[10px] font-semibold text-primary">
-                    KR{ki + 1}
+                    {krLabel(ki)}
                   </span>
                   {canWrite ? (
                     <Input
@@ -358,22 +373,42 @@ export function MilestoneDetailPage() {
                       </span>
                     )}
                   </div>
-                  <div className={COL.weight}>
+                  <div className={cn(COL.weight, 'flex items-center gap-1')}>
                     {canWrite ? (
-                      <Input
-                        key={`kw-${k.id}-${k.weight}`}
-                        type="number"
-                        min={0}
-                        max={100}
-                        defaultValue={k.weight}
-                        className="h-8 text-right text-sm"
-                        onBlur={(e) => {
-                          const w = clampPct(e.target.value);
-                          w !== k.weight && patchKr(o.id, k.id, { weight: w });
-                        }}
-                      />
+                      <>
+                        <Input
+                          key={`kw-${k.id}-${k.weight}`}
+                          type="number"
+                          min={0}
+                          max={100}
+                          defaultValue={k.weight}
+                          className="h-8 min-w-0 flex-1 px-2 text-right text-sm"
+                          title={t('milestones.krWeightHint')}
+                          onBlur={(e) => {
+                            const w = clampPct(e.target.value);
+                            w !== k.weight && setKrWeight(o.id, k.id, w);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          aria-pressed={k.locked}
+                          aria-label={
+                            k.locked ? t('milestones.unlockWeight') : t('milestones.lockWeight')
+                          }
+                          title={k.locked ? t('milestones.unlockWeight') : t('milestones.lockWeight')}
+                          className={cn(
+                            'grid size-7 shrink-0 place-items-center rounded-md transition-colors',
+                            k.locked
+                              ? 'bg-primary/10 text-primary'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                          )}
+                          onClick={() => patchKr(o.id, k.id, { locked: !k.locked })}
+                        >
+                          {k.locked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
+                        </button>
+                      </>
                     ) : (
-                      <span className="block text-right text-sm tabular-nums">{k.weight}%</span>
+                      <span className="flex-1 pr-3 text-right text-sm tabular-nums">{k.weight}%</span>
                     )}
                   </div>
                   <span className={cn(COL.record, 'text-sm tabular-nums text-muted-foreground')}>0</span>
@@ -393,10 +428,54 @@ export function MilestoneDetailPage() {
                 </div>
               ))}
 
+              {/* One key result is always the whole 100% — there is no split to show. */}
+              {o.keyResults.length > 1 && (
+                <div className="mt-3 border-t pt-3">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {t('milestones.weightSplit')}
+                      {canWrite && (
+                        <span className="ml-1.5 normal-case tracking-normal opacity-70">
+                          · {t('milestones.weightSplitHint')}
+                        </span>
+                      )}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {t('milestones.weightTotal')}{' '}
+                        <strong
+                          className={cn(
+                            'font-semibold',
+                            krTotal(o) === TOTAL_WEIGHT ? 'text-foreground' : 'text-destructive',
+                          )}
+                        >
+                          {krTotal(o)}%
+                        </strong>
+                      </span>
+                      {canWrite && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => evenSplit(o.id)}
+                        >
+                          {t('milestones.distributeEvenly')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <WeightSplitBar
+                    items={o.keyResults}
+                    disabled={!canWrite}
+                    onChange={(weights) => applyKrWeights(o.id, weights)}
+                  />
+                </div>
+              )}
+
               {canWrite && (
                 <button
                   type="button"
-                  className="mt-2 flex items-center gap-1.5 rounded-md px-1 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  className="mt-3 flex items-center gap-1.5 rounded-md px-1 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                   onClick={() => addKr(o.id)}
                 >
                   <Plus className="size-4" />

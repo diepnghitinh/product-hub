@@ -1,35 +1,26 @@
 import { MilestoneEntity } from '../domain/milestone.entity';
-import { milestoneProgress, objectiveProgress } from '../domain/milestone.types';
+import {
+  milestoneProgress,
+  normalizeObjectives,
+  objectiveProgress,
+} from '../domain/milestone.types';
 import { MilestoneResponseDto } from '../dtos/milestone.response.dto';
 
 export class MilestoneMapper {
   static toResponseDto(milestone: MilestoneEntity): MilestoneResponseDto {
+    // Normalizing on the way out means objectives/KRs stored before weights had
+    // to sum to 100 — or before `locked` existed — still return a clean, typed
+    // shape that honours the invariant.
+    const objectives = normalizeObjectives(milestone.objectives ?? []);
     return {
       id: milestone.id.toString(),
       tenantId: milestone.tenantId,
       title: milestone.title,
       timeframe: milestone.timeframe,
       status: milestone.status,
-      // Defensive defaults so objectives/KRs created before weight/status/notes
-      // existed still return a clean, typed shape.
-      objectives: milestone.objectives.map((o) => ({
-        id: o.id,
-        title: o.title,
-        keyResults: (o.keyResults ?? []).map((k) => ({
-          id: k.id,
-          title: k.title,
-          progress: k.progress ?? 0,
-          owner: k.owner ?? '',
-          weight: k.weight ?? 0,
-          status: k.status ?? '',
-        })),
-        weight: o.weight ?? 0,
-        status: o.status ?? '',
-        notes: o.notes ?? '',
-        progress: objectiveProgress(o),
-      })),
+      objectives: objectives.map((o) => ({ ...o, progress: objectiveProgress(o) })),
       roadmapIds: milestone.roadmapIds,
-      progress: milestoneProgress(milestone.objectives),
+      progress: milestoneProgress(objectives),
       createdAt: milestone.createdAt,
       updatedAt: milestone.updatedAt,
     };

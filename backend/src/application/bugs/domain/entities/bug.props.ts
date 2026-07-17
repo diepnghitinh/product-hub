@@ -4,10 +4,16 @@ import { BugSeverity, BugStatus } from '../enums/bug.enums';
 export interface BugProps {
   id: UniqueEntityID;
   tenantId: string;
+  /** The team whose issue list this bug belongs to. */
+  teamId: string;
+  /** Human-friendly per-tenant reference used in URLs, e.g. `BUG-12`. The
+   * internal UUID remains the real identity. */
+  shortId: string;
   title: string;
   description: string;
   severity: BugSeverity;
-  status: BugStatus;
+  /** Column key: a built-in `BugStatus` or a custom column slug. */
+  status: string;
   type: string;
   /** Optional link to a project. */
   projectId: string;

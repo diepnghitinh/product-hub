@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
+import { t } from '@/i18n';
 import type { RoadmapColumn, RoadmapDto, RoadmapItem } from '@/types/dto';
 
 export function useRoadmaps() {
@@ -40,12 +42,32 @@ export function useUpdateRoadmap() {
   });
 }
 
+/**
+ * Optimistic: the board reflects the drop immediately — the card leaves its old
+ * slot and lands in the new one rather than snapping back until the server
+ * answers. `items` carries the order too, so this covers reorder as well as
+ * moves. A failed write restores the previous array.
+ */
 export function useReplaceRoadmapItems() {
+  const qc = useQueryClient();
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: ({ id, items }: { id: string; items: RoadmapItem[] }) =>
       apiPut<RoadmapDto>(`/roadmaps/${id}/items`, { items }),
-    onSuccess: invalidate,
+    onMutate: async ({ id, items }) => {
+      // Stop an in-flight refetch from clobbering the optimistic state.
+      await qc.cancelQueries({ queryKey: ['roadmap', id] });
+      const prev = qc.getQueryData<RoadmapDto>(['roadmap', id]);
+      qc.setQueryData<RoadmapDto>(['roadmap', id], (old) => (old ? { ...old, items } : old));
+      return { prev };
+    },
+    onError: (err, { id }, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['roadmap', id], ctx.prev);
+      // Say why — an unexplained snap-back just reads as a broken board.
+      toast.error(t('boards.moveFailed'), { description: err.message });
+    },
+    // Resync either way — the server recomputes riceScore/itemCount.
+    onSettled: invalidate,
   });
 }
 

@@ -10,6 +10,12 @@ export class BugResponseDto {
   @ApiProperty()
   tenantId: string;
 
+  @ApiProperty({ description: 'The team whose issue list this is in' })
+  teamId: string;
+
+  @ApiProperty({ description: 'Human-friendly reference used in URLs', example: 'BUG-12' })
+  shortId: string;
+
   @ApiProperty()
   title: string;
 
@@ -20,7 +26,7 @@ export class BugResponseDto {
   severity: BugSeverity;
 
   @ApiProperty({ enum: BugStatus })
-  status: BugStatus;
+  status: string;
 
   @ApiProperty()
   type: string;

@@ -14,9 +14,11 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
   static create(
     props: {
       tenantId: string;
+      teamId?: string;
+      shortId?: string;
       title: string;
       description?: string;
-      status?: TaskStatus;
+      status?: string;
       roadmapId?: string;
       roadmapItemId?: string;
       roadmapItemLabel?: string;
@@ -46,6 +48,8 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
         {
           id: id || new UniqueEntityID(),
           tenantId: props.tenantId,
+          teamId: props.teamId || '',
+          shortId: props.shortId || '',
           title: props.title.trim(),
           description: props.description?.trim() || '',
           status: props.status ?? TaskStatus.TODO,
@@ -73,13 +77,19 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
   get tenantId(): string {
     return this.props.tenantId;
   }
+  get teamId(): string {
+    return this.props.teamId;
+  }
+  get shortId(): string {
+    return this.props.shortId;
+  }
   get title(): string {
     return this.props.title;
   }
   get description(): string {
     return this.props.description;
   }
-  get status(): TaskStatus {
+  get status(): string {
     return this.props.status;
   }
   get roadmapId(): string {
@@ -141,7 +151,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
     this.touch();
   }
 
-  setStatus(status: TaskStatus): void {
+  setStatus(status: string): void {
     this.props.status = status;
     this.touch();
   }

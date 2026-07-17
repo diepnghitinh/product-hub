@@ -13,7 +13,12 @@ import {
   RoadmapPhase,
   Role,
   SectionType,
+  TaskLabelConfig,
   TaskStatus,
+  TaskStatusConfig,
+  TeamIcon,
+  TeamIssueType,
+  TeamStatusConfig,
   TestResult,
   TestType,
   WebhookEvent,
@@ -202,11 +207,16 @@ export interface AuditLogDto {
 // ── Bugs, activity, inbox ────────────────────────────────────────────────────
 export interface BugDto {
   id: string;
+  /** The team that owns this bug — drives which board columns apply. */
+  teamId: string;
   tenantId: string;
+  /** Human-friendly per-tenant reference used in URLs, e.g. `BUG-12`. */
+  shortId: string;
   title: string;
   description: string;
   severity: BugSeverity;
-  status: BugStatus;
+  /** Built-in `BugStatus` or a custom column key. */
+  status: string;
   type: string;
   projectId: string;
   caseId: string;
@@ -303,10 +313,15 @@ export interface RoadmapDto {
  * (same id + human-label pattern as a bug→case link). */
 export interface TaskDto {
   id: string;
+  /** The team that owns this task — drives which board columns apply. */
+  teamId: string;
   tenantId: string;
+  /** Human-friendly per-tenant reference used in URLs, e.g. `TSK-7`. */
+  shortId: string;
   title: string;
   description: string;
-  status: TaskStatus;
+  /** Built-in `TaskStatus` or a custom column key. */
+  status: string;
   roadmapId: string;
   roadmapItemId: string;
   roadmapItemLabel: string;
@@ -327,8 +342,10 @@ export interface KeyResult {
   title: string;
   progress: number;
   owner: string;
-  /** Weight (%) within its objective. */
+  /** Share (%) of its objective. Siblings always sum to 100. */
   weight: number;
+  /** Held steady while its siblings' weights rebalance. */
+  locked: boolean;
   /** OKR status key ('' = no status). */
   status: string;
 }
@@ -339,7 +356,7 @@ export interface Objective {
   keyResults: KeyResult[];
   /** Weighted rollup of this objective's key results (0–100). */
   progress: number;
-  /** Weight (%) within the milestone. */
+  /** Always 100 — an objective owns all of its own scope. Not editable. */
   weight: number;
   status: string;
   notes: string;
@@ -380,10 +397,33 @@ export interface WebhookConfig {
   enabled: boolean;
 }
 
+// ── Teams ────────────────────────────────────────────────────────────────────
+/** An area of the workspace with its own issue list. QC (bugs) + Engineering
+ * (tasks) are seeded on every workspace and can't be archived. */
+export interface TeamDto {
+  id: string;
+  tenantId: string;
+  /** Stable slug (`qc`, `engineering`); the name is editable. */
+  key: string;
+  name: string;
+  issueType: TeamIssueType;
+  /** Nav symbol; falls back to the issue type's icon. */
+  icon: TeamIcon;
+  /** This team's board columns, in order. Resolves to the type's defaults if unset. */
+  statuses: TeamStatusConfig[];
+  archived: boolean;
+  isDefault: boolean;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AppSettingsDto {
   tenantId: string;
   webhooks: WebhookConfig[];
   bugStatuses: BugStatusConfig[];
+  taskStatuses: TaskStatusConfig[];
+  taskLabels: TaskLabelConfig[];
 }
 
 export interface PublicProjectView {

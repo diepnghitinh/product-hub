@@ -3,10 +3,18 @@ import { InfrastructureAppSettingsModule } from '@infrastructure/app-settings/ap
 import {
   GetAppSettingsUseCase,
   UpdateBugStatusesUseCase,
+  UpdateTaskLabelsUseCase,
+  UpdateTaskStatusesUseCase,
   UpdateWebhooksUseCase,
 } from './use-cases/app-settings.use-cases';
 
-const useCases = [GetAppSettingsUseCase, UpdateWebhooksUseCase, UpdateBugStatusesUseCase];
+const useCases = [
+  GetAppSettingsUseCase,
+  UpdateWebhooksUseCase,
+  UpdateBugStatusesUseCase,
+  UpdateTaskStatusesUseCase,
+  UpdateTaskLabelsUseCase,
+];
 
 @Module({
   imports: [InfrastructureAppSettingsModule],

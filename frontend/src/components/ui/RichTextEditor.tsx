@@ -7,8 +7,10 @@ import InlineCode from '@editorjs/inline-code';
 import Underline from '@editorjs/underline';
 import CodeTool from '@editorjs/code';
 import Table from '@editorjs/table';
+import ImageTool from '@editorjs/image';
 import { blocksToHtml, htmlToBlocks, type HtmlEditorBlock } from '@/lib/editorjs';
 import { enhanceCodeBlocks } from '@/lib/enhanceCodeBlocks';
+import { compressImageFile } from '@/lib/compressImage';
 import '@/styles/rich-text-editor.css';
 
 export interface RichTextEditorProps {
@@ -17,8 +19,30 @@ export interface RichTextEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   minHeight?: number;
+  /**
+   * Enable pasting/selecting images. Each image is compressed in the browser
+   * and stored inline as a base64 data URL (no upload endpoint) — see
+   * `compressImageFile`. Off by default to keep plain descriptions light.
+   */
+  images?: boolean;
   className?: string;
 }
+
+/** Image tool wired to compress client-side, then inline as a data URL — so a
+ * pasted screenshot round-trips through the HTML `description` field. */
+const compressingImageTool = {
+  class: ImageTool,
+  config: {
+    uploader: {
+      uploadByFile: async (file: File) => ({
+        success: 1,
+        file: { url: await compressImageFile(file) },
+      }),
+      // A pasted image URL is kept as-is (nothing local to compress).
+      uploadByUrl: async (url: string) => ({ success: 1, file: { url } }),
+    },
+  },
+};
 
 function withFallbackBlocks(blocks: HtmlEditorBlock[]): HtmlEditorBlock[] {
   return blocks.length > 0 ? blocks : [{ type: 'paragraph', data: { text: '' } }];
@@ -27,15 +51,16 @@ function withFallbackBlocks(blocks: HtmlEditorBlock[]): HtmlEditorBlock[] {
 /**
  * Block-style rich text editor (Editor.js). Reads/writes plain HTML via the
  * `lib/editorjs` converters, so it's a drop-in for a `<Textarea>` whose value is
- * a string — existing plain-text values round-trip as a single paragraph. Tool
- * config mirrors old-report (header / list / marker / inline-code / underline /
- * code / table); image is intentionally omitted for now.
+ * a string — existing plain-text values round-trip as a single paragraph. Tools:
+ * header / list / marker / inline-code / underline / code / table, plus an
+ * optional compressing image tool (`images` prop).
  */
 export function RichTextEditor({
   value,
   onChange,
   placeholder,
   minHeight,
+  images = false,
   className,
 }: RichTextEditorProps) {
   const holderRef = useRef<HTMLDivElement | null>(null);
@@ -45,6 +70,7 @@ export function RichTextEditor({
   const onChangeRef = useRef(onChange);
   const placeholderRef = useRef(placeholder);
   const minHeightRef = useRef(minHeight);
+  const imagesRef = useRef(images);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -85,6 +111,9 @@ export function RichTextEditor({
             inlineToolbar: true,
             config: { rows: 2, cols: 3, withHeadings: true },
           },
+          // Compresses on paste/drop/select; the tool auto-registers image-file
+          // paste handling when present.
+          ...(imagesRef.current ? { image: compressingImageTool } : {}),
         },
         onChange: () => {
           void emitHtml();

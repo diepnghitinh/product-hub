@@ -14,6 +14,8 @@ export class AppSettingsRepository implements IAppSettingsRepository {
       tenantId: doc.tenantId,
       webhooks: doc.webhooks ?? [],
       bugStatuses: doc.bugStatuses,
+      taskStatuses: doc.taskStatuses,
+      taskLabels: doc.taskLabels,
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
     });
@@ -35,6 +37,8 @@ export class AppSettingsRepository implements IAppSettingsRepository {
           tenantId: settings.tenantId,
           webhooks: settings.webhooks,
           bugStatuses: settings.bugStatuses,
+          taskStatuses: settings.taskStatuses,
+          taskLabels: settings.taskLabels,
         },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       )

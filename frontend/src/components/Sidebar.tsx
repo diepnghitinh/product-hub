@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useTheme } from '@/lib/theme';
@@ -7,8 +7,9 @@ import { Icon } from '@/components/Icon';
 import { cn } from '@/lib/utils';
 import { NAV_GROUPS } from '@/lib/nav';
 import { t } from '@/i18n';
-import { ROLE_LABEL } from '@/types/enums';
+import { ROLE_LABEL, defaultTeamIcon } from '@/types/enums';
 import { useInbox } from '@/features/inbox/api';
+import { useTeams } from '@/features/teams/api';
 
 const COLLAPSE_KEY = 'ph_nav_collapsed';
 
@@ -32,6 +33,9 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const navigate = useNavigate();
   const { data: inbox } = useInbox();
   const unseen = inbox?.unseenCount ?? 0;
+  // Teams are dynamic (QC/Engineering are seeded); archived ones drop out.
+  const { data: teams } = useTeams();
+  const activeTeams = (teams ?? []).filter((x) => !x.archived);
 
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
@@ -87,14 +91,29 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           const items = group.items.filter((i) => !i.adminOnly || isAdmin);
           if (items.length === 0) return null;
           return (
-            <div key={group.headingKey} className="flex flex-col gap-0.5">
+            <Fragment key={group.headingKey}>
+            <div className="group/heading flex flex-col gap-0.5">
               <span
                 className={cn(
-                  'px-2 pb-0.5 pt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground',
+                  'flex items-center gap-1 px-2 pb-0.5 pt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground',
                   collapsed && 'md:hidden',
                 )}
               >
                 {t(group.headingKey)}
+                {/* Delivery's own settings (task statuses + labels) — revealed on
+                    hover, like the section gear in the concept. Admin-only, since
+                    that's who the settings page is for. */}
+                {group.headingKey === 'navgroup.delivery' && isAdmin && (
+                  <Link
+                    to="/admin/settings?tab=task-statuses"
+                    onClick={onCloseMobile}
+                    title={t('navgroup.deliverySettings')}
+                    aria-label={t('navgroup.deliverySettings')}
+                    className="ml-auto grid size-4 place-items-center rounded text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/heading:opacity-100 max-md:opacity-100"
+                  >
+                    <Icon name="settings" size={12} />
+                  </Link>
+                )}
               </span>
               {items.map((item) => (
                 <NavLink
@@ -130,6 +149,44 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                 </NavLink>
               ))}
             </div>
+
+            {/* Teams sit right under Delivery — each is an area with its own
+                issue list (QC → bugs, Engineering → tasks). */}
+            {group.headingKey === 'navgroup.delivery' && activeTeams.length > 0 && (
+              <div className="flex flex-col gap-0.5">
+                <span
+                  className={cn(
+                    'px-2 pb-0.5 pt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground',
+                    collapsed && 'md:hidden',
+                  )}
+                >
+                  {t('navgroup.teams')}
+                </span>
+                {activeTeams.map((team) => (
+                  <NavLink
+                    key={team.id}
+                    to={`/teams/${team.id}`}
+                    onClick={onCloseMobile}
+                    title={collapsed ? team.name : undefined}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                        isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+                        collapsed && 'md:justify-center md:gap-0',
+                      )
+                    }
+                  >
+                    <span className="grid shrink-0 place-items-center">
+                      <Icon name={team.icon ?? defaultTeamIcon(team.issueType)} size={16} />
+                    </span>
+                    <span className={cn('flex-1 truncate', collapsed && 'md:hidden')}>
+                      {team.name}
+                    </span>
+                  </NavLink>
+                ))}
+              </div>
+            )}
+            </Fragment>
           );
         })}
       </nav>

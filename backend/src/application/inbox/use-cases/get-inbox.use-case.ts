@@ -48,7 +48,8 @@ export class GetInboxUseCase implements IUsecaseExecute<GetInboxRequest, Result<
       this.comments.findMentionsForUser(tenantId, userId, 50),
       this.bugs.findByTenant(
         tenantId,
-        Object.assign(new QueryBugDto(), { assigneeId: userId, page: 1, limit: 50 }),
+        // assigneeId is a multi-value filter (string[]) — wrap the single id.
+        Object.assign(new QueryBugDto(), { assigneeId: [userId], page: 1, limit: 50 }),
       ),
     ]);
 

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPut } from '@/lib/api';
 import type { AppSettingsDto, WebhookConfig } from '@/types/dto';
-import type { BugStatusConfig } from '@/types/enums';
+import type { TaskLabelConfig } from '@/types/enums';
 
 export function useSettings(enabled = true) {
   return useQuery({
@@ -20,22 +20,22 @@ export function useUpdateWebhooks() {
   });
 }
 
-/** Bug board columns — readable by any authenticated user (drives the board). */
-export function useBugStatuses() {
+/** Task labels — readable by any authenticated user (they render on tasks). */
+export function useTaskLabels() {
   return useQuery({
-    queryKey: ['bug-statuses'],
-    queryFn: () => apiGet<BugStatusConfig[]>('/settings/bug-statuses'),
+    queryKey: ['task-labels'],
+    queryFn: () => apiGet<TaskLabelConfig[]>('/settings/task-labels'),
   });
 }
 
-export function useUpdateBugStatuses() {
+export function useUpdateTaskLabels() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (bugStatuses: BugStatusConfig[]) =>
-      apiPut<AppSettingsDto>('/settings/bug-statuses', { bugStatuses }),
+    mutationFn: (taskLabels: TaskLabelConfig[]) =>
+      apiPut<AppSettingsDto>('/settings/task-labels', { taskLabels }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['settings'] });
-      qc.invalidateQueries({ queryKey: ['bug-statuses'] });
+      qc.invalidateQueries({ queryKey: ['task-labels'] });
     },
   });
 }

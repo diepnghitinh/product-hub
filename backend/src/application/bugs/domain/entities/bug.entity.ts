@@ -14,10 +14,12 @@ export class BugEntity extends AggregateRoot<BugProps> {
   static create(
     props: {
       tenantId: string;
+      teamId?: string;
+      shortId?: string;
       title: string;
       description?: string;
       severity?: BugSeverity;
-      status?: BugStatus;
+      status?: string;
       type?: string;
       projectId?: string;
       caseId?: string;
@@ -47,6 +49,8 @@ export class BugEntity extends AggregateRoot<BugProps> {
         {
           id: id || new UniqueEntityID(),
           tenantId: props.tenantId,
+          teamId: props.teamId || '',
+          shortId: props.shortId || '',
           title: props.title.trim(),
           description: props.description?.trim() || '',
           severity: props.severity ?? BugSeverity.MEDIUM,
@@ -75,6 +79,12 @@ export class BugEntity extends AggregateRoot<BugProps> {
   get tenantId(): string {
     return this.props.tenantId;
   }
+  get teamId(): string {
+    return this.props.teamId;
+  }
+  get shortId(): string {
+    return this.props.shortId;
+  }
   get title(): string {
     return this.props.title;
   }
@@ -84,7 +94,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
   get severity(): BugSeverity {
     return this.props.severity;
   }
-  get status(): BugStatus {
+  get status(): string {
     return this.props.status;
   }
   get type(): string {
@@ -148,7 +158,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
     this.touch();
   }
 
-  setStatus(status: BugStatus): void {
+  setStatus(status: string): void {
     this.props.status = status;
     this.touch();
   }

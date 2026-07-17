@@ -35,12 +35,14 @@ export const BUG_STATUSES: BugStatus[] = [
 ];
 
 /**
- * Tenant-configurable presentation for a bug workflow status (a board column).
- * The `key` is the stable workflow value stored on each bug — only the `label`,
- * `color` and array order are admin-editable, so filters/rollups keep working.
+ * Tenant-configurable board column for bugs. `key` is the stable value stored on
+ * each bug: the built-ins (`BugStatus`) can be relabelled/recoloured/reordered
+ * but not removed, and admins may add **custom** columns with their own slug
+ * `key`. Typed as `string` (not `BugStatus`) to allow those custom keys; the
+ * built-in keys are the `BugStatus` members.
  */
 export interface BugStatusConfig {
-  key: BugStatus;
+  key: string;
   label: string;
   color: string;
 }

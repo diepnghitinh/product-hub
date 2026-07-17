@@ -156,6 +156,7 @@ export function RoadmapItemDialog({
             placeholder={t('roadmaps.description')}
             minHeight={260}
             className="min-h-[300px] flex-1"
+            images
           />
           {item && roadmapId && (
             <TaskPanel

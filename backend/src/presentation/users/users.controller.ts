@@ -55,7 +55,9 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(Role.ADMIN, Role.PRODUCT)
+  // Read-only people list — any member needs it to @-mention teammates and see
+  // assignee names. Writes (create/update/delete) stay admin-only below.
+  @Roles(Role.ADMIN, Role.PRODUCT, Role.TESTER, Role.DEVELOPER)
   @ApiOperation({ summary: 'List users in your tenant' })
   async list(
     @AuthUser() auth: JwtPayload,

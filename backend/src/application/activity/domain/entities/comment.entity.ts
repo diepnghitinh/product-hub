@@ -12,7 +12,8 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
   static create(
     props: {
       tenantId: string;
-      bugId: string;
+      bugId?: string;
+      taskId?: string;
       authorId: string;
       authorName: string;
       body: string;
@@ -25,10 +26,11 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
   ): Result<CommentEntity> {
     const guard = Guard.againstNullOrUndefinedBulk([
       { argument: props.tenantId, argumentName: 'tenantId' },
-      { argument: props.bugId, argumentName: 'bugId' },
       { argument: props.authorId, argumentName: 'authorId' },
     ]);
     if (!guard.succeeded) return Result.fail(guard.message);
+    // A comment belongs to exactly one subject — a bug or a task.
+    if (!props.bugId && !props.taskId) return Result.fail('bugId or taskId is required');
     const bodyGuard = Guard.againstEmptyString(props.body, 'body');
     if (!bodyGuard.succeeded) return Result.fail(bodyGuard.message);
 
@@ -38,7 +40,8 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
         {
           id: id || new UniqueEntityID(),
           tenantId: props.tenantId,
-          bugId: props.bugId,
+          bugId: props.bugId || '',
+          taskId: props.taskId || '',
           authorId: props.authorId,
           authorName: props.authorName,
           body: props.body.trim(),
@@ -60,6 +63,9 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
   }
   get bugId(): string {
     return this.props.bugId;
+  }
+  get taskId(): string {
+    return this.props.taskId;
   }
   get authorId(): string {
     return this.props.authorId;

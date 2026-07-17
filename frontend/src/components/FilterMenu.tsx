@@ -1,10 +1,9 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { ListFilter, Search } from 'lucide-react';
+import { Check, ListFilter, Search } from 'lucide-react';
 import {
   Badge,
   Button,
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuPortal,
@@ -171,15 +170,23 @@ function CategorySub({
               {t('filters.noMatches')}
             </p>
           ) : (
-            shown.map((o) => (
-              <DropdownMenuCheckboxItem
-                key={o.id}
-                checked={selected.includes(o.id)}
-                // Keep the menu open so several options can be picked in a row.
-                onSelect={(e) => e.preventDefault()}
-                onCheckedChange={() => onToggle(o.id)}
-              >
-                <span className="flex min-w-0 items-center gap-2">
+            shown.map((o) => {
+              const checked = selected.includes(o.id);
+              return (
+                // A plain item (not CheckboxItem) so the label sits tight to the
+                // left — the colour dot is the indicator, and a right-aligned
+                // Check marks selection, so no left checkmark gutter is needed.
+                <DropdownMenuItem
+                  key={o.id}
+                  role="menuitemcheckbox"
+                  aria-checked={checked}
+                  className="pr-8"
+                  // Keep the menu open so several options can be picked in a row.
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    onToggle(o.id);
+                  }}
+                >
                   {o.color && (
                     <span
                       className="size-2 shrink-0 rounded-full"
@@ -187,10 +194,11 @@ function CategorySub({
                       aria-hidden
                     />
                   )}
-                  <span className="truncate">{o.label}</span>
-                </span>
-              </DropdownMenuCheckboxItem>
-            ))
+                  <span className="min-w-0 flex-1 truncate">{o.label}</span>
+                  {checked && <Check className="absolute right-2 size-4" aria-hidden />}
+                </DropdownMenuItem>
+              );
+            })
           )}
         </DropdownMenuSubContent>
       </DropdownMenuPortal>

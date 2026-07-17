@@ -12,6 +12,8 @@ import { RolesGuard } from '@core/presentation/guards/roles.guard';
 import { MongooseInfrastructureModule } from '@infrastructure/database/mongoose/mongoose.module';
 import { PresentationModule } from '@presentation/presentation.module';
 import { SharedModule } from '@module-shared/shared.module';
+import { ShortIdBackfillModule } from '@module-shared/short-id-backfill.module';
+import { TeamsBackfillModule } from '@module-shared/teams-backfill.module';
 
 @Module({
   imports: [
@@ -19,6 +21,10 @@ import { SharedModule } from '@module-shared/shared.module';
     SharedModule,
     MongooseInfrastructureModule,
     PresentationModule,
+    // Gives pre-shortId bugs/tasks a URL-facing reference. Idempotent.
+    ShortIdBackfillModule,
+    // Seeds QC/Engineering for pre-Teams workspaces + files their issues. Idempotent.
+    TeamsBackfillModule,
   ],
   providers: [
     // Global interceptors (order matters: log first, then wrap the response)

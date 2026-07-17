@@ -3,3 +3,4 @@
 // Treat those as untyped tool constructors (they're passed opaquely as `class`).
 declare module '@editorjs/marker';
 declare module '@editorjs/table';
+declare module '@editorjs/image';

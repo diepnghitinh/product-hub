@@ -1,6 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
+import { CounterService } from '@module-shared/services/counter.service';
+import { ITeamRepository } from '@application/teams/repositories/team.repository';
+import { DEFAULT_TEAMS, TeamIssueType } from '@application/teams/domain/enums/team.enums';
 import { IUserRepository } from '@application/users/repositories/user.repository';
 import { INotifier } from '@application/webhooks/notifier.port';
 import { WebhookEvent } from '@application/app-settings/domain/webhook.types';
@@ -23,6 +26,8 @@ export class CreateBugUseCase
     @Inject(IBugRepository) private readonly bugs: IBugRepository,
     @Inject(IUserRepository) private readonly users: IUserRepository,
     @Inject(INotifier) private readonly notifier: INotifier,
+    private readonly counter: CounterService,
+    @Inject(ITeamRepository) private readonly teams: ITeamRepository,
   ) {}
 
   async execute({
@@ -40,8 +45,16 @@ export class CreateBugUseCase
       assigneeName = assignee.name;
     }
 
+    // Bugs live in the tenant's bug team (QC by default).
+    const team = await this.teams.findByKey(
+      tenantId,
+      DEFAULT_TEAMS.find((t) => t.issueType === TeamIssueType.BUG)!.key,
+    );
+
     const created = BugEntity.create({
       tenantId,
+      teamId: dto.teamId || team?.id.toString() || '',
+      shortId: await this.counter.nextShortId(tenantId, 'BUG'),
       title: dto.title,
       description: dto.description,
       severity: dto.severity,

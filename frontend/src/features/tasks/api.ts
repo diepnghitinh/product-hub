@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
+import { t } from '@/i18n';
 import type { ListResponse, TaskDto } from '@/types/dto';
 import type { TaskStatus } from '@/types/enums';
 
 export interface TaskQuery {
+  /** Scope to a team's issue list. */
+  teamId?: string;
   /** Multi-value — serialized as repeated keys (`?status=a&status=b`). */
   status?: TaskStatus[];
   assigneeId?: string[];
@@ -83,12 +87,40 @@ export function useUpdateTask() {
   });
 }
 
+/**
+ * Optimistic: the card lands in its new column the instant it's dropped, rather
+ * than sitting in the old one until the server answers. If the write fails the
+ * snapshot is restored, so it springs back to where it came from.
+ */
 export function useSetTaskStatus() {
+  const qc = useQueryClient();
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
+    // `status` is a column key — built-in or custom, so a string.
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
       apiPatch<TaskDto>(`/tasks/${id}/status`, { status }),
-    onSuccess: invalidate,
+    onMutate: async ({ id, status }) => {
+      // Stop in-flight refetches from clobbering the optimistic state.
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      await qc.cancelQueries({ queryKey: ['task', id] });
+      const lists = qc.getQueriesData<ListResponse<TaskDto>>({ queryKey: ['tasks'] });
+      const detail = qc.getQueryData<TaskDto>(['task', id]);
+      qc.setQueriesData<ListResponse<TaskDto>>({ queryKey: ['tasks'] }, (old) =>
+        old
+          ? { ...old, items: old.items.map((tk) => (tk.id === id ? { ...tk, status } : tk)) }
+          : old,
+      );
+      qc.setQueryData<TaskDto>(['task', id], (old) => (old ? { ...old, status } : old));
+      return { lists, detail };
+    },
+    onError: (err, { id }, ctx) => {
+      ctx?.lists.forEach(([key, data]) => qc.setQueryData(key, data));
+      if (ctx?.detail) qc.setQueryData(['task', id], ctx.detail);
+      // Say why — an unexplained snap-back just reads as a broken board.
+      toast.error(t('boards.moveFailed'), { description: err.message });
+    },
+    // Resync either way — the server owns updatedAt and any derived fields.
+    onSettled: invalidate,
   });
 }
 

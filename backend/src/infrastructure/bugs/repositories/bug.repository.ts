@@ -26,6 +26,8 @@ export class BugRepository
     const result = BugEntity.create(
       {
         tenantId: doc.tenantId,
+        teamId: doc.teamId,
+        shortId: doc.shortId,
         title: doc.title,
         description: doc.description,
         severity: doc.severity as BugSeverity,
@@ -53,6 +55,8 @@ export class BugRepository
     return {
       _id: bug.id.toString(),
       tenantId: bug.tenantId,
+      teamId: bug.teamId,
+      shortId: bug.shortId,
       title: bug.title,
       description: bug.description,
       severity: bug.severity,
@@ -77,6 +81,37 @@ export class BugRepository
     return doc ? this.toDomain(doc) : null;
   }
 
+  async findByRef(tenantId: string, ref: string): Promise<BugEntity | null> {
+    // shortId first (the URL-facing id), then uuid for pre-shortId links.
+    const doc =
+      (await this.model.findOne({ tenantId, shortId: ref }).lean<BugDoc>().exec()) ??
+      (await this.model.findOne({ tenantId, _id: ref }).lean<BugDoc>().exec());
+    return doc ? this.toDomain(doc) : null;
+  }
+
+  async findWithoutShortId(): Promise<{ id: string; tenantId: string }[]> {
+    const docs = await this.model
+      .find({ $or: [{ shortId: { $exists: false } }, { shortId: '' }] }, { tenantId: 1 })
+      .sort({ createdAt: 1 })
+      .lean<{ _id: string; tenantId: string }[]>()
+      .exec();
+    return docs.map((d) => ({ id: d._id, tenantId: d.tenantId }));
+  }
+
+  async assignMissingTeam(tenantId: string, teamId: string): Promise<number> {
+    const res = await this.model
+      .updateMany(
+        { tenantId, $or: [{ teamId: { $exists: false } }, { teamId: '' }] },
+        { $set: { teamId } },
+      )
+      .exec();
+    return res.modifiedCount ?? 0;
+  }
+
+  async setShortId(id: string, shortId: string): Promise<void> {
+    await this.model.updateOne({ _id: id }, { $set: { shortId } }).exec();
+  }
+
   async findByTenant(tenantId: string, query: QueryBugDto): Promise<BugPaginationResponse> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 200;
@@ -87,6 +122,7 @@ export class BugRepository
     if (query.severity?.length) filter.severity = { $in: query.severity };
     if (query.assigneeId?.length) filter.assigneeId = { $in: resolveAssignees(query.assigneeId) };
     if (query.projectId?.length) filter.projectId = { $in: query.projectId };
+    if (query.teamId) filter.teamId = query.teamId;
     if (query.caseId) filter.caseId = query.caseId;
     if (query.reportId) filter.reportId = query.reportId;
     if (query.search) {

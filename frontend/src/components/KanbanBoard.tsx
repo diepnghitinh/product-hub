@@ -2,6 +2,7 @@ import { Fragment, useState, type ReactNode } from 'react';
 import {
   DndContext,
   DragOverlay,
+  MeasuringStrategy,
   PointerSensor,
   closestCenter,
   pointerWithin,
@@ -98,7 +99,10 @@ function DraggableCard({
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={cn('group relative touch-none', onClick && 'cursor-pointer', isDragging && 'opacity-40')}
+      // Hidden (not dimmed) while dragging, so its slot collapses and the card
+      // only appears as the lifted overlay + the dashed placeholder at the drop
+      // target — never a ghost left behind in the source column.
+      className={cn('group relative touch-none', onClick && 'cursor-pointer', isDragging && 'hidden')}
     >
       {children}
       {toolbar && (
@@ -194,6 +198,9 @@ export function KanbanBoard<T>({
     <DndContext
       sensors={sensors}
       collisionDetection={collisionDetection}
+      // Re-measure continuously: the dragged card is hidden, so columns reflow
+      // mid-drag and the collision rects must stay in sync with the new layout.
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragStart={(e: DragStartEvent) => {
         setActiveId(String(e.active.id));
         setDragHeight(e.active.rect.current.initial?.height ?? null);

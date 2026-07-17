@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Button, Dialog, Input, Spinner } from '@/components/ui';
 import { t } from '@/i18n';
-import { TASK_STATUS_COLOR, TASK_STATUS_LABEL } from '@/types/enums';
+import { taskStatusColor, taskStatusLabel } from '@/types/enums';
 import { useTasks, useUpdateTask } from '../api';
 
 interface PickTaskDialogProps {
@@ -103,7 +103,7 @@ export function PickTaskDialog({
                   >
                     <span
                       className="size-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: TASK_STATUS_COLOR[tk.status] }}
+                      style={{ backgroundColor: taskStatusColor(tk.status) }}
                       aria-hidden
                     />
                     <span className="min-w-0 flex-1">
@@ -121,7 +121,7 @@ export function PickTaskDialog({
                       {tk.id.slice(0, 8)}
                     </span>
                     <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
-                      {TASK_STATUS_LABEL[tk.status]}
+                      {taskStatusLabel(tk.status)}
                     </span>
                   </button>
                 </li>

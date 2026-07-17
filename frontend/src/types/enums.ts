@@ -267,7 +267,8 @@ export const BUG_STATUS_LABEL: Record<BugStatus, string> = {
 /** A tenant-configurable bug board column. `key` is the fixed workflow value;
  * `label`, `color` and order are admin-editable (see AdminSettingsPage). */
 export interface BugStatusConfig {
-  key: BugStatus;
+  /** Built-in `BugStatus` or a tenant's custom column slug. */
+  key: string;
   label: string;
   color: string;
 }
@@ -438,6 +439,104 @@ export const TASK_STATUS_COLOR: Record<TaskStatus, string> = {
   [TaskStatus.IN_PROGRESS]: 'hsl(var(--info))',
   [TaskStatus.DONE]: 'hsl(var(--success))',
 };
+
+/** Safe label/color for any status key (built-in or custom) — custom keys fall
+ * back to the raw key + a neutral dot. Prefer the tenant config where loaded. */
+export const taskStatusLabel = (key: string): string =>
+  TASK_STATUS_LABEL[key as TaskStatus] ?? key;
+export const taskStatusColor = (key: string): string =>
+  TASK_STATUS_COLOR[key as TaskStatus] ?? 'hsl(var(--muted-foreground))';
+
+/** A tenant-defined task label. No built-ins — a workspace defines its own. */
+export interface TaskLabelConfig {
+  /** Stable slug stored on a task; the name/colour are editable. */
+  key: string;
+  name: string;
+  color: string;
+}
+
+/** What kind of issue list a team owns — its board renders accordingly. */
+export enum TeamIssueType {
+  BUG = 'bug',
+  TASK = 'task',
+}
+
+export const TEAM_ISSUE_TYPES: TeamIssueType[] = [TeamIssueType.BUG, TeamIssueType.TASK];
+
+/**
+ * The symbol shown next to a team in the nav. Values are `Icon` registry names
+ * and mirror the backend's `TeamIcon` enum, which validates them on write.
+ */
+export enum TeamIcon {
+  BUG = 'bug',
+  TASKS = 'tasks',
+  CODE = 'code',
+  FLASK = 'flask',
+  SHIELD = 'shield',
+  ROCKET = 'rocket',
+  PEN = 'pen',
+  CHART = 'chart',
+  DATABASE = 'database',
+  SERVER = 'server',
+  BOOK = 'book',
+  MEGAPHONE = 'megaphone',
+  WRENCH = 'wrench',
+  SPARKLES = 'sparkles',
+  PEOPLE = 'people',
+  FLAG = 'flag',
+  ZAP = 'zap',
+  CLOUD = 'cloud',
+  LOCK = 'lock',
+  COMPASS = 'compass',
+  PACKAGE = 'package',
+  GLOBE = 'globe',
+  HEADPHONES = 'headphones',
+  MILESTONE = 'milestone',
+}
+
+export const TEAM_ICONS: TeamIcon[] = Object.values(TeamIcon);
+
+/**
+ * A team's board column. Structurally identical to `BugStatusConfig` /
+ * `TaskStatusConfig` — a team owns one issue type, so one shape covers both.
+ */
+export type TeamStatusConfig = BugStatusConfig;
+
+/** The columns a team of this type starts with — and can never drop. */
+export function defaultStatusesFor(issueType: TeamIssueType): TeamStatusConfig[] {
+  return issueType === TeamIssueType.BUG ? DEFAULT_BUG_STATUSES : DEFAULT_TASK_STATUSES;
+}
+
+/** Built-ins are the board's contract: rollups read their keys literally. */
+export function builtinStatusKeys(issueType: TeamIssueType): Set<string> {
+  return new Set(defaultStatusesFor(issueType).map((s) => s.key));
+}
+
+/** A team with no icon stored falls back to the symbol for the list it owns. */
+export function defaultTeamIcon(issueType: TeamIssueType): TeamIcon {
+  return issueType === TeamIssueType.BUG ? TeamIcon.BUG : TeamIcon.TASKS;
+}
+
+export const TEAM_ISSUE_TYPE_LABEL: Record<TeamIssueType, string> = {
+  [TeamIssueType.BUG]: 'Bugs',
+  [TeamIssueType.TASK]: 'Tasks',
+};
+
+/** Tenant-configurable task board column (mirrors `BugStatusConfig`). */
+export interface TaskStatusConfig {
+  /** Built-in `TaskStatus` or a custom column slug. */
+  key: string;
+  label: string;
+  color: string;
+}
+
+/** Client fallback until the tenant's task columns load (mirrors the backend).
+ * Colors are concrete hex (the config stores hex), matching the token hues. */
+export const DEFAULT_TASK_STATUSES: TaskStatusConfig[] = [
+  { key: TaskStatus.TODO, label: 'To do', color: '#6b7280' },
+  { key: TaskStatus.IN_PROGRESS, label: 'In progress', color: '#2563eb' },
+  { key: TaskStatus.DONE, label: 'Done', color: '#16a34a' },
+];
 
 export const WEBHOOK_EVENTS: WebhookEvent[] = [
   WebhookEvent.BUG_CREATED,

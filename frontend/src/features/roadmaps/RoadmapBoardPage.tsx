@@ -6,6 +6,7 @@ import { Badge, Button, Menu, ProgressBar, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { BackLink } from '@/components/BackLink';
+import { PageHeader } from '@/components/PageHeader';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import {
   DEFAULT_ROADMAP_COLUMNS,
@@ -17,7 +18,7 @@ import { RoadmapItemDialog } from './components/RoadmapItemDialog';
 import { RoadmapColumnsDialog } from './components/RoadmapColumnsDialog';
 import { RoadmapRiceChart } from './components/RoadmapRiceChart';
 import { RoadmapRiceTable } from './components/RoadmapRiceTable';
-import { useDeleteRoadmap, useReplaceRoadmapItems, useRoadmap } from './api';
+import { useDeleteRoadmap, useReplaceRoadmapItems, useRoadmap, useUpdateRoadmap } from './api';
 
 const STATUS_VARIANT: Record<RoadmapItemStatus, 'muted' | 'warning' | 'success'> = {
   [RoadmapItemStatus.IDEA]: 'muted',
@@ -91,6 +92,7 @@ export function RoadmapBoardPage() {
   const { data: roadmap, isLoading } = useRoadmap(roadmapId);
   const replaceItems = useReplaceRoadmapItems();
   const deleteRoadmap = useDeleteRoadmap();
+  const update = useUpdateRoadmap();
 
   const [dialogItem, setDialogItem] = useState<RoadmapItem | null>(null);
   const [dialogPhase, setDialogPhase] = useState<string>('now');
@@ -177,15 +179,18 @@ export function RoadmapBoardPage() {
     <div className="flex flex-col sm:h-full">
       <BackLink to="/roadmaps">{t('roadmaps.title')}</BackLink>
 
-      <header className="mb-6 flex shrink-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">{roadmap.title}</h1>
-          {roadmap.description && (
-            <p className="mt-1 text-sm text-muted-foreground">{roadmap.description}</p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {view === 'board' && (
+      <PageHeader
+        title={roadmap.title}
+        subtitle={roadmap.description}
+        titleLabel={t('roadmaps.rename')}
+        // Mirrors `@Roles(ADMIN, TESTER, PRODUCT)` on `PATCH /roadmaps/:id` —
+        // the same gate the board's drag already uses.
+        onTitleChange={
+          canWrite ? (title) => update.mutate({ id: roadmap.id, input: { title } }) : undefined
+        }
+        actions={
+          <>
+            {view === 'board' && (
             <Button variant={sortRice ? 'primary' : 'secondary'} size="sm" onClick={() => setSortRice((v) => !v)}>
               {t('roadmaps.sortRice')}
             </Button>
@@ -238,8 +243,9 @@ export function RoadmapBoardPage() {
               ]}
             />
           )}
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {view === 'board' ? (
         <KanbanBoard
