@@ -43,7 +43,8 @@ const invalidateKey = ['tasks'];
 export function useTasks(query?: TaskQuery) {
   return useQuery({
     queryKey: ['tasks', query ?? {}],
-    queryFn: () => apiGet<ListResponse<TaskDto>>('/tasks', { limit: 200, ...query }),
+    // 100 is the backend's PaginationDto cap — anything higher fails validation.
+    queryFn: () => apiGet<ListResponse<TaskDto>>('/tasks', { limit: 100, ...query }),
   });
 }
 

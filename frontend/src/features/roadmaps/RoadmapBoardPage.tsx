@@ -145,16 +145,15 @@ function DraggableItem({
   );
 }
 
-/** A phase column that accepts dropped cards; highlights while hovered. */
+/** A phase column that accepts dropped cards. Deliberately shows no hover
+ * highlight — the dashed placeholder already marks the exact landing slot, so
+ * ringing the whole column on top of it is noise. */
 function DroppableColumn({ id, children }: { id: string; children: ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id });
+  const { setNodeRef } = useDroppable({ id });
   return (
     <div
       ref={setNodeRef}
-      className={cn(
-        'flex min-h-[120px] flex-col rounded-xl border bg-card p-3 transition-shadow sm:max-h-full sm:w-[280px] sm:shrink-0',
-        isOver && 'ring-2 ring-primary',
-      )}
+      className="flex min-h-[120px] flex-col rounded-xl border bg-card p-3 sm:max-h-full sm:w-[280px] sm:shrink-0"
     >
       {children}
     </div>

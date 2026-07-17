@@ -88,8 +88,12 @@ export class TaskRepository
       filter.$or = [{ assigneeId: query.mine }, { createdBy: query.mine }];
     }
     if (query.search) {
-      const re = new RegExp(query.search, 'i');
-      const searchOr = [{ title: re }, { description: re }];
+      // Escaped: the task picker's search box takes free text, so an unbalanced
+      // "(" would otherwise throw on RegExp construction.
+      const escaped = query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(escaped, 'i');
+      // Name or task id — the picker accepts a pasted id (`_id` is a uuid string).
+      const searchOr = [{ title: re }, { description: re }, { _id: re }];
       if (filter.$or) {
         filter.$and = [{ $or: filter.$or }, { $or: searchOr }];
         delete filter.$or;

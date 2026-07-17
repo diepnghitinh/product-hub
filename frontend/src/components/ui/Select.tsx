@@ -32,8 +32,9 @@ const EMPTY = '__empty__';
 /**
  * Non-native dropdown — the default select for the app. Built on Radix
  * `SelectMenu`, so the option list is real, stylable DOM (never an OS-native
- * `<select>`) rendered in a portal. Options-based for terse call sites; for
- * colored/icon items or grouping, drop down to `SelectMenu` directly.
+ * `<select>`) rendered in a portal. Options-based for terse call sites; a
+ * `label` may be a node (e.g. a colour dot + text), which Radix mirrors into
+ * the trigger. Drop down to `SelectMenu` directly only for grouping.
  */
 export function Select({
   value,

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { HelpCircle, X } from 'lucide-react';
 import {
   Button,
@@ -14,7 +14,9 @@ import { useUsers } from '@/features/users/api';
 import { TaskPanel } from '@/features/tasks/components/TaskPanel';
 import {
   ROADMAP_DIFFICULTIES,
+  ROADMAP_DIFFICULTY_COLOR,
   ROADMAP_DIFFICULTY_LABEL,
+  ROADMAP_ITEM_STATUS_COLOR,
   ROADMAP_ITEM_STATUS_LABEL,
   ROADMAP_ITEM_STATUSES,
   RoadmapDifficulty,
@@ -65,6 +67,20 @@ const RICE_FIELDS = [
 
 const SIDEBAR_LABEL = 'mb-1.5 block text-sm font-medium text-foreground';
 
+/**
+ * Option label with a leading colour dot. Radix renders the selected item's
+ * text in the trigger too, so the dot shows in both the list and the closed
+ * picker. The dot is decorative — the label carries the meaning.
+ */
+function DotLabel({ color, children }: { color: string; children: ReactNode }) {
+  return (
+    <span className="flex items-center gap-2">
+      <span className="size-2 shrink-0 rounded-full" style={{ background: color }} aria-hidden />
+      {children}
+    </span>
+  );
+}
+
 export function RoadmapItemDialog({
   open,
   onClose,
@@ -111,7 +127,22 @@ export function RoadmapItemDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={item ? t('roadmaps.editItem') : t('roadmaps.addItem')}
+      title={
+        // The heading *is* the item name — editable in place. It lives outside
+        // the <form>, so `form="rm-item"` keeps it in submit + validation.
+        <Input
+          value={form.title}
+          onChange={(e) => set({ title: e.target.value })}
+          placeholder={t('roadmaps.itemTitlePlaceholder')}
+          aria-label={t('roadmaps.itemTitle')}
+          form="rm-item"
+          required
+          autoFocus
+          className="-ml-2 h-9 border-transparent px-2 text-base font-semibold shadow-none transition-colors hover:border-input focus-visible:border-input"
+        />
+      }
+      titleLabel={item ? t('roadmaps.editItem') : t('roadmaps.addItem')}
+      fullscreenKey="roadmap-item"
       className="max-w-5xl"
       footer={
         <Button form="rm-item" type="submit">
@@ -124,19 +155,11 @@ export function RoadmapItemDialog({
         onSubmit={submit}
         className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"
       >
-        {/* ── Left: title + description (+ tasks) ─────────────────────────── */}
+        {/* ── Left: description (+ tasks) ─────────────────────────────────── */}
         <div className="flex min-w-0 flex-col">
-          <Input
-            value={form.title}
-            onChange={(e) => set({ title: e.target.value })}
-            placeholder={t('roadmaps.itemTitle')}
-            className="h-11 text-base font-medium"
-            required
-            autoFocus
-          />
           <label
             htmlFor="ri-desc"
-            className="mb-1.5 mt-4 block text-xs font-medium uppercase tracking-wide text-muted-foreground"
+            className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground"
           >
             {t('roadmaps.description')}
           </label>
@@ -159,6 +182,40 @@ export function RoadmapItemDialog({
 
         {/* ── Right: sidebar ──────────────────────────────────────────────── */}
         <div className="flex flex-col gap-5">
+          {/* Status / Difficulty — the two fields triaged most often, so first. */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <span className={SIDEBAR_LABEL}>{t('roadmaps.status')}</span>
+              <Select
+                value={form.status}
+                onValueChange={(v) => set({ status: v as RoadmapItemStatus })}
+                options={ROADMAP_ITEM_STATUSES.map((s) => ({
+                  value: s,
+                  label: (
+                    <DotLabel color={ROADMAP_ITEM_STATUS_COLOR[s]}>
+                      {ROADMAP_ITEM_STATUS_LABEL[s]}
+                    </DotLabel>
+                  ),
+                }))}
+              />
+            </div>
+            <div>
+              <span className={SIDEBAR_LABEL}>{t('roadmaps.difficulty')}</span>
+              <Select
+                value={form.difficulty}
+                onValueChange={(v) => set({ difficulty: v as RoadmapDifficulty })}
+                options={ROADMAP_DIFFICULTIES.map((d) => ({
+                  value: d,
+                  label: (
+                    <DotLabel color={ROADMAP_DIFFICULTY_COLOR[d]}>
+                      {ROADMAP_DIFFICULTY_LABEL[d]}
+                    </DotLabel>
+                  ),
+                }))}
+              />
+            </div>
+          </div>
+
           {/* Start date */}
           <div>
             <span className={SIDEBAR_LABEL}>{t('roadmaps.startDate')}</span>
@@ -260,33 +317,6 @@ export function RoadmapItemDialog({
             </div>
           </div>
 
-          {/* Phase / Status / Difficulty */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <span className={SIDEBAR_LABEL}>{t('roadmaps.phase')}</span>
-              <Select
-                value={form.phase}
-                onValueChange={(v) => set({ phase: v })}
-                options={(columns ?? []).map((c) => ({ value: c.key, label: c.label }))}
-              />
-            </div>
-            <div>
-              <span className={SIDEBAR_LABEL}>{t('roadmaps.status')}</span>
-              <Select
-                value={form.status}
-                onValueChange={(v) => set({ status: v as RoadmapItemStatus })}
-                options={ROADMAP_ITEM_STATUSES.map((s) => ({ value: s, label: ROADMAP_ITEM_STATUS_LABEL[s] }))}
-              />
-            </div>
-            <div>
-              <span className={SIDEBAR_LABEL}>{t('roadmaps.difficulty')}</span>
-              <Select
-                value={form.difficulty}
-                onValueChange={(v) => set({ difficulty: v as RoadmapDifficulty })}
-                options={ROADMAP_DIFFICULTIES.map((d) => ({ value: d, label: ROADMAP_DIFFICULTY_LABEL[d] }))}
-              />
-            </div>
-          </div>
         </div>
       </form>
     </Dialog>

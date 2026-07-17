@@ -350,6 +350,16 @@ export const ROADMAP_ITEM_STATUS_LABEL: Record<RoadmapItemStatus, string> = {
   [RoadmapItemStatus.DONE]: 'Done',
 };
 
+/** Status dot colour (semantic tokens — no new brand colours). Idea = not
+ * committed, Planned = brand focus; In progress/Done deliberately match
+ * `TASK_STATUS_COLOR`, so the same state reads the same across features. */
+export const ROADMAP_ITEM_STATUS_COLOR: Record<RoadmapItemStatus, string> = {
+  [RoadmapItemStatus.IDEA]: 'hsl(var(--muted-foreground))',
+  [RoadmapItemStatus.PLANNED]: 'hsl(var(--primary))',
+  [RoadmapItemStatus.IN_PROGRESS]: 'hsl(var(--info))',
+  [RoadmapItemStatus.DONE]: 'hsl(var(--success))',
+};
+
 export const ROADMAP_DIFFICULTIES: RoadmapDifficulty[] = [
   RoadmapDifficulty.EASY,
   RoadmapDifficulty.MEDIUM,
@@ -360,6 +370,14 @@ export const ROADMAP_DIFFICULTY_LABEL: Record<RoadmapDifficulty, string> = {
   [RoadmapDifficulty.EASY]: 'Easy',
   [RoadmapDifficulty.MEDIUM]: 'Medium',
   [RoadmapDifficulty.HARD]: 'Hard',
+};
+
+/** Difficulty dot colour (semantic tokens — no new brand colours). Escalating
+ * green → amber → red, the same ramp `OKR_STATUS_COLOR` uses. */
+export const ROADMAP_DIFFICULTY_COLOR: Record<RoadmapDifficulty, string> = {
+  [RoadmapDifficulty.EASY]: 'hsl(var(--success))',
+  [RoadmapDifficulty.MEDIUM]: 'hsl(var(--warning))',
+  [RoadmapDifficulty.HARD]: 'hsl(var(--destructive))',
 };
 
 export const MILESTONE_STATUSES: MilestoneStatus[] = [

@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Link2, Trash2 } from 'lucide-react';
 import { Button, Combobox, Input, ProgressBar, Select, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
@@ -17,6 +17,7 @@ import {
   useTasks,
   useUpdateTask,
 } from '../api';
+import { PickTaskDialog } from './PickTaskDialog';
 
 interface TaskPanelProps {
   roadmapId: string;
@@ -48,6 +49,7 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
   const remove = useDeleteTask();
 
   const [title, setTitle] = useState('');
+  const [pickOpen, setPickOpen] = useState(false);
 
   const done = tasks.filter((tk) => tk.status === TaskStatus.DONE).length;
   const total = tasks.length;
@@ -195,18 +197,33 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
       </div>
 
       {canWrite && (
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder={t('tasks.addPlaceholder')}
-            className="h-8"
+            className="h-8 min-w-0 flex-1 basis-40"
           />
           <Button type="button" size="sm" onClick={add} disabled={!title.trim() || create.isPending}>
             {t('tasks.add')}
           </Button>
+          <Button type="button" size="sm" variant="outline" onClick={() => setPickOpen(true)}>
+            <Link2 className="size-3.5" aria-hidden />
+            {t('tasks.pick')}
+          </Button>
         </div>
+      )}
+
+      {pickOpen && (
+        <PickTaskDialog
+          open={pickOpen}
+          onClose={() => setPickOpen(false)}
+          roadmapId={roadmapId}
+          projectId={projectId}
+          itemId={itemId}
+          itemLabel={itemLabel}
+        />
       )}
     </div>
   );
