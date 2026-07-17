@@ -1,6 +1,16 @@
-import { useEffect, useState } from 'react';
-import { ArrowDown, ArrowUp, RotateCcw, Trash2 } from 'lucide-react';
+import { useEffect, useState, type ComponentType } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import {
+  ArrowDown,
+  ArrowUp,
+  KeyRound,
+  ListChecks,
+  RotateCcw,
+  Trash2,
+  Webhook,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { cn } from '@/lib/utils';
 import {
   Button,
   Card,
@@ -18,6 +28,7 @@ import {
 } from '@/components/ui';
 import { t } from '@/i18n';
 import { PageHeader } from '@/components/PageHeader';
+import { BackLink } from '@/components/BackLink';
 import { timeAgo } from '@/lib/format';
 import {
   BugStatus,
@@ -34,8 +45,32 @@ import {
   useUpdateWebhooks,
 } from '@/features/settings/api';
 
+/** Left-menu sections, in order. `key` is the `?tab=` value. */
+const TABS: {
+  key: string;
+  labelKey: Parameters<typeof t>[0];
+  icon: ComponentType<{ className?: string }>;
+  Section: ComponentType;
+}[] = [
+  { key: 'bug-statuses', labelKey: 'settings.bugStatuses', icon: ListChecks, Section: BugStatusesSection },
+  { key: 'api-keys', labelKey: 'settings.apiKeys', icon: KeyRound, Section: ApiKeysSection },
+  { key: 'webhooks', labelKey: 'settings.webhooks', icon: Webhook, Section: WebhooksSection },
+];
+
 export function AdminSettingsPage() {
-  const { user, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
+  // Which section is open lives in the URL (?tab=api-keys), so it survives a
+  // reload and is linkable — same pattern as the boards' ?view=.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const param = searchParams.get('tab');
+  const active = TABS.find((s) => s.key === param) ?? TABS[0];
+  const setTab = (key: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (key === TABS[0].key) next.delete('tab');
+    else next.set('tab', key);
+    setSearchParams(next, { replace: true });
+  };
+
   if (!isAdmin)
     return (
       <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
@@ -45,11 +80,41 @@ export function AdminSettingsPage() {
 
   return (
     <div>
-      <PageHeader title={t('settings.title')} />
-      <div className="space-y-6">
-        <BugStatusesSection />
-        <ApiKeysSection />
-        <WebhooksSection />
+      <BackLink to="/">{t('nav.dashboard')}</BackLink>
+      <PageHeader title={t('settings.title')} subtitle={t('settings.subtitle')} />
+
+      {/* Left menu beside the content from md up; a scrolling tab strip on mobile. */}
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
+        <nav
+          aria-label={t('settings.title')}
+          className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 md:mx-0 md:w-56 md:shrink-0 md:flex-col md:overflow-visible md:px-0 md:pb-0"
+        >
+          {TABS.map((s) => {
+            const Icon = s.icon;
+            const on = s.key === active.key;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setTab(s.key)}
+                aria-current={on ? 'page' : undefined}
+                className={cn(
+                  'flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors md:w-full',
+                  on
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                )}
+              >
+                <Icon className="size-4 shrink-0" aria-hidden />
+                {t(s.labelKey)}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="min-w-0 flex-1">
+          <active.Section />
+        </div>
       </div>
     </div>
   );

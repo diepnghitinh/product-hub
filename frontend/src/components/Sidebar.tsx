@@ -48,23 +48,23 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[248px] flex-col border-r bg-sidebar text-sidebar-foreground shadow-xl transition-[width,transform] duration-200',
+        'fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[216px] flex-col border-r bg-sidebar text-sidebar-foreground shadow-xl transition-[width,transform] duration-200',
         'md:sticky md:top-0 md:z-30 md:translate-x-0 md:shadow-none',
-        collapsed ? 'md:w-16' : 'md:w-[248px]',
+        collapsed ? 'md:w-14' : 'md:w-[216px]',
         mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
       )}
     >
       {/* Brand row */}
-      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-3">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-sidebar-border px-2.5">
         <Link
           to="/"
           onClick={onCloseMobile}
           className={cn(
-            'flex items-center gap-2 overflow-hidden font-semibold tracking-tight',
+            'flex items-center gap-1.5 overflow-hidden text-sm font-semibold tracking-tight',
             collapsed && 'md:hidden',
           )}
         >
-          <span className="shrink-0 text-lg text-primary">◑</span>
+          <span className="shrink-0 text-base text-primary">◑</span>
           <span className="truncate">{t('app.name')}</span>
         </Link>
         <button
@@ -73,16 +73,16 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           title={collapsed ? t('nav.expand') : t('nav.collapse')}
           aria-label={collapsed ? t('nav.expand') : t('nav.collapse')}
           className={cn(
-            'hidden size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:grid',
+            'hidden size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:grid',
             collapsed ? 'md:mx-auto' : 'ml-auto',
           )}
         >
-          <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={16} />
+          <Icon name={collapsed ? 'chevron-right' : 'chevron-left'} size={14} />
         </button>
       </div>
 
       {/* Nav */}
-      <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3">
+      <nav className="flex flex-1 flex-col gap-3 overflow-y-auto p-2">
         {NAV_GROUPS.map((group) => {
           const items = group.items.filter((i) => !i.adminOnly || isAdmin);
           if (items.length === 0) return null;
@@ -90,7 +90,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
             <div key={group.headingKey} className="flex flex-col gap-0.5">
               <span
                 className={cn(
-                  'px-2.5 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground',
+                  'px-2 pb-0.5 pt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground',
                   collapsed && 'md:hidden',
                 )}
               >
@@ -105,14 +105,14 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                   title={collapsed ? t(item.labelKey) : undefined}
                   className={({ isActive }) =>
                     cn(
-                      'flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                      'flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                       isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
                       collapsed && 'md:justify-center md:gap-0',
                     )
                   }
                 >
                   <span className="grid shrink-0 place-items-center">
-                    <Icon name={item.icon} size={18} />
+                    <Icon name={item.icon} size={16} />
                   </span>
                   <span className={cn('flex-1 truncate', collapsed && 'md:hidden')}>
                     {t(item.labelKey)}
@@ -120,7 +120,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                   {item.badge === 'inbox' && unseen > 0 && (
                     <span
                       className={cn(
-                        'ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground',
+                        'ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground',
                         collapsed && 'md:hidden',
                       )}
                     >
@@ -136,7 +136,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
 
       {/* Footer user menu */}
       {user && (
-        <div className="shrink-0 border-t border-sidebar-border p-3">
+        <div className="shrink-0 border-t border-sidebar-border p-2">
           <Menu
             up
             align="left"
@@ -144,26 +144,26 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
             trigger={
               <span
                 className={cn(
-                  'flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-sidebar-accent',
+                  'flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left hover:bg-sidebar-accent',
                   collapsed && 'md:justify-center',
                 )}
               >
                 <span
-                  className="grid size-[30px] shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+                  className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground"
                   aria-hidden
                 >
                   {initials(user.name, user.email)}
                 </span>
                 <span
                   className={cn(
-                    'flex min-w-0 flex-col',
+                    'flex min-w-0 flex-col leading-tight',
                     collapsed && 'md:hidden',
                   )}
                 >
-                  <span className="truncate text-sm font-medium text-foreground">
+                  <span className="truncate text-[13px] font-medium text-foreground">
                     {user.name}
                   </span>
-                  <span className="truncate text-xs text-muted-foreground">
+                  <span className="truncate text-[11px] text-muted-foreground">
                     {ROLE_LABEL[user.role]}
                   </span>
                 </span>

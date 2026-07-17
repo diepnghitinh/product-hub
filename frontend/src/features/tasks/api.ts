@@ -4,13 +4,14 @@ import type { ListResponse, TaskDto } from '@/types/dto';
 import type { TaskStatus } from '@/types/enums';
 
 export interface TaskQuery {
-  status?: TaskStatus;
-  assigneeId?: string;
+  /** Multi-value — serialized as repeated keys (`?status=a&status=b`). */
+  status?: TaskStatus[];
+  assigneeId?: string[];
   /** Tasks assigned to OR created by this user id (the "My Tasks" filter). */
   mine?: string;
-  roadmapItemId?: string;
-  roadmapId?: string;
-  projectId?: string;
+  roadmapItemId?: string | string[];
+  roadmapId?: string[];
+  projectId?: string[];
   search?: string;
 }
 
@@ -37,7 +38,15 @@ export interface UpdateTaskInput {
   assigneeId?: string;
 }
 
-const invalidateKey = ['tasks'];
+/** Refresh both the lists and any open task detail — `['task', id]` doesn't
+ * prefix-match `['tasks']`, so it needs invalidating separately. */
+function useInvalidate() {
+  const qc = useQueryClient();
+  return () => {
+    qc.invalidateQueries({ queryKey: ['tasks'] });
+    qc.invalidateQueries({ queryKey: ['task'] });
+  };
+}
 
 /** List tasks — filter by backlog item, assignee, status, project. */
 export function useTasks(query?: TaskQuery) {
@@ -48,36 +57,45 @@ export function useTasks(query?: TaskQuery) {
   });
 }
 
+/** A single task — drives the task detail page. */
+export function useTask(id: string | undefined) {
+  return useQuery({
+    queryKey: ['task', id],
+    queryFn: () => apiGet<TaskDto>(`/tasks/${id}`),
+    enabled: !!id,
+  });
+}
+
 export function useCreateTask() {
-  const qc = useQueryClient();
+  const invalidate = useInvalidate();
   return useMutation({
     mutationFn: (input: CreateTaskInput) => apiPost<TaskDto>('/tasks', input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: invalidateKey }),
+    onSuccess: invalidate,
   });
 }
 
 export function useUpdateTask() {
-  const qc = useQueryClient();
+  const invalidate = useInvalidate();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateTaskInput }) =>
       apiPatch<TaskDto>(`/tasks/${id}`, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: invalidateKey }),
+    onSuccess: invalidate,
   });
 }
 
 export function useSetTaskStatus() {
-  const qc = useQueryClient();
+  const invalidate = useInvalidate();
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
       apiPatch<TaskDto>(`/tasks/${id}/status`, { status }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: invalidateKey }),
+    onSuccess: invalidate,
   });
 }
 
 export function useDeleteTask() {
-  const qc = useQueryClient();
+  const invalidate = useInvalidate();
   return useMutation({
     mutationFn: (id: string) => apiDelete<{ ok: true }>(`/tasks/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: invalidateKey }),
+    onSuccess: invalidate,
   });
 }

@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import {
   Button,
   Combobox,
+  DotLabel,
   Field,
   Input,
   MultiSelect,
@@ -14,12 +15,15 @@ import {
 import { t } from '@/i18n';
 import { BackLink } from '@/components/BackLink';
 import { timeAgo } from '@/lib/format';
+import { useEscapeBack } from '@/lib/useEscapeBack';
 import {
   BUG_SEVERITIES,
+  BUG_SEVERITY_COLOR,
   BUG_SEVERITY_LABEL,
   BugSeverity,
   BugStatus,
-  DEFAULT_BUG_STATUSES,} from '@/types/enums';
+  DEFAULT_BUG_STATUSES,
+} from '@/types/enums';
 import type { CommentDto } from '@/types/dto';
 import { useUsers } from '@/features/users/api';
 import {
@@ -39,6 +43,7 @@ export function BugDetailPage() {
   const { bugId } = useParams<{ bugId: string }>();
   const navigate = useNavigate();
   const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
+  useEscapeBack();
 
   const { data: bug, isLoading } = useBug(bugId);
   const update = useUpdateBug();
@@ -184,7 +189,12 @@ export function BugDetailPage() {
               <Select
                 value={bug.status}
                 onValueChange={(v) => setStatus.mutate({ id: bug.id, status: v as BugStatus })}
-                options={columns.map((c) => ({ value: c.key, label: c.label }))}
+                // Colours come from the tenant's board config, so the dots match
+                // the columns on /bugs exactly.
+                options={columns.map((c) => ({
+                  value: c.key,
+                  label: <DotLabel color={c.color}>{c.label}</DotLabel>,
+                }))}
               />
             ) : (
               <span className="text-sm">{statusLabel(bug.status)}</span>
@@ -197,7 +207,10 @@ export function BugDetailPage() {
               <Select
                 value={bug.severity}
                 onValueChange={(v) => save({ severity: v as BugSeverity })}
-                options={BUG_SEVERITIES.map((s) => ({ value: s, label: BUG_SEVERITY_LABEL[s] }))}
+                options={BUG_SEVERITIES.map((s) => ({
+                  value: s,
+                  label: <DotLabel color={BUG_SEVERITY_COLOR[s]}>{BUG_SEVERITY_LABEL[s]}</DotLabel>,
+                }))}
               />
             ) : (
               <SeverityBadge severity={bug.severity} />

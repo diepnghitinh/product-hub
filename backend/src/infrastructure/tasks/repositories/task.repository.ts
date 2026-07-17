@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { UniqueEntityID } from '@core/domain';
 import { BaseRepository } from '@core/infrastructure/database/mongoose/base';
+import { resolveAssignees } from '@module-shared/utils/query-array.util';
 import {
   TaskPaginationResponse,
   ITaskRepository,
@@ -78,11 +79,13 @@ export class TaskRepository
     const page = query.page ?? 1;
     const limit = query.limit ?? 200;
     const filter: Record<string, unknown> = { tenantId };
-    if (query.status) filter.status = query.status;
-    if (query.assigneeId) filter.assigneeId = query.assigneeId;
-    if (query.roadmapItemId) filter.roadmapItemId = query.roadmapItemId;
-    if (query.roadmapId) filter.roadmapId = query.roadmapId;
-    if (query.projectId) filter.projectId = query.projectId;
+    // Multi-value filters — a single value arrives as a 1-item array, so `$in`
+    // is equivalent to the old equality match for existing callers.
+    if (query.status?.length) filter.status = { $in: query.status };
+    if (query.assigneeId?.length) filter.assigneeId = { $in: resolveAssignees(query.assigneeId) };
+    if (query.roadmapItemId?.length) filter.roadmapItemId = { $in: query.roadmapItemId };
+    if (query.roadmapId?.length) filter.roadmapId = { $in: query.roadmapId };
+    if (query.projectId?.length) filter.projectId = { $in: query.projectId };
     // "My tasks": assigned to me OR created by me (so tasks I create always show).
     if (query.mine) {
       filter.$or = [{ assigneeId: query.mine }, { createdBy: query.mine }];

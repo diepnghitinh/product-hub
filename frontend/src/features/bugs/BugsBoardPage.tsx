@@ -1,25 +1,24 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core';
 import { useAuth } from '@/lib/auth';
-import { Badge, Button, Input, Select, Spinner } from '@/components/ui';
+import { Button, Input, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { PageHeader } from '@/components/PageHeader';
 import { BackLink } from '@/components/BackLink';
+import { KanbanBoard } from '@/components/KanbanBoard';
+import {
+  FilterMenu,
+  UNASSIGNED,
+  type FilterCategory,
+  type FilterSelections,
+} from '@/components/FilterMenu';
 import { timeAgo } from '@/lib/format';
+import { useUsers } from '@/features/users/api';
+import { useProjects } from '@/features/projects/api';
 import {
   BUG_SEVERITIES,
+  BUG_SEVERITY_COLOR,
   BUG_SEVERITY_LABEL,
   BugSeverity,
   BugStatus,
@@ -62,49 +61,8 @@ function BugCard({ bug, overlay = false }: { bug: BugDto; overlay?: boolean }) {
   );
 }
 
-/** A bug card that can be picked up. Stays in place (dimmed) while the overlay
- * shows the lifted copy; a plain click (no drag) opens the bug. */
-function DraggableBug({
-  bug,
-  disabled,
-  onOpen,
-}: {
-  bug: BugDto;
-  disabled: boolean;
-  onOpen: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: bug.id, disabled });
-  return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      onClick={onOpen}
-      className={cn('touch-none', isDragging && 'opacity-40')}
-    >
-      <BugCard bug={bug} />
-    </div>
-  );
-}
-
-/** A status column that accepts dropped cards; highlights while hovered. */
-function DroppableColumn({ id, children }: { id: string; children: ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id });
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        'flex min-h-[120px] w-[280px] shrink-0 flex-col rounded-xl border bg-muted/40 p-3 transition-shadow',
-        isOver && 'ring-2 ring-primary',
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
 export function BugsBoardPage() {
-  const { canEditDelivery: canWrite } = useAuth();
+  const { canEditDelivery: canWrite, canManageDelivery } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const projectId = params.get('projectId') || undefined;
@@ -114,38 +72,75 @@ export function BugsBoardPage() {
   const reportId = params.get('reportId') || undefined;
 
   const [search, setSearch] = useState('');
-  const [severity, setSeverity] = useState<BugSeverity | ''>('');
+  const [filters, setFilters] = useState<FilterSelections>({});
   const [createOpen, setCreateOpen] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
 
-  const { data, isLoading } = useBugs({
-    search: search || undefined,
-    severity: severity || undefined,
-    projectId,
-    caseId,
-  });
   const setStatus = useSetBugStatus();
   const { data: statusConfig } = useBugStatuses();
   const columns = statusConfig?.length ? statusConfig : DEFAULT_BUG_STATUSES;
 
+  // People + projects are only needed to label the filter options.
+  const { data: usersData } = useUsers({ limit: 100 }, canManageDelivery);
+  const { data: projectsData } = useProjects({ limit: 100 });
+
+  const { data, isLoading } = useBugs({
+    search: search || undefined,
+    status: filters.status as BugStatus[] | undefined,
+    severity: filters.severity as BugSeverity[] | undefined,
+    assigneeId: filters.assigneeId,
+    // A ?projectId= in the URL scopes the whole board; the filter narrows within it.
+    projectId: projectId ? [projectId] : filters.projectId,
+    caseId,
+  });
+
+  const filterCategories: FilterCategory[] = [
+    {
+      id: 'status',
+      label: t('bugs.status'),
+      options: columns.map((c) => ({ id: c.key, label: c.label, color: c.color })),
+    },
+    {
+      id: 'severity',
+      label: t('bugs.severity'),
+      options: BUG_SEVERITIES.map((s) => ({
+        id: s,
+        label: BUG_SEVERITY_LABEL[s],
+        color: BUG_SEVERITY_COLOR[s],
+      })),
+    },
+    {
+      id: 'assigneeId',
+      label: t('filters.assignee'),
+      searchable: true,
+      options: [
+        { id: UNASSIGNED, label: t('filters.unassigned') },
+        ...(usersData?.items ?? []).map((u) => ({ id: u.id, label: u.name })),
+      ],
+    },
+    // Already scoped by the URL — a project filter would be redundant.
+    ...(projectId
+      ? []
+      : [
+          {
+            id: 'projectId',
+            label: t('filters.project'),
+            searchable: true,
+            options: (projectsData?.items ?? []).map((p) => ({ id: p.id, label: p.title })),
+          },
+        ]),
+  ];
+
   const bugs = data?.items ?? [];
-  const byStatus = (status: BugStatus) => bugs.filter((b) => b.status === status);
-  const activeBug = bugs.find((b) => b.id === activeId) ?? null;
 
-  // A little drag distance is required before a card lifts, so clicks still open the bug.
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
-
-  function onDragEnd(e: DragEndEvent) {
-    setActiveId(null);
-    const { active, over } = e;
-    if (!over) return;
-    const bug = bugs.find((b) => b.id === active.id);
-    const status = over.id as BugStatus;
-    if (bug && bug.status !== status) setStatus.mutate({ id: bug.id, status });
+  /** Bugs don't persist ordering, so the drop slot (`overId`) is ignored — only
+   * the destination column matters. */
+  function onMove(id: string, toStatus: string) {
+    const bug = bugs.find((b) => b.id === id);
+    if (bug && bug.status !== toStatus) setStatus.mutate({ id, status: toStatus as BugStatus });
   }
 
   return (
-    <div>
+    <div className="flex flex-col sm:h-full">
       {projectId && (
         <BackLink to={`/testing/${projectId}`}>{projectName || t('nav.projects')}</BackLink>
       )}
@@ -159,23 +154,20 @@ export function BugsBoardPage() {
         }
       />
 
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="mb-6 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center">
         <Input
           className="sm:max-w-[280px]"
           placeholder={t('bugs.search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <div className="sm:w-44">
-          <Select
-            value={severity}
-            onValueChange={(v) => setSeverity(v as BugSeverity | '')}
-            options={[
-              { value: '', label: t('bugs.allSeverities') },
-              ...BUG_SEVERITIES.map((s) => ({ value: s, label: BUG_SEVERITY_LABEL[s] })),
-            ]}
-          />
-        </div>
+        {/* `default` so it lines up with the h-9 search input + New bug button. */}
+        <FilterMenu
+          size="default"
+          categories={filterCategories}
+          value={filters}
+          onChange={setFilters}
+        />
         {canWrite && (
           <Button className="sm:ml-auto" onClick={() => setCreateOpen(true)}>
             + {t('bugs.new')}
@@ -192,47 +184,16 @@ export function BugsBoardPage() {
           {t('bugs.empty')}
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))}
-          onDragEnd={onDragEnd}
-          onDragCancel={() => setActiveId(null)}
-        >
-          <div className="flex gap-4 overflow-x-auto pb-3">
-            {columns.map((col) => {
-              const status = col.key;
-              const items = byStatus(status);
-              return (
-                <DroppableColumn key={status} id={status}>
-                  <div className="mb-3 flex items-center justify-between px-1">
-                    <span className="flex items-center gap-2 text-[13px] font-medium uppercase tracking-wide text-muted-foreground">
-                      <span
-                        className="size-2 shrink-0 rounded-full"
-                        style={{ background: col.color }}
-                        aria-hidden
-                      />
-                      {col.label}
-                    </span>
-                    <Badge variant="muted">{items.length}</Badge>
-                  </div>
-                  <div className="flex flex-1 flex-col gap-2">
-                    {items.map((bug) => (
-                      <DraggableBug
-                        key={bug.id}
-                        bug={bug}
-                        disabled={!canWrite}
-                        onOpen={() => navigate(`/bugs/${bug.id}`)}
-                      />
-                    ))}
-                  </div>
-                </DroppableColumn>
-              );
-            })}
-          </div>
-          <DragOverlay dropAnimation={null}>
-            {activeBug ? <BugCard bug={activeBug} overlay /> : null}
-          </DragOverlay>
-        </DndContext>
+        <KanbanBoard
+          columns={columns}
+          items={bugs}
+          getId={(b) => b.id}
+          getColumnKey={(b) => b.status}
+          renderCard={(bug, overlay) => <BugCard bug={bug} overlay={overlay} />}
+          onMove={onMove}
+          disabled={!canWrite}
+          onCardClick={(bug) => navigate(`/bugs/${bug.id}`)}
+        />
       )}
 
       {createOpen && (

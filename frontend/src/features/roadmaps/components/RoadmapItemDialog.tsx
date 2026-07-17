@@ -1,9 +1,10 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type FormEvent } from 'react';
 import { HelpCircle, X } from 'lucide-react';
 import {
   Button,
   DatePicker,
   Dialog,
+  DotLabel,
   Input,
   RichTextEditor,
   Select,
@@ -66,20 +67,6 @@ const RICE_FIELDS = [
 ] as const;
 
 const SIDEBAR_LABEL = 'mb-1.5 block text-sm font-medium text-foreground';
-
-/**
- * Option label with a leading colour dot. Radix renders the selected item's
- * text in the trigger too, so the dot shows in both the list and the closed
- * picker. The dot is decorative — the label carries the meaning.
- */
-function DotLabel({ color, children }: { color: string; children: ReactNode }) {
-  return (
-    <span className="flex items-center gap-2">
-      <span className="size-2 shrink-0 rounded-full" style={{ background: color }} aria-hidden />
-      {children}
-    </span>
-  );
-}
 
 export function RoadmapItemDialog({
   open,

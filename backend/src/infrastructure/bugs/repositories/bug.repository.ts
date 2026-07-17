@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { UniqueEntityID } from '@core/domain';
 import { BaseRepository } from '@core/infrastructure/database/mongoose/base';
+import { resolveAssignees } from '@module-shared/utils/query-array.util';
 import {
   BugPaginationResponse,
   IBugRepository,
@@ -80,15 +81,18 @@ export class BugRepository
     const page = query.page ?? 1;
     const limit = query.limit ?? 200;
     const filter: Record<string, unknown> = { tenantId };
-    if (query.status) filter.status = query.status;
-    if (query.severity) filter.severity = query.severity;
-    if (query.assigneeId) filter.assigneeId = query.assigneeId;
-    if (query.projectId) filter.projectId = query.projectId;
+    // Multi-value filters — a single value arrives as a 1-item array, so `$in`
+    // is equivalent to the old equality match for existing callers.
+    if (query.status?.length) filter.status = { $in: query.status };
+    if (query.severity?.length) filter.severity = { $in: query.severity };
+    if (query.assigneeId?.length) filter.assigneeId = { $in: resolveAssignees(query.assigneeId) };
+    if (query.projectId?.length) filter.projectId = { $in: query.projectId };
     if (query.caseId) filter.caseId = query.caseId;
     if (query.reportId) filter.reportId = query.reportId;
     if (query.search) {
-      const re = new RegExp(query.search, 'i');
-      filter.$or = [{ title: re }, { description: re }];
+      // Escaped: free text from the search box would otherwise throw on `(`.
+      const re = new RegExp(query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [{ title: re }, { description: re }, { _id: re }];
     }
 
     const [docs, total] = await Promise.all([

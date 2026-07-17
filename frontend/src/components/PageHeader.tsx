@@ -10,7 +10,9 @@ interface PageHeaderProps {
 /** Consistent page title row used across the top-level list pages. */
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
-    <header className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    // shrink-0: on the full-height kanban pages this is a flex child and would
+    // otherwise squash; inert everywhere else (non-flex parents).
+    <header className="mb-8 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}

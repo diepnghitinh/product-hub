@@ -12,13 +12,16 @@ import { t } from '@/i18n';
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { pathname } = useLocation();
-  // Kanban surfaces (the bug board, a roadmap board) span the full page width and
-  // scroll their columns horizontally, instead of sitting in the centered 1200px column.
-  const fullBleed = pathname === '/bugs' || /^\/roadmaps\/[^/]+$/.test(pathname);
-  // The roadmap board is a full-height kanban (columns scroll internally, the
-  // board scrolls horizontally with the bar pinned at the bottom). Other
-  // full-bleed pages keep normal page scroll.
-  const fullHeight = /^\/roadmaps\/[^/]+$/.test(pathname);
+  // Kanban surfaces (bugs, tasks, a roadmap board) span the full page width and
+  // scroll their columns horizontally, instead of sitting in the centered 1200px
+  // column. They're full-height too: columns scroll internally and the board
+  // scrolls horizontally with the bar pinned at the bottom.
+  // Pathname-only on purpose — each page's non-board views (chart/table/list)
+  // scroll inside the full-height shell rather than the shell reading `?view=`.
+  const isKanban =
+    pathname === '/bugs' || pathname === '/tasks' || /^\/roadmaps\/[^/]+$/.test(pathname);
+  const fullBleed = isKanban;
+  const fullHeight = isKanban;
 
   return (
     <div className={cn('flex min-h-[100dvh]', fullHeight && 'sm:h-[100dvh] sm:overflow-hidden')}>

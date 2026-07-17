@@ -270,6 +270,11 @@ export const en = {
   'tasks.descriptionLabel': 'Description',
   'tasks.noBacklogItem': 'No backlog item',
   'tasks.assignedToYouHint': 'This task will be assigned to you.',
+  'tasks.viewBoard': 'Board',
+  'tasks.viewList': 'List',
+  'tasks.notFound': 'Task not found.',
+  'tasks.confirmDelete': 'Delete this task?',
+  'tasks.createdBy': 'Created by',
   // Task picker — link an existing task to a backlog item
   'tasks.pick': 'Link existing',
   'tasks.pickTitle': 'Link an existing task',
@@ -320,6 +325,7 @@ export const en = {
   'people.confirmDelete': 'Remove this user?',
 
   'settings.title': 'Settings',
+  'settings.subtitle': 'Configure your workspace, integrations and notifications.',
   'settings.apiKeys': 'API keys',
   'settings.apiKeysHint': 'Keys let CI/tools update test-case results via the public API.',
   'settings.generateKey': 'Generate key',
@@ -360,6 +366,16 @@ export const en = {
   'public.viewOnly': 'Read-only shared view',
   'public.notAvailable': 'This link is not available.',
   'public.poweredBy': 'Shared via product-hub',
+
+  // Filters — the multi-select filter menu on the bug/task boards
+  'filters.title': 'Filter',
+  'filters.clearAll': 'Clear all',
+  'filters.search': 'Search…',
+  'filters.noMatches': 'No matches.',
+  'filters.assignee': 'Assignee',
+  'filters.project': 'Project',
+  'filters.unassigned': 'Unassigned',
+  'filters.backlogItem': 'Backlog item',
 
   'common.loading': 'Loading…',
   'common.none': 'None',

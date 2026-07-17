@@ -4,10 +4,11 @@ import type { BugDto, ListResponse } from '@/types/dto';
 import type { BugSeverity, BugStatus } from '@/types/enums';
 
 export interface BugQuery {
-  status?: BugStatus;
-  severity?: BugSeverity;
-  assigneeId?: string;
-  projectId?: string;
+  /** Multi-value — serialized as repeated keys (`?status=a&status=b`). */
+  status?: BugStatus[];
+  severity?: BugSeverity[];
+  assigneeId?: string[];
+  projectId?: string[];
   caseId?: string;
   reportId?: string;
   search?: string;

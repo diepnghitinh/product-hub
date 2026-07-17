@@ -12,8 +12,18 @@ export function setToken(token: string | null): void {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
-/** The single Axios instance every API call goes through. */
-export const api = axios.create({ baseURL: env.apiUrl });
+/**
+ * The single Axios instance every API call goes through.
+ *
+ * `indexes: null` serializes array params as repeated keys (`?status=a&status=b`)
+ * instead of axios's default `?status[]=a`. The API's query parser doesn't
+ * understand the bracket form — it would silently drop the filter and return
+ * everything — so multi-select filters depend on this.
+ */
+export const api = axios.create({
+  baseURL: env.apiUrl,
+  paramsSerializer: { indexes: null },
+});
 
 // Attach the bearer token on every request.
 api.interceptors.request.use((config) => {
