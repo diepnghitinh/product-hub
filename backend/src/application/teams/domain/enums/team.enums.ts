@@ -12,43 +12,30 @@ export enum TeamIssueType {
 
 export const TEAM_ISSUE_TYPES: TeamIssueType[] = [TeamIssueType.BUG, TeamIssueType.TASK];
 
-/**
- * The symbol shown next to a team in the nav. Values match the frontend's icon
- * registry names, so the API validates against exactly what can be rendered.
- */
-export enum TeamIcon {
-  BUG = 'bug',
-  TASKS = 'tasks',
-  CODE = 'code',
-  FLASK = 'flask',
-  SHIELD = 'shield',
-  ROCKET = 'rocket',
-  PEN = 'pen',
-  CHART = 'chart',
-  DATABASE = 'database',
-  SERVER = 'server',
-  BOOK = 'book',
-  MEGAPHONE = 'megaphone',
-  WRENCH = 'wrench',
-  SPARKLES = 'sparkles',
-  PEOPLE = 'people',
-  FLAG = 'flag',
-  ZAP = 'zap',
-  CLOUD = 'cloud',
-  LOCK = 'lock',
-  COMPASS = 'compass',
-  PACKAGE = 'package',
-  GLOBE = 'globe',
-  HEADPHONES = 'headphones',
-  MILESTONE = 'milestone',
-}
-
-export const TEAM_ICONS: TeamIcon[] = Object.values(TeamIcon);
 
 /** A team with no icon set falls back to the symbol for the list it owns. */
-export function defaultIconFor(issueType: TeamIssueType): TeamIcon {
-  return issueType === TeamIssueType.BUG ? TeamIcon.BUG : TeamIcon.TASKS;
+export function defaultIconFor(issueType: TeamIssueType): string {
+  return issueType === TeamIssueType.BUG ? 'bug' : 'tasks';
 }
+
+/**
+ * The accent a team's symbol is drawn in. Same palette the roadmap columns use,
+ * so a workspace never sprouts off-brand colours.
+ */
+export const TEAM_COLORS: string[] = [
+  'hsl(248 53% 58%)', // violet
+  'hsl(212 72% 52%)', // blue
+  'hsl(180 52% 40%)', // teal
+  'hsl(142 55% 40%)', // green
+  'hsl(38 92% 50%)', // amber
+  'hsl(18 80% 54%)', // orange
+  'hsl(0 70% 58%)', // red
+  'hsl(330 68% 56%)', // pink
+  'hsl(220 9% 46%)', // slate
+];
+
+/** No colour set means the symbol inherits its surroundings, as it always did. */
+export const DEFAULT_TEAM_COLOR = null;
 
 /**
  * Every workspace gets these two on creation and they can't be removed — QC

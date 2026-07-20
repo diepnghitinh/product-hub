@@ -10,6 +10,7 @@ export class TeamMapper {
       name: team.name,
       issueType: team.issueType,
       icon: team.icon,
+      color: team.color,
       statuses: team.statuses,
       archived: team.archived,
       isDefault: team.isDefault,

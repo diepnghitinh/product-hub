@@ -1,7 +1,7 @@
 import { AggregateRoot, UniqueEntityID } from '@core/domain';
 import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
-import { BugSeverity, BugStatus } from '../enums/bug.enums';
+import { BugAttachment, BugSeverity, BugStatus } from '../enums/bug.enums';
 import { BugProps } from './bug.props';
 
 /** A Bug on the tenant's board — optionally linked to a project, assignable, with
@@ -30,6 +30,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
       reporterId: string;
       reporterName?: string;
       order?: number;
+      attachments?: BugAttachment[];
       createdAt?: Date;
       updatedAt?: Date;
     },
@@ -65,6 +66,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
           reporterId: props.reporterId,
           reporterName: props.reporterName || '',
           order: props.order ?? 0,
+          attachments: props.attachments ?? [],
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
         },
@@ -127,6 +129,9 @@ export class BugEntity extends AggregateRoot<BugProps> {
   get order(): number {
     return this.props.order;
   }
+  get attachments(): BugAttachment[] {
+    return this.props.attachments;
+  }
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -143,6 +148,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
     caseId?: string;
     caseLabel?: string;
     reportId?: string;
+    attachments?: BugAttachment[];
   }): void {
     if (fields.title !== undefined) {
       if (!fields.title.trim()) throw new Error('title cannot be empty');
@@ -155,6 +161,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
     if (fields.caseId !== undefined) this.props.caseId = fields.caseId;
     if (fields.caseLabel !== undefined) this.props.caseLabel = fields.caseLabel;
     if (fields.reportId !== undefined) this.props.reportId = fields.reportId;
+    if (fields.attachments !== undefined) this.props.attachments = fields.attachments;
     this.touch();
   }
 

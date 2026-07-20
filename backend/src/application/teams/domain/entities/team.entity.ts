@@ -3,7 +3,6 @@ import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
 import {
   DEFAULT_TEAM_KEYS,
-  TeamIcon,
   TeamIssueType,
   TeamStatusConfig,
   builtinStatusKeys,
@@ -27,7 +26,8 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
       key: string;
       name: string;
       issueType: TeamIssueType;
-      icon?: TeamIcon;
+      icon?: string;
+      color?: string | null;
       statuses?: TeamStatusConfig[];
       archived?: boolean;
       order?: number;
@@ -57,6 +57,7 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
           issueType: props.issueType,
           // Teams created before icons existed fall back to their list's symbol.
           icon: props.icon ?? defaultIconFor(props.issueType),
+          color: props.color ?? null,
           // Left raw: `statuses` resolves the defaults on read, so the boot
           // migration can still tell an unconfigured team apart.
           statuses: props.statuses?.length ? props.statuses : undefined,
@@ -85,8 +86,11 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
   get issueType(): TeamIssueType {
     return this.props.issueType;
   }
-  get icon(): TeamIcon {
+  get icon(): string {
     return this.props.icon;
+  }
+  get color(): string | null {
+    return this.props.color;
   }
   /** The board columns to render — the type's defaults until the team sets its own. */
   get statuses(): TeamStatusConfig[] {
@@ -129,8 +133,14 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
     return Result.ok();
   }
 
-  setIcon(icon: TeamIcon): void {
+  setIcon(icon: string): void {
     this.props.icon = icon;
+    this.touch();
+  }
+
+  /** null clears it, so the symbol goes back to inheriting its surroundings. */
+  setColor(color: string | null): void {
+    this.props.color = color;
     this.touch();
   }
 

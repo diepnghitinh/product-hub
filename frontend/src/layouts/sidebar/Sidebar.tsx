@@ -1,17 +1,31 @@
 import { Fragment, useEffect, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { MoreHorizontal, Plus } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useTheme } from '@/lib/theme';
 import { Menu } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { cn } from '@/lib/utils';
-import { NAV_GROUPS } from '@/lib/nav';
+import { NAV_GROUPS, PROFILE_NAV_ITEMS } from '@/layouts/sidebar/menuConfig';
 import { t } from '@/i18n';
-import { ROLE_LABEL, defaultTeamIcon } from '@/types/enums';
+import { ROLE_LABEL } from '@/types/enums';
 import { useInbox } from '@/features/inbox/api';
 import { useTeams } from '@/features/teams/api';
+import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
+import { CreateTeamDialog } from '@/features/teams/CreateTeamDialog';
+import { ChangePasswordDialog } from '@/features/account/ChangePasswordDialog';
+import type { TeamDto } from '@/types/dto';
 
 const COLLAPSE_KEY = 'ph_nav_collapsed';
+
+/**
+ * A hover-revealed action on a nav heading or row (`+`, `⋯`). Invisible until its
+ * group is hovered — and always visible below `md`, where there is no hover at all.
+ * The caller adds the matching `group-hover/*` variant, which is the only part that
+ * differs between the heading and a team row.
+ */
+const ACTION =
+  'grid size-4 shrink-0 place-items-center rounded text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 max-md:opacity-100';
 
 function initials(name: string, email: string): string {
   const src = (name || email || '?').trim();
@@ -28,15 +42,18 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, canManageDelivery } = useAuth();
   const { toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { data: inbox } = useInbox();
   const unseen = inbox?.unseenCount ?? 0;
   // Teams are dynamic (QC/Engineering are seeded); archived ones drop out.
+  const { pathname } = useLocation();
   const { data: teams } = useTeams();
   const activeTeams = (teams ?? []).filter((x) => !x.archived);
 
+  const [creatingTeam, setCreatingTeam] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
   );
@@ -92,7 +109,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           if (items.length === 0) return null;
           return (
             <Fragment key={group.headingKey}>
-            <div className="group/heading flex flex-col gap-0.5">
+            <div className="flex flex-col gap-0.5">
               <span
                 className={cn(
                   'flex items-center gap-1 px-2 pb-0.5 pt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground',
@@ -100,20 +117,6 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                 )}
               >
                 {t(group.headingKey)}
-                {/* Delivery's own settings (task statuses + labels) — revealed on
-                    hover, like the section gear in the concept. Admin-only, since
-                    that's who the settings page is for. */}
-                {group.headingKey === 'navgroup.delivery' && isAdmin && (
-                  <Link
-                    to="/admin/settings?tab=task-statuses"
-                    onClick={onCloseMobile}
-                    title={t('navgroup.deliverySettings')}
-                    aria-label={t('navgroup.deliverySettings')}
-                    className="ml-auto grid size-4 place-items-center rounded text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/heading:opacity-100 max-md:opacity-100"
-                  >
-                    <Icon name="settings" size={12} />
-                  </Link>
-                )}
               </span>
               {items.map((item) => (
                 <NavLink
@@ -156,33 +159,51 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
               <div className="flex flex-col gap-0.5">
                 <span
                   className={cn(
-                    'px-2 pb-0.5 pt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground',
+                    'group/heading flex items-center gap-1 px-2 pb-0.5 pt-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground',
                     collapsed && 'md:hidden',
                   )}
                 >
                   {t('navgroup.teams')}
+                  {/* The section's two actions. `⋯` opens the page that owns teams
+                      and is revealed only while the heading row itself is hovered —
+                      the group scope is this span, not the whole section, so hovering
+                      a team row below never surfaces it. `+` adds a team and stays
+                      visible always, since it's the primary action and needs no
+                      discovery. Both gated on `canManageDelivery`, matching each team
+                      row's own overflow below and the backend's @Roles(ADMIN, PRODUCT)
+                      on the team endpoints — the gates must agree or an affordance
+                      silently vanishes for Product. */}
+                  {canManageDelivery && (
+                    <span className="ml-auto flex items-center gap-0.5">
+                      <Link
+                        to="/admin/settings"
+                        onClick={onCloseMobile}
+                        title={t('navgroup.teamsSettings')}
+                        aria-label={t('navgroup.teamsSettings')}
+                        className={cn(ACTION, 'group-hover/heading:opacity-100')}
+                      >
+                        <MoreHorizontal className="size-3" aria-hidden />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setCreatingTeam(true)}
+                        title={t('teams.add')}
+                        aria-label={t('teams.add')}
+                        className={cn(ACTION, 'opacity-100')}
+                      >
+                        <Plus className="size-3" aria-hidden />
+                      </button>
+                    </span>
+                  )}
                 </span>
                 {activeTeams.map((team) => (
-                  <NavLink
+                  <TeamNavItem
                     key={team.id}
-                    to={`/teams/${team.id}`}
-                    onClick={onCloseMobile}
-                    title={collapsed ? team.name : undefined}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                        isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
-                        collapsed && 'md:justify-center md:gap-0',
-                      )
-                    }
-                  >
-                    <span className="grid shrink-0 place-items-center">
-                      <Icon name={team.icon ?? defaultTeamIcon(team.issueType)} size={16} />
-                    </span>
-                    <span className={cn('flex-1 truncate', collapsed && 'md:hidden')}>
-                      {team.name}
-                    </span>
-                  </NavLink>
+                    team={team}
+                    collapsed={collapsed}
+                    active={pathname === `/teams/${team.id}`}
+                    onNavigate={onCloseMobile}
+                  />
                 ))}
               </div>
             )}
@@ -227,7 +248,18 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
               </span>
             }
             items={[
+              // People + Settings moved here from the sidebar's Admin group.
+              // `closeOnSelect` so the menu dismisses when we navigate away.
+              ...PROFILE_NAV_ITEMS.filter((i) => !i.adminOnly || isAdmin).map((i) => ({
+                label: t(i.labelKey),
+                closeOnSelect: true,
+                onClick: () => {
+                  navigate(i.path);
+                  onCloseMobile();
+                },
+              })),
               { label: t('theme.toggle'), onClick: toggleTheme },
+              { label: t('account.changePassword'), onClick: () => setChangingPassword(true) },
               {
                 label: t('nav.designPatterns'),
                 onClick: () => {
@@ -240,6 +272,84 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           />
         </div>
       )}
+
+      {/* Opening the new team's board is the confirmation — it proves the team
+          exists and lands you where you'd go next anyway. */}
+      <CreateTeamDialog
+        open={creatingTeam}
+        onClose={() => setCreatingTeam(false)}
+        onCreated={(team) => {
+          navigate(`/teams/${team.id}`);
+          onCloseMobile();
+        }}
+      />
+
+      <ChangePasswordDialog
+        open={changingPassword}
+        onClose={() => setChangingPassword(false)}
+      />
     </aside>
+  );
+}
+
+/**
+ * A team in the nav. The symbol is a picker in place (admin/product only) — so
+ * it's a real button and can't live inside the row's <a>; the name is the link
+ * instead. Collapsed, the icon is the only hit target, so it stays pure
+ * navigation and the picker is suppressed.
+ */
+function TeamNavItem({
+  team,
+  collapsed,
+  active,
+  onNavigate,
+}: {
+  team: TeamDto;
+  collapsed: boolean;
+  active: boolean;
+  onNavigate: () => void;
+}) {
+  const { canManageDelivery } = useAuth();
+  const editable = canManageDelivery && !collapsed;
+
+  const row = cn(
+    'flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors',
+    active && 'bg-sidebar-accent text-sidebar-accent-foreground',
+    collapsed && 'md:justify-center md:gap-0',
+  );
+
+  if (!editable) {
+    return (
+      <NavLink
+        to={`/teams/${team.id}`}
+        onClick={onNavigate}
+        title={collapsed ? team.name : undefined}
+        className={cn(row, 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground')}
+      >
+        <TeamIconPicker team={team} readOnly className="shrink-0" />
+        <span className={cn('flex-1 truncate', collapsed && 'md:hidden')}>{team.name}</span>
+      </NavLink>
+    );
+  }
+
+  return (
+    <div className={cn(row, 'group/team hover:bg-sidebar-accent hover:text-sidebar-accent-foreground')}>
+      <TeamIconPicker team={team} className="-my-0.5" />
+      <Link to={`/teams/${team.id}`} onClick={onNavigate} className="min-w-0 flex-1 truncate">
+        {team.name}
+      </Link>
+      {/* This team's own settings — where its board columns (statuses) are
+          owned, since a board can't add one. Revealed on hover, like the
+          section overflow above; always shown on touch, where there is no hover. */}
+      <Link
+        to={`/admin/settings?tab=team:${team.id}`}
+        onClick={onNavigate}
+        title={t('teams.settings').replace('{team}', team.name)}
+        aria-label={t('teams.settings').replace('{team}', team.name)}
+        className={cn(ACTION, 'group-hover/team:opacity-100')}
+      >
+        <MoreHorizontal className="size-3" aria-hidden />
+      </Link>
+    </div>
   );
 }

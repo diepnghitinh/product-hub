@@ -1,10 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsOptional, IsString } from 'class-validator';
 
 export class CreateCommentDto {
-  @ApiProperty({ example: 'Reproduced on Safari 17. @jane can you take a look?' })
+  @ApiProperty({
+    example: 'Reproduced on Safari 17. @jane can you take a look?',
+    description: 'May be empty when the comment carries at least one attachment.',
+  })
   @IsString()
-  @MinLength(1)
   body: string;
 
   @ApiPropertyOptional({ type: [String], description: 'User ids mentioned in the body' })

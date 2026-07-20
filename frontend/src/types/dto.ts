@@ -13,10 +13,10 @@ import {
   RoadmapPhase,
   Role,
   SectionType,
+  StorageProvider,
   TaskLabelConfig,
   TaskStatus,
   TaskStatusConfig,
-  TeamIcon,
   TeamIssueType,
   TeamStatusConfig,
   TestResult,
@@ -227,8 +227,17 @@ export interface BugDto {
   reporterId: string;
   reporterName: string;
   order: number;
+  attachments: BugAttachment[];
   createdAt: string;
   updatedAt: string;
+}
+
+/** A file attached to a bug (image / short video) — matches the upload response. */
+export interface BugAttachment {
+  url: string;
+  name: string;
+  contentType: string;
+  size: number;
 }
 
 export interface CommentDto {
@@ -408,7 +417,9 @@ export interface TeamDto {
   name: string;
   issueType: TeamIssueType;
   /** Nav symbol; falls back to the issue type's icon. */
-  icon: TeamIcon;
+  icon: string;
+  /** Accent for the symbol; null means it inherits its surroundings. */
+  color: string | null;
   /** This team's board columns, in order. Resolves to the type's defaults if unset. */
   statuses: TeamStatusConfig[];
   archived: boolean;
@@ -418,12 +429,32 @@ export interface TeamDto {
   updatedAt: string;
 }
 
+/**
+ * Cloud storage for uploaded media. Secrets are never returned — the two
+ * `*Configured` booleans say whether one is stored, and the size caps drive the
+ * client-side hints (videos default to 30MB).
+ */
+export interface StorageSettings {
+  provider: StorageProvider;
+  s3Region?: string;
+  s3Bucket?: string;
+  s3AccessKeyId?: string;
+  s3Endpoint?: string;
+  s3PublicBaseUrl?: string;
+  s3SecretConfigured: boolean;
+  azureContainer?: string;
+  azureConnectionConfigured: boolean;
+  maxVideoMb: number;
+  maxImageMb: number;
+}
+
 export interface AppSettingsDto {
   tenantId: string;
   webhooks: WebhookConfig[];
   bugStatuses: BugStatusConfig[];
   taskStatuses: TaskStatusConfig[];
   taskLabels: TaskLabelConfig[];
+  storage: StorageSettings;
 }
 
 export interface PublicProjectView {

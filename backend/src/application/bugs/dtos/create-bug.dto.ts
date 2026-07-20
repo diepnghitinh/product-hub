@@ -19,6 +19,16 @@ export class CreateBugDto {
   @IsEnum(BugSeverity)
   severity?: BugSeverity;
 
+  /**
+   * Which column to open in. A plain string, not `@IsEnum(BugStatus)`: a team's
+   * columns can be custom slugs, the same way `UpdateBugStatusDto` treats it.
+   * Omit and the bug opens in the first column.
+   */
+  @ApiPropertyOptional({ description: "Built-in BugStatus or a team's custom column key" })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
   @ApiPropertyOptional({ example: 'UI' })
   @IsOptional()
   @IsString()

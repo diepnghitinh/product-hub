@@ -4,11 +4,12 @@ import { Pencil } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button, Dialog, Field, Input, Spinner, Textarea } from '@/components/ui';
 import { t } from '@/i18n';
-import { PageHeader } from '@/components/PageHeader';
+import { PageHeader } from '@/layouts/headers/PageHeader';
 import { BackLink } from '@/components/BackLink';
 import { timeAgo } from '@/lib/format';
 import type { RoadmapDto } from '@/types/dto';
 import { useCreateRoadmap, useRoadmaps, useUpdateRoadmap } from './api';
+import { CenteredPageLayout } from '@/layouts/shared';
 
 const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]';
 
@@ -68,7 +69,7 @@ export function RoadmapsPage() {
   const roadmaps = (data ?? []).filter((r) => !projectId || r.projectId === projectId);
 
   return (
-    <div>
+    <CenteredPageLayout>
       {projectId && (
         <BackLink to={`/testing/${projectId}`}>{projectName || t('nav.projects')}</BackLink>
       )}
@@ -151,6 +152,6 @@ export function RoadmapsPage() {
           </Field>
         </form>
       </Dialog>
-    </div>
+    </CenteredPageLayout>
   );
 }

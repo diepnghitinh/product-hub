@@ -15,6 +15,8 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1089.0",
+    "@azure/storage-blob": "^12.33.0",
     "@nestjs/common": "^11.1.2",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.2",
@@ -44,6 +46,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.12",
+    "@types/multer": "^2.2.0",
     "@types/node": "^20.11.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/uuid": "^10.0.0",

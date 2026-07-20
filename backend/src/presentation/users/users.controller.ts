@@ -21,11 +21,13 @@ import {
   UpdateUserUseCase,
   DeleteUserUseCase,
   ChangePasswordUseCase,
+  ResetUserPasswordUseCase,
 } from '@application/users/use-cases';
 import { CreateUserDto } from '@application/users/dtos/create-user.dto';
 import { UpdateUserDto } from '@application/users/dtos/update-user.dto';
 import { QueryUserDto } from '@application/users/dtos/query-user.dto';
 import { ChangePasswordDto } from '@application/users/dtos/change-password.dto';
+import { ResetPasswordDto } from '@application/users/dtos/reset-password.dto';
 import { UserResponseDto } from '@application/users/dtos/user.response.dto';
 import { UserMapper } from '@application/users/mappers';
 
@@ -40,6 +42,7 @@ export class UsersController {
     private readonly updateUser: UpdateUserUseCase,
     private readonly deleteUser: DeleteUserUseCase,
     private readonly changePassword: ChangePasswordUseCase,
+    private readonly resetUserPassword: ResetUserPasswordUseCase,
   ) {}
 
   // Self-service — declared before ':id' routes. Any authenticated user.
@@ -112,6 +115,26 @@ export class UsersController {
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return UserMapper.toResponseDto(result.getValue());
+  }
+
+  // Admin-only reset. A distinct path from `@Patch(':id')` so it never collides
+  // with a name/role update. No email infra exists, so the new password is set
+  // directly and the admin relays it to the user out-of-band.
+  @Patch(':id/password')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: "Reset another user's password" })
+  async resetPassword(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: ResetPasswordDto,
+  ): Promise<{ ok: true }> {
+    const result = await this.resetUserPassword.execute({
+      id,
+      tenantId: auth.tenantId,
+      dto,
+    });
+    if (result.isFailure) throw new EntityNotFoundException(result.error as string);
+    return { ok: true };
   }
 
   @Delete(':id')

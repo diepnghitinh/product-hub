@@ -9,6 +9,7 @@ import {
   DEFAULT_TASK_LABELS,
 } from '@application/tasks/domain/enums/task.enums';
 import { WebhookConfig } from './webhook.types';
+import { CloudStorageConfig, defaultStorageConfig } from './storage.types';
 
 interface AppSettingsProps {
   tenantId: string;
@@ -16,6 +17,7 @@ interface AppSettingsProps {
   bugStatuses: BugStatusConfig[];
   taskStatuses: TaskStatusConfig[];
   taskLabels: TaskLabelConfig[];
+  storage: CloudStorageConfig;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +36,7 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
       bugStatuses?: BugStatusConfig[];
       taskStatuses?: TaskStatusConfig[];
       taskLabels?: TaskLabelConfig[];
+      storage?: CloudStorageConfig;
       createdAt?: Date;
       updatedAt?: Date;
     },
@@ -52,6 +55,11 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
           taskStatuses: props.taskStatuses?.length ? props.taskStatuses : DEFAULT_TASK_STATUSES,
           // Labels have no built-ins — an empty list is a valid, expected state.
           taskLabels: props.taskLabels ?? DEFAULT_TASK_LABELS,
+          // Merge over defaults so provider + size caps are always present, even
+          // for docs that predate the storage field or persist a partial config.
+          storage: props.storage
+            ? { ...defaultStorageConfig(), ...props.storage }
+            : defaultStorageConfig(),
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
         },
@@ -78,6 +86,9 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
   get taskLabels(): TaskLabelConfig[] {
     return this.props.taskLabels;
   }
+  get storage(): CloudStorageConfig {
+    return this.props.storage;
+  }
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -102,6 +113,11 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
 
   setTaskLabels(taskLabels: TaskLabelConfig[]): void {
     this.props.taskLabels = taskLabels;
+    this.props.updatedAt = new Date();
+  }
+
+  setStorage(storage: CloudStorageConfig): void {
+    this.props.storage = storage;
     this.props.updatedAt = new Date();
   }
 }

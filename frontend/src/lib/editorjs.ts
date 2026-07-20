@@ -23,8 +23,8 @@ export type HtmlEditorBlock =
       data: { withHeadings: boolean; content: string[][] };
     }
   | {
-      // @editorjs/image block. `file.url` holds a base64 data URL for images
-      // uploaded through the editor (kept inline; no server round trip).
+      // @editorjs/image block. `file.url` is the stored file's URL (or a base64
+      // data URL when no storage is configured).
       type: 'image';
       data: {
         // `width` is a CSS length (e.g. `"62%"`) set by the resize handle.
@@ -34,6 +34,11 @@ export type HtmlEditorBlock =
         withBackground?: boolean;
         stretched?: boolean;
       };
+    }
+  | {
+      // Short-video block — `url` is the stored file's URL.
+      type: 'video';
+      data: { url: string };
     };
 
 function escapeHtml(text: string): string {
@@ -228,6 +233,15 @@ export function htmlToBlocks(html: string): HtmlEditorBlock[] {
         continue;
       }
     }
+    if (tag === 'video') {
+      const src =
+        el.getAttribute('src') || el.querySelector('source')?.getAttribute('src') || '';
+      if (src) {
+        flush();
+        blocks.push({ type: 'video', data: { url: src } });
+        continue;
+      }
+    }
     if (isInlineTag(tag)) {
       buffer += el.outerHTML;
       continue;
@@ -291,6 +305,10 @@ function renderBlock(b: HtmlEditorBlock): string {
     const style = width ? ` style="width:${escapeAttr(width)}"` : '';
     const img = `<img src="${escapeAttr(url)}" alt="${escapeAttr(stripTags(caption))}"${cls}${style}>`;
     return caption ? `<figure>${img}<figcaption>${caption}</figcaption></figure>` : img;
+  }
+  if (b.type === 'video') {
+    const url = b.data.url ?? '';
+    return url ? `<video src="${escapeAttr(url)}" controls></video>` : '';
   }
   return `<p>${b.data.text ?? ''}</p>`;
 }

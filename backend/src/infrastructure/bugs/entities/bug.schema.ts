@@ -1,6 +1,6 @@
 import { Schema } from 'mongoose';
 import { v4 as uuid } from 'uuid';
-import { BugSeverity, BugStatus } from '@application/bugs/domain/enums/bug.enums';
+import { BugAttachment, BugSeverity, BugStatus } from '@application/bugs/domain/enums/bug.enums';
 
 export interface BugDoc {
   _id: string;
@@ -22,6 +22,7 @@ export interface BugDoc {
   reporterId: string;
   reporterName: string;
   order: number;
+  attachments: BugAttachment[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +51,7 @@ export const BugSchema = new Schema<BugDoc>(
     reporterId: { type: String, default: '' },
     reporterName: { type: String, default: '' },
     order: { type: Number, default: 0 },
+    attachments: { type: [Schema.Types.Mixed], default: [] } as unknown as BugAttachment[],
   },
   { timestamps: true },
 );

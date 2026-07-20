@@ -1,15 +1,27 @@
 import 'reflect-metadata';
 import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // `bodyParser: false` skips Express's default JSON parser (a 100kb limit that
+  // would 413 before ours ran); we re-register it below with a larger cap.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
   const config = app.get(ConfigService);
   const port = config.get<number>('PORT', 3000);
+
+  // Rich-text descriptions can inline an image as a base64 data URL when no
+  // cloud storage is configured, so a single request may carry a few hundred KB.
+  // Raise the JSON/form body limit accordingly (overridable via env for prod).
+  const bodyLimit = config.get<string>('MAX_REQUEST_BODY_SIZE', '10mb');
+  app.useBodyParser('json', { limit: bodyLimit });
+  app.useBodyParser('urlencoded', { limit: bodyLimit, extended: true });
 
   app.use(helmet());
   app.useGlobalPipes(

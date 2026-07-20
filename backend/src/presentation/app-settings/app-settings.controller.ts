@@ -7,17 +7,22 @@ import { TaskStatusConfig, TaskLabelConfig } from '@application/tasks/domain/enu
 import {
   GetAppSettingsUseCase,
   UpdateBugStatusesUseCase,
+  UpdateStorageUseCase,
   UpdateTaskLabelsUseCase,
   UpdateTaskStatusesUseCase,
   UpdateWebhooksUseCase,
 } from '@application/app-settings/use-cases/app-settings.use-cases';
 import {
   AppSettingsResponseDto,
+  StorageSettingsResponseDto,
   UpdateBugStatusesDto,
+  UpdateStorageDto,
   UpdateTaskLabelsDto,
   UpdateTaskStatusesDto,
   UpdateWebhooksDto,
 } from '@application/app-settings/dtos/app-settings.dtos';
+import { AppSettingsEntity } from '@application/app-settings/domain/app-settings.entity';
+import { CloudStorageConfig } from '@application/app-settings/domain/storage.types';
 
 @ApiTags('Settings')
 @ApiBearerAuth('JWT-auth')
@@ -29,21 +34,44 @@ export class AppSettingsController {
     private readonly updateBugStatuses: UpdateBugStatusesUseCase,
     private readonly updateTaskStatuses: UpdateTaskStatusesUseCase,
     private readonly updateTaskLabels: UpdateTaskLabelsUseCase,
+    private readonly updateStorage: UpdateStorageUseCase,
   ) {}
 
-  @Get()
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Get tenant settings (admin)' })
-  async get(@AuthUser() auth: JwtPayload): Promise<AppSettingsResponseDto> {
-    const result = await this.getSettings.execute({ tenantId: auth.tenantId });
-    const s = result.getValue();
+  /** Storage secrets never leave the server — collapse them to booleans. */
+  private maskStorage(c: CloudStorageConfig): StorageSettingsResponseDto {
+    return {
+      provider: c.provider,
+      s3Region: c.s3Region,
+      s3Bucket: c.s3Bucket,
+      s3AccessKeyId: c.s3AccessKeyId,
+      s3Endpoint: c.s3Endpoint,
+      s3PublicBaseUrl: c.s3PublicBaseUrl,
+      s3SecretConfigured: !!c.s3SecretAccessKey,
+      azureContainer: c.azureContainer,
+      azureConnectionConfigured: !!c.azureConnectionString,
+      maxVideoMb: c.maxVideoMb,
+      maxImageMb: c.maxImageMb,
+    };
+  }
+
+  /** The full settings blob, with storage secrets masked. */
+  private present(s: AppSettingsEntity): AppSettingsResponseDto {
     return {
       tenantId: s.tenantId,
       webhooks: s.webhooks,
       bugStatuses: s.bugStatuses,
       taskStatuses: s.taskStatuses,
       taskLabels: s.taskLabels,
+      storage: this.maskStorage(s.storage),
     };
+  }
+
+  @Get()
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Get tenant settings (admin)' })
+  async get(@AuthUser() auth: JwtPayload): Promise<AppSettingsResponseDto> {
+    const result = await this.getSettings.execute({ tenantId: auth.tenantId });
+    return this.present(result.getValue());
   }
 
   @Get('bug-statuses')
@@ -68,14 +96,7 @@ export class AppSettingsController {
     @Body() dto: UpdateWebhooksDto,
   ): Promise<AppSettingsResponseDto> {
     const result = await this.updateWebhooks.execute({ tenantId: auth.tenantId, dto });
-    const s = result.getValue();
-    return {
-      tenantId: s.tenantId,
-      webhooks: s.webhooks,
-      bugStatuses: s.bugStatuses,
-      taskStatuses: s.taskStatuses,
-      taskLabels: s.taskLabels,
-    };
+    return this.present(result.getValue());
   }
 
   @Put('bug-statuses')
@@ -89,14 +110,7 @@ export class AppSettingsController {
     if (result.isFailure) {
       throw new BadRequestException(result.error as string);
     }
-    const s = result.getValue();
-    return {
-      tenantId: s.tenantId,
-      webhooks: s.webhooks,
-      bugStatuses: s.bugStatuses,
-      taskStatuses: s.taskStatuses,
-      taskLabels: s.taskLabels,
-    };
+    return this.present(result.getValue());
   }
 
   @Put('task-statuses')
@@ -110,14 +124,7 @@ export class AppSettingsController {
     if (result.isFailure) {
       throw new BadRequestException(result.error as string);
     }
-    const s = result.getValue();
-    return {
-      tenantId: s.tenantId,
-      webhooks: s.webhooks,
-      bugStatuses: s.bugStatuses,
-      taskStatuses: s.taskStatuses,
-      taskLabels: s.taskLabels,
-    };
+    return this.present(result.getValue());
   }
 
   @Get('task-labels')
@@ -128,23 +135,33 @@ export class AppSettingsController {
   }
 
   @Put('task-labels')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Replace the tenant task labels (admin)' })
+  @Roles(Role.ADMIN, Role.PRODUCT)
+  @ApiOperation({ summary: 'Replace the tenant task labels (admin, product)' })
   async putTaskLabels(
     @AuthUser() auth: JwtPayload,
     @Body() dto: UpdateTaskLabelsDto,
-  ): Promise<AppSettingsResponseDto> {
+  ): Promise<TaskLabelConfig[]> {
     const result = await this.updateTaskLabels.execute({ tenantId: auth.tenantId, dto });
     if (result.isFailure) {
       throw new BadRequestException(result.error as string);
     }
-    const s = result.getValue();
-    return {
-      tenantId: s.tenantId,
-      webhooks: s.webhooks,
-      bugStatuses: s.bugStatuses,
-      taskStatuses: s.taskStatuses,
-      taskLabels: s.taskLabels,
-    };
+    // Returns only the labels, not the whole settings blob: the full DTO carries
+    // `webhooks`, and Product may write labels but must not read webhook config.
+    // Mirrors the shape of `GET task-labels`.
+    return result.getValue().taskLabels;
+  }
+
+  @Put('storage')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Update cloud-storage config for media uploads (admin)' })
+  async putStorage(
+    @AuthUser() auth: JwtPayload,
+    @Body() dto: UpdateStorageDto,
+  ): Promise<AppSettingsResponseDto> {
+    const result = await this.updateStorage.execute({ tenantId: auth.tenantId, dto });
+    if (result.isFailure) {
+      throw new BadRequestException(result.error as string);
+    }
+    return this.present(result.getValue());
   }
 }

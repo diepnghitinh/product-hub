@@ -1,5 +1,5 @@
 import { UniqueEntityID } from '@core/domain';
-import { BugSeverity, BugStatus } from '../enums/bug.enums';
+import { BugAttachment, BugSeverity, BugStatus } from '../enums/bug.enums';
 
 export interface BugProps {
   id: UniqueEntityID;
@@ -29,6 +29,8 @@ export interface BugProps {
   reporterName: string;
   /** Position within its status column. */
   order: number;
+  /** Files attached to the bug (screenshots, short screen-recordings). */
+  attachments: BugAttachment[];
   createdAt: Date;
   updatedAt: Date;
 }

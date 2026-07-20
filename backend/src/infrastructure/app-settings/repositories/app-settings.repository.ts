@@ -16,6 +16,7 @@ export class AppSettingsRepository implements IAppSettingsRepository {
       bugStatuses: doc.bugStatuses,
       taskStatuses: doc.taskStatuses,
       taskLabels: doc.taskLabels,
+      storage: doc.storage,
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
     });
@@ -39,6 +40,7 @@ export class AppSettingsRepository implements IAppSettingsRepository {
           bugStatuses: settings.bugStatuses,
           taskStatuses: settings.taskStatuses,
           taskLabels: settings.taskLabels,
+          storage: settings.storage,
         },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       )

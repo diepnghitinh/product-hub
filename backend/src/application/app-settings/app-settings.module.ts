@@ -3,6 +3,7 @@ import { InfrastructureAppSettingsModule } from '@infrastructure/app-settings/ap
 import {
   GetAppSettingsUseCase,
   UpdateBugStatusesUseCase,
+  UpdateStorageUseCase,
   UpdateTaskLabelsUseCase,
   UpdateTaskStatusesUseCase,
   UpdateWebhooksUseCase,
@@ -14,6 +15,7 @@ const useCases = [
   UpdateBugStatusesUseCase,
   UpdateTaskStatusesUseCase,
   UpdateTaskLabelsUseCase,
+  UpdateStorageUseCase,
 ];
 
 @Module({

@@ -5,12 +5,18 @@ import { BUG_STATUSES } from '@application/bugs/domain/enums/bug.enums';
 import { TASK_STATUSES } from '@application/tasks/domain/enums/task.enums';
 import {
   UpdateBugStatusesDto,
+  UpdateStorageDto,
   UpdateTaskLabelsDto,
   UpdateTaskStatusesDto,
   UpdateWebhooksDto,
 } from '../dtos/app-settings.dtos';
 import { AppSettingsEntity } from '../domain/app-settings.entity';
 import { IAppSettingsRepository } from '../repositories/app-settings.repository';
+import {
+  CloudStorageConfig,
+  DEFAULT_MAX_IMAGE_MB,
+  DEFAULT_MAX_VIDEO_MB,
+} from '../domain/storage.types';
 
 /** Load the tenant's settings, creating an in-memory default if none exist yet. */
 async function loadOrDefault(
@@ -172,6 +178,60 @@ export class UpdateTaskLabelsUseCase
 
     const settings = await loadOrDefault(this.repo, tenantId);
     settings.setTaskLabels(cleaned);
+    await this.repo.save(settings);
+    return Result.ok(settings);
+  }
+}
+
+/**
+ * Merge a storage update onto the current config. Non-secret fields are a
+ * straight replace (blank clears them); the two secrets are kept when the client
+ * sends nothing, so a masked form round-trips without wiping stored credentials.
+ */
+export function mergeStorageConfig(
+  current: CloudStorageConfig,
+  dto: UpdateStorageDto,
+): CloudStorageConfig {
+  const clean = (s?: string) => {
+    const v = s?.trim();
+    return v ? v : undefined;
+  };
+  return {
+    provider: dto.provider,
+    s3Region: clean(dto.s3Region),
+    s3Bucket: clean(dto.s3Bucket),
+    s3AccessKeyId: clean(dto.s3AccessKeyId),
+    s3SecretAccessKey: clean(dto.s3SecretAccessKey) ?? current.s3SecretAccessKey,
+    s3Endpoint: clean(dto.s3Endpoint),
+    s3PublicBaseUrl: clean(dto.s3PublicBaseUrl),
+    azureConnectionString: clean(dto.azureConnectionString) ?? current.azureConnectionString,
+    azureContainer: clean(dto.azureContainer),
+    maxVideoMb: dto.maxVideoMb ?? current.maxVideoMb ?? DEFAULT_MAX_VIDEO_MB,
+    maxImageMb: dto.maxImageMb ?? current.maxImageMb ?? DEFAULT_MAX_IMAGE_MB,
+  };
+}
+
+/**
+ * Update the tenant's cloud-storage config. Secrets are write-only: a blank
+ * `s3SecretAccessKey` / `azureConnectionString` keeps whatever is stored, so the
+ * client never has to (and never gets to) read them back. Everything else is a
+ * straight replace from the form.
+ */
+@Injectable()
+export class UpdateStorageUseCase
+  implements
+    IUsecaseExecute<{ tenantId: string; dto: UpdateStorageDto }, Result<AppSettingsEntity>>
+{
+  constructor(@Inject(IAppSettingsRepository) private readonly repo: IAppSettingsRepository) {}
+  async execute({
+    tenantId,
+    dto,
+  }: {
+    tenantId: string;
+    dto: UpdateStorageDto;
+  }): Promise<Result<AppSettingsEntity>> {
+    const settings = await loadOrDefault(this.repo, tenantId);
+    settings.setStorage(mergeStorageConfig(settings.storage, dto));
     await this.repo.save(settings);
     return Result.ok(settings);
   }

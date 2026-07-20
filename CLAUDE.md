@@ -71,35 +71,44 @@ Keep me in control and in the loop at all times
 - If there are any changes that result in inconsistent UI colors, please ask beforehand.
 
 ## Kanban board layout
-Every board — Bugs, My Tasks, Roadmap — must read as one product. Two components own the
-layout. **Compose them; never hand-roll board chrome.**
+Every board — Bugs, My Tasks, Roadmap — must read as one product. All three already compose
+the same two components. **Compose them; never hand-roll board chrome.**
 
-- **`components/IssueBoardLayout.tsx`** — the page shell. Owns the header, the toolbar row
-  (`search · filters ······ view · action`), and the `flex flex-col sm:h-full` root that gives
-  the board its height. Don't rebuild the toolbar or the Board/List switch inside a page.
+- **`components/IssueBoardLayout.tsx`** — the page shell. Owns the full-height root, the
+  title/actions (which portal into the app topbar via `PageHeader`), the **view switch**, and
+  the toolbar row, which holds *only* what narrows the list (`search · filters`). A board with
+  nothing to narrow gets no toolbar. Don't rebuild any of it inside a page.
 - **`components/KanbanBoard.tsx`** — the board. Owns column width/spacing, the colour-dot
-  column header + count, drag, the lifted overlay, and the drop placeholder. Pass
-  `columns` / `renderCard` / `onMove`; never restyle columns from the outside.
+  column header + count, per-column collapse, the hover **+ Add** button, drag, the lifted
+  overlay, and the drop placeholder. It also exports the parts a board fills it with:
+  **`KanbanCard`** and **`KanbanCardToolbar`**. Use those — never re-style a card or column
+  from a page.
 
-A page's only layout job is the card. Use this shell verbatim (reference: `TaskCard` in
-`MyTasksPage.tsx`):
+**Sharing the component is not sharing the behaviour.** `KanbanBoard`'s slots are optional, and
+that is exactly how the boards drifted: all three imported the same board, but only Roadmap
+filled the slots, so team boards silently had no way to add an item to a column. A new board
+fills both, or has a stated reason not to:
 
-```tsx
-cn(
-  'flex flex-col gap-2 rounded-xl border bg-card p-3 text-card-foreground shadow-sm transition-colors hover:border-foreground/20',
-  overlay && 'w-[256px] rotate-3 cursor-grabbing shadow-2xl',
-)
-```
+| slot | what it gives you |
+|---|---|
+| `onColumnAdd` + `addLabel` | `+ Add` in each column — a button on header hover **and** one under the list → create pre-set to that column |
+| `renderCardToolbar` | hover open/delete on a card |
 
-- No `cursor-pointer` on the card — `KanbanBoard` adds it when `onCardClick` is set.
-- List view goes in `<div className="min-h-0 flex-1 overflow-y-auto pb-4">`.
-- Column `key`/`label`/`color` come from the feature's own config (`BugStatusConfig`,
-  `TaskStatusConfig`, `roadmap.columns`) — never hardcode a column colour.
+**A board never adds a column.** Columns are a team's statuses and are owned by
+**Settings → sidebar → Teams → settings** (`AdminSettingsPage`, `useUpdateTeamStatuses`) — the
+one place the rest of the app reads them from. `KanbanBoard` deliberately has **no**
+`renderBoardEnd`/"+ Add column" slot, so this isn't a convention to remember: a board can't
+mint a status even if it tries. (A roadmap's columns aren't team statuses and have no Settings
+page; they stay editable via that board's `⋯ → Manage columns`.)
+
+- List view goes in `<div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>`.
+- Column `key`/`label`/`color` come from the feature's own config (`TeamStatusConfig`,
+  `roadmap.columns`) — never hardcode a column colour.
+- **Creating from a board must pass the board's `teamId`.** The API falls back to the
+  workspace's *default* team when it's absent, so an issue added from a team's board silently
+  lands in the wrong team — it looks like it saved, just not there. (On the team-less `/bugs`
+  and `/tasks` routes there's no `teamId`, and that fallback is the right answer.)
 
 If a board needs something the shell can't express, **add a prop to the shell** so every board
 moves together — don't fork it. Changing card or column styling means changing the shared
 component, not one page.
-
-**Known debt, not precedent:** `RoadmapBoardPage` predates `IssueBoardLayout`, so it still
-hand-rolls its header and view toggle, and `RoadmapCard` uses `gap-1.5` instead of `gap-2`.
-Don't copy it when adding a board.

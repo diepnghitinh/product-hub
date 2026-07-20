@@ -1,19 +1,7 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import {
-  Button,
-  Combobox,
-  DotLabel,
-  Field,
-  Input,
-  MultiSelect,
-  Select,
-  Spinner,
-  Textarea,
-} from '@/components/ui';
+import { Button, Combobox, DotLabel, Input, Select, Spinner } from '@/components/ui';
 import { t } from '@/i18n';
-import { timeAgo } from '@/lib/format';
 import {
   BUG_SEVERITIES,
   BUG_SEVERITY_COLOR,
@@ -21,14 +9,8 @@ import {
   BugSeverity,
   TeamIssueType,
 } from '@/types/enums';
-import type { CommentDto } from '@/types/dto';
 import { useUsers } from '@/features/users/api';
-import {
-  useComments,
-  useCreateComment,
-  useDeleteComment,
-  useUpdateComment,
-} from '@/features/activity/api';
+import { IssueDetailMain } from '@/features/issues/IssueDetailMain';
 import { useTeamStatuses } from '@/features/teams/api';
 import { useBug, useDeleteBug, useSetBugStatus, useUpdateBug } from '../api';
 import { SeverityBadge } from './SeverityBadge';
@@ -45,9 +27,10 @@ interface BugDetailProps {
 }
 
 /**
- * The full bug detail body — title, description, activity thread and the meta
- * sidebar. Extracted from the route page so the inbox can render it inline in
- * its detail pane; the route page wraps this with the back link + Esc handling.
+ * The full bug detail body — the shared <IssueDetailMain> (title · description ·
+ * activity, identical to Task detail) beside the bug's own Properties sidebar.
+ * Extracted from the route page so the inbox can render it inline in its detail
+ * pane; the route page wraps this with the breadcrumb + Esc handling.
  */
 export function BugDetail({ bugId, onDeleted }: BugDetailProps) {
   const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
@@ -56,19 +39,13 @@ export function BugDetail({ bugId, onDeleted }: BugDetailProps) {
   const update = useUpdateBug();
   const setStatus = useSetBugStatus();
   const remove = useDeleteBug();
-  const { data: usersData } = useUsers({ limit: 100 }, isAdmin); // admin-only; assignee/mentions
+  // Readable by any member now, so @-mentions in comments work for everyone.
+  const { data: usersData } = useUsers({ limit: 100 });
   const users = usersData?.items ?? [];
 
   // Columns come from the team that owns this bug.
   const columns = useTeamStatuses(bug?.teamId, TeamIssueType.BUG);
   const statusLabel = (k: string) => columns.find((c) => c.key === k)?.label ?? k;
-
-  // The URL carries a shortId (BUG-12), but /bugs/:id/comments keys off the
-  // uuid — so use the resolved bug's real id, not the route param.
-  const { data: comments } = useComments(bug?.id);
-  const createComment = useCreateComment(bug?.id ?? '');
-  const [commentBody, setCommentBody] = useState('');
-  const [mentionIds, setMentionIds] = useState<string[]>([]);
 
   if (isLoading) {
     return (
@@ -92,104 +69,30 @@ export function BugDetail({ bugId, onDeleted }: BugDetailProps) {
     update.mutate({ id: bug!.id, input });
   }
 
-  function postComment() {
-    const body = commentBody.trim();
-    if (!body) return;
-    createComment.mutate(
-      { body, mentions: mentionIds },
-      {
-        onSuccess: () => {
-          setCommentBody('');
-          setMentionIds([]);
-        },
-      },
-    );
-  }
-
   return (
-    <div className="grid items-start gap-6 md:grid-cols-[1fr_280px]">
-      <div className="min-w-0">
-        {bug.shortId && (
-          <span className="mb-1 block px-1.5 font-mono text-xs text-muted-foreground">
-            {bug.shortId}
-          </span>
-        )}
-        {canWrite ? (
-          <Input
-            className="h-auto border-transparent bg-transparent px-1.5 py-1 text-xl font-semibold shadow-none hover:border-input"
-            defaultValue={bug.title}
-            onBlur={(e) =>
-              e.target.value.trim() && e.target.value !== bug.title && save({ title: e.target.value })
-            }
-          />
-        ) : (
-          <h1 className="text-xl font-semibold tracking-tight">{bug.title}</h1>
-        )}
+    <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_280px]">
+      {/* ── Main column (shared with Task detail) ─────────────────────────── */}
+      <IssueDetailMain
+        key={bug.id}
+        subject="bug"
+        issueId={bug.id}
+        shortId={bug.shortId}
+        title={bug.title}
+        titlePlaceholder={t('bugs.title2')}
+        description={bug.description}
+        descriptionPlaceholder={t('bugs.description')}
+        createdByName={bug.reporterName}
+        createdAt={bug.createdAt}
+        createdLabel={t('bugs.reportedThis')}
+        canWrite={canWrite}
+        isAdmin={isAdmin}
+        currentUserId={user?.id}
+        users={users}
+        onSaveTitle={(title) => save({ title })}
+        onSaveDescription={(description) => save({ description })}
+      />
 
-        <Field label={t('bugs.description')}>
-          {canWrite ? (
-            <Textarea
-              defaultValue={bug.description}
-              placeholder={t('bugs.description')}
-              onBlur={(e) => e.target.value !== bug.description && save({ description: e.target.value })}
-            />
-          ) : (
-            <p className="text-muted-foreground">{bug.description || '—'}</p>
-          )}
-        </Field>
-
-        <section className="mt-8 border-t pt-4">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[13px] font-medium uppercase tracking-wide text-muted-foreground">
-              {t('activity.title')}
-            </h2>
-          </div>
-          <div className="mb-4 flex flex-col gap-4">
-            {(comments ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('activity.empty')}</p>
-            ) : (
-              (comments ?? []).map((c) => (
-                <CommentItem
-                  key={c.id}
-                  comment={c}
-                  bugId={bug.id}
-                  canEdit={canWrite && (c.authorId === user?.id || isAdmin)}
-                />
-              ))
-            )}
-          </div>
-
-          {canWrite && (
-            <div className="flex flex-col gap-2">
-              <Textarea
-                value={commentBody}
-                onChange={(e) => setCommentBody(e.target.value)}
-                placeholder={t('activity.placeholder')}
-              />
-              {isAdmin && users.length > 0 && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="shrink-0 text-muted-foreground">{t('activity.notify')}:</span>
-                  <MultiSelect
-                    className="min-w-0 flex-1"
-                    placeholder={t('activity.notifyPlaceholder')}
-                    value={mentionIds}
-                    onChange={setMentionIds}
-                    options={users
-                      .filter((u) => u.id !== user?.id)
-                      .map((u) => ({ value: u.id, label: u.name }))}
-                  />
-                </div>
-              )}
-              <div className="flex justify-end">
-                <Button size="sm" onClick={postComment} loading={createComment.isPending}>
-                  {t('activity.comment')}
-                </Button>
-              </div>
-            </div>
-          )}
-        </section>
-      </div>
-
+      {/* ── Properties sidebar ────────────────────────────────────────────── */}
       <aside className="flex flex-col gap-3 rounded-xl border bg-card p-4 text-card-foreground shadow-sm md:sticky md:top-6">
         <div className="flex flex-col gap-1">
           <span className={ROW_LABEL}>{t('bugs.status')}</span>
@@ -279,86 +182,13 @@ export function BugDetail({ bugId, onDeleted }: BugDetailProps) {
             size="sm"
             className="mt-2 self-start text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={() => {
-              if (confirm(t('bugs.confirmDelete')))
-                remove.mutate(bug.id, { onSuccess: onDeleted });
+              if (confirm(t('bugs.confirmDelete'))) remove.mutate(bug.id, { onSuccess: onDeleted });
             }}
           >
             {t('bugs.delete')}
           </Button>
         )}
       </aside>
-    </div>
-  );
-}
-
-/** One comment in the activity thread — with inline edit + delete for the author (or admins). */
-function CommentItem({
-  comment,
-  bugId,
-  canEdit,
-}: {
-  comment: CommentDto;
-  bugId: string;
-  canEdit: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(comment.body);
-  const update = useUpdateComment(bugId);
-  const remove = useDeleteComment(bugId);
-  const edited = comment.updatedAt && comment.updatedAt !== comment.createdAt;
-
-  function saveEdit() {
-    const body = draft.trim();
-    if (!body || body === comment.body) {
-      setEditing(false);
-      return;
-    }
-    update.mutate({ id: comment.id, input: { body } }, { onSuccess: () => setEditing(false) });
-  }
-
-  return (
-    <div className="group border-l-2 border-border pl-3">
-      <div className="mb-0.5 flex items-baseline gap-2 text-sm">
-        <span className="font-semibold">{comment.authorName}</span>
-        <span className="text-xs text-muted-foreground">{timeAgo(comment.createdAt)}</span>
-        {edited && <span className="text-xs text-muted-foreground">· {t('activity.edited')}</span>}
-        {canEdit && !editing && (
-          <span className="ml-auto flex gap-2.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-            <button
-              type="button"
-              className="text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                setDraft(comment.body);
-                setEditing(true);
-              }}
-            >
-              {t('common.edit')}
-            </button>
-            <button
-              type="button"
-              className="text-xs text-muted-foreground hover:text-destructive"
-              onClick={() => confirm(t('activity.confirmDelete')) && remove.mutate(comment.id)}
-            >
-              {t('common.delete')}
-            </button>
-          </span>
-        )}
-      </div>
-      {editing ? (
-        <div className="mt-1 flex flex-col gap-2">
-          <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus />
-          <div className="flex justify-end gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button size="sm" onClick={saveEdit} loading={update.isPending}>
-              {t('common.save')}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <p className="whitespace-pre-wrap text-sm">{comment.body}</p>
-      )}
     </div>
   );
 }

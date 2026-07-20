@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { Button, Input, ProgressBar, Select, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
-import { BackLink } from '@/components/BackLink';
+import { PageHeader } from '@/layouts/headers/PageHeader';
 import {
   MILESTONE_STATUS_LABEL,
   MILESTONE_STATUSES,
@@ -18,6 +18,7 @@ import type { KeyResult, Objective } from '@/types/dto';
 import { useDeleteMilestone, useMilestone, useReplaceObjectives, useUpdateMilestone } from './api';
 import { WeightSplitBar, krLabel } from './components/WeightSplitBar';
 import { OBJECTIVE_WEIGHT, TOTAL_WEIGHT, distributeEvenly, setWeight } from './weights';
+import { CenteredPageLayout } from '@/layouts/shared';
 
 // Right-hand column widths, shared by the header + objective/KR rows so they align.
 const COL = {
@@ -208,45 +209,47 @@ export function MilestoneDetailPage() {
   }
 
   return (
-    <div>
-      <BackLink to="/okrs">{t('milestones.title')}</BackLink>
+    <CenteredPageLayout>
+      {/* No BackLink — the topbar's breadcrumb ("OKRs › this milestone") is the
+          way back now. */}
+      <PageHeader
+        title={milestone.title}
+        subtitle={milestone.timeframe || undefined}
+        actions={
+          <>
+            {canWrite && (
+              <div className="w-40">
+                <Select
+                  value={milestone.status}
+                  onValueChange={(v) =>
+                    update.mutate({ id: milestone.id, input: { status: v as MilestoneStatus } })
+                  }
+                  options={MILESTONE_STATUSES.map((s) => ({
+                    value: s,
+                    label: MILESTONE_STATUS_LABEL[s],
+                  }))}
+                />
+              </div>
+            )}
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (confirm(t('milestones.confirmDelete')))
+                    remove.mutate(milestone.id, { onSuccess: () => navigate('/okrs') });
+                }}
+              >
+                {t('milestones.delete')}
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      <header className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">{milestone.title}</h1>
-          {milestone.timeframe && (
-            <p className="mt-1 text-sm text-muted-foreground">{milestone.timeframe}</p>
-          )}
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {canWrite && (
-            <div className="w-full sm:w-40">
-              <Select
-                value={milestone.status}
-                onValueChange={(v) =>
-                  update.mutate({ id: milestone.id, input: { status: v as MilestoneStatus } })
-                }
-                options={MILESTONE_STATUSES.map((s) => ({
-                  value: s,
-                  label: MILESTONE_STATUS_LABEL[s],
-                }))}
-              />
-            </div>
-          )}
-          {isAdmin && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (confirm(t('milestones.confirmDelete')))
-                  remove.mutate(milestone.id, { onSuccess: () => navigate('/okrs') });
-              }}
-            >
-              {t('milestones.delete')}
-            </Button>
-          )}
-        </div>
-      </header>
+      {milestone.timeframe && (
+        <p className="mb-4 text-sm text-muted-foreground">{milestone.timeframe}</p>
+      )}
 
       <div className="mb-6 rounded-xl border bg-card p-4 text-card-foreground">
         <div className="mb-2 flex justify-between text-sm">
@@ -518,6 +521,6 @@ export function MilestoneDetailPage() {
           {t('milestones.addObjective')}
         </button>
       )}
-    </div>
+    </CenteredPageLayout>
   );
 }

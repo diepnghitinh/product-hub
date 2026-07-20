@@ -44,11 +44,32 @@ export const NAV_GROUPS: NavGroup[] = [
     // the sidebar renders those dynamically under "Teams".
     items: [{ path: '/testing', labelKey: 'nav.projects', icon: 'projects' }],
   },
-  {
-    headingKey: 'navgroup.admin',
-    items: [
-      { path: '/admin/people', labelKey: 'nav.people', icon: 'people', adminOnly: true },
-      { path: '/admin/settings', labelKey: 'nav.settings', icon: 'settings', adminOnly: true },
-    ],
-  },
+  // Admin (People + Settings) is no longer a sidebar group — it moved into the
+  // profile menu (see `PROFILE_NAV_ITEMS` + the footer menu in `Sidebar`).
 ];
+
+/**
+ * People + Settings live in the profile (avatar) menu now, not the sidebar. Kept
+ * as nav items so their routes still resolve a breadcrumb icon + document title
+ * (`findNavItem` searches these too), and so the profile menu renders them from
+ * one source instead of hardcoding.
+ */
+export const PROFILE_NAV_ITEMS: NavItem[] = [
+  { path: '/admin/people', labelKey: 'nav.people', icon: 'people', adminOnly: true },
+  { path: '/admin/settings', labelKey: 'nav.settings', icon: 'settings', adminOnly: true },
+];
+
+/**
+ * The nav entry a route belongs to — the topbar reads it for the breadcrumb's
+ * icon and its parent link. Longest match wins, so `/admin/settings` beats a
+ * hypothetical `/admin`. Not every route has one: Bugs, Tasks and a team's board
+ * hang off the dynamic Teams list, so those pages name their own parent.
+ */
+export function findNavItem(pathname: string): NavItem | undefined {
+  const all = [...NAV_GROUPS.flatMap((g) => g.items), ...PROFILE_NAV_ITEMS];
+  const exact = all.find((i) => i.path === pathname);
+  if (exact) return exact;
+  return all
+    .filter((i) => !i.end && pathname.startsWith(`${i.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+}

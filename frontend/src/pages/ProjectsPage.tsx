@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Button, Spinner } from '@/components/ui';
-import { PageHeader } from '@/components/PageHeader';
+import { PageHeader } from '@/layouts/headers/PageHeader';
 import { t } from '@/i18n';import { ProjectCard } from '@/features/projects/components/ProjectCard';
 import {
   ProjectFormDialog,
@@ -10,6 +10,7 @@ import {
 import { ArchivedProjectsPanel } from '@/features/projects/components/ArchivedProjectsPanel';
 import { useCreateProject, useProjects } from '@/features/projects/api';
 import { useProjectStats } from '@/features/reports/api';
+import { CenteredPageLayout } from '@/layouts/shared';
 
 const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]';
 
@@ -35,7 +36,7 @@ export function ProjectsPage() {
   }
 
   return (
-    <div>
+    <CenteredPageLayout>
       <PageHeader
         title={t('nav.projects')}
         subtitle={t('dashboard.subtitle')}
@@ -104,6 +105,6 @@ export function ProjectsPage() {
           onSubmit={onCreate}
         />
       )}
-    </div>
+    </CenteredPageLayout>
   );
 }

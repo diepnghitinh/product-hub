@@ -8,6 +8,10 @@ import { useCreateTask } from '../api';
 interface CreateTaskDialogProps {
   open: boolean;
   onClose: () => void;
+  /** Open the task straight into a column (set when added from that column). */
+  defaultStatus?: string;
+  /** The team whose list to create in — without it the API uses the default team. */
+  teamId?: string;
 }
 
 /**
@@ -15,7 +19,12 @@ interface CreateTaskDialogProps {
  * lands in their list) and lets them optionally link a backlog item — picked from
  * any roadmap item, which back-fills the same flat link the Tasks panel writes.
  */
-export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
+export function CreateTaskDialog({
+  open,
+  onClose,
+  defaultStatus,
+  teamId,
+}: CreateTaskDialogProps) {
   const { user } = useAuth();
   const create = useCreateTask();
   const { data: roadmaps } = useRoadmaps();
@@ -63,6 +72,8 @@ export function CreateTaskDialog({ open, onClose }: CreateTaskDialogProps) {
       {
         title: title.trim(),
         description: description.trim() || undefined,
+        status: defaultStatus || undefined,
+        teamId: teamId || undefined,
         assigneeId: user?.id,
         roadmapItemId: itemId || undefined,
         roadmapItemLabel: link?.label,

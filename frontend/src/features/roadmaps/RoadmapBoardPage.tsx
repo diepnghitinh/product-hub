@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, Menu, ProgressBar, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { BackLink } from '@/components/BackLink';
-import { PageHeader } from '@/components/PageHeader';
-import { KanbanBoard } from '@/components/KanbanBoard';
+import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
+import {
+  KanbanBoard,
+  KanbanCard,
+  KanbanCardToolbar,
+} from '@/components/KanbanBoard';
 import {
   DEFAULT_ROADMAP_COLUMNS,
   ROADMAP_ITEM_STATUS_LABEL,
@@ -30,12 +34,7 @@ const STATUS_VARIANT: Record<RoadmapItemStatus, 'muted' | 'warning' | 'success'>
 /** Roadmap item card visual — shared by the column list and the lifted drag overlay. */
 function RoadmapCard({ item, overlay = false }: { item: RoadmapItem; overlay?: boolean }) {
   return (
-    <article
-      className={cn(
-        'flex flex-col gap-1.5 rounded-xl border bg-card p-3 text-card-foreground shadow-sm transition-colors hover:border-foreground/20',
-        overlay && 'w-[256px] rotate-3 cursor-grabbing shadow-2xl',
-      )}
-    >
+    <KanbanCard overlay={overlay}>
       <div className="flex items-start justify-between gap-1.5">
         <span className="min-w-0 text-[13px] leading-snug">{item.title}</span>
         <Badge variant="secondary" className="shrink-0 font-mono" title="RICE score">
@@ -46,7 +45,7 @@ function RoadmapCard({ item, overlay = false }: { item: RoadmapItem; overlay?: b
         {ROADMAP_ITEM_STATUS_LABEL[item.status]}
       </Badge>
       <ProgressBar value={item.progress} />
-    </article>
+    </KanbanCard>
   );
 }
 
@@ -176,42 +175,37 @@ export function RoadmapBoardPage() {
   }
 
   return (
-    <div className="flex flex-col sm:h-full">
-      <BackLink to="/roadmaps">{t('roadmaps.title')}</BackLink>
-
-      <PageHeader
-        title={roadmap.title}
-        subtitle={roadmap.description}
-        titleLabel={t('roadmaps.rename')}
-        // Mirrors `@Roles(ADMIN, TESTER, PRODUCT)` on `PATCH /roadmaps/:id` —
-        // the same gate the board's drag already uses.
-        onTitleChange={
-          canWrite ? (title) => update.mutate({ id: roadmap.id, input: { title } }) : undefined
-        }
-        actions={
-          <>
-            {view === 'board' && (
-            <Button variant={sortRice ? 'primary' : 'secondary'} size="sm" onClick={() => setSortRice((v) => !v)}>
+    // Same shell as every team board now — the view switch, title and actions
+    // are the layout's job, so this page only describes what goes in them.
+    <IssueBoardLayout
+      title={roadmap.title}
+      subtitle={roadmap.description}
+      titleLabel={t('roadmaps.rename')}
+      // Mirrors `@Roles(ADMIN, TESTER, PRODUCT)` on `PATCH /roadmaps/:id` —
+      // the same gate the board's drag already uses.
+      onTitleChange={
+        canWrite ? (title) => update.mutate({ id: roadmap.id, input: { title } }) : undefined
+      }
+      view={{
+        value: view,
+        onChange: (v) => setView(v as 'board' | 'chart' | 'table'),
+        options: [
+          { value: 'board', label: t('roadmaps.viewBoard') },
+          { value: 'chart', label: t('roadmaps.viewChart') },
+          { value: 'table', label: t('roadmaps.viewTable') },
+        ],
+      }}
+      actions={
+        <>
+          {view === 'board' && (
+            <Button
+              variant={sortRice ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setSortRice((v) => !v)}
+            >
               {t('roadmaps.sortRice')}
             </Button>
           )}
-          <div className="inline-flex rounded-md border p-0.5">
-            {(['board', 'chart', 'table'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                className={cn(
-                  'rounded px-3 py-1 text-sm capitalize transition-colors',
-                  view === v
-                    ? 'bg-accent font-medium text-foreground'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-                onClick={() => setView(v)}
-              >
-                {v}
-              </button>
-            ))}
-          </div>
           {(canManageDelivery || isAdmin) && (
             <Menu
               align="right"
@@ -243,10 +237,9 @@ export function RoadmapBoardPage() {
               ]}
             />
           )}
-          </>
-        }
-      />
-
+        </>
+      }
+    >
       {view === 'board' ? (
         <KanbanBoard
           columns={columns}
@@ -277,42 +270,19 @@ export function RoadmapBoardPage() {
                 )
               : undefined
           }
-          renderColumnFooter={
+          onColumnAdd={
             canWrite
-              ? (col) => (
-                  <button
-                    type="button"
-                    className="mt-2 flex w-full shrink-0 items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                    style={{ color: col.color }}
-                    onClick={() => {
-                      setDialogItem(null);
-                      setDialogPhase(col.key);
-                      setDialogOpen(true);
-                    }}
-                  >
-                    <Plus className="size-4" />
-                    {t('roadmaps.addItem')}
-                  </button>
-                )
+              ? (col) => {
+                  setDialogItem(null);
+                  setDialogPhase(col.key);
+                  setDialogOpen(true);
+                }
               : undefined
           }
-          renderBoardEnd={
-            canManageDelivery
-              ? () => (
-                  <button
-                    type="button"
-                    onClick={() => setColumnsOpen(true)}
-                    className="flex min-h-[120px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground sm:w-[200px]"
-                  >
-                    <Plus className="size-4" />
-                    {t('roadmaps.addColumn')}
-                  </button>
-                )
-              : undefined
-          }
+          addLabel={t('roadmaps.addItem')}
         />
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+        <div className={cn('min-h-0 flex-1 overflow-y-auto py-4 md:py-6', BOARD_GUTTER)}>
           {view === 'chart' ? (
             <div className="mx-auto w-full sm:w-1/2">
               <RoadmapRiceChart items={items} columns={columns} />
@@ -352,8 +322,9 @@ export function RoadmapBoardPage() {
           onClose={() => setColumnsOpen(false)}
           roadmapId={roadmap.id}
           columns={columns}
+          items={items}
         />
       )}
-    </div>
+    </IssueBoardLayout>
   );
 }

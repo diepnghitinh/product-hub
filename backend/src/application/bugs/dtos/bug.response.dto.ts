@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { BugSeverity, BugStatus } from '../domain/enums/bug.enums';
+import { BugAttachment, BugSeverity, BugStatus } from '../domain/enums/bug.enums';
 
 /** Flat bug shape — assignee/reporter names are denormalized so the board reads
  * without needing the (admin-only) user list. */
@@ -57,6 +57,9 @@ export class BugResponseDto {
 
   @ApiProperty()
   order: number;
+
+  @ApiProperty({ type: 'array', items: { type: 'object' } })
+  attachments: BugAttachment[];
 
   @ApiProperty()
   createdAt: Date;

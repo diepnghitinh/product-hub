@@ -31,8 +31,12 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
     if (!guard.succeeded) return Result.fail(guard.message);
     // A comment belongs to exactly one subject — a bug or a task.
     if (!props.bugId && !props.taskId) return Result.fail('bugId or taskId is required');
-    const bodyGuard = Guard.againstEmptyString(props.body, 'body');
-    if (!bodyGuard.succeeded) return Result.fail(bodyGuard.message);
+    // A comment needs *something*: text or at least one attachment. A dropped
+    // screenshot or short clip can stand on its own, so an empty body is fine
+    // as long as there's media.
+    const body = (props.body ?? '').trim();
+    const images = props.images ?? [];
+    if (!body && images.length === 0) return Result.fail('A comment needs text or an attachment.');
 
     const createdAt = props.createdAt || new Date();
     return Result.ok(
@@ -44,9 +48,9 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
           taskId: props.taskId || '',
           authorId: props.authorId,
           authorName: props.authorName,
-          body: props.body.trim(),
+          body,
           mentions: Array.from(new Set(props.mentions ?? [])),
-          images: props.images ?? [],
+          images,
           createdAt,
           updatedAt: props.updatedAt || createdAt,
         },
@@ -91,15 +95,16 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
 
   /** Edit an existing comment's body/mentions (bumps updatedAt). */
   edit(fields: { body?: string; mentions?: string[]; images?: string[] }): Result<void> {
-    if (fields.body !== undefined) {
-      const bodyGuard = Guard.againstEmptyString(fields.body, 'body');
-      if (!bodyGuard.succeeded) return Result.fail(bodyGuard.message);
-      this.props.body = fields.body.trim();
+    const nextBody = fields.body !== undefined ? fields.body.trim() : this.props.body;
+    const nextImages = fields.images !== undefined ? fields.images : this.props.images;
+    // Same rule as creation: after the edit the comment must still carry text
+    // or at least one attachment.
+    if (!nextBody && nextImages.length === 0) {
+      return Result.fail('A comment needs text or an attachment.');
     }
-    if (fields.mentions !== undefined) {
-      this.props.mentions = Array.from(new Set(fields.mentions));
-    }
-    if (fields.images !== undefined) this.props.images = fields.images;
+    if (fields.body !== undefined) this.props.body = nextBody;
+    if (fields.mentions !== undefined) this.props.mentions = Array.from(new Set(fields.mentions));
+    if (fields.images !== undefined) this.props.images = nextImages;
     this.props.updatedAt = new Date();
     return Result.ok();
   }

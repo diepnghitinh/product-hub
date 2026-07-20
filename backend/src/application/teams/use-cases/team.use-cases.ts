@@ -73,6 +73,7 @@ export class CreateTeamUseCase
       name: dto.name,
       issueType: dto.issueType,
       icon: dto.icon,
+      color: dto.color,
       order: existing.length,
     });
     if (result.isFailure) return Result.fail(result.error as string);
@@ -113,6 +114,9 @@ export class UpdateTeamUseCase
     }
     if (dto.icon !== undefined) {
       team.setIcon(dto.icon);
+    }
+    if (dto.color !== undefined) {
+      team.setColor(dto.color);
     }
     if (dto.archived !== undefined) {
       const archived = team.setArchived(dto.archived);

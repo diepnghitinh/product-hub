@@ -7,10 +7,10 @@ import InlineCode from '@editorjs/inline-code';
 import Underline from '@editorjs/underline';
 import CodeTool from '@editorjs/code';
 import Table from '@editorjs/table';
-import ImageTool from '@editorjs/image';
 import { blocksToHtml, htmlToBlocks, type HtmlEditorBlock } from '@/lib/editorjs';
 import { enhanceCodeBlocks } from '@/lib/enhanceCodeBlocks';
-import { compressImageFile } from '@/lib/compressImage';
+import { ResizableImageTool } from '@/lib/editor/ResizableImageTool';
+import { uploadMedia } from '@/features/uploads/api';
 import '@/styles/rich-text-editor.css';
 
 export interface RichTextEditorProps {
@@ -20,29 +20,82 @@ export interface RichTextEditorProps {
   placeholder?: string;
   minHeight?: number;
   /**
-   * Enable pasting/selecting images. Each image is compressed in the browser
-   * and stored inline as a base64 data URL (no upload endpoint) — see
-   * `compressImageFile`. Off by default to keep plain descriptions light.
+   * Enable image + short-video blocks. Media uploads to the workspace's
+   * configured storage (Settings → Storage); with none set up, images fall back
+   * to an inline base64 data URL. Off by default to keep plain descriptions light.
    */
   images?: boolean;
   className?: string;
 }
 
-/** Image tool wired to compress client-side, then inline as a data URL — so a
- * pasted screenshot round-trips through the HTML `description` field. */
-const compressingImageTool = {
-  class: ImageTool,
-  config: {
-    uploader: {
-      uploadByFile: async (file: File) => ({
-        success: 1,
-        file: { url: await compressImageFile(file) },
-      }),
-      // A pasted image URL is kept as-is (nothing local to compress).
-      uploadByUrl: async (url: string) => ({ success: 1, file: { url } }),
-    },
-  },
-};
+/**
+ * A minimal Editor.js block for short videos: pick a file → upload to storage →
+ * <video>. Self-contained (calls the upload endpoint directly) and inline-styled
+ * so it needs no extra CSS. Only offered when the editor's `images` prop is on.
+ */
+class VideoTool {
+  static get toolbox() {
+    return {
+      title: 'Video',
+      icon: '<svg width="17" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="14" height="16" rx="2"/><path d="M16 9l6-3v12l-6-3"/></svg>',
+    };
+  }
+
+  private data: { url?: string };
+
+  constructor({ data }: { data?: { url?: string } }) {
+    this.data = data || {};
+  }
+
+  render(): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.style.margin = '0.6em 0';
+    if (this.data.url) this.renderPlayer(wrapper);
+    else this.renderPicker(wrapper);
+    return wrapper;
+  }
+
+  private renderPlayer(wrapper: HTMLElement) {
+    wrapper.innerHTML = '';
+    const video = document.createElement('video');
+    video.src = this.data.url as string;
+    video.controls = true;
+    video.style.cssText = 'width:100%;border-radius:8px;display:block';
+    wrapper.appendChild(video);
+  }
+
+  private renderPicker(wrapper: HTMLElement) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Select a video';
+    btn.style.cssText =
+      'width:100%;padding:14px;border:1px dashed hsl(var(--border));border-radius:8px;background:transparent;color:hsl(var(--muted-foreground));font-size:14px;cursor:pointer';
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'video/*';
+    input.style.display = 'none';
+    btn.addEventListener('click', () => input.click());
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      btn.disabled = true;
+      btn.textContent = 'Uploading…';
+      try {
+        const media = await uploadMedia(file);
+        this.data.url = media.url;
+        this.renderPlayer(wrapper);
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = (e as Error).message || 'Upload failed — click to retry';
+      }
+    });
+    wrapper.append(btn, input);
+  }
+
+  save(): { url: string } {
+    return { url: this.data.url || '' };
+  }
+}
 
 function withFallbackBlocks(blocks: HtmlEditorBlock[]): HtmlEditorBlock[] {
   return blocks.length > 0 ? blocks : [{ type: 'paragraph', data: { text: '' } }];
@@ -111,9 +164,9 @@ export function RichTextEditor({
             inlineToolbar: true,
             config: { rows: 2, cols: 3, withHeadings: true },
           },
-          // Compresses on paste/drop/select; the tool auto-registers image-file
-          // paste handling when present.
-          ...(imagesRef.current ? { image: compressingImageTool } : {}),
+          // Drag-to-resize image tool (upload to storage, base64 fallback,
+          // paste/drop, caption) + a minimal video block.
+          ...(imagesRef.current ? { image: ResizableImageTool, video: VideoTool } : {}),
         },
         onChange: () => {
           void emitHtml();

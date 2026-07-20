@@ -47,6 +47,15 @@ export interface BugStatusConfig {
   color: string;
 }
 
+/** A file attached to a bug (image / short video), stored in the tenant's
+ * configured cloud storage. Shape matches the upload endpoint's response. */
+export interface BugAttachment {
+  url: string;
+  name: string;
+  contentType: string;
+  size: number;
+}
+
 export const DEFAULT_BUG_STATUS_LABEL: Record<BugStatus, string> = {
   [BugStatus.OPEN]: 'Open',
   [BugStatus.IN_PROGRESS]: 'In progress',

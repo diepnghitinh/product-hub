@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Spinner } from '@/components/ui';
-import { PageHeader } from '@/components/PageHeader';
+import { PageHeader } from '@/layouts/headers/PageHeader';
 import { Icon, type IconName } from '@/components/Icon';
 import { t } from '@/i18n';
 import { BugStatus, ROADMAP_PHASE_LABEL, ROADMAP_PHASES } from '@/types/enums';
@@ -12,6 +12,7 @@ import { useBugs } from '@/features/bugs/api';
 import { useRoadmaps } from '@/features/roadmaps/api';
 import { useMilestones } from '@/features/milestones/api';
 import { useInbox } from '@/features/inbox/api';
+import { CenteredPageLayout } from '@/layouts/shared';
 
 interface StatTile {
   to: string;
@@ -48,11 +49,19 @@ export function DashboardPage() {
   ];
 
   return (
-    <div>
-      <PageHeader
-        title={`${t('home.greeting')}${user ? `, ${user.name}` : ''}`}
-        subtitle={t('home.subtitle')}
-      />
+    <CenteredPageLayout>
+      {/* The crumb names the page; the greeting is content, not identity — a
+          breadcrumb reading "Welcome back, Tester" tells you nothing about
+          where you are. */}
+      <PageHeader title={t('nav.home')} subtitle={t('home.subtitle')} />
+
+      <div className="mb-8">
+        <p className="text-2xl font-semibold tracking-tight">
+          {t('home.greeting')}
+          {user ? `, ${user.name}` : ''}
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('home.subtitle')}</p>
+      </div>
 
       <div className="mb-8 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
         {tiles.map((tile) => (
@@ -156,6 +165,6 @@ export function DashboardPage() {
           </div>
         )}
       </section>
-    </div>
+    </CenteredPageLayout>
   );
 }

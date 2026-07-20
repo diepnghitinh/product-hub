@@ -1,8 +1,13 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Badge, Button, Spinner } from '@/components/ui';
-import { IssueBoardLayout } from '@/components/IssueBoardLayout';
-import { KanbanBoard } from '@/components/KanbanBoard';
+import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
+import { Icon } from '@/components/Icon';
+import {
+  KanbanBoard,
+  KanbanCard,
+  KanbanCardToolbar,
+} from '@/components/KanbanBoard';
 import {
   FilterMenu,
   UNASSIGNED,
@@ -18,7 +23,7 @@ import { useRoadmaps } from '@/features/roadmaps/api';
 import { useTeamStatuses } from '@/features/teams/api';
 import { TaskStatus, TeamIssueType, type TeamStatusConfig } from '@/types/enums';
 import type { TaskDto } from '@/types/dto';
-import { useSetTaskStatus, useTasks } from './api';
+import { useDeleteTask, useSetTaskStatus, useTasks } from './api';
 import { CreateTaskDialog } from './components/CreateTaskDialog';
 
 /** The engineer's personal queue — every task assigned to them, as a kanban
@@ -29,14 +34,18 @@ interface MyTasksPageProps {
   teamId?: string;
   /** Team name for the header, when rendered inside a team. */
   teamName?: string;
+  /** The team's symbol, rendered beside the heading. */
+  titleIcon?: ReactNode;
 }
 
-export function MyTasksPage({ teamId, teamName }: MyTasksPageProps = {}) {
+export function MyTasksPage({ teamId, teamName, titleIcon }: MyTasksPageProps = {}) {
   const { user, canEditDelivery: canWrite, canManageDelivery } = useAuth();
   const navigate = useNavigate();
   // Columns belong to the team that owns this board (default task team when standalone).
   const columns = useTeamStatuses(teamId, TeamIssueType.TASK);
   const [createOpen, setCreateOpen] = useState(false);
+  // The column '+ Add' was clicked in — the new task opens there.
+  const [createStatus, setCreateStatus] = useState<string | undefined>();
 
   // Board is the default and kept out of the query for clean URLs; ?view=list
   // survives reloads and is shareable (same pattern as the roadmap board).
@@ -66,6 +75,7 @@ export function MyTasksPage({ teamId, teamName }: MyTasksPageProps = {}) {
   });
   const tasks = data?.items ?? [];
   const setStatus = useSetTaskStatus();
+  const remove = useDeleteTask();
 
   // Only needed to label the filter options.
   const { data: usersData } = useUsers({ limit: 100 }, canManageDelivery);
@@ -113,6 +123,8 @@ export function MyTasksPage({ teamId, teamName }: MyTasksPageProps = {}) {
 
   return (
     <IssueBoardLayout
+      // Same as Bugs: not in the nav model, so the crumb brings its own icon.
+      titleIcon={titleIcon ?? <Icon name="tasks" size={16} className="shrink-0 text-muted-foreground" />}
       title={teamName ?? t('tasks.myTasks')}
       subtitle={teamName ? t('teams.issuesSubtitle') : t('tasks.mySubtitle')}
       search={{ value: search, onChange: setSearch, placeholder: t('tasks.search') }}
@@ -132,11 +144,11 @@ export function MyTasksPage({ teamId, teamName }: MyTasksPageProps = {}) {
       }
     >
       {isLoading ? (
-        <div className="grid place-items-center rounded-xl border border-dashed p-8">
+        <div className={cn('grid place-items-center rounded-xl border border-dashed p-8', BOARD_GUTTER)}>
           <Spinner />
         </div>
       ) : tasks.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-8 text-center">
+        <div className="mx-4 rounded-xl border border-dashed p-8 text-center md:mx-8">
           <p className="text-muted-foreground">{t('tasks.none')}</p>
           {canWrite && (
             <Button size="sm" className="mt-3" onClick={() => setCreateOpen(true)}>
@@ -154,14 +166,46 @@ export function MyTasksPage({ teamId, teamName }: MyTasksPageProps = {}) {
           onMove={onMove}
           disabled={!canWrite}
           onCardClick={(task) => navigate(`/tasks/${task.shortId || task.id}`)}
+          // The add + card-toolbar affordances, same as every board.
+          renderCardToolbar={
+            canWrite
+              ? (task) => (
+                  <KanbanCardToolbar
+                    editLabel={t('common.edit')}
+                    removeLabel={t('common.delete')}
+                    onEdit={() => navigate(`/tasks/${task.shortId || task.id}`)}
+                    onRemove={() => {
+                      if (confirm(t('tasks.confirmDelete'))) remove.mutate(task.id);
+                    }}
+                  />
+                )
+              : undefined
+          }
+          onColumnAdd={
+            canWrite
+              ? (col) => {
+                  setCreateStatus(col.key);
+                  setCreateOpen(true);
+                }
+              : undefined
+          }
+          addLabel={t('tasks.addToColumn')}
         />
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+        <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>
           <TaskList tasks={tasks} columns={columns} />
         </div>
       )}
 
-      <CreateTaskDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+      <CreateTaskDialog
+        open={createOpen}
+        onClose={() => {
+          setCreateOpen(false);
+          setCreateStatus(undefined);
+        }}
+        defaultStatus={createStatus}
+        teamId={teamId}
+      />
     </IssueBoardLayout>
   );
 }
@@ -169,12 +213,7 @@ export function MyTasksPage({ teamId, teamName }: MyTasksPageProps = {}) {
 /** Task card visual — shared by the column list and the lifted drag overlay. */
 function TaskCard({ task, overlay = false }: { task: TaskDto; overlay?: boolean }) {
   return (
-    <article
-      className={cn(
-        'flex flex-col gap-2 rounded-xl border bg-card p-3 text-card-foreground shadow-sm transition-colors hover:border-foreground/20',
-        overlay && 'w-[256px] rotate-3 cursor-grabbing shadow-2xl',
-      )}
-    >
+    <KanbanCard overlay={overlay}>
       <span
         className={cn(
           'text-[13px] leading-snug',
@@ -192,7 +231,7 @@ function TaskCard({ task, overlay = false }: { task: TaskDto; overlay?: boolean 
           <span>{t('tasks.noBacklogItem')}</span>
         )}
       </div>
-    </article>
+    </KanbanCard>
   );
 }
 

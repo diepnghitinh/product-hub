@@ -13,20 +13,24 @@ import {
 } from '@/components/ui';
 import { t } from '@/i18n';
 import type { TaskLabelConfig } from '@/types/enums';
-import { useSettings, useUpdateTaskLabels } from '@/features/settings/api';
+import { useTaskLabels, useUpdateTaskLabels } from '@/features/settings/api';
 
 /**
  * Manage the workspace's task labels. Unlike statuses there are no built-ins —
  * a workspace starts with none, and an empty list is a valid saved state.
+ *
+ * Reads the narrow `/settings/task-labels` rather than the whole `/settings`:
+ * that one is @Roles(ADMIN) and returns the webhook config, so fetching it here
+ * would 403 for the Product managers who are allowed to edit labels.
  */
 export function TaskLabelsSection() {
-  const { data } = useSettings();
+  const { data } = useTaskLabels();
   const save = useUpdateTaskLabels();
   const [rows, setRows] = useState<TaskLabelConfig[]>([]);
   const loading = data === undefined;
 
   useEffect(() => {
-    if (data?.taskLabels) setRows(data.taskLabels);
+    if (data) setRows(data);
   }, [data]);
 
   function update(key: string, patch: Partial<TaskLabelConfig>) {

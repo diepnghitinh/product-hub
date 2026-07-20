@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
 import type { ListResponse, UserDto } from '@/types/dto';
 import type { Role } from '@/types/enums';
 
@@ -47,5 +47,25 @@ export function useDeleteUser() {
   return useMutation({
     mutationFn: (id: string) => apiDelete<{ ok: true }>(`/users/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+}
+
+/**
+ * Admin resets another user's password directly (no email flow exists). The new
+ * password isn't cached anywhere, so there's nothing to invalidate — `@Roles(ADMIN)`
+ * on `PATCH /users/:id/password` is the gate.
+ */
+export function useResetUserPassword() {
+  return useMutation({
+    mutationFn: ({ id, newPassword }: { id: string; newPassword: string }) =>
+      apiPatch<{ ok: true }>(`/users/${id}/password`, { newPassword }),
+  });
+}
+
+/** The current user changes their own password (verifies the current one). */
+export function useChangeMyPassword() {
+  return useMutation({
+    mutationFn: (input: { currentPassword: string; newPassword: string }) =>
+      apiPut<{ ok: true }>('/users/me/password', input),
   });
 }

@@ -22,13 +22,20 @@ export interface TaskQuery {
 export interface CreateTaskInput {
   title: string;
   description?: string;
-  status?: TaskStatus;
+  /** Built-in `TaskStatus` or a team's custom column key. Defaults to the first column. */
+  status?: TaskStatus | string;
   roadmapId?: string;
   roadmapItemId?: string;
   roadmapItemLabel?: string;
   projectId?: string;
   assigneeId?: string;
   dueDate?: string;
+  /**
+   * The team whose list to create in. Must be sent from a team's board —
+   * without it the API files the task under the workspace's default task team,
+   * not the one you were looking at.
+   */
+  teamId?: string;
 }
 
 export interface UpdateTaskInput {

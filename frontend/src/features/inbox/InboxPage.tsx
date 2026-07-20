@@ -3,12 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Inbox as InboxIcon } from 'lucide-react';
 import { Badge, Button, Spinner } from '@/components/ui';
 import { t } from '@/i18n';
-import { PageHeader } from '@/components/PageHeader';
+import { PageHeader } from '@/layouts/headers/PageHeader';
 import { timeAgo } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { INBOX_KIND_LABEL, InboxKind } from '@/types/enums';
 import { BugDetail } from '@/features/bugs/components/BugDetail';
 import { useInbox, useMarkInboxSeen } from './api';
+import { FullWidthPageLayout } from '@/layouts/shared';
 
 /**
  * Two-pane inbox (Linear-style): a notification list on the left, the selected
@@ -44,7 +45,7 @@ export function InboxPage() {
   }
 
   return (
-    <div className="flex flex-col sm:h-full">
+    <FullWidthPageLayout fullHeight>
       <PageHeader
         title={t('inbox.title')}
         actions={
@@ -147,6 +148,6 @@ export function InboxPage() {
           </div>
         </div>
       )}
-    </div>
+    </FullWidthPageLayout>
   );
 }

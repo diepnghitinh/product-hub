@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, Dialog, Field, Input, ProgressBar, Spinner } from '@/components/ui';
 import { t } from '@/i18n';
-import { PageHeader } from '@/components/PageHeader';
+import { PageHeader } from '@/layouts/headers/PageHeader';
 import { MILESTONE_STATUS_LABEL } from '@/types/enums';
 import { useCreateMilestone, useMilestones } from './api';
+import { CenteredPageLayout } from '@/layouts/shared';
 
 export function MilestonesPage() {
   const { user, canWrite } = useAuth();
@@ -36,7 +37,7 @@ export function MilestonesPage() {
   const milestones = data ?? [];
 
   return (
-    <div>
+    <CenteredPageLayout>
       <PageHeader
         title={t('milestones.title')}
         actions={
@@ -100,6 +101,6 @@ export function MilestonesPage() {
           </Field>
         </form>
       </Dialog>
-    </div>
+    </CenteredPageLayout>
   );
 }

@@ -13,6 +13,10 @@ interface CreateBugDialogProps {
   defaultCaseId?: string;
   defaultCaseLabel?: string;
   defaultReportId?: string;
+  /** Open the bug straight into a column (set when added from that column). */
+  defaultStatus?: string;
+  /** The team whose list to create in — without it the API uses the default team. */
+  teamId?: string;
 }
 
 export function CreateBugDialog({
@@ -22,6 +26,8 @@ export function CreateBugDialog({
   defaultCaseId,
   defaultCaseLabel,
   defaultReportId,
+  defaultStatus,
+  teamId,
 }: CreateBugDialogProps) {
   const create = useCreateBug();
   const [title, setTitle] = useState('');
@@ -38,6 +44,8 @@ export function CreateBugDialog({
         title: title.trim(),
         severity,
         description: description.trim(),
+        status: defaultStatus || undefined,
+        teamId: teamId || undefined,
         projectId: defaultProjectId || undefined,
         caseId: defaultCaseId || undefined,
         caseLabel: defaultCaseLabel || undefined,

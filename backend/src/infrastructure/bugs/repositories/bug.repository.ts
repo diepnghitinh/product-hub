@@ -42,6 +42,7 @@ export class BugRepository
         reporterId: doc.reporterId,
         reporterName: doc.reporterName,
         order: doc.order,
+        attachments: doc.attachments,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
       },
@@ -71,6 +72,7 @@ export class BugRepository
       reporterId: bug.reporterId,
       reporterName: bug.reporterName,
       order: bug.order,
+      attachments: bug.attachments,
       createdAt: bug.createdAt,
       updatedAt: bug.updatedAt,
     };

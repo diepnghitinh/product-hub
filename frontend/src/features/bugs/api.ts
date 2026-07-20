@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
 import { t } from '@/i18n';
-import type { BugDto, ListResponse } from '@/types/dto';
+import type { BugAttachment, BugDto, ListResponse } from '@/types/dto';
 import type { BugSeverity, BugStatus } from '@/types/enums';
 
 export interface BugQuery {
@@ -22,12 +22,20 @@ export interface CreateBugInput {
   title: string;
   description?: string;
   severity?: BugSeverity;
+  /** Built-in `BugStatus` or a team's custom column key. Defaults to the first column. */
+  status?: string;
   type?: string;
   projectId?: string;
   caseId?: string;
   caseLabel?: string;
   reportId?: string;
   assigneeId?: string;
+  /**
+   * The team whose list to create in. Must be sent from a team's board —
+   * without it the API files the bug under the workspace's default bug team,
+   * not the one you were looking at.
+   */
+  teamId?: string;
 }
 
 export interface UpdateBugInput {
@@ -40,6 +48,7 @@ export interface UpdateBugInput {
   caseLabel?: string;
   reportId?: string;
   assigneeId?: string;
+  attachments?: BugAttachment[];
 }
 
 const invalidateKey = ['bugs'];
@@ -72,9 +81,13 @@ export function useUpdateBug() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateBugInput }) =>
       apiPatch<BugDto>(`/bugs/${id}`, input),
-    onSuccess: (_d, v) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: invalidateKey });
-      qc.invalidateQueries({ queryKey: ['bug', v.id] });
+      // Detail queries are keyed by the route ref (shortId *or* uuid), so
+      // invalidate the whole 'bug' prefix — an edit made via the uuid must still
+      // refetch a detail opened by shortId, or a new attachment wouldn't show
+      // until reload.
+      qc.invalidateQueries({ queryKey: ['bug'] });
     },
   });
 }

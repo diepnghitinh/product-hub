@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
 import type { TeamDto } from '@/types/dto';
 import { defaultStatusesFor } from '@/types/enums';
-import type { TeamIcon, TeamIssueType, TeamStatusConfig } from '@/types/enums';
+import type { TeamIssueType, TeamStatusConfig } from '@/types/enums';
 
 /** All teams incl. archived — the nav filters archived out; settings shows them. */
 export function useTeams() {
@@ -15,7 +15,7 @@ export function useTeams() {
 export function useCreateTeam() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { name: string; issueType: TeamIssueType; icon?: TeamIcon }) =>
+    mutationFn: (input: { name: string; issueType: TeamIssueType; icon?: string; color?: string | null }) =>
       apiPost<TeamDto>('/teams', input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
   });
@@ -29,7 +29,7 @@ export function useUpdateTeam() {
       input,
     }: {
       id: string;
-      input: { name?: string; archived?: boolean; icon?: TeamIcon };
+      input: { name?: string; archived?: boolean; icon?: string; color?: string | null };
     }) =>
       apiPatch<TeamDto>(`/teams/${id}`, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),

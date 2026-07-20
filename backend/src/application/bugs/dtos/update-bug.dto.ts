@@ -1,6 +1,35 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
 import { BugSeverity } from '../domain/enums/bug.enums';
+
+/** One attachment on a bug — matches the upload endpoint's response shape. */
+export class BugAttachmentDto {
+  @ApiProperty()
+  @IsString()
+  url: string;
+
+  @ApiProperty()
+  @IsString()
+  name: string;
+
+  @ApiProperty()
+  @IsString()
+  contentType: string;
+
+  @ApiProperty()
+  @IsNumber()
+  size: number;
+}
 
 export class UpdateBugDto {
   @ApiPropertyOptional()
@@ -49,4 +78,11 @@ export class UpdateBugDto {
   @IsOptional()
   @IsString()
   assigneeId?: string;
+
+  @ApiPropertyOptional({ type: [BugAttachmentDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BugAttachmentDto)
+  attachments?: BugAttachmentDto[];
 }

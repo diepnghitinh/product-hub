@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { UniqueEntityID } from '@core/domain';
 import { ITeamRepository } from '@application/teams/repositories/team.repository';
 import { TeamEntity } from '@application/teams/domain/entities/team.entity';
-import { TeamIcon, TeamIssueType } from '@application/teams/domain/enums/team.enums';
+import { TeamIssueType } from '@application/teams/domain/enums/team.enums';
 import { TeamDoc } from '../entities/team.schema';
 
 @Injectable()
@@ -18,7 +18,8 @@ export class TeamRepository implements ITeamRepository {
         key: doc.key,
         name: doc.name,
         issueType: doc.issueType as TeamIssueType,
-        icon: doc.icon as TeamIcon,
+        icon: doc.icon,
+        color: doc.color ?? null,
         statuses: doc.statuses,
         archived: doc.archived,
         order: doc.order,
@@ -39,6 +40,7 @@ export class TeamRepository implements ITeamRepository {
       name: team.name,
       issueType: team.issueType,
       icon: team.icon,
+      color: team.color,
       statuses: team.ownStatuses,
       archived: team.archived,
       order: team.order,

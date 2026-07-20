@@ -1,5 +1,6 @@
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { Input, Menu, Textarea } from '@/components/ui';
+import { MediaUploader } from '@/components/MediaUploader';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { SECTION_TYPE_COLOR, SectionType } from '@/types/enums';
@@ -16,6 +17,8 @@ interface SectionBlockProps {
 
 const linesToArray = (v: string) => v.split('\n').map((s) => s.trim()).filter(Boolean);
 const arrayToLines = (a: string[]) => (a ?? []).join('\n');
+/** Uploaded videos keep their extension in the URL, so infer the media kind from it. */
+const isVideoUrl = (src: string) => /\.(mp4|webm|ogg|mov|m4v|avi|mkv)(\?|#|$)/i.test(src);
 
 /** Renders + edits a narrative section (all types except testing). */
 export function SectionBlock({
@@ -166,30 +169,61 @@ function SectionBody({
 
     case SectionType.SCREENSHOT:
       return (
-        <div className="flex flex-wrap gap-3">
-          {(section.images ?? []).map((img, i) => (
-            <figure key={i} className="flex flex-col gap-1">
-              {img.src ? (
-                <img src={img.src} alt={img.alt ?? ''} className="max-w-[220px] rounded-md border" />
-              ) : (
-                <div className="grid h-[90px] w-[160px] place-items-center rounded-md border border-dashed text-sm text-muted-foreground">
-                  image
-                </div>
-              )}
-              {img.caption && (
-                <figcaption className="text-xs text-muted-foreground">{img.caption}</figcaption>
-              )}
-            </figure>
-          ))}
+        <div className="space-y-3">
+          {(section.images ?? []).length > 0 && (
+            <div className="flex flex-wrap gap-3">
+              {(section.images ?? []).map((img, i) => (
+                <figure key={i} className="group/media relative flex w-[220px] flex-col gap-1">
+                  {img.src ? (
+                    isVideoUrl(img.src) ? (
+                      <video src={img.src} controls className="w-full rounded-md border" />
+                    ) : (
+                      <img src={img.src} alt={img.alt ?? ''} className="w-full rounded-md border" />
+                    )
+                  ) : (
+                    <div className="grid h-[90px] w-full place-items-center rounded-md border border-dashed text-sm text-muted-foreground">
+                      {t('uploads.image')}
+                    </div>
+                  )}
+                  {canWrite ? (
+                    <>
+                      <Input
+                        className="h-7 text-xs"
+                        defaultValue={img.caption ?? ''}
+                        placeholder={t('uploads.caption')}
+                        onBlur={(e) => {
+                          const images = [...(section.images ?? [])];
+                          images[i] = { ...images[i], caption: e.target.value };
+                          patch({ images });
+                        }}
+                      />
+                      <button
+                        type="button"
+                        aria-label={t('uploads.remove')}
+                        className="absolute right-1 top-1 grid size-6 place-items-center rounded-md bg-card/90 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-destructive group-hover/media:opacity-100"
+                        onClick={() =>
+                          patch({ images: (section.images ?? []).filter((_, j) => j !== i) })
+                        }
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </>
+                  ) : (
+                    img.caption && (
+                      <figcaption className="text-xs text-muted-foreground">{img.caption}</figcaption>
+                    )
+                  )}
+                </figure>
+              ))}
+            </div>
+          )}
           {canWrite && (
-            <button
-              className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
-              onClick={() =>
-                patch({ images: [...(section.images ?? []), { src: '', caption: '' }] })
+            <MediaUploader
+              label={t('uploads.media')}
+              onUploaded={(m) =>
+                patch({ images: [...(section.images ?? []), { src: m.url, caption: '' }] })
               }
-            >
-              + image URL
-            </button>
+            />
           )}
         </div>
       );

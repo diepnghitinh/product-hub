@@ -43,7 +43,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui';
-import { PageHeader } from '@/components/PageHeader';
+import { PageHeader } from '@/layouts/headers/PageHeader';
+import { CenteredPageLayout } from '@/layouts/shared';
 
 /** One labelled block in the gallery, using the shared section-heading recipe. */
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -130,7 +131,7 @@ export function DesignPatternsPage() {
   const [selectDemo, setSelectDemo] = useState('');
 
   return (
-    <div>
+    <CenteredPageLayout>
       <PageHeader
         title="Design patterns"
         subtitle="The shadcn/ui component library — the reference for every screen."
@@ -456,6 +457,6 @@ export function DesignPatternsPage() {
           ))}
         </div>
       </Section>
-    </div>
+    </CenteredPageLayout>
   );
 }

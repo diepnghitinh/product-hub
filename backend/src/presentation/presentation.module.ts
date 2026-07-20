@@ -17,6 +17,7 @@ import { MilestonesPresentationModule } from './milestones/milestones.module';
 import { ApiKeysPresentationModule } from './api-keys/api-keys.module';
 import { PublicPresentationModule } from './public/public.module';
 import { AppSettingsPresentationModule } from './app-settings/app-settings.module';
+import { StoragePresentationModule } from './storage/storage.module';
 
 /**
  * Mounts every feature's presentation module at a URL path prefix (routes end up
@@ -44,6 +45,9 @@ import { AppSettingsPresentationModule } from './app-settings/app-settings.modul
     ApiKeysPresentationModule,
     PublicPresentationModule,
     AppSettingsPresentationModule,
+    // Controller is @Controller('uploads') → /v1/uploads, so it's imported like
+    // AppSettings (no RouterModule prefix entry needed).
+    StoragePresentationModule,
     RouterModule.register([
       { path: 'health', module: HealthModule },
       { path: 'auth', module: AuthPresentationModule },

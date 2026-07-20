@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { AppShell } from '@/components/AppShell';
+import { AppLayout } from '@/layouts';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
 import { DashboardPage } from '@/pages/DashboardPage';
@@ -33,14 +33,14 @@ export default function App() {
 
       <Route element={<ProtectedRoute />}>
         {/* Full-screen project workspace — its own topbar + feature sidebar,
-            rendered outside the global AppShell to match the report UI. */}
+            rendered outside the global shell to match the report UI. */}
         <Route path="/testing/:projectId" element={<ProjectLayout />}>
           <Route index element={<ReportView />} />
           <Route path="reports/:reportId" element={<ReportView />} />
           <Route path="summary" element={<FeatureSummary />} />
         </Route>
 
-        <Route element={<AppShell />}>
+        <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/testing" element={<ProjectsPage />} />
           <Route path="/bugs" element={<BugsBoardPage />} />

@@ -3,15 +3,21 @@ import { Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
   IsArray,
+  IsEnum,
+  IsInt,
+  IsOptional,
   IsString,
   Matches,
+  Max,
   MaxLength,
+  Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
 import { BugStatusConfig } from '@application/bugs/domain/enums/bug.enums';
 import { TaskStatusConfig, TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import { WebhookConfig } from '../domain/webhook.types';
+import { StorageProvider } from '../domain/storage.types';
 
 /** Column `key` slug — lowercase alnum + dashes. Built-ins fit this too. */
 const STATUS_KEY = /^[a-z0-9][a-z0-9-]*$/;
@@ -109,6 +115,108 @@ export class UpdateTaskLabelsDto {
   taskLabels: TaskLabelConfigDto[];
 }
 
+/**
+ * Cloud storage for uploaded media. Secrets (`s3SecretAccessKey`,
+ * `azureConnectionString`) are write-only: send a value to set/replace it, omit
+ * or send blank to keep the stored one. Every non-secret field is a full replace.
+ */
+export class UpdateStorageDto {
+  @ApiProperty({ enum: StorageProvider, example: StorageProvider.S3 })
+  @IsEnum(StorageProvider)
+  provider: StorageProvider;
+
+  @ApiProperty({ required: false, example: 'ap-southeast-1' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  s3Region?: string;
+
+  @ApiProperty({ required: false, example: 'my-bucket' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  s3Bucket?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  s3AccessKeyId?: string;
+
+  @ApiProperty({ required: false, description: 'Write-only; blank keeps the stored secret.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(400)
+  s3SecretAccessKey?: string;
+
+  @ApiProperty({ required: false, example: 'https://s3.example.com' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(400)
+  s3Endpoint?: string;
+
+  @ApiProperty({ required: false, example: 'https://cdn.example.com' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(400)
+  s3PublicBaseUrl?: string;
+
+  @ApiProperty({ required: false, description: 'Write-only; blank keeps the stored secret.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  azureConnectionString?: string;
+
+  @ApiProperty({ required: false, example: 'media' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  azureContainer?: string;
+
+  @ApiProperty({ required: false, example: 30, minimum: 1, maximum: 2000 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2000)
+  maxVideoMb?: number;
+
+  @ApiProperty({ required: false, example: 10, minimum: 1, maximum: 2000 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2000)
+  maxImageMb?: number;
+}
+
+/** Storage config as returned to the client — secrets masked to booleans. */
+export class StorageSettingsResponseDto {
+  @ApiProperty({ enum: StorageProvider })
+  provider: StorageProvider;
+
+  @ApiProperty({ required: false })
+  s3Region?: string;
+  @ApiProperty({ required: false })
+  s3Bucket?: string;
+  @ApiProperty({ required: false })
+  s3AccessKeyId?: string;
+  @ApiProperty({ required: false })
+  s3Endpoint?: string;
+  @ApiProperty({ required: false })
+  s3PublicBaseUrl?: string;
+  @ApiProperty({ description: 'True when an S3 secret key is stored.' })
+  s3SecretConfigured: boolean;
+
+  @ApiProperty({ required: false })
+  azureContainer?: string;
+  @ApiProperty({ description: 'True when an Azure connection string is stored.' })
+  azureConnectionConfigured: boolean;
+
+  @ApiProperty()
+  maxVideoMb: number;
+  @ApiProperty()
+  maxImageMb: number;
+}
+
 /** Flat settings shape. */
 export class AppSettingsResponseDto {
   @ApiProperty()
@@ -125,4 +233,7 @@ export class AppSettingsResponseDto {
 
   @ApiProperty({ type: [TaskLabelConfigDto] })
   taskLabels: TaskLabelConfig[];
+
+  @ApiProperty({ type: StorageSettingsResponseDto })
+  storage: StorageSettingsResponseDto;
 }

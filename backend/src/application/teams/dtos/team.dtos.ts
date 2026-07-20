@@ -5,13 +5,16 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { TeamIcon, TeamIssueType } from '../domain/enums/team.enums';
+import { TEAM_COLORS, TeamIssueType } from '../domain/enums/team.enums';
+import { TEAM_ICONS } from '../domain/enums/team-icons';
 
 /** One board column. */
 export class TeamStatusDto {
@@ -52,10 +55,15 @@ export class CreateTeamDto {
   @IsEnum(TeamIssueType)
   issueType: TeamIssueType;
 
-  @ApiPropertyOptional({ enum: TeamIcon, description: 'Nav symbol; defaults to the issue type icon' })
+  @ApiPropertyOptional({ description: 'Nav symbol; defaults to the issue type icon', example: 'rocket' })
   @IsOptional()
-  @IsEnum(TeamIcon)
-  icon?: TeamIcon;
+  @IsIn(TEAM_ICONS)
+  icon?: string;
+
+  @ApiPropertyOptional({ description: 'Accent for the symbol', enum: TEAM_COLORS })
+  @IsOptional()
+  @IsIn(TEAM_COLORS)
+  color?: string;
 }
 
 export class UpdateTeamDto {
@@ -71,10 +79,16 @@ export class UpdateTeamDto {
   @IsBoolean()
   archived?: boolean;
 
-  @ApiPropertyOptional({ enum: TeamIcon, description: 'Nav symbol' })
+  @ApiPropertyOptional({ description: 'Nav symbol', example: 'rocket' })
   @IsOptional()
-  @IsEnum(TeamIcon)
-  icon?: TeamIcon;
+  @IsIn(TEAM_ICONS)
+  icon?: string;
+
+  @ApiPropertyOptional({ description: 'Accent for the symbol; null clears it', enum: TEAM_COLORS })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsIn(TEAM_COLORS)
+  color?: string | null;
 }
 
 /** Flat team shape. */
@@ -94,8 +108,11 @@ export class TeamResponseDto {
   @ApiProperty({ enum: TeamIssueType })
   issueType: TeamIssueType;
 
-  @ApiProperty({ enum: TeamIcon })
-  icon: TeamIcon;
+  @ApiProperty({ example: 'rocket' })
+  icon: string;
+
+  @ApiProperty({ nullable: true, description: 'Accent for the symbol; null = inherits' })
+  color: string | null;
 
   @ApiProperty({ type: [TeamStatusDto], description: "This team's board columns, in order" })
   statuses: TeamStatusDto[];

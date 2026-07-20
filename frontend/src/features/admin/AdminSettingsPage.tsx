@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   ArrowDown,
   ArrowUp,
+  Cloud,
   KeyRound,
   Plus,
   RotateCcw,
@@ -29,8 +30,7 @@ import {
   Switch,
 } from '@/components/ui';
 import { t } from '@/i18n';
-import { PageHeader } from '@/components/PageHeader';
-import { BackLink } from '@/components/BackLink';
+import { PageHeader } from '@/layouts/headers/PageHeader';
 import { timeAgo } from '@/lib/format';
 import {
   WEBHOOK_EVENTS,
@@ -43,34 +43,48 @@ import {
 import type { CreatedApiKeyDto, WebhookConfig } from '@/types/dto';
 import { useApiKeys, useGenerateApiKey, useRevokeApiKey } from '@/features/api-keys/api';
 import { TeamsSection } from './TeamsSection';
-// Aliased: the tab loop shadows `Icon` with its own lucide component.
-import { Icon as TeamSymbol } from '@/components/Icon';
+import { TeamSymbol } from '@/components/TeamSymbol';
 import { useTeams, useUpdateTeamStatuses } from '@/features/teams/api';
 import type { TeamDto } from '@/types/dto';
 import { TaskLabelsSection } from './TaskLabelsSection';
+import { CloudStorageSection } from './CloudStorageSection';
 import {
   useSettings,
   useUpdateWebhooks,
 } from '@/features/settings/api';
+import { CenteredPageLayout } from '@/layouts/shared';
 
-/** Left-menu sections, in order. `key` is the `?tab=` value. */
+/**
+ * Left-menu sections, in order. `key` is the `?tab=` value.
+ *
+ * `adminOnly` sections are workspace-wide credentials, not delivery config: they
+ * stay admin-only even though Product can manage teams and labels. Their data is
+ * fetched behind the same gate (`GET /settings` is @Roles(ADMIN) and carries the
+ * webhook config), so a Product user must never render them.
+ */
 const TABS: {
   key: string;
   labelKey: Parameters<typeof t>[0];
   icon: ComponentType<{ className?: string }>;
   Section: ComponentType;
+  adminOnly?: boolean;
 }[] = [
   { key: 'teams', labelKey: 'teams.title', icon: Users, Section: TeamsSection },
   { key: 'task-labels', labelKey: 'labels.title', icon: Tag, Section: TaskLabelsSection },
-  { key: 'api-keys', labelKey: 'settings.apiKeys', icon: KeyRound, Section: ApiKeysSection },
-  { key: 'webhooks', labelKey: 'settings.webhooks', icon: Webhook, Section: WebhooksSection },
+  { key: 'api-keys', labelKey: 'settings.apiKeys', icon: KeyRound, Section: ApiKeysSection, adminOnly: true },
+  { key: 'webhooks', labelKey: 'settings.webhooks', icon: Webhook, Section: WebhooksSection, adminOnly: true },
+  { key: 'storage', labelKey: 'settings.storage', icon: Cloud, Section: CloudStorageSection, adminOnly: true },
 ];
 
 /** A team's own settings live at ?tab=team:<id>. */
 const TEAM_TAB = 'team:';
 
 export function AdminSettingsPage() {
-  const { isAdmin } = useAuth();
+  // Teams and labels are delivery config, which Product owns too — the backend
+  // already says so (`@Roles(ADMIN, PRODUCT)` on every team endpoint). Only the
+  // credential sections are narrowed further, via each tab's `adminOnly`.
+  const { isAdmin, canManageDelivery } = useAuth();
+  const tabs = TABS.filter((s) => !s.adminOnly || isAdmin);
   // Each team gets its own entry — statuses are per-team, so there's no
   // workspace-wide column editor any more.
   const { data: teams } = useTeams();
@@ -82,24 +96,27 @@ export function AdminSettingsPage() {
   const activeTeam = param?.startsWith(TEAM_TAB)
     ? activeTeams.find((x) => x.id === param.slice(TEAM_TAB.length))
     : undefined;
-  const active = TABS.find((s) => s.key === param) ?? TABS[0];
+  // Resolved against the *filtered* list, so hand-typing `?tab=webhooks` as a
+  // non-admin falls back to Teams rather than mounting a section they can't read.
+  const active = tabs.find((s) => s.key === param) ?? tabs[0];
   const setTab = (key: string) => {
     const next = new URLSearchParams(searchParams);
-    if (key === TABS[0].key) next.delete('tab');
+    if (key === tabs[0].key) next.delete('tab');
     else next.set('tab', key);
     setSearchParams(next, { replace: true });
   };
 
-  if (!isAdmin)
+  if (!canManageDelivery)
     return (
-      <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-        Admins only.
-      </div>
+      <CenteredPageLayout>
+        <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
+          {t('settings.restricted')}
+        </div>
+      </CenteredPageLayout>
     );
 
   return (
-    <div>
-      <BackLink to="/">{t('nav.dashboard')}</BackLink>
+    <CenteredPageLayout>
       <PageHeader title={t('settings.title')} subtitle={t('settings.subtitle')} />
 
       {/* Left menu beside the content from md up; a scrolling tab strip on mobile. */}
@@ -108,7 +125,7 @@ export function AdminSettingsPage() {
           aria-label={t('settings.title')}
           className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 md:mx-0 md:w-56 md:shrink-0 md:flex-col md:overflow-visible md:px-0 md:pb-0"
         >
-          {TABS.map((s) => {
+          {tabs.map((s) => {
             const Icon = s.icon;
             const on = s.key === active.key;
             return (
@@ -153,7 +170,7 @@ export function AdminSettingsPage() {
                     <TeamSymbol
                       name={team.icon ?? defaultTeamIcon(team.issueType)}
                       size={16}
-                      className="shrink-0"
+                      color={team.color ?? undefined}
                     />
                     {team.name}
                   </button>
@@ -167,7 +184,7 @@ export function AdminSettingsPage() {
           {activeTeam ? <TeamStatusesSection team={activeTeam} /> : <active.Section />}
         </div>
       </div>
-    </div>
+    </CenteredPageLayout>
   );
 }
 

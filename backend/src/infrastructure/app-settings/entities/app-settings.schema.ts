@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { BugStatusConfig } from '@application/bugs/domain/enums/bug.enums';
 import { TaskStatusConfig, TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import { WebhookConfig } from '@application/app-settings/domain/webhook.types';
+import { CloudStorageConfig } from '@application/app-settings/domain/storage.types';
 
 export interface AppSettingsDoc {
   _id: string;
@@ -11,6 +12,7 @@ export interface AppSettingsDoc {
   bugStatuses: BugStatusConfig[];
   taskStatuses: TaskStatusConfig[];
   taskLabels: TaskLabelConfig[];
+  storage?: CloudStorageConfig;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +26,8 @@ export const AppSettingsSchema = new Schema<AppSettingsDoc>(
     bugStatuses: { type: [Schema.Types.Mixed], default: undefined } as unknown as BugStatusConfig[],
     taskStatuses: { type: [Schema.Types.Mixed], default: undefined } as unknown as TaskStatusConfig[],
     taskLabels: { type: [Schema.Types.Mixed], default: undefined } as unknown as TaskLabelConfig[],
+    // Whole config as one mixed blob (secrets included; masked at the API edge).
+    storage: { type: Schema.Types.Mixed, default: undefined } as unknown as CloudStorageConfig,
   },
   { timestamps: true },
 );

@@ -1,5 +1,5 @@
 import { UniqueEntityID } from '@core/domain';
-import { TeamIcon, TeamIssueType, TeamStatusConfig } from '../enums/team.enums';
+import { TeamIssueType, TeamStatusConfig } from '../enums/team.enums';
 
 export interface TeamProps {
   id: UniqueEntityID;
@@ -10,7 +10,9 @@ export interface TeamProps {
   /** Which issue list this team owns — fixed once created. */
   issueType: TeamIssueType;
   /** The nav symbol. Defaults to the icon for `issueType`. */
-  icon: TeamIcon;
+  icon: string;
+  /** Accent the symbol is drawn in; null means it inherits its surroundings. */
+  color: string | null;
   /**
    * The team's own board columns, or undefined when it has never set any (then
    * `statuses` resolves to the type's defaults). Kept raw so the boot migration

@@ -1,10 +1,12 @@
 import { Link, useParams } from 'react-router-dom';
 import { Spinner } from '@/components/ui';
+import { CenteredPageLayout } from '@/layouts/shared';
 import { t } from '@/i18n';
 import { TeamIssueType } from '@/types/enums';
 import { BugsBoardPage } from '@/features/bugs/BugsBoardPage';
 import { MyTasksPage } from '@/features/tasks/MyTasksPage';
 import { useTeams } from './api';
+import { TeamIconPicker } from './TeamIconPicker';
 
 /**
  * A team's issue list. A team owns exactly one issue type, so this resolves the
@@ -17,27 +19,37 @@ export function TeamBoardPage() {
 
   if (isLoading) {
     return (
-      <div className="grid place-items-center rounded-xl border border-dashed p-8">
-        <Spinner />
-      </div>
+      <CenteredPageLayout>
+        <div className="grid place-items-center rounded-xl border border-dashed p-8">
+          <Spinner />
+        </div>
+      </CenteredPageLayout>
     );
   }
 
   const team = (teams ?? []).find((x) => x.id === teamId || x.key === teamId);
   if (!team) {
     return (
-      <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-        {t('teams.notFound')}{' '}
-        <Link to="/" className="text-sm font-medium text-foreground underline-offset-4 hover:underline">
-          {t('nav.home')}
-        </Link>
-      </div>
+      <CenteredPageLayout>
+        <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
+          {t('teams.notFound')}{' '}
+          <Link
+            to="/"
+            className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {t('nav.home')}
+          </Link>
+        </div>
+      </CenteredPageLayout>
     );
   }
 
+  // The symbol identifies the board; it's changed from the nav, not here.
+  const icon = <TeamIconPicker team={team} readOnly size={22} className="text-muted-foreground" />;
+
   return team.issueType === TeamIssueType.BUG ? (
-    <BugsBoardPage teamId={team.id} teamName={team.name} />
+    <BugsBoardPage teamId={team.id} teamName={team.name} titleIcon={icon} />
   ) : (
-    <MyTasksPage teamId={team.id} teamName={team.name} />
+    <MyTasksPage teamId={team.id} teamName={team.name} titleIcon={icon} />
   );
 }

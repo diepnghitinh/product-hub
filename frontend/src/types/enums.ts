@@ -420,6 +420,23 @@ export const OKR_STATUS_COLOR: Record<OkrStatus, string> = {
   [OkrStatus.DONE]: 'hsl(var(--info))',
 };
 
+/** Cloud storage provider for uploaded media (Settings → Storage). */
+export enum StorageProvider {
+  NONE = 'none',
+  S3 = 's3',
+  AZURE = 'azure',
+}
+export const STORAGE_PROVIDERS: StorageProvider[] = [
+  StorageProvider.NONE,
+  StorageProvider.S3,
+  StorageProvider.AZURE,
+];
+export const STORAGE_PROVIDER_LABEL: Record<StorageProvider, string> = {
+  [StorageProvider.NONE]: 'Disabled',
+  [StorageProvider.S3]: 'AWS S3 (or compatible)',
+  [StorageProvider.AZURE]: 'Azure Blob Storage',
+};
+
 /** Task workflow columns, in order. */
 export const TASK_STATUSES: TaskStatus[] = [
   TaskStatus.TODO,
@@ -463,38 +480,6 @@ export enum TeamIssueType {
 
 export const TEAM_ISSUE_TYPES: TeamIssueType[] = [TeamIssueType.BUG, TeamIssueType.TASK];
 
-/**
- * The symbol shown next to a team in the nav. Values are `Icon` registry names
- * and mirror the backend's `TeamIcon` enum, which validates them on write.
- */
-export enum TeamIcon {
-  BUG = 'bug',
-  TASKS = 'tasks',
-  CODE = 'code',
-  FLASK = 'flask',
-  SHIELD = 'shield',
-  ROCKET = 'rocket',
-  PEN = 'pen',
-  CHART = 'chart',
-  DATABASE = 'database',
-  SERVER = 'server',
-  BOOK = 'book',
-  MEGAPHONE = 'megaphone',
-  WRENCH = 'wrench',
-  SPARKLES = 'sparkles',
-  PEOPLE = 'people',
-  FLAG = 'flag',
-  ZAP = 'zap',
-  CLOUD = 'cloud',
-  LOCK = 'lock',
-  COMPASS = 'compass',
-  PACKAGE = 'package',
-  GLOBE = 'globe',
-  HEADPHONES = 'headphones',
-  MILESTONE = 'milestone',
-}
-
-export const TEAM_ICONS: TeamIcon[] = Object.values(TeamIcon);
 
 /**
  * A team's board column. Structurally identical to `BugStatusConfig` /
@@ -513,9 +498,15 @@ export function builtinStatusKeys(issueType: TeamIssueType): Set<string> {
 }
 
 /** A team with no icon stored falls back to the symbol for the list it owns. */
-export function defaultTeamIcon(issueType: TeamIssueType): TeamIcon {
-  return issueType === TeamIssueType.BUG ? TeamIcon.BUG : TeamIcon.TASKS;
+export function defaultTeamIcon(issueType: TeamIssueType): string {
+  return issueType === TeamIssueType.BUG ? 'bug' : 'tasks';
 }
+
+/**
+ * Accents a team's symbol can take — the same palette the roadmap columns use,
+ * mirroring the backend's `TEAM_COLORS`, which validates on write.
+ */
+export const TEAM_COLORS: string[] = ROADMAP_COLUMN_PALETTE.map((c) => c.value);
 
 export const TEAM_ISSUE_TYPE_LABEL: Record<TeamIssueType, string> = {
   [TeamIssueType.BUG]: 'Bugs',

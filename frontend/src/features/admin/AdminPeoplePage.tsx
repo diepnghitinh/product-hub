@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Trash2 } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
   Alert,
@@ -8,6 +8,7 @@ import {
   Dialog,
   Field,
   Input,
+  Menu,
   Select,
   Spinner,
   Table,
@@ -18,7 +19,7 @@ import {
   TableRow,
 } from '@/components/ui';
 import { t } from '@/i18n';
-import { PageHeader } from '@/components/PageHeader';
+import { PageHeader } from '@/layouts/headers/PageHeader';
 import { ROLE_LABEL, Role } from '@/types/enums';
 import {
   useCreateUser,
@@ -26,6 +27,8 @@ import {
   useUpdateUser,
   useUsers,
 } from '@/features/users/api';
+import { CenteredPageLayout } from '@/layouts/shared';
+import { ResetPasswordDialog } from '@/features/admin/ResetPasswordDialog';
 
 /** First-two-initials fallback for the user avatar. */
 function initials(name: string): string {
@@ -44,6 +47,7 @@ export function AdminPeoplePage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', password: '', role: Role.TESTER });
   const [error, setError] = useState<string | null>(null);
+  const [resetUser, setResetUser] = useState<{ id: string; name: string } | null>(null);
 
   if (!isAdmin)
     return (
@@ -67,7 +71,7 @@ export function AdminPeoplePage() {
   const users = data?.items ?? [];
 
   return (
-    <div>
+    <CenteredPageLayout>
       <PageHeader
         title={t('people.title')}
         actions={<Button onClick={() => setOpen(true)}>+ {t('people.invite')}</Button>}
@@ -111,17 +115,30 @@ export function AdminPeoplePage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    {u.id !== user?.id && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-destructive"
-                        aria-label="Remove"
-                        onClick={() => confirm(t('people.confirmDelete')) && deleteUser.mutate(u.id)}
-                      >
-                        <Trash2 />
-                      </Button>
-                    )}
+                    <Menu
+                      align="right"
+                      triggerClassName="size-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                      trigger={<MoreHorizontal className="size-4" />}
+                      items={[
+                        {
+                          label: t('people.resetPassword'),
+                          closeOnSelect: true,
+                          onClick: () => setResetUser({ id: u.id, name: u.name }),
+                        },
+                        ...(u.id !== user?.id
+                          ? [
+                              {
+                                label: t('people.remove'),
+                                danger: true,
+                                closeOnSelect: true,
+                                onClick: () => {
+                                  if (confirm(t('people.confirmDelete'))) deleteUser.mutate(u.id);
+                                },
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -170,6 +187,12 @@ export function AdminPeoplePage() {
           </Field>
         </form>
       </Dialog>
-    </div>
+
+      <ResetPasswordDialog
+        user={resetUser}
+        open={!!resetUser}
+        onClose={() => setResetUser(null)}
+      />
+    </CenteredPageLayout>
   );
 }

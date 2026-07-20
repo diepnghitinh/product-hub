@@ -7,6 +7,7 @@ import {
   UpdateUserUseCase,
   DeleteUserUseCase,
   ChangePasswordUseCase,
+  ResetUserPasswordUseCase,
 } from './use-cases';
 
 const useCases = [
@@ -16,6 +17,7 @@ const useCases = [
   UpdateUserUseCase,
   DeleteUserUseCase,
   ChangePasswordUseCase,
+  ResetUserPasswordUseCase,
 ];
 
 @Module({

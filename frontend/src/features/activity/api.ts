@@ -14,81 +14,62 @@ export interface UpdateCommentInput {
   images?: string[];
 }
 
-export function useComments(bugId: string | undefined) {
+/**
+ * A comment lives on a bug OR a task — one shared collection + shape, but
+ * different routes, cache keys, and side effects (bug mentions feed the inbox;
+ * task ones don't in v1). These subject-keyed hooks let the shared issue-detail
+ * view talk to either thread without branching at the call site.
+ */
+export type IssueSubject = 'task' | 'bug';
+
+function subjectConfig(subject: IssueSubject) {
+  return subject === 'task'
+    ? { base: 'tasks', listKey: 'task-comments', touchesInbox: false }
+    : { base: 'bugs', listKey: 'comments', touchesInbox: true };
+}
+
+export function useIssueComments(subject: IssueSubject, id: string | undefined) {
+  const { base, listKey } = subjectConfig(subject);
   return useQuery({
-    queryKey: ['comments', bugId],
-    queryFn: () => apiGet<CommentDto[]>(`/bugs/${bugId}/comments`),
-    enabled: !!bugId,
+    queryKey: [listKey, id],
+    queryFn: () => apiGet<CommentDto[]>(`/${base}/${id}/comments`),
+    enabled: !!id,
   });
 }
 
-export function useCreateComment(bugId: string) {
+export function useCreateIssueComment(subject: IssueSubject, id: string) {
   const qc = useQueryClient();
+  const { base, listKey, touchesInbox } = subjectConfig(subject);
   return useMutation({
-    mutationFn: (input: CreateCommentInput) =>
-      apiPost<CommentDto>(`/bugs/${bugId}/comments`, input),
+    mutationFn: (input: CreateCommentInput) => apiPost<CommentDto>(`/${base}/${id}/comments`, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['comments', bugId] });
-      qc.invalidateQueries({ queryKey: ['inbox'] });
+      qc.invalidateQueries({ queryKey: [listKey, id] });
+      if (touchesInbox) qc.invalidateQueries({ queryKey: ['inbox'] });
     },
   });
 }
 
-export function useUpdateComment(bugId: string) {
+export function useUpdateIssueComment(subject: IssueSubject, id: string) {
   const qc = useQueryClient();
+  const { base, listKey, touchesInbox } = subjectConfig(subject);
   return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateCommentInput }) =>
-      apiPatch<CommentDto>(`/bugs/${bugId}/comments/${id}`, input),
+    mutationFn: ({ commentId, input }: { commentId: string; input: UpdateCommentInput }) =>
+      apiPatch<CommentDto>(`/${base}/${id}/comments/${commentId}`, input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['comments', bugId] });
-      qc.invalidateQueries({ queryKey: ['inbox'] });
+      qc.invalidateQueries({ queryKey: [listKey, id] });
+      if (touchesInbox) qc.invalidateQueries({ queryKey: ['inbox'] });
     },
   });
 }
 
-export function useDeleteComment(bugId: string) {
+export function useDeleteIssueComment(subject: IssueSubject, id: string) {
   const qc = useQueryClient();
+  const { base, listKey, touchesInbox } = subjectConfig(subject);
   return useMutation({
-    mutationFn: (id: string) => apiDelete<{ ok: true }>(`/bugs/${bugId}/comments/${id}`),
+    mutationFn: (commentId: string) => apiDelete<{ ok: true }>(`/${base}/${id}/comments/${commentId}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['comments', bugId] });
-      qc.invalidateQueries({ queryKey: ['inbox'] });
+      qc.invalidateQueries({ queryKey: [listKey, id] });
+      if (touchesInbox) qc.invalidateQueries({ queryKey: ['inbox'] });
     },
-  });
-}
-
-// ── Task comments — the task-side twin (own thread, not inbox-linked in v1) ──
-
-export function useTaskComments(taskId: string | undefined) {
-  return useQuery({
-    queryKey: ['task-comments', taskId],
-    queryFn: () => apiGet<CommentDto[]>(`/tasks/${taskId}/comments`),
-    enabled: !!taskId,
-  });
-}
-
-export function useCreateTaskComment(taskId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: CreateCommentInput) =>
-      apiPost<CommentDto>(`/tasks/${taskId}/comments`, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['task-comments', taskId] }),
-  });
-}
-
-export function useUpdateTaskComment(taskId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateCommentInput }) =>
-      apiPatch<CommentDto>(`/tasks/${taskId}/comments/${id}`, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['task-comments', taskId] }),
-  });
-}
-
-export function useDeleteTaskComment(taskId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => apiDelete<{ ok: true }>(`/tasks/${taskId}/comments/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['task-comments', taskId] }),
   });
 }

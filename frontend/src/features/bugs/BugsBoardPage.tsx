@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
-import { IssueBoardLayout } from '@/components/IssueBoardLayout';
+import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
+import { Icon } from '@/components/Icon';
 import { BackLink } from '@/components/BackLink';
-import { KanbanBoard } from '@/components/KanbanBoard';
+import {
+  KanbanBoard,
+  KanbanCard,
+  KanbanCardToolbar,
+} from '@/components/KanbanBoard';
 import {
   FilterMenu,
   UNASSIGNED,
@@ -26,7 +31,7 @@ import {
 } from '@/types/enums';
 import type { BugDto } from '@/types/dto';
 import { CreateBugDialog } from './components/CreateBugDialog';
-import { useBugs, useSetBugStatus } from './api';
+import { useBugs, useDeleteBug, useSetBugStatus } from './api';
 import { useTeamStatuses } from '@/features/teams/api';
 
 /** Severity → dot color (shadcn semantic tokens). */
@@ -40,12 +45,7 @@ const SEVERITY_DOT: Record<BugSeverity, string> = {
 /** Bug card visual — shared by the column list and the lifted drag overlay. */
 function BugCard({ bug, overlay = false }: { bug: BugDto; overlay?: boolean }) {
   return (
-    <article
-      className={cn(
-        'flex flex-col gap-2 rounded-xl border bg-card p-3 text-card-foreground shadow-sm transition-colors hover:border-foreground/20',
-        overlay ? 'w-[256px] rotate-3 cursor-grabbing shadow-2xl' : 'cursor-pointer',
-      )}
-    >
+    <KanbanCard overlay={overlay}>
       <div className="flex items-start gap-2">
         <span
           className={cn('mt-1.5 size-2 shrink-0 rounded-full', SEVERITY_DOT[bug.severity])}
@@ -57,7 +57,7 @@ function BugCard({ bug, overlay = false }: { bug: BugDto; overlay?: boolean }) {
         <span>{bug.assigneeName || t('bugs.unassigned')}</span>
         <span>{timeAgo(bug.updatedAt)}</span>
       </div>
-    </article>
+    </KanbanCard>
   );
 }
 
@@ -66,9 +66,11 @@ interface BugsBoardPageProps {
   teamId?: string;
   /** Team name for the header, when rendered inside a team. */
   teamName?: string;
+  /** The team's symbol, rendered beside the heading. */
+  titleIcon?: ReactNode;
 }
 
-export function BugsBoardPage({ teamId, teamName }: BugsBoardPageProps = {}) {
+export function BugsBoardPage({ teamId, teamName, titleIcon }: BugsBoardPageProps = {}) {
   const { canEditDelivery: canWrite, canManageDelivery } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -89,8 +91,11 @@ export function BugsBoardPage({ teamId, teamName }: BugsBoardPageProps = {}) {
     setParams(next, { replace: true });
   };
   const [createOpen, setCreateOpen] = useState(false);
+  // The column '+ Add' was clicked in — the new bug opens there.
+  const [createStatus, setCreateStatus] = useState<string | undefined>();
 
   const setStatus = useSetBugStatus();
+  const remove = useDeleteBug();
   // Columns belong to the team that owns this board (default bug team when standalone).
   const columns = useTeamStatuses(teamId, TeamIssueType.BUG);
 
@@ -157,6 +162,10 @@ export function BugsBoardPage({ teamId, teamName }: BugsBoardPageProps = {}) {
 
   return (
     <IssueBoardLayout
+      // Bugs hang off the dynamic Teams list, so the shell's nav model has no
+      // icon for this route — supply one, or the crumb reads bare next to every
+      // other page's.
+      titleIcon={titleIcon ?? <Icon name="bug" size={16} className="shrink-0 text-muted-foreground" />}
       backLink={
         projectId ? (
           <BackLink to={`/testing/${projectId}`}>{projectName || t('nav.projects')}</BackLink>
@@ -188,11 +197,11 @@ export function BugsBoardPage({ teamId, teamName }: BugsBoardPageProps = {}) {
       }
     >
       {isLoading ? (
-        <div className="grid place-items-center rounded-xl border border-dashed p-8">
+        <div className={cn('grid place-items-center rounded-xl border border-dashed p-8', BOARD_GUTTER)}>
           <Spinner />
         </div>
       ) : bugs.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
+        <div className={cn('mx-4 rounded-xl border border-dashed p-8 text-center text-muted-foreground md:mx-8')}>
           {t('bugs.empty')}
         </div>
       ) : view === 'board' ? (
@@ -205,9 +214,33 @@ export function BugsBoardPage({ teamId, teamName }: BugsBoardPageProps = {}) {
           onMove={onMove}
           disabled={!canWrite}
           onCardClick={(bug) => navigate(`/bugs/${bug.shortId || bug.id}`)}
+          // The add + card-toolbar affordances, same as every board.
+          renderCardToolbar={
+            canWrite
+              ? (bug) => (
+                  <KanbanCardToolbar
+                    editLabel={t('common.edit')}
+                    removeLabel={t('common.delete')}
+                    onEdit={() => navigate(`/bugs/${bug.shortId || bug.id}`)}
+                    onRemove={() => {
+                      if (confirm(t('bugs.confirmDelete'))) remove.mutate(bug.id);
+                    }}
+                  />
+                )
+              : undefined
+          }
+          onColumnAdd={
+            canWrite
+              ? (col) => {
+                  setCreateStatus(col.key);
+                  setCreateOpen(true);
+                }
+              : undefined
+          }
+          addLabel={t('bugs.addToColumn')}
         />
       ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+        <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>
           <BugList bugs={bugs} columns={columns} onOpen={(b) => navigate(`/bugs/${b.shortId || b.id}`)} />
         </div>
       )}
@@ -215,7 +248,12 @@ export function BugsBoardPage({ teamId, teamName }: BugsBoardPageProps = {}) {
       {createOpen && (
         <CreateBugDialog
           open={createOpen}
-          onClose={() => setCreateOpen(false)}
+          onClose={() => {
+            setCreateOpen(false);
+            setCreateStatus(undefined);
+          }}
+          defaultStatus={createStatus}
+          teamId={teamId}
           defaultProjectId={projectId}
           defaultCaseId={caseId}
           defaultCaseLabel={caseName}

@@ -58,6 +58,8 @@ export class CreateBugUseCase
       title: dto.title,
       description: dto.description,
       severity: dto.severity,
+      // Lets a board open a bug straight into the column it was added from.
+      status: dto.status,
       type: dto.type,
       projectId: dto.projectId,
       caseId: dto.caseId,
