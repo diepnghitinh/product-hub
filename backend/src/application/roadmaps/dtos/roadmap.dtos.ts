@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { RoadmapColumn, RoadmapItemData } from '../domain/types/roadmap-item.type';
 
 export class CreateRoadmapDto {
@@ -49,4 +49,10 @@ export class ReplaceRoadmapColumnsDto {
   @ApiProperty({ type: 'array', items: { type: 'object' } })
   @IsArray()
   columns: RoadmapColumn[];
+}
+
+export class ShareRoadmapDto {
+  @ApiProperty({ description: 'Enable or disable the public read-only link' })
+  @IsBoolean()
+  enabled: boolean;
 }

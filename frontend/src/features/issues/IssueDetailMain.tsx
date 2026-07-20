@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, MentionTextarea, RichTextEditor, Textarea } from '@/components/ui';
+import { createPortal } from 'react-dom';
+import { MoreHorizontal } from 'lucide-react';
+import { Button, MentionTextarea, Menu, RichTextEditor, Textarea, type MenuItem } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
+import { usePageChrome } from '@/layouts/headers/PageChrome';
 import type { CommentDto } from '@/types/dto';
 import {
   useCreateIssueComment,
@@ -19,7 +22,7 @@ interface Person {
   name: string;
 }
 
-interface IssueDetailMainProps {
+export interface IssueDetailMainProps {
   /** Which thread the comments belong to — routes + cache keys differ. */
   subject: IssueSubject;
   /** Resolved uuid — keys the comment thread; the page's save callbacks use it. */
@@ -39,8 +42,17 @@ interface IssueDetailMainProps {
   currentUserId?: string;
   /** People who can be @-mentioned in a comment. */
   users: Person[];
+  /** When provided (a public read-only view), render these instead of fetching
+   * the authed comment thread. */
+  comments?: CommentDto[];
   onSaveTitle: (title: string) => void;
   onSaveDescription: (html: string) => void;
+  /** Overflow (⋯) actions for the header — e.g. Delete. Hidden when empty. */
+  menuItems?: MenuItem[];
+  /** Where the ⋯ menu renders: portaled into the app topbar, right of the
+   * breadcrumb ('topbar' — the standalone task/bug routes), or inline in the
+   * title row ('header', default — the inbox pane, which has no topbar). */
+  menuTarget?: 'header' | 'topbar';
 }
 
 /** Initial-in-a-circle avatar used across the activity timeline. */
@@ -84,11 +96,15 @@ export function IssueDetailMain({
   isAdmin,
   currentUserId,
   users,
+  comments,
   onSaveTitle,
   onSaveDescription,
+  menuItems,
+  menuTarget = 'header',
 }: IssueDetailMainProps) {
-  const { data: comments } = useIssueComments(subject, issueId);
-  const thread = comments ?? [];
+  // A public viewer passes `comments` directly, so skip the authed fetch entirely.
+  const { data: fetched } = useIssueComments(subject, issueId, comments === undefined);
+  const thread = comments ?? fetched ?? [];
 
   // The rich editor emits HTML on every keystroke — debounce so we save once the
   // user pauses, not per character, and skip no-op round trips.
@@ -102,24 +118,50 @@ export function IssueDetailMain({
     timer.current = setTimeout(() => onSaveDescription(html), 700);
   }
 
+  // The ⋯ overflow menu. On a standalone route it portals up into the app
+  // topbar (right of the breadcrumb); in the inbox pane it renders inline.
+  const { actions: topbarSlot } = usePageChrome();
+  const overflow =
+    menuItems && menuItems.length > 0 ? (
+      <Menu
+        align="right"
+        triggerClassName="size-8 shrink-0 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        trigger={
+          <>
+            <MoreHorizontal className="size-4" aria-hidden />
+            <span className="sr-only">{t('common.more')}</span>
+          </>
+        }
+        items={menuItems}
+      />
+    ) : null;
+
   return (
     <div className="min-w-0">
       {shortId && (
         <span className="mb-1 block font-mono text-xs text-muted-foreground">{shortId}</span>
       )}
-      {canWrite ? (
-        <input
-          className="w-full border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground"
-          defaultValue={title}
-          placeholder={titlePlaceholder}
-          aria-label={titlePlaceholder}
-          onBlur={(e) =>
-            e.target.value.trim() && e.target.value !== title && onSaveTitle(e.target.value.trim())
-          }
-        />
-      ) : (
-        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      )}
+      {/* Title row — the ⋯ overflow menu (Delete, …) sits at its right, like an
+          issue header. Hidden when there are no actions the viewer may take. */}
+      <div className="flex items-center gap-2">
+        {canWrite ? (
+          <input
+            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground"
+            defaultValue={title}
+            placeholder={titlePlaceholder}
+            aria-label={titlePlaceholder}
+            onBlur={(e) =>
+              e.target.value.trim() && e.target.value !== title && onSaveTitle(e.target.value.trim())
+            }
+          />
+        ) : (
+          <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight">{title}</h1>
+        )}
+        {menuTarget === 'header' && overflow}
+      </div>
+
+      {/* Standalone routes: lift the ⋯ into the topbar, right of the breadcrumb. */}
+      {menuTarget === 'topbar' && overflow && topbarSlot && createPortal(overflow, topbarSlot)}
 
       <div className="mt-4">
         {canWrite ? (

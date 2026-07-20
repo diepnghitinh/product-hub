@@ -13,6 +13,7 @@ import { BugsBoardPage } from '@/features/bugs/BugsBoardPage';
 import { BugDetailPage } from '@/features/bugs/BugDetailPage';
 import { InboxPage } from '@/features/inbox/InboxPage';
 import { MyTasksPage } from '@/features/tasks/MyTasksPage';
+import { MyTaskListView } from '@/features/tasks/MyTaskListView';
 import { TaskDetailPage } from '@/features/tasks/TaskDetailPage';
 import { TeamBoardPage } from '@/features/teams/TeamBoardPage';
 import { RoadmapsPage } from '@/features/roadmaps/RoadmapsPage';
@@ -22,6 +23,8 @@ import { MilestoneDetailPage } from '@/features/milestones/MilestoneDetailPage';
 import { AdminPeoplePage } from '@/features/admin/AdminPeoplePage';
 import { AdminSettingsPage } from '@/features/admin/AdminSettingsPage';
 import { PublicProjectPage } from '@/features/public/PublicProjectPage';
+import { PublicRoadmapPage } from '@/features/public/PublicRoadmapPage';
+import { PublicTeamBoardPage } from '@/features/public/PublicTeamBoardPage';
 
 export default function App() {
   return (
@@ -30,6 +33,8 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       {/* Public read-only — no auth, outside the app shell */}
       <Route path="/public/projects/:token" element={<PublicProjectPage />} />
+      <Route path="/public/roadmaps/:token" element={<PublicRoadmapPage />} />
+      <Route path="/public/teams/:token" element={<PublicTeamBoardPage />} />
 
       <Route element={<ProtectedRoute />}>
         {/* Full-screen project workspace — its own topbar + feature sidebar,
@@ -47,6 +52,8 @@ export default function App() {
           <Route path="/bugs/:bugId" element={<BugDetailPage />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/tasks" element={<MyTasksPage />} />
+          <Route path="/tasks/today" element={<MyTaskListView mode="today" />} />
+          <Route path="/tasks/personal" element={<MyTaskListView mode="personal" />} />
           <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
           {/* A team's own issue list — renders the bug or task board by issueType. */}
           <Route path="/teams/:teamId" element={<TeamBoardPage />} />

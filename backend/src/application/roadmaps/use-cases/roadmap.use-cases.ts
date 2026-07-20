@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { v4 as uuid } from 'uuid';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import {
@@ -148,5 +149,43 @@ export class DeleteRoadmapUseCase
     if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
     await this.roadmaps.delete(id);
     return Result.ok();
+  }
+}
+
+@Injectable()
+export class SetRoadmapSharingUseCase
+  implements
+    IUsecaseExecute<{ id: string; tenantId: string; enabled: boolean }, Result<RoadmapEntity>>
+{
+  constructor(@Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository) {}
+  async execute({
+    id,
+    tenantId,
+    enabled,
+  }: {
+    id: string;
+    tenantId: string;
+    enabled: boolean;
+  }): Promise<Result<RoadmapEntity>> {
+    const roadmap = await this.roadmaps.findById(id);
+    if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
+    // Reuse the existing token when re-enabling so old links keep working.
+    if (enabled) roadmap.enableSharing(roadmap.publicToken ?? uuid());
+    else roadmap.disableSharing();
+    await this.roadmaps.update(roadmap);
+    return Result.ok(roadmap);
+  }
+}
+
+/** Resolve a public share token into a read-only roadmap (items + columns are embedded). */
+@Injectable()
+export class GetPublicRoadmapUseCase
+  implements IUsecaseExecute<{ token: string }, Result<RoadmapEntity>>
+{
+  constructor(@Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository) {}
+  async execute({ token }: { token: string }): Promise<Result<RoadmapEntity>> {
+    const roadmap = await this.roadmaps.findByPublicToken(token);
+    if (!roadmap) return Result.fail('This link is not available');
+    return Result.ok(roadmap);
   }
 }

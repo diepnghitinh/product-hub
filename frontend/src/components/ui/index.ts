@@ -25,7 +25,7 @@ export { Field } from './Field';
 export { Dialog } from './Dialog';
 export { Spinner } from './Spinner';
 export { ProgressBar } from './ProgressBar';
-export { Menu } from './Menu';
+export { Menu, type MenuItem } from './Menu';
 
 // shadcn/ui components
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent } from './card';

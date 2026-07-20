@@ -13,6 +13,8 @@ export interface RoadmapDoc {
   description: string;
   items: RoadmapItemData[];
   columns: RoadmapColumn[];
+  publicEnabled: boolean;
+  publicToken: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,6 +28,8 @@ export const RoadmapSchema = new Schema<RoadmapDoc>(
     description: { type: String, default: '' },
     items: { type: [Schema.Types.Mixed], default: [] } as unknown as RoadmapItemData[],
     columns: { type: [Schema.Types.Mixed], default: [] } as unknown as RoadmapColumn[],
+    publicEnabled: { type: Boolean, default: false },
+    publicToken: { type: String, default: null },
   },
   { timestamps: true },
 );

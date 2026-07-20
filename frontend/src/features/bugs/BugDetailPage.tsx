@@ -20,7 +20,7 @@ export function BugDetailPage() {
         parent={{ to: '/bugs', label: t('bugs.title') }}
         leading={<Icon name="bug" size={16} className="shrink-0 text-muted-foreground" />}
       />
-      <BugDetail bugId={bugId} onDeleted={() => navigate('/bugs')} />
+      <BugDetail bugId={bugId} onDeleted={() => navigate('/bugs')} menuTarget="topbar" />
     </CenteredPageLayout>
   );
 }

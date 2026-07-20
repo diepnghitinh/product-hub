@@ -28,12 +28,12 @@ function subjectConfig(subject: IssueSubject) {
     : { base: 'bugs', listKey: 'comments', touchesInbox: true };
 }
 
-export function useIssueComments(subject: IssueSubject, id: string | undefined) {
+export function useIssueComments(subject: IssueSubject, id: string | undefined, enabled = true) {
   const { base, listKey } = subjectConfig(subject);
   return useQuery({
     queryKey: [listKey, id],
     queryFn: () => apiGet<CommentDto[]>(`/${base}/${id}/comments`),
-    enabled: !!id,
+    enabled: enabled && !!id,
   });
 }
 

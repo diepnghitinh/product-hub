@@ -2,9 +2,11 @@ import { useRef, type ReactNode } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { cn } from '@/lib/utils';
 
-interface MenuItem {
+export interface MenuItem {
   label: string;
   onClick: () => void;
+  /** Optional leading glyph (e.g. a lucide icon) shown before the label. */
+  icon?: ReactNode;
   danger?: boolean;
   disabled?: boolean;
   /**
@@ -84,11 +86,16 @@ export function Menu({
                 item.onClick();
               }}
               className={cn(
-                'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+                'relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
                 item.danger &&
                   'text-destructive focus:bg-destructive focus:text-destructive-foreground',
               )}
             >
+              {item.icon && (
+                <span className="grid size-4 shrink-0 place-items-center" aria-hidden>
+                  {item.icon}
+                </span>
+              )}
               {item.label}
             </DropdownMenu.Item>
           ))}

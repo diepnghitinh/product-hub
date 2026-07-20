@@ -43,6 +43,8 @@ export class RoadmapResponseDto {
   @ApiProperty({ type: [RoadmapItemDto] }) items: RoadmapItemDto[];
   @ApiProperty({ type: [RoadmapColumnDto] }) columns: RoadmapColumnDto[];
   @ApiProperty() itemCount: number;
+  @ApiProperty() publicEnabled: boolean;
+  @ApiProperty({ nullable: true }) publicToken: string | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 }

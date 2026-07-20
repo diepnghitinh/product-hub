@@ -91,6 +91,12 @@ export class UpdateTeamDto {
   color?: string | null;
 }
 
+export class ShareTeamDto {
+  @ApiProperty({ description: 'Enable or disable the public read-only link' })
+  @IsBoolean()
+  enabled: boolean;
+}
+
 /** Flat team shape. */
 export class TeamResponseDto {
   @ApiProperty()
@@ -125,6 +131,12 @@ export class TeamResponseDto {
 
   @ApiProperty()
   order: number;
+
+  @ApiProperty()
+  publicEnabled: boolean;
+
+  @ApiProperty({ nullable: true })
+  publicToken: string | null;
 
   @ApiProperty()
   createdAt: Date;

@@ -9,6 +9,8 @@ export interface RoadmapProps {
   description: string;
   items: RoadmapItemData[];
   columns: RoadmapColumn[];
+  publicEnabled: boolean;
+  publicToken: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

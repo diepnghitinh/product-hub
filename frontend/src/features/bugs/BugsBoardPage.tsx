@@ -29,10 +29,11 @@ import {
   BugStatus,
   TeamIssueType,
 } from '@/types/enums';
-import type { BugDto } from '@/types/dto';
+import type { BugDto, TeamDto } from '@/types/dto';
 import { CreateBugDialog } from './components/CreateBugDialog';
 import { useBugs, useDeleteBug, useSetBugStatus } from './api';
 import { useTeamStatuses } from '@/features/teams/api';
+import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
 
 /** Severity → dot color (shadcn semantic tokens). */
 const SEVERITY_DOT: Record<BugSeverity, string> = {
@@ -43,7 +44,7 @@ const SEVERITY_DOT: Record<BugSeverity, string> = {
 };
 
 /** Bug card visual — shared by the column list and the lifted drag overlay. */
-function BugCard({ bug, overlay = false }: { bug: BugDto; overlay?: boolean }) {
+export function BugCard({ bug, overlay = false }: { bug: BugDto; overlay?: boolean }) {
   return (
     <KanbanCard overlay={overlay}>
       <div className="flex items-start gap-2">
@@ -68,9 +69,11 @@ interface BugsBoardPageProps {
   teamName?: string;
   /** The team's symbol, rendered beside the heading. */
   titleIcon?: ReactNode;
+  /** The team, when rendered inside a team board — enables the ⋯ → Share menu. */
+  shareTeam?: TeamDto;
 }
 
-export function BugsBoardPage({ teamId, teamName, titleIcon }: BugsBoardPageProps = {}) {
+export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBoardPageProps = {}) {
   const { canEditDelivery: canWrite, canManageDelivery } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -193,7 +196,12 @@ export function BugsBoardPage({ teamId, teamName, titleIcon }: BugsBoardPageProp
         ],
       }}
       actions={
-        canWrite ? <Button onClick={() => setCreateOpen(true)}>+ {t('bugs.new')}</Button> : undefined
+        canWrite || (shareTeam && canManageDelivery) ? (
+          <div className="flex items-center gap-2">
+            {canWrite && <Button onClick={() => setCreateOpen(true)}>+ {t('bugs.new')}</Button>}
+            {shareTeam && <TeamShareMenu team={shareTeam} />}
+          </div>
+        ) : undefined
       }
     >
       {isLoading ? (

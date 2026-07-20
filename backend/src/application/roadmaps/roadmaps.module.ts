@@ -8,6 +8,8 @@ import {
   ReplaceRoadmapItemsUseCase,
   ReplaceRoadmapColumnsUseCase,
   DeleteRoadmapUseCase,
+  SetRoadmapSharingUseCase,
+  GetPublicRoadmapUseCase,
 } from './use-cases/roadmap.use-cases';
 
 const useCases = [
@@ -18,6 +20,8 @@ const useCases = [
   ReplaceRoadmapItemsUseCase,
   ReplaceRoadmapColumnsUseCase,
   DeleteRoadmapUseCase,
+  SetRoadmapSharingUseCase,
+  GetPublicRoadmapUseCase,
 ];
 
 @Module({

@@ -15,6 +15,8 @@ export class TeamMapper {
       archived: team.archived,
       isDefault: team.isDefault,
       order: team.order,
+      publicEnabled: team.publicEnabled,
+      publicToken: team.publicToken,
       createdAt: team.createdAt,
       updatedAt: team.updatedAt,
     };

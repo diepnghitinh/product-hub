@@ -17,11 +17,13 @@ import {
   GetTeamsUseCase,
   UpdateTeamStatusesUseCase,
   UpdateTeamUseCase,
+  SetTeamSharingUseCase,
   TEAM_DEFAULT_LOCKED,
   TEAM_NOT_FOUND,
 } from '@application/teams/use-cases/team.use-cases';
 import {
   CreateTeamDto,
+  ShareTeamDto,
   TeamResponseDto,
   UpdateTeamDto,
   UpdateTeamStatusesDto,
@@ -37,6 +39,7 @@ export class TeamsController {
     private readonly createTeam: CreateTeamUseCase,
     private readonly updateTeam: UpdateTeamUseCase,
     private readonly updateStatuses: UpdateTeamStatusesUseCase,
+    private readonly setSharing: SetTeamSharingUseCase,
   ) {}
 
   @Get()
@@ -91,6 +94,23 @@ export class TeamsController {
       if (msg === TEAM_NOT_FOUND) throw new EntityNotFoundException(msg);
       throw new BadRequestException(msg);
     }
+    return TeamMapper.toResponseDto(result.getValue());
+  }
+
+  @Post(':id/share')
+  @Roles(Role.ADMIN, Role.PRODUCT)
+  @ApiOperation({ summary: 'Toggle a team board public read-only link (admin/product)' })
+  async share(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: ShareTeamDto,
+  ): Promise<TeamResponseDto> {
+    const result = await this.setSharing.execute({
+      tenantId: auth.tenantId,
+      id,
+      enabled: dto.enabled,
+    });
+    if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return TeamMapper.toResponseDto(result.getValue());
   }
 }

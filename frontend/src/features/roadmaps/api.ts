@@ -87,3 +87,13 @@ export function useDeleteRoadmap() {
     onSuccess: invalidate,
   });
 }
+
+/** Toggle a roadmap's public read-only link (mints/keeps the token server-side). */
+export function useSetRoadmapSharing() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      apiPost<RoadmapDto>(`/roadmaps/${id}/share`, { enabled }),
+    onSuccess: invalidate,
+  });
+}

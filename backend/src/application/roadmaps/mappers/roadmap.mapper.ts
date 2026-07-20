@@ -21,6 +21,8 @@ export class RoadmapMapper {
       })),
       columns: roadmap.columns?.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS,
       itemCount: roadmap.items.length,
+      publicEnabled: roadmap.publicEnabled,
+      publicToken: roadmap.publicToken,
       createdAt: roadmap.createdAt,
       updatedAt: roadmap.updatedAt,
     };

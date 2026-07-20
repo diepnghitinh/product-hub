@@ -46,6 +46,16 @@ export function useUpdateTeamStatuses() {
   });
 }
 
+/** Toggle a team board's public read-only link (mints/keeps the token server-side). */
+export function useSetTeamSharing() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      apiPost<TeamDto>(`/teams/${id}/share`, { enabled }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
+  });
+}
+
 /**
  * The board columns for a team. Teams are already cached for the nav, so this
  * costs no extra request.

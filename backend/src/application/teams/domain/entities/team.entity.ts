@@ -31,6 +31,8 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
       statuses?: TeamStatusConfig[];
       archived?: boolean;
       order?: number;
+      publicEnabled?: boolean;
+      publicToken?: string | null;
       createdAt?: Date;
       updatedAt?: Date;
     },
@@ -63,6 +65,8 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
           statuses: props.statuses?.length ? props.statuses : undefined,
           archived: props.archived ?? false,
           order: props.order ?? 0,
+          publicEnabled: props.publicEnabled ?? false,
+          publicToken: props.publicToken ?? null,
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
         },
@@ -118,6 +122,12 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
   }
   get updatedAt(): Date {
     return this.props.updatedAt;
+  }
+  get publicEnabled(): boolean {
+    return this.props.publicEnabled;
+  }
+  get publicToken(): string | null {
+    return this.props.publicToken;
   }
 
   /** The two seeded teams can be renamed but never archived. */
@@ -180,6 +190,18 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
 
   setOrder(order: number): void {
     this.props.order = order;
+    this.touch();
+  }
+
+  enableSharing(token: string): void {
+    this.props.publicEnabled = true;
+    this.props.publicToken = token;
+    this.touch();
+  }
+
+  disableSharing(): void {
+    this.props.publicEnabled = false;
+    this.props.publicToken = null;
     this.touch();
   }
 

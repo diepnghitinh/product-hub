@@ -48,8 +48,8 @@ export function TeamBoardPage() {
   const icon = <TeamIconPicker team={team} readOnly size={22} className="text-muted-foreground" />;
 
   return team.issueType === TeamIssueType.BUG ? (
-    <BugsBoardPage teamId={team.id} teamName={team.name} titleIcon={icon} />
+    <BugsBoardPage teamId={team.id} teamName={team.name} titleIcon={icon} shareTeam={team} />
   ) : (
-    <MyTasksPage teamId={team.id} teamName={team.name} titleIcon={icon} />
+    <MyTasksPage teamId={team.id} teamName={team.name} titleIcon={icon} shareTeam={team} />
   );
 }

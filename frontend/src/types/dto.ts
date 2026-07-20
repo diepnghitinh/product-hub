@@ -312,6 +312,8 @@ export interface RoadmapDto {
   items: RoadmapItem[];
   columns: RoadmapColumn[];
   itemCount: number;
+  publicEnabled: boolean;
+  publicToken: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -425,6 +427,8 @@ export interface TeamDto {
   archived: boolean;
   isDefault: boolean;
   order: number;
+  publicEnabled: boolean;
+  publicToken: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -460,4 +464,14 @@ export interface AppSettingsDto {
 export interface PublicProjectView {
   project: ProjectDto;
   reports: ReportDto[];
+}
+
+export interface PublicRoadmapView {
+  roadmap: RoadmapDto;
+}
+
+export interface PublicTeamBoardView {
+  team: TeamDto;
+  issueType: TeamIssueType;
+  items: (BugDto | TaskDto)[];
 }

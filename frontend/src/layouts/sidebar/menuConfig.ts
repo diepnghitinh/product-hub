@@ -12,6 +12,10 @@ export interface NavItem {
   end?: boolean;
   /** Render the inbox unread badge. */
   badge?: 'inbox';
+  /** Sub-items rendered under a collapsible parent (e.g. My Tasks). */
+  children?: NavItem[];
+  /** Render the current user's avatar instead of `icon` (used for "Assigned to me"). */
+  avatar?: boolean;
 }
 
 export interface NavGroup {
@@ -26,6 +30,17 @@ export const NAV_GROUPS: NavGroup[] = [
     headingKey: 'navgroup.overview',
     items: [
       { path: '/', labelKey: 'nav.home', icon: 'home', end: true },
+      {
+        // Collapsible: the parent toggles open; the three children are the views.
+        path: '/tasks',
+        labelKey: 'nav.tasks',
+        icon: 'user-check',
+        children: [
+          { path: '/tasks', labelKey: 'nav.assignedToMe', icon: 'tasks', avatar: true, end: true },
+          { path: '/tasks/today', labelKey: 'nav.today', icon: 'calendar' },
+          { path: '/tasks/personal', labelKey: 'nav.personalList', icon: 'list' },
+        ],
+      },
       { path: '/inbox', labelKey: 'nav.inbox', icon: 'inbox', badge: 'inbox' },
     ],
   },
@@ -66,7 +81,10 @@ export const PROFILE_NAV_ITEMS: NavItem[] = [
  * hang off the dynamic Teams list, so those pages name their own parent.
  */
 export function findNavItem(pathname: string): NavItem | undefined {
-  const all = [...NAV_GROUPS.flatMap((g) => g.items), ...PROFILE_NAV_ITEMS];
+  const all = [
+    ...NAV_GROUPS.flatMap((g) => g.items.flatMap((i) => [i, ...(i.children ?? [])])),
+    ...PROFILE_NAV_ITEMS,
+  ];
   const exact = all.find((i) => i.path === pathname);
   if (exact) return exact;
   return all

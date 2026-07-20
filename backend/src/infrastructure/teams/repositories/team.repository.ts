@@ -23,6 +23,8 @@ export class TeamRepository implements ITeamRepository {
         statuses: doc.statuses,
         archived: doc.archived,
         order: doc.order,
+        publicEnabled: doc.publicEnabled ?? false,
+        publicToken: doc.publicToken ?? null,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
       },
@@ -44,6 +46,8 @@ export class TeamRepository implements ITeamRepository {
       statuses: team.ownStatuses,
       archived: team.archived,
       order: team.order,
+      publicEnabled: team.publicEnabled,
+      publicToken: team.publicToken,
       createdAt: team.createdAt,
       updatedAt: team.updatedAt,
     };
@@ -65,6 +69,14 @@ export class TeamRepository implements ITeamRepository {
 
   async findByKey(tenantId: string, key: string): Promise<TeamEntity | null> {
     const doc = await this.model.findOne({ tenantId, key }).lean<TeamDoc>().exec();
+    return doc ? this.toDomain(doc) : null;
+  }
+
+  async findByPublicToken(token: string): Promise<TeamEntity | null> {
+    const doc = await this.model
+      .findOne({ publicToken: token, publicEnabled: true })
+      .lean<TeamDoc>()
+      .exec();
     return doc ? this.toDomain(doc) : null;
   }
 

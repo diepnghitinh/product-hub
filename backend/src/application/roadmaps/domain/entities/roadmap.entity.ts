@@ -22,6 +22,8 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
       description?: string;
       items?: RoadmapItemData[];
       columns?: RoadmapColumn[];
+      publicEnabled?: boolean;
+      publicToken?: string | null;
       createdAt?: Date;
       updatedAt?: Date;
     },
@@ -43,6 +45,8 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
           description: props.description?.trim() || '',
           items: props.items ?? [],
           columns: props.columns?.length ? props.columns : DEFAULT_ROADMAP_COLUMNS,
+          publicEnabled: props.publicEnabled ?? false,
+          publicToken: props.publicToken ?? null,
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
         },
@@ -78,6 +82,12 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
   get updatedAt(): Date {
     return this.props.updatedAt;
   }
+  get publicEnabled(): boolean {
+    return this.props.publicEnabled;
+  }
+  get publicToken(): string | null {
+    return this.props.publicToken;
+  }
 
   applyMeta(meta: { title?: string; description?: string; projectId?: string }): void {
     if (meta.title !== undefined) {
@@ -96,6 +106,18 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
 
   replaceColumns(columns: RoadmapColumn[]): void {
     this.props.columns = columns;
+    this.touch();
+  }
+
+  enableSharing(token: string): void {
+    this.props.publicEnabled = true;
+    this.props.publicToken = token;
+    this.touch();
+  }
+
+  disableSharing(): void {
+    this.props.publicEnabled = false;
+    this.props.publicToken = null;
     this.touch();
   }
 

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { v4 as uuid } from 'uuid';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { uniqueSlug } from '@module-shared/utils/slug.util';
@@ -156,6 +157,47 @@ export class UpdateTeamStatusesUseCase
     if (set.isFailure) return Result.fail(set.error as string);
 
     await this.teams.save(team);
+    return Result.ok(team);
+  }
+}
+
+/** Toggle a team board's public read-only link, minting a token when enabling. */
+@Injectable()
+export class SetTeamSharingUseCase
+  implements
+    IUsecaseExecute<{ tenantId: string; id: string; enabled: boolean }, Result<TeamEntity>>
+{
+  constructor(@Inject(ITeamRepository) private readonly teams: ITeamRepository) {}
+
+  async execute({
+    tenantId,
+    id,
+    enabled,
+  }: {
+    tenantId: string;
+    id: string;
+    enabled: boolean;
+  }): Promise<Result<TeamEntity>> {
+    const team = await this.teams.findById(tenantId, id);
+    if (!team) return Result.fail(TEAM_NOT_FOUND);
+    // Reuse the existing token when re-enabling so old links keep working.
+    if (enabled) team.enableSharing(team.publicToken ?? uuid());
+    else team.disableSharing();
+    await this.teams.save(team);
+    return Result.ok(team);
+  }
+}
+
+/** Resolve a public share token into a read-only team (its board columns live on the team). */
+@Injectable()
+export class GetPublicTeamUseCase
+  implements IUsecaseExecute<{ token: string }, Result<TeamEntity>>
+{
+  constructor(@Inject(ITeamRepository) private readonly teams: ITeamRepository) {}
+
+  async execute({ token }: { token: string }): Promise<Result<TeamEntity>> {
+    const team = await this.teams.findByPublicToken(token);
+    if (!team) return Result.fail('This link is not available');
     return Result.ok(team);
   }
 }

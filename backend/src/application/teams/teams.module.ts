@@ -6,6 +6,8 @@ import {
   GetTeamsUseCase,
   UpdateTeamUseCase,
   UpdateTeamStatusesUseCase,
+  SetTeamSharingUseCase,
+  GetPublicTeamUseCase,
 } from './use-cases/team.use-cases';
 
 const useCases = [
@@ -14,6 +16,8 @@ const useCases = [
   UpdateTeamUseCase,
   UpdateTeamStatusesUseCase,
   EnsureDefaultTeamsUseCase,
+  SetTeamSharingUseCase,
+  GetPublicTeamUseCase,
 ];
 
 @Module({

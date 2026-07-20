@@ -21,8 +21,9 @@ import { useUsers } from '@/features/users/api';
 import { useProjects } from '@/features/projects/api';
 import { useRoadmaps } from '@/features/roadmaps/api';
 import { useTeamStatuses } from '@/features/teams/api';
+import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
 import { TaskStatus, TeamIssueType, type TeamStatusConfig } from '@/types/enums';
-import type { TaskDto } from '@/types/dto';
+import type { TaskDto, TeamDto } from '@/types/dto';
 import { useDeleteTask, useSetTaskStatus, useTasks } from './api';
 import { CreateTaskDialog } from './components/CreateTaskDialog';
 
@@ -36,9 +37,11 @@ interface MyTasksPageProps {
   teamName?: string;
   /** The team's symbol, rendered beside the heading. */
   titleIcon?: ReactNode;
+  /** The team, when rendered inside a team board — enables the ⋯ → Share menu. */
+  shareTeam?: TeamDto;
 }
 
-export function MyTasksPage({ teamId, teamName, titleIcon }: MyTasksPageProps = {}) {
+export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksPageProps = {}) {
   const { user, canEditDelivery: canWrite, canManageDelivery } = useAuth();
   const navigate = useNavigate();
   // Columns belong to the team that owns this board (default task team when standalone).
@@ -125,7 +128,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon }: MyTasksPageProps = 
     <IssueBoardLayout
       // Same as Bugs: not in the nav model, so the crumb brings its own icon.
       titleIcon={titleIcon ?? <Icon name="tasks" size={16} className="shrink-0 text-muted-foreground" />}
-      title={teamName ?? t('tasks.myTasks')}
+      title={teamName ?? t('tasks.assignedToMe')}
       subtitle={teamName ? t('teams.issuesSubtitle') : t('tasks.mySubtitle')}
       search={{ value: search, onChange: setSearch, placeholder: t('tasks.search') }}
       filters={
@@ -140,7 +143,12 @@ export function MyTasksPage({ teamId, teamName, titleIcon }: MyTasksPageProps = 
         ],
       }}
       actions={
-        canWrite ? <Button onClick={() => setCreateOpen(true)}>+ {t('tasks.new')}</Button> : undefined
+        canWrite || (shareTeam && canManageDelivery) ? (
+          <div className="flex items-center gap-2">
+            {canWrite && <Button onClick={() => setCreateOpen(true)}>+ {t('tasks.new')}</Button>}
+            {shareTeam && <TeamShareMenu team={shareTeam} />}
+          </div>
+        ) : undefined
       }
     >
       {isLoading ? (
@@ -211,7 +219,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon }: MyTasksPageProps = 
 }
 
 /** Task card visual — shared by the column list and the lifted drag overlay. */
-function TaskCard({ task, overlay = false }: { task: TaskDto; overlay?: boolean }) {
+export function TaskCard({ task, overlay = false }: { task: TaskDto; overlay?: boolean }) {
   return (
     <KanbanCard overlay={overlay}>
       <span

@@ -25,6 +25,8 @@ export class RoadmapRepository
         description: doc.description,
         items: doc.items ?? [],
         columns: doc.columns ?? [],
+        publicEnabled: doc.publicEnabled ?? false,
+        publicToken: doc.publicToken ?? null,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
       },
@@ -43,6 +45,8 @@ export class RoadmapRepository
       description: roadmap.description,
       items: roadmap.items,
       columns: roadmap.columns,
+      publicEnabled: roadmap.publicEnabled,
+      publicToken: roadmap.publicToken,
       createdAt: roadmap.createdAt,
       updatedAt: roadmap.updatedAt,
     };
@@ -50,6 +54,14 @@ export class RoadmapRepository
 
   async findById(id: string): Promise<RoadmapEntity | null> {
     const doc = await this.model.findById(id).lean<RoadmapDoc>().exec();
+    return doc ? this.toDomain(doc) : null;
+  }
+
+  async findByPublicToken(token: string): Promise<RoadmapEntity | null> {
+    const doc = await this.model
+      .findOne({ publicToken: token, publicEnabled: true })
+      .lean<RoadmapDoc>()
+      .exec();
     return doc ? this.toDomain(doc) : null;
   }
 

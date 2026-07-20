@@ -14,6 +14,8 @@ export interface TeamDoc {
   statuses?: TeamStatusConfig[];
   archived: boolean;
   order: number;
+  publicEnabled: boolean;
+  publicToken: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +37,8 @@ export const TeamSchema = new Schema<TeamDoc>(
     },
     archived: { type: Boolean, default: false },
     order: { type: Number, default: 0 },
+    publicEnabled: { type: Boolean, default: false },
+    publicToken: { type: String, default: null },
   },
   { timestamps: true },
 );

@@ -23,6 +23,9 @@ export interface TeamProps {
   archived: boolean;
   /** Display order in the nav. */
   order: number;
+  /** Public read-only share link state. */
+  publicEnabled: boolean;
+  publicToken: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

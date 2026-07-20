@@ -20,9 +20,16 @@ import {
 import type { RoadmapItem } from '@/types/dto';
 import { RoadmapItemDialog } from './components/RoadmapItemDialog';
 import { RoadmapColumnsDialog } from './components/RoadmapColumnsDialog';
+import { ShareLinkDialog } from '@/components/ShareLinkDialog';
 import { RoadmapRiceChart } from './components/RoadmapRiceChart';
 import { RoadmapRiceTable } from './components/RoadmapRiceTable';
-import { useDeleteRoadmap, useReplaceRoadmapItems, useRoadmap, useUpdateRoadmap } from './api';
+import {
+  useDeleteRoadmap,
+  useReplaceRoadmapItems,
+  useRoadmap,
+  useSetRoadmapSharing,
+  useUpdateRoadmap,
+} from './api';
 
 const STATUS_VARIANT: Record<RoadmapItemStatus, 'muted' | 'warning' | 'success'> = {
   [RoadmapItemStatus.IDEA]: 'muted',
@@ -32,7 +39,7 @@ const STATUS_VARIANT: Record<RoadmapItemStatus, 'muted' | 'warning' | 'success'>
 };
 
 /** Roadmap item card visual — shared by the column list and the lifted drag overlay. */
-function RoadmapCard({ item, overlay = false }: { item: RoadmapItem; overlay?: boolean }) {
+export function RoadmapCard({ item, overlay = false }: { item: RoadmapItem; overlay?: boolean }) {
   return (
     <KanbanCard overlay={overlay}>
       <div className="flex items-start justify-between gap-1.5">
@@ -92,11 +99,13 @@ export function RoadmapBoardPage() {
   const replaceItems = useReplaceRoadmapItems();
   const deleteRoadmap = useDeleteRoadmap();
   const update = useUpdateRoadmap();
+  const setSharing = useSetRoadmapSharing();
 
   const [dialogItem, setDialogItem] = useState<RoadmapItem | null>(null);
   const [dialogPhase, setDialogPhase] = useState<string>('now');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [sortRice, setSortRice] = useState(false);
   // Persist the board/chart view in the URL (?view=chart) so it survives reloads
   // and is shareable; `board` is the default and kept out of the query for clean URLs.
@@ -218,7 +227,10 @@ export function RoadmapBoardPage() {
               }
               items={[
                 ...(canManageDelivery
-                  ? [{ label: t('roadmaps.manageColumns'), onClick: () => setColumnsOpen(true) }]
+                  ? [
+                      { label: t('roadmaps.manageColumns'), onClick: () => setColumnsOpen(true) },
+                      { label: t('share.share'), onClick: () => setShareOpen(true) },
+                    ]
                   : []),
                 ...(isAdmin
                   ? [
@@ -323,6 +335,19 @@ export function RoadmapBoardPage() {
           roadmapId={roadmap.id}
           columns={columns}
           items={items}
+        />
+      )}
+      {shareOpen && (
+        <ShareLinkDialog
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          title={t('share.titleRoadmap')}
+          hint={t('share.roadmapHint')}
+          publicPath="roadmaps"
+          enabled={roadmap.publicEnabled}
+          publicToken={roadmap.publicToken}
+          pending={setSharing.isPending}
+          onToggle={(enabled) => setSharing.mutate({ id: roadmap.id, enabled })}
         />
       )}
     </IssueBoardLayout>

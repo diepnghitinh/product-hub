@@ -6,7 +6,7 @@ import { useTheme } from '@/lib/theme';
 import { Menu } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { cn } from '@/lib/utils';
-import { NAV_GROUPS, PROFILE_NAV_ITEMS } from '@/layouts/sidebar/menuConfig';
+import { NAV_GROUPS, PROFILE_NAV_ITEMS, type NavItem } from '@/layouts/sidebar/menuConfig';
 import { t } from '@/i18n';
 import { ROLE_LABEL } from '@/types/enums';
 import { useInbox } from '@/features/inbox/api';
@@ -17,6 +17,7 @@ import { ChangePasswordDialog } from '@/features/account/ChangePasswordDialog';
 import type { TeamDto } from '@/types/dto';
 
 const COLLAPSE_KEY = 'ph_nav_collapsed';
+const EXPAND_KEY = 'ph_nav_expanded';
 
 /**
  * A hover-revealed action on a nav heading or row (`+`, `⋯`). Invisible until its
@@ -60,6 +61,23 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   useEffect(() => {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
+
+  // Which collapsible nav parents (e.g. My Tasks) are open. Persisted; a parent
+  // auto-opens when you're on one of its routes.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(EXPAND_KEY) || '{}');
+    } catch {
+      return {};
+    }
+  });
+  useEffect(() => {
+    localStorage.setItem(EXPAND_KEY, JSON.stringify(openGroups));
+  }, [openGroups]);
+  const isUnder = (p: string) => pathname === p || pathname.startsWith(`${p}/`);
+  const isOpen = (p: string) => openGroups[p] ?? isUnder(p);
+  const toggleGroup = (p: string) =>
+    setOpenGroups((g) => ({ ...g, [p]: !(g[p] ?? isUnder(p)) }));
 
   function onLogout() {
     logout();
@@ -118,39 +136,25 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
               >
                 {t(group.headingKey)}
               </span>
-              {items.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end={item.end}
-                  onClick={onCloseMobile}
-                  title={collapsed ? t(item.labelKey) : undefined}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                      isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
-                      collapsed && 'md:justify-center md:gap-0',
-                    )
-                  }
-                >
-                  <span className="grid shrink-0 place-items-center">
-                    <Icon name={item.icon} size={16} />
-                  </span>
-                  <span className={cn('flex-1 truncate', collapsed && 'md:hidden')}>
-                    {t(item.labelKey)}
-                  </span>
-                  {item.badge === 'inbox' && unseen > 0 && (
-                    <span
-                      className={cn(
-                        'ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground',
-                        collapsed && 'md:hidden',
-                      )}
-                    >
-                      {unseen}
-                    </span>
-                  )}
-                </NavLink>
-              ))}
+              {items.map((item) =>
+                item.children && !collapsed ? (
+                  <NavParentItem
+                    key={item.path}
+                    item={item}
+                    open={isOpen(item.path)}
+                    onToggle={() => toggleGroup(item.path)}
+                    onNavigate={onCloseMobile}
+                  />
+                ) : (
+                  <NavLeafItem
+                    key={item.path}
+                    item={item}
+                    collapsed={collapsed}
+                    unseen={unseen}
+                    onNavigate={onCloseMobile}
+                  />
+                ),
+              )}
             </div>
 
             {/* Teams sit right under Delivery — each is an area with its own
@@ -298,6 +302,116 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
  * instead. Collapsed, the icon is the only hit target, so it stays pure
  * navigation and the picker is suppressed.
  */
+/** A single nav row (leaf link). Renders the current user's avatar instead of an
+ * icon when `item.avatar` is set — the "Assigned to me" child. */
+function NavLeafItem({
+  item,
+  collapsed,
+  unseen,
+  onNavigate,
+  indent = false,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  unseen: number;
+  onNavigate: () => void;
+  indent?: boolean;
+}) {
+  const { user } = useAuth();
+  return (
+    <NavLink
+      to={item.path}
+      end={item.end}
+      onClick={onNavigate}
+      title={collapsed ? t(item.labelKey) : undefined}
+      className={({ isActive }) =>
+        cn(
+          'flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+          isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+          collapsed && 'md:justify-center md:gap-0',
+          indent && 'ml-3.5',
+        )
+      }
+    >
+      <span className="grid size-4 shrink-0 place-items-center">
+        {item.avatar && user ? (
+          <span
+            className="grid size-4 place-items-center rounded-full bg-primary text-[8px] font-semibold text-primary-foreground"
+            aria-hidden
+          >
+            {initials(user.name, user.email)}
+          </span>
+        ) : (
+          <Icon name={item.icon} size={16} />
+        )}
+      </span>
+      <span className={cn('flex-1 truncate', collapsed && 'md:hidden')}>{t(item.labelKey)}</span>
+      {item.badge === 'inbox' && unseen > 0 && (
+        <span
+          className={cn(
+            'ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground',
+            collapsed && 'md:hidden',
+          )}
+        >
+          {unseen}
+        </span>
+      )}
+    </NavLink>
+  );
+}
+
+/** A collapsible nav parent (e.g. My Tasks): the row toggles its children; a
+ * rotated chevron shows state. Only rendered when the sidebar is expanded. */
+function NavParentItem({
+  item,
+  open,
+  onToggle,
+  onNavigate,
+}: {
+  item: NavItem;
+  open: boolean;
+  onToggle: () => void;
+  onNavigate: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      >
+        <span className="grid size-4 shrink-0 place-items-center">
+          <Icon name={item.icon} size={16} />
+        </span>
+        <span className="flex-1 truncate text-left">{t(item.labelKey)}</span>
+        <Icon
+          name="chevron-right"
+          size={14}
+          className={cn(
+            'shrink-0 text-muted-foreground/70 transition-transform',
+            open && 'rotate-90',
+          )}
+        />
+      </button>
+      {open && (
+        <div className="flex flex-col gap-0.5">
+          {item.children!.map((c) => (
+            <NavLeafItem
+              key={`${c.path}:${c.labelKey}`}
+              item={c}
+              collapsed={false}
+              unseen={0}
+              onNavigate={onNavigate}
+              indent
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TeamNavItem({
   team,
   collapsed,

@@ -20,11 +20,13 @@ import {
   ReplaceRoadmapItemsUseCase,
   ReplaceRoadmapColumnsUseCase,
   DeleteRoadmapUseCase,
+  SetRoadmapSharingUseCase,
 } from '@application/roadmaps/use-cases/roadmap.use-cases';
 import {
   CreateRoadmapDto,
   ReplaceRoadmapColumnsDto,
   ReplaceRoadmapItemsDto,
+  ShareRoadmapDto,
   UpdateRoadmapDto,
 } from '@application/roadmaps/dtos/roadmap.dtos';
 import { RoadmapResponseDto } from '@application/roadmaps/dtos/roadmap.response.dto';
@@ -42,6 +44,7 @@ export class RoadmapsController {
     private readonly replaceItems: ReplaceRoadmapItemsUseCase,
     private readonly replaceColumns: ReplaceRoadmapColumnsUseCase,
     private readonly deleteRoadmap: DeleteRoadmapUseCase,
+    private readonly setSharing: SetRoadmapSharingUseCase,
   ) {}
 
   @Get()
@@ -109,6 +112,23 @@ export class RoadmapsController {
     @Body() dto: ReplaceRoadmapColumnsDto,
   ): Promise<RoadmapResponseDto> {
     const result = await this.replaceColumns.execute({ id, tenantId: auth.tenantId, dto });
+    if (result.isFailure) throw new EntityNotFoundException(result.error as string);
+    return RoadmapMapper.toResponseDto(result.getValue());
+  }
+
+  @Post(':id/share')
+  @Roles(Role.ADMIN, Role.PRODUCT)
+  @ApiOperation({ summary: 'Toggle a roadmap public read-only link (admin/product)' })
+  async share(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: ShareRoadmapDto,
+  ): Promise<RoadmapResponseDto> {
+    const result = await this.setSharing.execute({
+      id,
+      tenantId: auth.tenantId,
+      enabled: dto.enabled,
+    });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return RoadmapMapper.toResponseDto(result.getValue());
   }
