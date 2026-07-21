@@ -1,12 +1,12 @@
 import { useMemo, type ReactNode } from 'react';
-import { ChevronDown, X } from 'lucide-react';
+import { Check, ChevronDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from './badge';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuCheckboxItem,
+  DropdownMenuItem,
 } from './dropdown-menu';
 
 export interface MultiSelectOption {
@@ -105,15 +105,20 @@ export function MultiSelect({
         className="max-h-64 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
       >
         {options.map((o) => (
-          <DropdownMenuCheckboxItem
+          // Left-aligned content with the tick on the right (not the default
+          // left-indented checkbox item), so a colour-dot label reads from the edge.
+          <DropdownMenuItem
             key={o.value}
-            checked={value.includes(o.value)}
             disabled={o.disabled}
-            onCheckedChange={() => toggle(o.value)}
-            onSelect={(e) => e.preventDefault()}
+            onSelect={(e) => {
+              e.preventDefault();
+              toggle(o.value);
+            }}
+            className="flex items-center justify-between gap-2"
           >
-            {o.label}
-          </DropdownMenuCheckboxItem>
+            <span className="flex min-w-0 items-center gap-2 truncate">{o.label}</span>
+            {value.includes(o.value) && <Check className="size-4 shrink-0" />}
+          </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
