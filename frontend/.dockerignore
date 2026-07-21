@@ -4,6 +4,7 @@ dist
 .gitignore
 .env
 .env.*
+!.env.prod
 *.log
 .DS_Store
 Dockerfile

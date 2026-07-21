@@ -243,12 +243,13 @@ export function RoadmapItemDetailPage() {
                 value={item.description}
                 onChange={saveDescription}
                 placeholder={t('roadmaps.description')}
-                minHeight={220}
+                minHeight={80}
                 images
+                className="border-0"
               />
             ) : item.description ? (
               <div
-                className="prose-editor text-sm"
+                className="text-sm text-muted-foreground [&_a]:text-primary [&_a]:underline [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md"
                 dangerouslySetInnerHTML={{ __html: item.description }}
               />
             ) : (

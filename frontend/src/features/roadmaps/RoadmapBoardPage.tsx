@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { BarChart3, Gauge, LayoutGrid, MoreHorizontal, Table2 } from 'lucide-react';
+import { BarChart3, CalendarDays, Gauge, LayoutGrid, MoreHorizontal, Table2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, Menu, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ import {
   RoadmapItemStatus,
 } from '@/types/enums';
 import { RoadmapWorkflowView } from './components/RoadmapWorkflowView';
+import { RoadmapGanttView } from './components/RoadmapGanttView';
 import type { RoadmapItem } from '@/types/dto';
 import { RoadmapColumnsDialog } from './components/RoadmapColumnsDialog';
 import { ShareLinkDialog } from '@/components/ShareLinkDialog';
@@ -118,15 +119,17 @@ export function RoadmapBoardPage() {
   // and is shareable; `board` is the default and kept out of the query for clean URLs.
   const [searchParams, setSearchParams] = useSearchParams();
   const viewParam = searchParams.get('view');
-  const view: 'board' | 'chart' | 'table' | 'workflow' =
+  const view: 'board' | 'chart' | 'table' | 'workflow' | 'gantt' =
     viewParam === 'chart'
       ? 'chart'
       : viewParam === 'table'
         ? 'table'
         : viewParam === 'workflow'
           ? 'workflow'
-          : 'board';
-  const setView = (v: 'board' | 'chart' | 'table' | 'workflow') => {
+          : viewParam === 'gantt'
+            ? 'gantt'
+            : 'board';
+  const setView = (v: 'board' | 'chart' | 'table' | 'workflow' | 'gantt') => {
     const next = new URLSearchParams(searchParams);
     if (v === 'board') next.delete('view');
     else next.set('view', v);
@@ -213,12 +216,13 @@ export function RoadmapBoardPage() {
       }
       view={{
         value: view,
-        onChange: (v) => setView(v as 'board' | 'chart' | 'table'),
+        onChange: (v) => setView(v as 'board' | 'chart' | 'table' | 'workflow' | 'gantt'),
         options: [
           { value: 'board', label: t('roadmaps.viewBoard'), icon: <LayoutGrid /> },
           { value: 'chart', label: t('roadmaps.viewChart'), icon: <BarChart3 /> },
           { value: 'table', label: t('roadmaps.viewTable'), icon: <Table2 /> },
           { value: 'workflow', label: t('roadmaps.viewWorkflow'), icon: <Gauge /> },
+          { value: 'gantt', label: t('roadmaps.viewGantt'), icon: <CalendarDays /> },
         ],
       }}
       actions={
@@ -302,6 +306,13 @@ export function RoadmapBoardPage() {
             </div>
           ) : view === 'workflow' ? (
             <RoadmapWorkflowView items={items} />
+          ) : view === 'gantt' ? (
+            <RoadmapGanttView
+              roadmapId={roadmap.id}
+              items={items}
+              columns={columns}
+              onOpenItem={openItem}
+            />
           ) : (
             <RoadmapRiceTable
               items={items}

@@ -2,24 +2,25 @@
 #
 # build-and-push.sh — build the product-hub images and push them to a registry.
 #
-#   REGISTRY=myacr.azurecr.io ./build-and-push.sh                 # both images
-#   REGISTRY=ghcr.io/acme     ./build-and-push.sh backend         # just the API
-#   REGISTRY=... TAG=v1.2.3 VITE_API_URL=https://api.acme.com/v1 ./build-and-push.sh
-#   REGISTRY=... PUSH=0       ./build-and-push.sh                 # build only, no push
+#   REGISTRY=<host>/<repo> ./build-and-push.sh                    # both images (backend & frontend as tags)
+#   REGISTRY=<host>/<repo> ./build-and-push.sh backend            # just the API
+#   REGISTRY=<host>/<repo> VITE_API_URL=https://api.acme.com/v1 ./build-and-push.sh
+#   REGISTRY=<host>/<repo> PUSH=0 ./build-and-push.sh             # build only, no push
 #
-# Produces:
-#   $REGISTRY/product-hub-backend:$TAG   (+ :latest)
-#   $REGISTRY/product-hub-frontend:$TAG  (+ :latest)
+# Produces (REGISTRY is the full repo path; the image name is the tag):
+#   $REGISTRY:product-hub-backend
+#   $REGISTRY:product-hub-frontend
 #
 # Config (environment variables):
-#   REGISTRY        (required) registry + namespace, e.g. myacr.azurecr.io  or  ghcr.io/acme
-#   TAG             image tag              (default: short git sha, else "dev")
+#   REGISTRY        (required) full repository path — both images push here, one tag each.
+#                   e.g. 680543267295.dkr.ecr.ap-northeast-2.amazonaws.com/tools
 #   PUSH            1 build+push (default), 0 build only
-#   PUSH_LATEST     1 also tag :latest (default), 0 only :$TAG
 #   PLATFORM        target arch            (default linux/amd64 — right for most cloud hosts)
-#   VITE_API_URL    frontend API base URL, inlined at build time (default /v1 = same origin)
-#   BACKEND_IMAGE   backend repo name      (default product-hub-backend)
-#   FRONTEND_IMAGE  frontend repo name     (default product-hub-frontend)
+#   VITE_API_URL    frontend API base URL, inlined at build time. Unset by default →
+#                   the value in frontend/.env.prod is used; set it to override that.
+#   BUILD_MODE      Vite build mode → picks frontend/.env.<mode> (default prod)
+#   BACKEND_IMAGE   backend tag            (default product-hub-backend)
+#   FRONTEND_IMAGE  frontend tag           (default product-hub-frontend)
 #   REGISTRY_USER / REGISTRY_PASSWORD   if both set, the script `docker login`s first
 #
 # Registry login (do once beforehand, or set REGISTRY_USER/REGISTRY_PASSWORD):
@@ -34,11 +35,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Config ────────────────────────────────────────────────────────────────
 REGISTRY="${REGISTRY:-}"
-TAG="${TAG:-$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo dev)}"
 PUSH="${PUSH:-1}"
-PUSH_LATEST="${PUSH_LATEST:-1}"
 PLATFORM="${PLATFORM:-linux/amd64}"
-VITE_API_URL="${VITE_API_URL:-/v1}"
+VITE_API_URL="${VITE_API_URL:-}"          # empty → use frontend/.env.prod
+BUILD_MODE="${BUILD_MODE:-prod}"          # Vite mode → frontend/.env.<mode>
 BACKEND_IMAGE="${BACKEND_IMAGE:-product-hub-backend}"
 FRONTEND_IMAGE="${FRONTEND_IMAGE:-product-hub-frontend}"
 TARGET="${1:-all}"
@@ -66,32 +66,37 @@ fi
 # build <image-name> <context-dir> [extra buildx args…]
 build() {
   local name="$1" context="$2"; shift 2
-  local ref="$REGISTRY/$name"
-  local args=( buildx build --platform "$PLATFORM" -f "$context/Dockerfile" -t "$ref:$TAG" )
-  [ "$PUSH_LATEST" = "1" ] && args+=( -t "$ref:latest" )
+  # REGISTRY is the full repository path; the image name is the tag — e.g. ECR's one
+  # repo with backend/frontend as separate tags:  <acct>.dkr.ecr…/tools:product-hub-backend
+  local ref="$REGISTRY:$name"
+  local args=( buildx build --platform "$PLATFORM" -f "$context/Dockerfile" -t "$ref" )
   args+=( "$@" )
   # buildx: --push uploads straight to the registry; --load leaves it in the
   # local image store (single-platform only, which our default PLATFORM is).
   if [ "$PUSH" = "1" ]; then args+=( --push ); else args+=( --load ); fi
   args+=( "$context" )
-  log "building $ref:$TAG  ($PLATFORM$([ "$PUSH" = 1 ] && echo ', push'))"
+  log "building $ref  ($PLATFORM$([ "$PUSH" = 1 ] && echo ', push'))"
   docker "${args[@]}"
 }
 
 # ── Go ────────────────────────────────────────────────────────────────────
-log "registry=$REGISTRY  tag=$TAG  platform=$PLATFORM  push=$PUSH  target=$TARGET"
+log "registry=$REGISTRY  platform=$PLATFORM  push=$PUSH  target=$TARGET  mode=$BUILD_MODE${VITE_API_URL:+  VITE_API_URL=$VITE_API_URL}"
 
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "backend" ]; then
   build "$BACKEND_IMAGE" "$ROOT/backend"
 fi
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "frontend" ]; then
-  build "$FRONTEND_IMAGE" "$ROOT/frontend" --build-arg "VITE_API_URL=$VITE_API_URL"
+  # BUILD_MODE picks the .env file; VITE_API_URL is passed only when set, so it
+  # overrides .env.<mode> rather than blanking it out.
+  fe_args=( --build-arg "BUILD_MODE=$BUILD_MODE" )
+  [ -n "$VITE_API_URL" ] && fe_args+=( --build-arg "VITE_API_URL=$VITE_API_URL" )
+  build "$FRONTEND_IMAGE" "$ROOT/frontend" "${fe_args[@]}"
 fi
 
 if [ "$PUSH" = "1" ]; then
   printf "\n${GREEN}✔ pushed to %s${NC}\n" "$REGISTRY"
-  [ "$TARGET" != "frontend" ] && printf "  %s:%s\n" "$REGISTRY/$BACKEND_IMAGE" "$TAG"
-  [ "$TARGET" != "backend"  ] && printf "  %s:%s\n" "$REGISTRY/$FRONTEND_IMAGE" "$TAG"
+  [ "$TARGET" != "frontend" ] && printf "  %s:%s\n" "$REGISTRY" "$BACKEND_IMAGE"
+  [ "$TARGET" != "backend"  ] && printf "  %s:%s\n" "$REGISTRY" "$FRONTEND_IMAGE"
 else
   printf "\n${GREEN}✔ built locally${NC} (PUSH=0 — nothing pushed)\n"
 fi

@@ -21,3 +21,17 @@ yarn dev                  # → http://localhost:3001
 ```
 
 The backend must be running (`../backend`, port 3000) for auth and data.
+
+## Production build (Docker)
+
+Vite inlines `VITE_*` config at **build** time, so the Docker image runs `vite build --mode prod`
+and reads **`.env.prod`**. That file is git-ignored (repo convention) — copy the template first:
+
+```bash
+cp .env.prod.example .env.prod   # then set VITE_API_URL (default /v1 = same origin)
+```
+
+Build from the repo root: `REGISTRY=<host>/<repo> ../build-and-push.sh frontend`. To override the
+API URL for a one-off build without editing the file, pass `VITE_API_URL=…` to that script. If
+`.env.prod` is missing **and** no override is given, the image build fails on purpose, so it never
+silently ships the `localhost` dev fallback.

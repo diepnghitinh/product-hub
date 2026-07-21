@@ -6,6 +6,7 @@ import { t } from '@/i18n';
 import { useAuth } from '@/lib/auth';
 import { useUsers } from '@/features/users/api';
 import { useTeams, useTeamStatusesLookup } from '@/features/teams/api';
+import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
 import { TaskStatus, TeamIssueType, taskStatusColor } from '@/types/enums';
 import {
   useCreateTask,
@@ -46,6 +47,8 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
   // Which team a new task lands in. Defaults to the workspace's default task
   // team; the picker only surfaces when there's a real choice (>1 task team).
   const { data: teams } = useTeams();
+  // These tasks can span teams, so each row is labelled with its own team.
+  const teamById = new Map((teams ?? []).map((tm) => [tm.id, tm]));
   const taskTeams = (teams ?? []).filter(
     (tm) => tm.issueType === TeamIssueType.TASK && !tm.archived,
   );
@@ -118,6 +121,7 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
         ) : (
           tasks.map((tk) => {
             const mine = !!user && tk.assigneeId === user.id;
+            const team = teamById.get(tk.teamId);
             return (
               <div
                 key={tk.id}
@@ -145,6 +149,16 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
                   >
                     {tk.title}
                   </span>
+                  {/* Which team owns this task — these can span teams. */}
+                  {team && (
+                    <span
+                      className="inline-flex shrink-0 items-center gap-1 rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+                      title={`${t('tasks.team')}: ${team.name}`}
+                    >
+                      <TeamIconPicker team={team} readOnly size={12} className="shrink-0" />
+                      <span className="max-w-[90px] truncate">{team.name}</span>
+                    </span>
+                  )}
                 </div>
 
                 {/* Status */}
