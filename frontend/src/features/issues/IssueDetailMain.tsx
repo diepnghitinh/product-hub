@@ -130,7 +130,7 @@ export function IssueDetailMain({
   const overflow =
     menuItems && menuItems.length > 0 ? (
       <Menu
-        align="right"
+        align="left"
         triggerClassName="size-9 shrink-0 rounded-md text-muted-foreground transition-colors hover:bg-transparent hover:text-muted-foreground"
         trigger={
           <>

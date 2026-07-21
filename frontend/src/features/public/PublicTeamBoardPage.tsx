@@ -56,9 +56,9 @@ export function PublicTeamBoardPage() {
           getColumnKey={(i) => i.status}
           renderCard={(item, overlay) =>
             isBug ? (
-              <BugCard bug={item as BugDto} overlay={overlay} />
+              <BugCard bug={item as BugDto} labels={team.labels} overlay={overlay} />
             ) : (
-              <TaskCard task={item as TaskDto} overlay={overlay} />
+              <TaskCard task={item as TaskDto} labels={team.labels} overlay={overlay} />
             )
           }
           onMove={noop}

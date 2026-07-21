@@ -3,7 +3,12 @@ import { v4 as uuid } from 'uuid';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { uniqueSlug } from '@module-shared/utils/slug.util';
-import { CreateTeamDto, UpdateTeamDto, UpdateTeamStatusesDto } from '../dtos/team.dtos';
+import {
+  CreateTeamDto,
+  UpdateTeamDto,
+  UpdateTeamLabelsDto,
+  UpdateTeamStatusesDto,
+} from '../dtos/team.dtos';
 import { TeamEntity } from '../domain/entities/team.entity';
 import { DEFAULT_TEAMS } from '../domain/enums/team.enums';
 import { ITeamRepository } from '../repositories/team.repository';
@@ -154,6 +159,37 @@ export class UpdateTeamStatusesUseCase
     if (!team) return Result.fail(TEAM_NOT_FOUND);
 
     const set = team.setStatuses(dto.statuses);
+    if (set.isFailure) return Result.fail(set.error as string);
+
+    await this.teams.save(team);
+    return Result.ok(team);
+  }
+}
+
+/** Replace a team's item labels (shared by its tasks/bugs). Empty list clears them. */
+@Injectable()
+export class UpdateTeamLabelsUseCase
+  implements
+    IUsecaseExecute<
+      { tenantId: string; id: string; dto: UpdateTeamLabelsDto },
+      Result<TeamEntity>
+    >
+{
+  constructor(@Inject(ITeamRepository) private readonly teams: ITeamRepository) {}
+
+  async execute({
+    tenantId,
+    id,
+    dto,
+  }: {
+    tenantId: string;
+    id: string;
+    dto: UpdateTeamLabelsDto;
+  }): Promise<Result<TeamEntity>> {
+    const team = await this.teams.findById(tenantId, id);
+    if (!team) return Result.fail(TEAM_NOT_FOUND);
+
+    const set = team.setLabels(dto.labels);
     if (set.isFailure) return Result.fail(set.error as string);
 
     await this.teams.save(team);

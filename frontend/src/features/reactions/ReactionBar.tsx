@@ -1,7 +1,14 @@
 import { SmilePlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui';
 import { REACTION_EMOJIS, ReactionTargetType } from '@/types/enums';
 import { useReactions, useToggleReaction } from './api';
 
@@ -24,24 +31,45 @@ export function ReactionBar({ targetType, targetId, className }: ReactionBarProp
 
   return (
     <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
-      {list.map((g) => (
-        <button
-          key={g.emoji}
-          type="button"
-          onClick={() => toggle.mutate(g.emoji)}
-          title={g.userNames.join(', ')}
-          aria-pressed={g.reactedByMe}
-          className={cn(
-            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs leading-none transition-colors',
-            g.reactedByMe
-              ? 'border-primary/40 bg-primary/10 text-foreground'
-              : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted',
-          )}
-        >
-          <span className="text-sm leading-none">{g.emoji}</span>
-          <span className="tabular-nums">{g.count}</span>
-        </button>
-      ))}
+      {list.map((g) => {
+        // count can exceed named reactors (a reactor with no display name is
+        // dropped server-side), so fold the overflow — and any names past the
+        // cap — into a single "+N more" line.
+        const shown = g.userNames.slice(0, 10);
+        const more = g.count - shown.length;
+        return (
+          <Tooltip key={g.emoji}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => toggle.mutate(g.emoji)}
+                aria-pressed={g.reactedByMe}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs leading-none transition-colors',
+                  g.reactedByMe
+                    ? 'border-primary/40 bg-primary/10 text-foreground'
+                    : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted',
+                )}
+              >
+                <span className="text-sm leading-none">{g.emoji}</span>
+                <span className="tabular-nums">{g.count}</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-[13rem]">
+              <div className="flex flex-col gap-0.5 text-left">
+                {shown.map((name, i) => (
+                  <span key={i}>{name}</span>
+                ))}
+                {more > 0 && (
+                  <span className="opacity-80">
+                    +{more} {t('reactions.more')}
+                  </span>
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

@@ -4,7 +4,6 @@ import {
   GetAppSettingsUseCase,
   UpdateBugStatusesUseCase,
   UpdateStorageUseCase,
-  UpdateTaskLabelsUseCase,
   UpdateTaskStatusesUseCase,
   UpdateWebhooksUseCase,
 } from './use-cases/app-settings.use-cases';
@@ -14,7 +13,6 @@ const useCases = [
   UpdateWebhooksUseCase,
   UpdateBugStatusesUseCase,
   UpdateTaskStatusesUseCase,
-  UpdateTaskLabelsUseCase,
   UpdateStorageUseCase,
 ];
 

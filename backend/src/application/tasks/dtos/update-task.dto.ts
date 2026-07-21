@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsArray, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { TASK_ESTIMATE_VALUES } from '../domain/enums/task.enums';
 
 export class UpdateTaskDto {
@@ -52,4 +52,14 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsString()
   assigneeId?: string;
+
+  @ApiPropertyOptional({
+    description: "Keys of the team labels on this task (replaces the set; [] clears)",
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  labelKeys?: string[];
 }

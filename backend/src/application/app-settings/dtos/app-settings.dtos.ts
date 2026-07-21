@@ -16,7 +16,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { BugStatusConfig } from '@application/bugs/domain/enums/bug.enums';
-import { TaskStatusConfig, TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
+import { TaskStatusConfig } from '@application/tasks/domain/enums/task.enums';
 import { WebhookConfig, WebhookEvent, WebhookProvider } from '../domain/webhook.types';
 import { StorageProvider } from '../domain/storage.types';
 
@@ -157,35 +157,6 @@ export class UpdateTaskStatusesDto {
   taskStatuses: TaskStatusConfigDto[];
 }
 
-/** One task label: a slug `key` + editable name/colour. No built-ins. */
-export class TaskLabelConfigDto {
-  @ApiProperty({ example: 'needs-design' })
-  @IsString()
-  @Matches(STATUS_KEY, { message: 'key must be a lowercase slug' })
-  @MaxLength(40)
-  key: string;
-
-  @ApiProperty({ example: 'Needs design' })
-  @IsString()
-  @MinLength(1)
-  @MaxLength(40)
-  name: string;
-
-  @ApiProperty({ example: '#a855f7' })
-  @IsString()
-  @MaxLength(32)
-  color: string;
-}
-
-export class UpdateTaskLabelsDto {
-  // May be empty — a workspace can have no labels.
-  @ApiProperty({ type: [TaskLabelConfigDto] })
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => TaskLabelConfigDto)
-  taskLabels: TaskLabelConfigDto[];
-}
-
 /**
  * Cloud storage for uploaded media. Secrets (`s3SecretAccessKey`,
  * `azureConnectionString`) are write-only: send a value to set/replace it, omit
@@ -301,9 +272,6 @@ export class AppSettingsResponseDto {
 
   @ApiProperty({ type: [TaskStatusConfigDto] })
   taskStatuses: TaskStatusConfig[];
-
-  @ApiProperty({ type: [TaskLabelConfigDto] })
-  taskLabels: TaskLabelConfig[];
 
   @ApiProperty({ type: StorageSettingsResponseDto })
   storage: StorageSettingsResponseDto;

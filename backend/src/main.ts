@@ -32,10 +32,17 @@ async function bootstrap() {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  app.enableCors({
-    origin: allowedOrigins.length
+  // `*` can't be sent as a literal header value alongside `credentials: true`,
+  // and inside an array it's matched literally so it never hits a real origin.
+  // `origin: true` reflects the caller's Origin back instead — same "allow
+  // everyone" effect, but spec-compliant with credentials.
+  const corsOrigin = allowedOrigins.includes('*')
+    ? true
+    : allowedOrigins.length
       ? allowedOrigins
-      : ['http://localhost:3001', 'http://127.0.0.1:3001'],
+      : ['http://localhost:3001', 'http://127.0.0.1:3001'];
+  app.enableCors({
+    origin: corsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: [

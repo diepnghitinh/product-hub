@@ -6,6 +6,7 @@ import {
   GetTeamsUseCase,
   UpdateTeamUseCase,
   UpdateTeamStatusesUseCase,
+  UpdateTeamLabelsUseCase,
   SetTeamSharingUseCase,
   GetPublicTeamUseCase,
 } from './use-cases/team.use-cases';
@@ -15,6 +16,7 @@ const useCases = [
   CreateTeamUseCase,
   UpdateTeamUseCase,
   UpdateTeamStatusesUseCase,
+  UpdateTeamLabelsUseCase,
   EnsureDefaultTeamsUseCase,
   SetTeamSharingUseCase,
   GetPublicTeamUseCase,

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
 import type { TeamDto } from '@/types/dto';
 import { defaultStatusesFor } from '@/types/enums';
-import type { TeamIssueType, TeamStatusConfig } from '@/types/enums';
+import type { TaskLabelConfig, TeamIssueType, TeamStatusConfig } from '@/types/enums';
 
 /** All teams incl. archived — the nav filters archived out; settings shows them. */
 export function useTeams() {
@@ -42,6 +42,16 @@ export function useUpdateTeamStatuses() {
   return useMutation({
     mutationFn: ({ id, statuses }: { id: string; statuses: TeamStatusConfig[] }) =>
       apiPut<TeamDto>(`/teams/${id}/statuses`, { statuses }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
+  });
+}
+
+/** Replace a team's item labels (shared by its tasks/bugs; an empty list clears them). */
+export function useUpdateTeamLabels() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, labels }: { id: string; labels: TaskLabelConfig[] }) =>
+      apiPut<TeamDto>(`/teams/${id}/labels`, { labels }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
   });
 }
@@ -87,4 +97,23 @@ export function useTeamStatusesLookup(): (
       : teams?.find((t) => t.issueType === issueType && t.isDefault);
     return team?.statuses?.length ? team.statuses : defaultStatusesFor(issueType);
   };
+}
+
+/**
+ * A team's item labels (shared by its tasks/bugs). Unlike statuses there are no
+ * code defaults — an empty list is the expected start — so this just reads the
+ * team's own set. Teams are already cached for the nav, so it costs no request.
+ */
+export function useTeamLabels(teamId: string | undefined): TaskLabelConfig[] {
+  return useTeamLabelsLookup()(teamId);
+}
+
+/**
+ * Same resolution, as a function — for boards/lists whose rows can belong to
+ * different teams (e.g. "assigned to me"), where a hook per row isn't legal.
+ * Resolve each card against its own item's `teamId`.
+ */
+export function useTeamLabelsLookup(): (teamId: string | undefined) => TaskLabelConfig[] {
+  const { data: teams } = useTeams();
+  return (teamId) => teams?.find((t) => t.id === teamId)?.labels ?? [];
 }

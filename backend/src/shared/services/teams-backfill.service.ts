@@ -53,6 +53,7 @@ export class TeamsBackfillService implements OnModuleInit {
         }
 
         await this.migrateStatuses(tenantId);
+        await this.migrateLabels(tenantId);
       }
     } catch (err) {
       // Never block boot — new workspaces still seed teams on registration.
@@ -86,5 +87,35 @@ export class TeamsBackfillService implements OnModuleInit {
       await this.teams.save(team);
       this.logger.log(`teams backfill: statuses migrated for ${team.key} (${tenantId})`);
     }
+  }
+
+  /**
+   * Labels used to be workspace-wide (`AppSettings.taskLabels`); they're now
+   * per-team. Seed each team that has none with the old shared set as a starting
+   * point, then drop the legacy field so this never runs again.
+   *
+   * Unlike statuses, an empty label list is a deliberate, valid state — so the
+   * guard can't be "team has no labels" (that would resurrect labels a user later
+   * cleared on every boot). Clearing the source after a successful pass is what
+   * makes it one-shot: a migrated tenant reads `[]` and is skipped. The clear is
+   * the last step, so a mid-run failure just retries next boot (teams already
+   * seeded still have labels and are skipped).
+   */
+  private async migrateLabels(tenantId: string): Promise<void> {
+    const legacy = await this.settings.findLegacyTaskLabels(tenantId);
+    if (!legacy.length) return;
+
+    for (const team of await this.teams.findByTenant(tenantId)) {
+      if (team.labels.length) continue;
+      const set = team.setLabels(legacy);
+      if (set.isFailure) {
+        this.logger.warn(`labels for team ${team.key} not migrated: ${set.error as string}`);
+        continue;
+      }
+      await this.teams.save(team);
+      this.logger.log(`teams backfill: labels migrated for ${team.key} (${tenantId})`);
+    }
+
+    await this.settings.clearLegacyTaskLabels(tenantId);
   }
 }

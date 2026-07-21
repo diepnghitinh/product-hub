@@ -29,6 +29,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
       createdByName?: string;
       dueDate?: string;
       estimate?: number;
+      labelKeys?: string[];
       order?: number;
       createdAt?: Date;
       updatedAt?: Date;
@@ -64,6 +65,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
           createdByName: props.createdByName || '',
           dueDate: props.dueDate || '',
           estimate: props.estimate ?? 0,
+          labelKeys: props.labelKeys ?? [],
           order: props.order ?? 0,
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
@@ -124,6 +126,9 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
   get estimate(): number {
     return this.props.estimate;
   }
+  get labelKeys(): string[] {
+    return this.props.labelKeys;
+  }
   get order(): number {
     return this.props.order;
   }
@@ -143,6 +148,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
     projectId?: string;
     dueDate?: string;
     estimate?: number;
+    labelKeys?: string[];
   }): void {
     if (fields.title !== undefined) {
       if (!fields.title.trim()) throw new Error('title cannot be empty');
@@ -155,6 +161,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
     if (fields.projectId !== undefined) this.props.projectId = fields.projectId;
     if (fields.dueDate !== undefined) this.props.dueDate = fields.dueDate;
     if (fields.estimate !== undefined) this.props.estimate = fields.estimate;
+    if (fields.labelKeys !== undefined) this.props.labelKeys = fields.labelKeys;
     this.touch();
   }
 

@@ -4,6 +4,7 @@ import { LayoutGrid, List } from 'lucide-react';
 import { Badge, Button, Spinner } from '@/components/ui';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
+import { LabelChips } from '@/features/labels/LabelChips';
 import {
   FilterMenu,
   UNASSIGNED,
@@ -16,9 +17,9 @@ import { useAuth } from '@/lib/auth';
 import { useUsers } from '@/features/users/api';
 import { useProjects } from '@/features/projects/api';
 import { useRoadmaps } from '@/features/roadmaps/api';
-import { useTeamStatuses } from '@/features/teams/api';
+import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
 import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
-import { TaskStatus, TeamIssueType, type TeamStatusConfig } from '@/types/enums';
+import { TaskStatus, TeamIssueType, type TaskLabelConfig, type TeamStatusConfig } from '@/types/enums';
 import type { TaskDto, TeamDto } from '@/types/dto';
 import { useDeleteTask, useSetTaskStatus, useTasks } from './api';
 
@@ -41,6 +42,9 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
   const navigate = useNavigate();
   // Columns belong to the team that owns this board (default task team when standalone).
   const columns = useTeamStatuses(teamId, TeamIssueType.TASK);
+  // Labels resolve per-task — the "assigned to me" board spans teams, so each card
+  // resolves against its own item's teamId (see BugsBoardPage for the same note).
+  const labelsFor = useTeamLabelsLookup();
 
   // Creating opens the full New task page — carrying the board's team, and the
   // column when added from one, so the draft opens pre-set exactly there.
@@ -176,7 +180,9 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
           items={tasks}
           getId={(tk) => tk.id}
           getColumnKey={(tk) => tk.status}
-          renderCard={(task, overlay) => <TaskCard task={task} overlay={overlay} />}
+          renderCard={(task, overlay) => (
+            <TaskCard task={task} labels={labelsFor(task.teamId)} overlay={overlay} />
+          )}
           onMove={onMove}
           disabled={!canWrite}
           onCardClick={(task) => navigate(`/tasks/${task.shortId || task.id}`)}
@@ -200,15 +206,25 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
         />
       ) : (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>
-          <TaskList tasks={tasks} columns={columns} />
+          <TaskList tasks={tasks} columns={columns} labelsFor={labelsFor} />
         </div>
       )}
     </IssueBoardLayout>
   );
 }
 
-/** Task card — follows the shared `BoardCard` standard (see the roadmap item). */
-export function TaskCard({ task, overlay = false }: { task: TaskDto; overlay?: boolean }) {
+/** Task card — follows the shared `BoardCard` standard (see the roadmap item).
+ * `labels` is the owning team's label set; the card resolves the task's own
+ * `labelKeys` against it (see `LabelChips`). */
+export function TaskCard({
+  task,
+  labels,
+  overlay = false,
+}: {
+  task: TaskDto;
+  labels?: TaskLabelConfig[];
+  overlay?: boolean;
+}) {
   const done = task.status === TaskStatus.DONE;
   return (
     <BoardCard
@@ -222,6 +238,7 @@ export function TaskCard({ task, overlay = false }: { task: TaskDto; overlay?: b
           </Badge>
         ) : undefined
       }
+      labels={<LabelChips keys={task.labelKeys} labels={labels} />}
       metaLeading={
         <Badge variant="muted" className="max-w-full truncate">
           {task.assigneeName || t('tasks.unassigned')}
@@ -234,7 +251,15 @@ export function TaskCard({ task, overlay = false }: { task: TaskDto; overlay?: b
 
 /** The original queue view: grouped by status column, each row linking to its
  * backlog item's roadmap. */
-function TaskList({ tasks, columns }: { tasks: TaskDto[]; columns: TeamStatusConfig[] }) {
+function TaskList({
+  tasks,
+  columns,
+  labelsFor,
+}: {
+  tasks: TaskDto[];
+  columns: TeamStatusConfig[];
+  labelsFor: (teamId: string | undefined) => TaskLabelConfig[];
+}) {
   return (
     <div className="flex flex-col gap-6">
       {columns.map((col) => {
@@ -253,7 +278,7 @@ function TaskList({ tasks, columns }: { tasks: TaskDto[]; columns: TeamStatusCon
             </div>
             <div className="rounded-xl border bg-card p-2 text-card-foreground shadow-sm">
               {list.map((task) => (
-                <TaskRow key={task.id} task={task} />
+                <TaskRow key={task.id} task={task} labels={labelsFor(task.teamId)} />
               ))}
             </div>
           </section>
@@ -265,7 +290,7 @@ function TaskList({ tasks, columns }: { tasks: TaskDto[]; columns: TeamStatusCon
 
 /** Trailing metadata mirrors the bug list rows (id, then assignee) so both
  * teams' lists read as siblings. */
-function TaskRow({ task }: { task: TaskDto }) {
+function TaskRow({ task, labels }: { task: TaskDto; labels: TaskLabelConfig[] }) {
   return (
     <Link
       to={`/tasks/${task.shortId || task.id}`}
@@ -279,6 +304,7 @@ function TaskRow({ task }: { task: TaskDto }) {
       >
         {task.title}
       </span>
+      <LabelChips keys={task.labelKeys} labels={labels} max={3} className="hidden shrink-0 sm:flex" />
       {task.roadmapItemLabel && (
         <Badge variant="muted" className="max-w-[30%] shrink-0 truncate" title={task.roadmapItemLabel}>
           {task.roadmapItemLabel}

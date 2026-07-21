@@ -269,6 +269,8 @@ export interface BugDto {
   reporterName: string;
   order: number;
   attachments: BugAttachment[];
+  /** Keys of the team labels on this bug (resolved against its team's `labels`). */
+  labelKeys: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -394,6 +396,8 @@ export interface TaskDto {
   dueDate: string;
   /** Points on the estimate scale (see `TASK_ESTIMATES`); `0` means unset. */
   estimate: number;
+  /** Keys of the team labels on this task (resolved against its team's `labels`). */
+  labelKeys: string[];
   order: number;
   createdAt: string;
   updatedAt: string;
@@ -491,6 +495,8 @@ export interface TeamDto {
   color: string | null;
   /** This team's board columns, in order. Resolves to the type's defaults if unset. */
   statuses: TeamStatusConfig[];
+  /** This team's item labels, shared by its tasks/bugs. Empty until defined. */
+  labels: TaskLabelConfig[];
   archived: boolean;
   isDefault: boolean;
   order: number;
@@ -524,7 +530,6 @@ export interface AppSettingsDto {
   webhooks: WebhookConfig[];
   bugStatuses: BugStatusConfig[];
   taskStatuses: TaskStatusConfig[];
-  taskLabels: TaskLabelConfig[];
   storage: StorageSettings;
 }
 

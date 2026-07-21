@@ -21,6 +21,7 @@ export class TaskMapper {
       createdByName: task.createdByName,
       dueDate: task.dueDate,
       estimate: task.estimate,
+      labelKeys: task.labelKeys,
       order: task.order,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,

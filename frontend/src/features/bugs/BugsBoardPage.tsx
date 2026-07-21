@@ -9,6 +9,7 @@ import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { Icon } from '@/components/Icon';
 import { BackLink } from '@/components/BackLink';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
+import { LabelChips } from '@/features/labels/LabelChips';
 import {
   FilterMenu,
   UNASSIGNED,
@@ -25,10 +26,11 @@ import {
   BugStatus,
   TeamIssueType,
 } from '@/types/enums';
+import type { TaskLabelConfig } from '@/types/enums';
 import type { BugDto, TeamDto } from '@/types/dto';
 import { CreateBugDialog } from './components/CreateBugDialog';
 import { useBugs, useDeleteBug, useSetBugStatus } from './api';
-import { useTeamStatuses } from '@/features/teams/api';
+import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
 import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
 
 /** Severity → dot color (shadcn semantic tokens). */
@@ -39,8 +41,18 @@ const SEVERITY_DOT: Record<BugSeverity, string> = {
   [BugSeverity.CRITICAL]: 'bg-destructive',
 };
 
-/** Bug card — follows the shared `BoardCard` standard (see the roadmap item). */
-export function BugCard({ bug, overlay = false }: { bug: BugDto; overlay?: boolean }) {
+/** Bug card — follows the shared `BoardCard` standard (see the roadmap item).
+ * `labels` is the owning team's label set; the card resolves the bug's own
+ * `labelKeys` against it (see `LabelChips`). */
+export function BugCard({
+  bug,
+  labels,
+  overlay = false,
+}: {
+  bug: BugDto;
+  labels?: TaskLabelConfig[];
+  overlay?: boolean;
+}) {
   return (
     <BoardCard
       overlay={overlay}
@@ -54,6 +66,7 @@ export function BugCard({ bug, overlay = false }: { bug: BugDto; overlay?: boole
           </Badge>
         ) : undefined
       }
+      labels={<LabelChips keys={bug.labelKeys} labels={labels} />}
       metaLeading={
         <Badge variant="muted" className="max-w-full truncate">
           {bug.assigneeName || t('bugs.unassigned')}
@@ -103,6 +116,9 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   const remove = useDeleteBug();
   // Columns belong to the team that owns this board (default bug team when standalone).
   const columns = useTeamStatuses(teamId, TeamIssueType.BUG);
+  // Labels resolve per-bug (a standalone board's bugs all sit in the default team,
+  // but each still carries its own teamId — so resolve against that, not the board's).
+  const labelsFor = useTeamLabelsLookup();
 
   // People + projects are only needed to label the filter options.
   const { data: usersData } = useUsers({ limit: 100 }, canManageDelivery);
@@ -220,7 +236,9 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           items={bugs}
           getId={(b) => b.id}
           getColumnKey={(b) => b.status}
-          renderCard={(bug, overlay) => <BugCard bug={bug} overlay={overlay} />}
+          renderCard={(bug, overlay) => (
+            <BugCard bug={bug} labels={labelsFor(bug.teamId)} overlay={overlay} />
+          )}
           onMove={onMove}
           disabled={!canWrite}
           onCardClick={(bug) => navigate(`/bugs/${bug.shortId || bug.id}`)}
@@ -251,7 +269,12 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
         />
       ) : (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>
-          <BugList bugs={bugs} columns={columns} onOpen={(b) => navigate(`/bugs/${b.shortId || b.id}`)} />
+          <BugList
+            bugs={bugs}
+            columns={columns}
+            labelsFor={labelsFor}
+            onOpen={(b) => navigate(`/bugs/${b.shortId || b.id}`)}
+          />
         </div>
       )}
 
@@ -279,10 +302,12 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
 function BugList({
   bugs,
   columns,
+  labelsFor,
   onOpen,
 }: {
   bugs: BugDto[];
   columns: { key: string; label: string; color: string }[];
+  labelsFor: (teamId: string | undefined) => TaskLabelConfig[];
   onOpen: (bug: BugDto) => void;
 }) {
   return (
@@ -314,6 +339,12 @@ function BugList({
                     title={BUG_SEVERITY_LABEL[bug.severity]}
                   />
                   <span className="min-w-0 flex-1 truncate text-sm">{bug.title}</span>
+                  <LabelChips
+                    keys={bug.labelKeys}
+                    labels={labelsFor(bug.teamId)}
+                    max={3}
+                    className="hidden shrink-0 sm:flex"
+                  />
                   {bug.shortId && (
                     <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                       {bug.shortId}

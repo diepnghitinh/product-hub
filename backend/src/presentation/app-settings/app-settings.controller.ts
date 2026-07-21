@@ -3,12 +3,11 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser, Roles } from '@core/decorators';
 import { JwtPayload, Role } from '@core/interfaces';
 import { BugStatusConfig } from '@application/bugs/domain/enums/bug.enums';
-import { TaskStatusConfig, TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
+import { TaskStatusConfig } from '@application/tasks/domain/enums/task.enums';
 import {
   GetAppSettingsUseCase,
   UpdateBugStatusesUseCase,
   UpdateStorageUseCase,
-  UpdateTaskLabelsUseCase,
   UpdateTaskStatusesUseCase,
   UpdateWebhooksUseCase,
 } from '@application/app-settings/use-cases/app-settings.use-cases';
@@ -17,7 +16,6 @@ import {
   StorageSettingsResponseDto,
   UpdateBugStatusesDto,
   UpdateStorageDto,
-  UpdateTaskLabelsDto,
   UpdateTaskStatusesDto,
   UpdateWebhooksDto,
 } from '@application/app-settings/dtos/app-settings.dtos';
@@ -33,7 +31,6 @@ export class AppSettingsController {
     private readonly updateWebhooks: UpdateWebhooksUseCase,
     private readonly updateBugStatuses: UpdateBugStatusesUseCase,
     private readonly updateTaskStatuses: UpdateTaskStatusesUseCase,
-    private readonly updateTaskLabels: UpdateTaskLabelsUseCase,
     private readonly updateStorage: UpdateStorageUseCase,
   ) {}
 
@@ -61,7 +58,6 @@ export class AppSettingsController {
       webhooks: s.webhooks,
       bugStatuses: s.bugStatuses,
       taskStatuses: s.taskStatuses,
-      taskLabels: s.taskLabels,
       storage: this.maskStorage(s.storage),
     };
   }
@@ -125,30 +121,6 @@ export class AppSettingsController {
       throw new BadRequestException(result.error as string);
     }
     return this.present(result.getValue());
-  }
-
-  @Get('task-labels')
-  @ApiOperation({ summary: 'Get the tenant task labels (any authenticated user)' })
-  async getTaskLabels(@AuthUser() auth: JwtPayload): Promise<TaskLabelConfig[]> {
-    const result = await this.getSettings.execute({ tenantId: auth.tenantId });
-    return result.getValue().taskLabels;
-  }
-
-  @Put('task-labels')
-  @Roles(Role.ADMIN, Role.PRODUCT)
-  @ApiOperation({ summary: 'Replace the tenant task labels (admin, product)' })
-  async putTaskLabels(
-    @AuthUser() auth: JwtPayload,
-    @Body() dto: UpdateTaskLabelsDto,
-  ): Promise<TaskLabelConfig[]> {
-    const result = await this.updateTaskLabels.execute({ tenantId: auth.tenantId, dto });
-    if (result.isFailure) {
-      throw new BadRequestException(result.error as string);
-    }
-    // Returns only the labels, not the whole settings blob: the full DTO carries
-    // `webhooks`, and Product may write labels but must not read webhook config.
-    // Mirrors the shape of `GET task-labels`.
-    return result.getValue().taskLabels;
   }
 
   @Put('storage')

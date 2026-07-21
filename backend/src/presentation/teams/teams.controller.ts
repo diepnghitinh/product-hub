@@ -16,6 +16,7 @@ import {
   CreateTeamUseCase,
   GetTeamsUseCase,
   UpdateTeamStatusesUseCase,
+  UpdateTeamLabelsUseCase,
   UpdateTeamUseCase,
   SetTeamSharingUseCase,
   TEAM_DEFAULT_LOCKED,
@@ -26,6 +27,7 @@ import {
   ShareTeamDto,
   TeamResponseDto,
   UpdateTeamDto,
+  UpdateTeamLabelsDto,
   UpdateTeamStatusesDto,
 } from '@application/teams/dtos/team.dtos';
 import { TeamMapper } from '@application/teams/mappers/team.mapper';
@@ -39,6 +41,7 @@ export class TeamsController {
     private readonly createTeam: CreateTeamUseCase,
     private readonly updateTeam: UpdateTeamUseCase,
     private readonly updateStatuses: UpdateTeamStatusesUseCase,
+    private readonly updateLabels: UpdateTeamLabelsUseCase,
     private readonly setSharing: SetTeamSharingUseCase,
   ) {}
 
@@ -89,6 +92,23 @@ export class TeamsController {
     @Body() dto: UpdateTeamStatusesDto,
   ): Promise<TeamResponseDto> {
     const result = await this.updateStatuses.execute({ tenantId: auth.tenantId, id, dto });
+    if (result.isFailure) {
+      const msg = result.error as string;
+      if (msg === TEAM_NOT_FOUND) throw new EntityNotFoundException(msg);
+      throw new BadRequestException(msg);
+    }
+    return TeamMapper.toResponseDto(result.getValue());
+  }
+
+  @Put(':id/labels')
+  @Roles(Role.ADMIN, Role.PRODUCT)
+  @ApiOperation({ summary: "Replace a team's item labels (shared by its tasks/bugs; may be empty)" })
+  async setLabels(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateTeamLabelsDto,
+  ): Promise<TeamResponseDto> {
+    const result = await this.updateLabels.execute({ tenantId: auth.tenantId, id, dto });
     if (result.isFailure) {
       const msg = result.error as string;
       if (msg === TEAM_NOT_FOUND) throw new EntityNotFoundException(msg);

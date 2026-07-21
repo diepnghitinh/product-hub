@@ -4,11 +4,11 @@ import {
   ArrowDown,
   ArrowUp,
   Cloud,
+  Copy,
   KeyRound,
   Plus,
   RotateCcw,
   Trash2,
-  Tag,
   Users,
   Webhook,
 } from 'lucide-react';
@@ -29,18 +29,20 @@ import {
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { timeAgo } from '@/lib/format';
+import { env } from '@/lib/env';
 import {
   builtinStatusKeys,
   defaultStatusesFor,
   defaultTeamIcon,
+  TEST_RESULTS,
 } from '@/types/enums';
 import type { CreatedApiKeyDto } from '@/types/dto';
 import { useApiKeys, useGenerateApiKey, useRevokeApiKey } from '@/features/api-keys/api';
 import { TeamsSection } from './TeamsSection';
 import { TeamSymbol } from '@/components/TeamSymbol';
-import { useTeams, useUpdateTeamStatuses } from '@/features/teams/api';
+import { useTeams, useUpdateTeamStatuses, useUpdateTeamLabels } from '@/features/teams/api';
 import type { TeamDto } from '@/types/dto';
-import { TaskLabelsSection } from './TaskLabelsSection';
+import type { TaskLabelConfig } from '@/types/enums';
 import { CloudStorageSection } from './CloudStorageSection';
 import { WebhooksSection } from './WebhooksSection';
 import { CenteredPageLayout } from '@/layouts/shared';
@@ -61,7 +63,6 @@ const TABS: {
   adminOnly?: boolean;
 }[] = [
   { key: 'teams', labelKey: 'teams.title', icon: Users, Section: TeamsSection },
-  { key: 'task-labels', labelKey: 'labels.title', icon: Tag, Section: TaskLabelsSection },
   { key: 'api-keys', labelKey: 'settings.apiKeys', icon: KeyRound, Section: ApiKeysSection, adminOnly: true },
   { key: 'webhooks', labelKey: 'settings.webhooks', icon: Webhook, Section: WebhooksSection, adminOnly: true },
   { key: 'storage', labelKey: 'settings.storage', icon: Cloud, Section: CloudStorageSection, adminOnly: true },
@@ -172,7 +173,7 @@ export function AdminSettingsPage() {
         </nav>
 
         <div className="min-w-0 flex-1">
-          {activeTeam ? <TeamStatusesSection team={activeTeam} /> : <active.Section />}
+          {activeTeam ? <TeamSettingsSection team={activeTeam} /> : <active.Section />}
         </div>
       </div>
     </CenteredPageLayout>
@@ -335,19 +336,111 @@ function StatusColumnsEditor({
  * completely different workflows. Built-ins for the team's issue type are locked
  * (the rollups read their keys) — the backend enforces it too.
  */
-function TeamStatusesSection({ team }: { team: TeamDto }) {
+function TeamSettingsSection({ team }: { team: TeamDto }) {
   const save = useUpdateTeamStatuses();
   return (
-    <StatusColumnsEditor
-      title={`${team.name} · ${t('settings.columns')}`}
-      hint={t('settings.teamStatusesHint')}
-      saveLabel={t('common.save')}
-      value={team.statuses}
-      defaults={defaultStatusesFor(team.issueType)}
-      builtinKeys={builtinStatusKeys(team.issueType)}
-      onSave={(rows) => save.mutate({ id: team.id, statuses: rows })}
-      saving={save.isPending}
-    />
+    <div className="space-y-6">
+      <StatusColumnsEditor
+        title={`${team.name} · ${t('settings.columns')}`}
+        hint={t('settings.teamStatusesHint')}
+        saveLabel={t('common.save')}
+        value={team.statuses}
+        defaults={defaultStatusesFor(team.issueType)}
+        builtinKeys={builtinStatusKeys(team.issueType)}
+        onSave={(rows) => save.mutate({ id: team.id, statuses: rows })}
+        saving={save.isPending}
+      />
+      <TeamLabelsEditor team={team} />
+    </div>
+  );
+}
+
+/**
+ * A single team's item labels — the one place labels are defined, shared by every
+ * task/bug in the team (mirrors how statuses are per-team). No built-ins, and an
+ * empty list is valid: a team may define none. `key` is the stable slug stored on
+ * an item; name/colour are editable.
+ */
+function TeamLabelsEditor({ team }: { team: TeamDto }) {
+  const save = useUpdateTeamLabels();
+  const [rows, setRows] = useState<TaskLabelConfig[]>([]);
+
+  // Re-seed from the server whenever the team's saved labels change (incl. after
+  // a save round-trips). The team is already loaded here, so there's no spinner.
+  useEffect(() => {
+    setRows(team.labels ?? []);
+  }, [team.labels]);
+
+  function update(key: string, patch: Partial<TaskLabelConfig>) {
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+  function addLabel() {
+    // Stable generated slug — the name is editable but the key mustn't change
+    // once items reference it.
+    const taken = new Set(rows.map((r) => r.key));
+    let n = rows.length + 1;
+    while (taken.has(`label-${n}`)) n += 1;
+    setRows((rs) => [...rs, { key: `label-${n}`, name: 'New label', color: '#a855f7' }]);
+  }
+  function removeLabel(key: string) {
+    setRows((rs) => rs.filter((r) => r.key !== key));
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('labels.title')}</CardTitle>
+        <CardDescription>{t('labels.teamHint')}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="divide-y rounded-xl border">
+          {rows.length === 0 && (
+            <p className="p-6 text-center text-sm text-muted-foreground">{t('labels.empty')}</p>
+          )}
+          {rows.map((r) => (
+            <div key={r.key} className="flex flex-wrap items-center gap-3 p-3 sm:gap-4 sm:px-4">
+              <input
+                type="color"
+                className="size-8 shrink-0 cursor-pointer rounded-md border bg-transparent p-0.5"
+                value={r.color}
+                aria-label={t('labels.color')}
+                onChange={(e) => update(r.key, { color: e.target.value })}
+              />
+              <Input
+                className="min-w-0 flex-1 sm:max-w-xs"
+                value={r.name}
+                placeholder={t('labels.name')}
+                onChange={(e) => update(r.key, { name: e.target.value })}
+              />
+              <span className="font-mono text-xs text-muted-foreground">{r.key}</span>
+              <button
+                type="button"
+                aria-label={t('common.delete')}
+                className="ml-auto grid size-7 place-items-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => removeLabel(r.key)}
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+          ))}
+          <div className="p-2">
+            <Button variant="ghost" size="sm" onClick={addLabel}>
+              <Plus className="mr-1.5 size-3.5" />
+              {t('labels.add')}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="justify-end">
+        <Button
+          onClick={() => save.mutate({ id: team.id, labels: rows })}
+          loading={save.isPending}
+          disabled={rows.some((r) => !r.name.trim())}
+        >
+          {t('labels.save')}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }
 
@@ -358,8 +451,27 @@ function ApiKeysSection() {
   const [name, setName] = useState('');
   const [created, setCreated] = useState<CreatedApiKeyDto | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedCurl, setCopiedCurl] = useState(false);
 
   const keys = data ?? [];
+
+  // Reference cURL for the public "set result" endpoint. Built against the base
+  // URL this app actually talks to (env.apiUrl already carries /v1) and the real
+  // auth (x-api-key header, phk_ key prefix) — never a hardcoded host.
+  const curlSnippet = [
+    'curl -X PATCH \\',
+    `  ${env.apiUrl}/public/testcases/{PROJECT_ID}/{TEST_CASE_ID} \\`,
+    '  -H "x-api-key: phk_..." \\',
+    '  -H "Content-Type: application/json" \\',
+    `  -d '{"result":"Passed"}'`,
+  ].join('\n');
+  const codeChip = 'rounded bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground';
+
+  function copyCurl() {
+    navigator.clipboard?.writeText(curlSnippet);
+    setCopiedCurl(true);
+    setTimeout(() => setCopiedCurl(false), 1500);
+  }
 
   function onGenerate() {
     if (!name.trim()) return;
@@ -420,6 +532,25 @@ function ApiKeysSection() {
             ))}
           </div>
         )}
+
+        <div className="rounded-xl border p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold">{t('settings.apiUpdateEndpoint')}</h3>
+            <Button variant="ghost" size="sm" className="shrink-0" onClick={copyCurl}>
+              <Copy className="mr-1.5 size-3.5" />
+              {copiedCurl ? t('settings.copied') : t('settings.copyCurl')}
+            </Button>
+          </div>
+          <pre className="mt-3 overflow-x-auto rounded-lg border bg-muted p-3 font-mono text-xs leading-relaxed text-foreground">
+            <code>{curlSnippet}</code>
+          </pre>
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            <code className={codeChip}>PROJECT_ID</code> {t('settings.apiGuideProjectId')}{' '}
+            <code className={codeChip}>TEST_CASE_ID</code> {t('settings.apiGuideTestCaseId')}{' '}
+            {t('settings.apiGuideResultsPrefix')} <code className={codeChip}>result</code>{' '}
+            {t('settings.apiGuideResultsSuffix')} {TEST_RESULTS.join(', ')}.
+          </p>
+        </div>
       </CardContent>
 
       <Dialog

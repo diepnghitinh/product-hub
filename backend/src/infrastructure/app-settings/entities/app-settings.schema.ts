@@ -11,7 +11,9 @@ export interface AppSettingsDoc {
   webhooks: WebhookConfig[];
   bugStatuses: BugStatusConfig[];
   taskStatuses: TaskStatusConfig[];
-  taskLabels: TaskLabelConfig[];
+  /** Legacy: workspace-wide task labels, now per-team. Read once by the boot
+   *  backfill to seed teams, then unset. No API path writes it anymore. */
+  taskLabels?: TaskLabelConfig[];
   storage?: CloudStorageConfig;
   createdAt: Date;
   updatedAt: Date;
@@ -25,6 +27,7 @@ export const AppSettingsSchema = new Schema<AppSettingsDoc>(
     // Left undefined until customized — the domain seeds the shipped defaults.
     bugStatuses: { type: [Schema.Types.Mixed], default: undefined } as unknown as BugStatusConfig[],
     taskStatuses: { type: [Schema.Types.Mixed], default: undefined } as unknown as TaskStatusConfig[],
+    // Legacy — kept only so the boot backfill can read + unset it (see AppSettingsDoc).
     taskLabels: { type: [Schema.Types.Mixed], default: undefined } as unknown as TaskLabelConfig[],
     // Whole config as one mixed blob (secrets included; masked at the API edge).
     storage: { type: Schema.Types.Mixed, default: undefined } as unknown as CloudStorageConfig,

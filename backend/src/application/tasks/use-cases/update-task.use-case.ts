@@ -46,6 +46,7 @@ export class UpdateTaskUseCase
       projectId: dto.projectId,
       dueDate: dto.dueDate,
       estimate: dto.estimate,
+      labelKeys: dto.labelKeys,
     });
 
     await this.tasks.update(task);

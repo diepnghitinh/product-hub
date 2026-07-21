@@ -85,4 +85,14 @@ export class UpdateBugDto {
   @ValidateNested({ each: true })
   @Type(() => BugAttachmentDto)
   attachments?: BugAttachmentDto[];
+
+  @ApiPropertyOptional({
+    description: "Keys of the team labels on this bug (replaces the set; [] clears)",
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  labelKeys?: string[];
 }

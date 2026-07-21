@@ -6,7 +6,6 @@ import { TASK_STATUSES } from '@application/tasks/domain/enums/task.enums';
 import {
   UpdateBugStatusesDto,
   UpdateStorageDto,
-  UpdateTaskLabelsDto,
   UpdateTaskStatusesDto,
   UpdateWebhooksDto,
 } from '../dtos/app-settings.dtos';
@@ -139,45 +138,6 @@ export class UpdateTaskStatusesUseCase
 
     const settings = await loadOrDefault(this.repo, tenantId);
     settings.setTaskStatuses(cleaned);
-    await this.repo.save(settings);
-    return Result.ok(settings);
-  }
-}
-
-/**
- * Replace the tenant's task labels. Unlike statuses there are no built-ins to
- * protect and an empty list is valid — only uniqueness + a name are required.
- */
-@Injectable()
-export class UpdateTaskLabelsUseCase
-  implements
-    IUsecaseExecute<{ tenantId: string; dto: UpdateTaskLabelsDto }, Result<AppSettingsEntity>>
-{
-  constructor(@Inject(IAppSettingsRepository) private readonly repo: IAppSettingsRepository) {}
-  async execute({
-    tenantId,
-    dto,
-  }: {
-    tenantId: string;
-    dto: UpdateTaskLabelsDto;
-  }): Promise<Result<AppSettingsEntity>> {
-    const provided = dto.taskLabels ?? [];
-    const keys = provided.map((l) => l.key);
-    if (new Set(keys).size !== keys.length) {
-      return Result.fail('Label keys must be unique');
-    }
-    if (provided.some((l) => !l.name?.trim())) {
-      return Result.fail('Each label must have a non-empty name');
-    }
-
-    const cleaned = provided.map((l) => ({
-      key: l.key,
-      name: l.name.trim(),
-      color: l.color?.trim() || '#6b7280',
-    }));
-
-    const settings = await loadOrDefault(this.repo, tenantId);
-    settings.setTaskLabels(cleaned);
     await this.repo.save(settings);
     return Result.ok(settings);
   }

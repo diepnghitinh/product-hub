@@ -126,6 +126,7 @@ export function BoardCard({
   title,
   titleClassName,
   titleTrailing,
+  labels,
   metaLeading,
   metaTrailing,
   progress,
@@ -142,6 +143,8 @@ export function BoardCard({
   titleClassName?: string;
   /** Top-right of the title row — a RICE / short-id badge. */
   titleTrailing?: ReactNode;
+  /** A chip row under the title — the item's team labels (`<LabelChips>`). */
+  labels?: ReactNode;
   /** Bottom-left — the primary badge (status, backlog item, assignee…). */
   metaLeading?: ReactNode;
   /** Bottom-right — a quiet chip cluster (difficulty, age…). */
@@ -177,6 +180,7 @@ export function BoardCard({
           </span>
           {titleTrailing && <span className="shrink-0">{titleTrailing}</span>}
         </div>
+        {labels}
         {(metaLeading || metaTrailing) && (
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center">{metaLeading}</div>

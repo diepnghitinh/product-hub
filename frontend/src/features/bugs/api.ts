@@ -49,6 +49,8 @@ export interface UpdateBugInput {
   reportId?: string;
   assigneeId?: string;
   attachments?: BugAttachment[];
+  /** Replace the bug's team-label keys ([] clears them). */
+  labelKeys?: string[];
 }
 
 const invalidateKey = ['bugs'];

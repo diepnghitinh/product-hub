@@ -56,6 +56,9 @@ export class TaskResponseDto {
   @ApiProperty({ description: 'Size estimate in points (0 = no estimate)' })
   estimate: number;
 
+  @ApiProperty({ type: [String], description: "Keys of the team labels on this task" })
+  labelKeys: string[];
+
   @ApiProperty()
   order: number;
 

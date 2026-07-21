@@ -2,12 +2,7 @@ import { AggregateRoot, UniqueEntityID } from '@core/domain';
 import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
 import { BugStatusConfig, DEFAULT_BUG_STATUSES } from '@application/bugs/domain/enums/bug.enums';
-import {
-  TaskStatusConfig,
-  DEFAULT_TASK_STATUSES,
-  TaskLabelConfig,
-  DEFAULT_TASK_LABELS,
-} from '@application/tasks/domain/enums/task.enums';
+import { TaskStatusConfig, DEFAULT_TASK_STATUSES } from '@application/tasks/domain/enums/task.enums';
 import { WebhookConfig, normalizeWebhook } from './webhook.types';
 import { CloudStorageConfig, defaultStorageConfig } from './storage.types';
 
@@ -16,7 +11,6 @@ interface AppSettingsProps {
   webhooks: WebhookConfig[];
   bugStatuses: BugStatusConfig[];
   taskStatuses: TaskStatusConfig[];
-  taskLabels: TaskLabelConfig[];
   storage: CloudStorageConfig;
   createdAt: Date;
   updatedAt: Date;
@@ -35,7 +29,6 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
       webhooks?: WebhookConfig[];
       bugStatuses?: BugStatusConfig[];
       taskStatuses?: TaskStatusConfig[];
-      taskLabels?: TaskLabelConfig[];
       storage?: CloudStorageConfig;
       createdAt?: Date;
       updatedAt?: Date;
@@ -53,8 +46,6 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
           // Fall back to the shipped defaults for tenants that predate the field.
           bugStatuses: props.bugStatuses?.length ? props.bugStatuses : DEFAULT_BUG_STATUSES,
           taskStatuses: props.taskStatuses?.length ? props.taskStatuses : DEFAULT_TASK_STATUSES,
-          // Labels have no built-ins — an empty list is a valid, expected state.
-          taskLabels: props.taskLabels ?? DEFAULT_TASK_LABELS,
           // Merge over defaults so provider + size caps are always present, even
           // for docs that predate the storage field or persist a partial config.
           storage: props.storage
@@ -83,9 +74,6 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
   get taskStatuses(): TaskStatusConfig[] {
     return this.props.taskStatuses;
   }
-  get taskLabels(): TaskLabelConfig[] {
-    return this.props.taskLabels;
-  }
   get storage(): CloudStorageConfig {
     return this.props.storage;
   }
@@ -108,11 +96,6 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
 
   setTaskStatuses(taskStatuses: TaskStatusConfig[]): void {
     this.props.taskStatuses = taskStatuses;
-    this.props.updatedAt = new Date();
-  }
-
-  setTaskLabels(taskLabels: TaskLabelConfig[]): void {
-    this.props.taskLabels = taskLabels;
     this.props.updatedAt = new Date();
   }
 

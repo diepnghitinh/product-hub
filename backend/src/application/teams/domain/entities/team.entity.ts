@@ -1,6 +1,7 @@
 import { AggregateRoot, UniqueEntityID } from '@core/domain';
 import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
+import { TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import {
   DEFAULT_TEAM_KEYS,
   TeamIssueType,
@@ -29,6 +30,7 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
       icon?: string;
       color?: string | null;
       statuses?: TeamStatusConfig[];
+      labels?: TaskLabelConfig[];
       archived?: boolean;
       order?: number;
       publicEnabled?: boolean;
@@ -63,6 +65,8 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
           // Left raw: `statuses` resolves the defaults on read, so the boot
           // migration can still tell an unconfigured team apart.
           statuses: props.statuses?.length ? props.statuses : undefined,
+          // Labels have no built-ins or defaults — empty is the expected start.
+          labels: props.labels ?? [],
           archived: props.archived ?? false,
           order: props.order ?? 0,
           publicEnabled: props.publicEnabled ?? false,
@@ -110,6 +114,10 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
 
   get hasOwnStatuses(): boolean {
     return !!this.props.statuses?.length;
+  }
+  /** The team's item labels — shared by every task/bug in it. Empty until defined. */
+  get labels(): TaskLabelConfig[] {
+    return this.props.labels ?? [];
   }
   get archived(): boolean {
     return this.props.archived;
@@ -174,6 +182,25 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
       key: s.key,
       label: s.label.trim(),
       color: s.color,
+    }));
+    this.touch();
+    return Result.ok();
+  }
+
+  /**
+   * Replace the team's item labels. No built-ins, and an empty list is valid
+   * (a team may define none) — we only guard the shape: unique keys, non-empty
+   * names. Keys are the stable slug stored on each task/bug.
+   */
+  setLabels(labels: TaskLabelConfig[]): Result<void> {
+    const keys = labels.map((l) => l.key);
+    if (new Set(keys).size !== keys.length) return Result.fail('Duplicate label keys');
+    if (labels.some((l) => !l.name?.trim())) return Result.fail('Label names cannot be empty');
+
+    this.props.labels = labels.map((l) => ({
+      key: l.key,
+      name: l.name.trim(),
+      color: l.color,
     }));
     this.touch();
     return Result.ok();

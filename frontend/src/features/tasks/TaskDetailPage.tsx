@@ -3,14 +3,15 @@ import { Circle, Trash2, Triangle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useEscapeBack } from '@/lib/useEscapeBack';
 import { cn } from '@/lib/utils';
-import { Combobox, DatePicker, DotLabel, Select, Skeleton, Spinner } from '@/components/ui';
+import { Combobox, DatePicker, DotLabel, MultiSelect, Select, Skeleton, Spinner } from '@/components/ui';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { Icon } from '@/components/Icon';
 import { initials, timeAgo } from '@/lib/format';
 import { useUsers } from '@/features/users/api';
 import { IssueDetail, PropField } from '@/features/issues/IssueDetail';
-import { useTeams, useTeamStatuses } from '@/features/teams/api';
+import { useTeams, useTeamStatuses, useTeamLabels } from '@/features/teams/api';
+import { LabelChips, resolveLabels } from '@/features/labels/LabelChips';
 import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
 import {
   FavouriteKind,
@@ -57,6 +58,8 @@ export function TaskDetailPage() {
   // Columns come from the team that owns this task.
   const columns = useTeamStatuses(task?.teamId, TeamIssueType.TASK);
   const statusCol = columns.find((c) => c.key === task?.status);
+  // Labels are the task's team's own set — the same source the settings editor writes.
+  const teamLabels = useTeamLabels(task?.teamId);
 
   // Breadcrumb parent: the task's own team board when resolvable, so the crumb
   // tells you which team the task belongs to — falls back to "My Tasks" if the
@@ -190,6 +193,29 @@ export function TaskDetailPage() {
                 />
               ) : (
                 <span className="text-sm">{task.assigneeName || t('tasks.unassigned')}</span>
+              )}
+            </PropField>
+
+            <PropField label={t('labels.title')}>
+              {canWrite ? (
+                teamLabels.length > 0 ? (
+                  <MultiSelect
+                    value={task.labelKeys ?? []}
+                    onChange={(keys) => save({ labelKeys: keys })}
+                    placeholder={t('labels.pick')}
+                    options={teamLabels.map((l) => ({
+                      value: l.key,
+                      label: <DotLabel color={l.color}>{l.name}</DotLabel>,
+                      text: l.name,
+                    }))}
+                  />
+                ) : (
+                  <span className="text-sm text-muted-foreground">{t('labels.noneForTeam')}</span>
+                )
+              ) : resolveLabels(task.labelKeys, teamLabels).length > 0 ? (
+                <LabelChips keys={task.labelKeys} labels={teamLabels} />
+              ) : (
+                <span className="text-sm text-muted-foreground">—</span>
               )}
             </PropField>
 

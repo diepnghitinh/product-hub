@@ -29,6 +29,8 @@ export interface TaskProps {
   dueDate: string;
   /** Points on the Fibonacci-ish scale (1,2,3,5,8,13,21); `0` means unset. */
   estimate: number;
+  /** Keys of the team labels on this task (a subset of its team's `labels`). */
+  labelKeys: string[];
   /** Position within its status group. */
   order: number;
   createdAt: Date;

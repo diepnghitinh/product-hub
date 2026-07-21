@@ -10,8 +10,10 @@ import {
 } from './dropdown-menu';
 
 export interface MultiSelectOption {
-  label: string;
+  label: ReactNode;
   value: string;
+  /** Plain-text form of a rich `label`, used for the "Remove" aria-label. */
+  text?: string;
   disabled?: boolean;
 }
 
@@ -81,7 +83,7 @@ export function MultiSelect({
                   {o.label}
                   <button
                     type="button"
-                    aria-label={`Remove ${o.label}`}
+                    aria-label={`Remove ${o.text ?? (typeof o.label === 'string' ? o.label : o.value)}`}
                     className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     onClick={(e) => {
                       e.stopPropagation();

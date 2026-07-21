@@ -50,6 +50,8 @@ export interface UpdateTaskInput {
   dueDate?: string;
   estimate?: number;
   assigneeId?: string;
+  /** Replace the task's team-label keys ([] clears them). */
+  labelKeys?: string[];
 }
 
 /** Refresh both the lists and any open task detail — `['task', id]` doesn't

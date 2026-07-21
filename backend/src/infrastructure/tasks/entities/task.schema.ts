@@ -21,6 +21,7 @@ export interface TaskDoc {
   createdByName: string;
   dueDate: string;
   estimate: number;
+  labelKeys: string[];
   order: number;
   createdAt: Date;
   updatedAt: Date;
@@ -49,6 +50,8 @@ export const TaskSchema = new Schema<TaskDoc>(
     createdByName: { type: String, default: '' },
     dueDate: { type: String, default: '' },
     estimate: { type: Number, default: 0 },
+    // Keys of the team labels on this task; resolved against its team's `labels`.
+    labelKeys: { type: [String], default: [] },
     order: { type: Number, default: 0 },
   },
   { timestamps: true },

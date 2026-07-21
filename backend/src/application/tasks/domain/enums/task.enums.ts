@@ -48,17 +48,15 @@ export const DEFAULT_TASK_STATUSES: TaskStatusConfig[] = TASK_STATUSES.map((key)
 }));
 
 /**
- * A tenant-defined task label (`key` is the stable slug stored on a task, the
- * name/colour are editable). Unlike statuses there are no built-ins — a
- * workspace starts with none and defines its own.
+ * A team-defined item label (`key` is the stable slug stored on a task/bug, the
+ * name/colour are editable). Unlike statuses there are no built-ins — a team
+ * starts with none and defines its own (see `TeamEntity.labels`).
  */
 export interface TaskLabelConfig {
   key: string;
   name: string;
   color: string;
 }
-
-export const DEFAULT_TASK_LABELS: TaskLabelConfig[] = [];
 
 /**
  * Points scale for a task's size estimate (Fibonacci-ish, mirrors Linear).

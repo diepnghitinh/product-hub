@@ -31,6 +31,8 @@ export interface BugProps {
   order: number;
   /** Files attached to the bug (screenshots, short screen-recordings). */
   attachments: BugAttachment[];
+  /** Keys of the team labels on this bug (a subset of its team's `labels`). */
+  labelKeys: string[];
   createdAt: Date;
   updatedAt: Date;
 }

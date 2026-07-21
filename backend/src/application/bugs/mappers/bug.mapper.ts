@@ -23,6 +23,7 @@ export class BugMapper {
       reporterName: bug.reporterName,
       order: bug.order,
       attachments: bug.attachments,
+      labelKeys: bug.labelKeys,
       createdAt: bug.createdAt,
       updatedAt: bug.updatedAt,
     };

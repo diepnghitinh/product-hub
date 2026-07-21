@@ -47,6 +47,7 @@ export class UpdateBugUseCase
       caseLabel: dto.caseLabel,
       reportId: dto.reportId,
       attachments: dto.attachments,
+      labelKeys: dto.labelKeys,
     });
 
     await this.bugs.update(bug);

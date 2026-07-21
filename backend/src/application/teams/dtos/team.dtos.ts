@@ -44,6 +44,33 @@ export class UpdateTeamStatusesDto {
   statuses: TeamStatusDto[];
 }
 
+/** One item label shared by the team's tasks/bugs. */
+export class TeamLabelDto {
+  @ApiProperty({ example: 'needs-design', description: 'Stable slug; never changes once items use it' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  key: string;
+
+  @ApiProperty({ example: 'Needs design' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  name: string;
+
+  @ApiProperty({ example: '#a855f7' })
+  @IsString()
+  color: string;
+}
+
+export class UpdateTeamLabelsDto {
+  @ApiProperty({ type: [TeamLabelDto], description: 'The full label list (empty clears them)' })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TeamLabelDto)
+  labels: TeamLabelDto[];
+}
+
 export class CreateTeamDto {
   @ApiProperty({ example: 'Design' })
   @IsString()
@@ -122,6 +149,9 @@ export class TeamResponseDto {
 
   @ApiProperty({ type: [TeamStatusDto], description: "This team's board columns, in order" })
   statuses: TeamStatusDto[];
+
+  @ApiProperty({ type: [TeamLabelDto], description: "This team's item labels (may be empty)" })
+  labels: TeamLabelDto[];
 
   @ApiProperty()
   archived: boolean;

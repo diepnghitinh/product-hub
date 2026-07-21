@@ -23,6 +23,7 @@ export interface BugDoc {
   reporterName: string;
   order: number;
   attachments: BugAttachment[];
+  labelKeys: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +53,8 @@ export const BugSchema = new Schema<BugDoc>(
     reporterName: { type: String, default: '' },
     order: { type: Number, default: 0 },
     attachments: { type: [Schema.Types.Mixed], default: [] } as unknown as BugAttachment[],
+    // Keys of the team labels on this bug; resolved against its team's `labels`.
+    labelKeys: { type: [String], default: [] },
   },
   { timestamps: true },
 );

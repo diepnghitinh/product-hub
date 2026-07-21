@@ -1,6 +1,7 @@
 import { Schema } from 'mongoose';
 import { v4 as uuid } from 'uuid';
 import { TeamIssueType, TeamStatusConfig } from '@application/teams/domain/enums/team.enums';
+import { TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import { TEAM_ICONS } from '@application/teams/domain/enums/team-icons';
 
 export interface TeamDoc {
@@ -12,6 +13,7 @@ export interface TeamDoc {
   icon?: string;
   color?: string | null;
   statuses?: TeamStatusConfig[];
+  labels?: TaskLabelConfig[];
   archived: boolean;
   order: number;
   publicEnabled: boolean;
@@ -33,6 +35,11 @@ export const TeamSchema = new Schema<TeamDoc>(
     // Optional: teams stored before per-team statuses resolve defaults in the entity.
     statuses: {
       type: [{ _id: false, key: String, label: String, color: String }],
+      default: undefined,
+    },
+    // Item labels shared by the team's tasks/bugs. No built-ins — empty is valid.
+    labels: {
+      type: [{ _id: false, key: String, name: String, color: String }],
       default: undefined,
     },
     archived: { type: Boolean, default: false },

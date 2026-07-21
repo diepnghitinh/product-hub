@@ -31,6 +31,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
       reporterName?: string;
       order?: number;
       attachments?: BugAttachment[];
+      labelKeys?: string[];
       createdAt?: Date;
       updatedAt?: Date;
     },
@@ -67,6 +68,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
           reporterName: props.reporterName || '',
           order: props.order ?? 0,
           attachments: props.attachments ?? [],
+          labelKeys: props.labelKeys ?? [],
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
         },
@@ -132,6 +134,9 @@ export class BugEntity extends AggregateRoot<BugProps> {
   get attachments(): BugAttachment[] {
     return this.props.attachments;
   }
+  get labelKeys(): string[] {
+    return this.props.labelKeys;
+  }
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -149,6 +154,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
     caseLabel?: string;
     reportId?: string;
     attachments?: BugAttachment[];
+    labelKeys?: string[];
   }): void {
     if (fields.title !== undefined) {
       if (!fields.title.trim()) throw new Error('title cannot be empty');
@@ -162,6 +168,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
     if (fields.caseLabel !== undefined) this.props.caseLabel = fields.caseLabel;
     if (fields.reportId !== undefined) this.props.reportId = fields.reportId;
     if (fields.attachments !== undefined) this.props.attachments = fields.attachments;
+    if (fields.labelKeys !== undefined) this.props.labelKeys = fields.labelKeys;
     this.touch();
   }
 

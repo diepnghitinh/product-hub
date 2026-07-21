@@ -1,4 +1,5 @@
 import { UniqueEntityID } from '@core/domain';
+import { TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import { TeamIssueType, TeamStatusConfig } from '../enums/team.enums';
 
 export interface TeamProps {
@@ -19,6 +20,13 @@ export interface TeamProps {
    * can tell "never configured" from "configured to the defaults".
    */
   statuses?: TeamStatusConfig[];
+  /**
+   * The team's own item labels ({@link TaskLabelConfig}: `{key, name, color}`),
+   * shared by every task/bug in the team. Unlike statuses there are no built-ins
+   * and no defaults — an empty list is a valid, expected state, so this is stored
+   * as given (a missing field on an old doc simply reads back as `[]`).
+   */
+  labels?: TaskLabelConfig[];
   /** Archived teams stay (with their issues) but drop out of the nav. */
   archived: boolean;
   /** Display order in the nav. */

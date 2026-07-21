@@ -61,6 +61,9 @@ export class BugResponseDto {
   @ApiProperty({ type: 'array', items: { type: 'object' } })
   attachments: BugAttachment[];
 
+  @ApiProperty({ type: [String], description: "Keys of the team labels on this bug" })
+  labelKeys: string[];
+
   @ApiProperty()
   createdAt: Date;
 

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, apiPut } from '@/lib/api';
 import type { AppSettingsDto, WebhookConfig } from '@/types/dto';
-import type { StorageProvider, TaskLabelConfig } from '@/types/enums';
+import type { StorageProvider } from '@/types/enums';
 
 export function useSettings(enabled = true) {
   return useQuery({
@@ -17,27 +17,6 @@ export function useUpdateWebhooks() {
     mutationFn: (webhooks: WebhookConfig[]) =>
       apiPut<AppSettingsDto>('/settings/webhooks', { webhooks }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
-  });
-}
-
-/** Task labels — readable by any authenticated user (they render on tasks). */
-export function useTaskLabels() {
-  return useQuery({
-    queryKey: ['task-labels'],
-    queryFn: () => apiGet<TaskLabelConfig[]>('/settings/task-labels'),
-  });
-}
-
-/** Writable by admin + product; returns just the labels, never the settings blob. */
-export function useUpdateTaskLabels() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (taskLabels: TaskLabelConfig[]) =>
-      apiPut<TaskLabelConfig[]>('/settings/task-labels', { taskLabels }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['settings'] });
-      qc.invalidateQueries({ queryKey: ['task-labels'] });
-    },
   });
 }
 

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Combobox, DotLabel, Input, Select, Spinner } from '@/components/ui';
+import { Combobox, DotLabel, Input, MultiSelect, Select, Spinner } from '@/components/ui';
 import { t } from '@/i18n';
 import {
   BUG_SEVERITIES,
@@ -14,7 +14,8 @@ import {
 } from '@/types/enums';
 import { useUsers } from '@/features/users/api';
 import { IssueDetail, PropField } from '@/features/issues/IssueDetail';
-import { useTeamStatuses } from '@/features/teams/api';
+import { useTeamStatuses, useTeamLabels } from '@/features/teams/api';
+import { LabelChips, resolveLabels } from '@/features/labels/LabelChips';
 import { useBug, useDeleteBug, useSetBugStatus, useUpdateBug } from '../api';
 import { SeverityBadge } from './SeverityBadge';
 import { useRelationActions } from '@/features/issues/useRelationActions';
@@ -52,6 +53,8 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
   // Columns come from the team that owns this bug.
   const columns = useTeamStatuses(bug?.teamId, TeamIssueType.BUG);
   const statusLabel = (k: string) => columns.find((c) => c.key === k)?.label ?? k;
+  // Labels are the bug's team's own set — the same source the settings editor writes.
+  const teamLabels = useTeamLabels(bug?.teamId);
 
   if (isLoading) {
     return (
@@ -160,6 +163,29 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
               />
             ) : (
               <span className="text-sm">{bug.assigneeName || t('bugs.unassigned')}</span>
+            )}
+          </PropField>
+
+          <PropField label={t('labels.title')}>
+            {canWrite ? (
+              teamLabels.length > 0 ? (
+                <MultiSelect
+                  value={bug.labelKeys ?? []}
+                  onChange={(keys) => save({ labelKeys: keys })}
+                  placeholder={t('labels.pick')}
+                  options={teamLabels.map((l) => ({
+                    value: l.key,
+                    label: <DotLabel color={l.color}>{l.name}</DotLabel>,
+                    text: l.name,
+                  }))}
+                />
+              ) : (
+                <span className="text-sm text-muted-foreground">{t('labels.noneForTeam')}</span>
+              )
+            ) : resolveLabels(bug.labelKeys, teamLabels).length > 0 ? (
+              <LabelChips keys={bug.labelKeys} labels={teamLabels} />
+            ) : (
+              <span className="text-sm text-muted-foreground">—</span>
             )}
           </PropField>
 

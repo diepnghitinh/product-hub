@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { IAppSettingsRepository } from '@application/app-settings/repositories/app-settings.repository';
 import { AppSettingsEntity } from '@application/app-settings/domain/app-settings.entity';
+import { TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import { AppSettingsDoc } from '../entities/app-settings.schema';
 
 @Injectable()
@@ -15,7 +16,6 @@ export class AppSettingsRepository implements IAppSettingsRepository {
       webhooks: doc.webhooks ?? [],
       bugStatuses: doc.bugStatuses,
       taskStatuses: doc.taskStatuses,
-      taskLabels: doc.taskLabels,
       storage: doc.storage,
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
@@ -39,11 +39,29 @@ export class AppSettingsRepository implements IAppSettingsRepository {
           webhooks: settings.webhooks,
           bugStatuses: settings.bugStatuses,
           taskStatuses: settings.taskStatuses,
-          taskLabels: settings.taskLabels,
           storage: settings.storage,
         },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       )
       .exec();
+  }
+
+  /**
+   * Legacy read of the workspace-wide task labels (now per-team). Only used by
+   * the boot backfill; `.lean()` returns the raw field whether or not the domain
+   * still maps it. Returns `[]` when absent — so a migrated tenant reads empty.
+   */
+  async findLegacyTaskLabels(tenantId: string): Promise<TaskLabelConfig[]> {
+    const doc = await this.model
+      .findOne({ tenantId })
+      .select('taskLabels')
+      .lean<{ taskLabels?: TaskLabelConfig[] }>()
+      .exec();
+    return doc?.taskLabels ?? [];
+  }
+
+  /** Drop the legacy field once its labels have been seeded onto the teams. */
+  async clearLegacyTaskLabels(tenantId: string): Promise<void> {
+    await this.model.updateOne({ tenantId }, { $unset: { taskLabels: 1 } }).exec();
   }
 }

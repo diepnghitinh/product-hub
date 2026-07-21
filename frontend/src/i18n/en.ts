@@ -236,6 +236,7 @@ export const en = {
 
   'reactions.add': 'Add reaction',
   'reactions.failed': 'Could not update reaction',
+  'reactions.more': 'more',
 
   'roadmaps.title': 'Roadmaps',
   'roadmaps.new': 'New roadmap',
@@ -468,7 +469,8 @@ export const en = {
   'settings.title': 'Settings',
   'settings.subtitle': 'Configure your workspace, integrations and notifications.',
   'settings.apiKeys': 'API keys',
-  'settings.apiKeysHint': 'Keys let CI/tools update test-case results via the public API.',
+  'settings.apiKeysHint':
+    'Create a key to update a test case’s result from outside the app (CI, scripts). Keys are global — one key works across every project.',
   'settings.generateKey': 'Generate key',
   'settings.keyName': 'Key name',
   'settings.keyOnce': 'Copy this key now — it won’t be shown again.',
@@ -479,6 +481,12 @@ export const en = {
   'settings.never': 'never',
   'settings.copy': 'Copy',
   'settings.copied': 'Copied!',
+  'settings.apiUpdateEndpoint': 'Update endpoint',
+  'settings.copyCurl': 'Copy cURL',
+  'settings.apiGuideProjectId': 'is the project the case belongs to;',
+  'settings.apiGuideTestCaseId': 'is the case’s short id (shown in the test table) or its full id.',
+  'settings.apiGuideResultsPrefix': 'Allowed',
+  'settings.apiGuideResultsSuffix': 'values:',
   'settings.webhooks': 'Webhooks',
   'settings.storage': 'Storage',
   'settings.storageHint': 'Cloud storage for uploaded images and short videos.',
@@ -548,13 +556,16 @@ export const en = {
     "This team's board columns. Built-in ones can be renamed, recoloured and reordered, but not removed — reports read them.",
   'settings.builtIn': 'Built-in',
   // Task labels — tenant-defined, no built-ins
-  'labels.title': 'Task labels',
+  'labels.title': 'Labels',
   'labels.hint': 'Labels you can put on tasks. Add your own — there are no built-in labels.',
+  'labels.teamHint': 'Labels for this team’s items. Every task or bug in the team can use them — there are no built-ins, so add your own.',
   'labels.empty': 'No labels yet.',
   'labels.add': 'Add label',
   'labels.name': 'Label name',
   'labels.color': 'Label colour',
   'labels.save': 'Save labels',
+  'labels.pick': 'Add labels…',
+  'labels.noneForTeam': 'No labels yet — add them in this team’s settings.',
 
   // Teams — each team is an area with its own issue list
   'teams.title': 'Teams',
