@@ -134,7 +134,7 @@ export class TaskRepository
       const escaped = query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const re = new RegExp(escaped, 'i');
       // Name or task id — the picker accepts a pasted id (`_id` is a uuid string).
-      const searchOr = [{ title: re }, { description: re }, { _id: re }];
+      const searchOr = [{ title: re }, { description: re }, { _id: re }, { shortId: re }];
       if (filter.$or) {
         filter.$and = [{ $or: filter.$or }, { $or: searchOr }];
         delete filter.$or;

@@ -22,6 +22,7 @@ export function AppLayout() {
   // Callback refs: the slots must exist before a page can portal into them, and
   // a plain ref wouldn't re-render to hand them down.
   const [crumbEl, setCrumbEl] = useState<HTMLElement | null>(null);
+  const [crumbActionsEl, setCrumbActionsEl] = useState<HTMLElement | null>(null);
   const [actionsEl, setActionsEl] = useState<HTMLElement | null>(null);
   const { pathname } = useLocation();
 
@@ -43,10 +44,13 @@ export function AppLayout() {
           <Topbar
             onOpenMenu={() => setMobileOpen(true)}
             crumbRef={setCrumbEl}
+            crumbActionsRef={setCrumbActionsEl}
             actionsRef={setActionsEl}
           />
 
-          <PageChromeContext.Provider value={{ crumb: crumbEl, actions: actionsEl }}>
+          <PageChromeContext.Provider
+            value={{ crumb: crumbEl, crumbActions: crumbActionsEl, actions: actionsEl }}
+          >
             <MainContent>
               {/* Keyed by route so navigating away from a crash recovers. */}
               <ErrorBoundary resetKey={pathname}>

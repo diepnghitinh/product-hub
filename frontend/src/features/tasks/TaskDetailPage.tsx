@@ -12,9 +12,18 @@ import { useUsers } from '@/features/users/api';
 import { IssueDetail, PropField } from '@/features/issues/IssueDetail';
 import { useTeams, useTeamStatuses } from '@/features/teams/api';
 import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
-import { TASK_ESTIMATES, TaskStatus, TeamIssueType, taskEstimateLabel } from '@/types/enums';
+import {
+  FavouriteKind,
+  IssueKind,
+  TASK_ESTIMATES,
+  TaskStatus,
+  TeamIssueType,
+  taskEstimateLabel,
+} from '@/types/enums';
 import { useDeleteTask, useSetTaskStatus, useTask, useUpdateTask } from './api';
 import { CenteredPageLayout } from '@/layouts/shared';
+import { useRelationActions } from '@/features/issues/useRelationActions';
+import { IssueRelations } from '@/features/issues/IssueRelations';
 
 /** Local calendar day (`YYYY-MM-DD`) — string-compared to `dueDate` so timezones
  * never shift the overdue boundary. */
@@ -39,6 +48,7 @@ export function TaskDetailPage() {
   const update = useUpdateTask();
   const setStatus = useSetTaskStatus();
   const remove = useDeleteTask();
+  const { markAsItem, picker } = useRelationActions(IssueKind.TASK, task?.id ?? '');
 
   // People list — readable by any member now, so @-mentions work for everyone.
   const { data: usersData } = useUsers({ limit: 100 });
@@ -115,6 +125,7 @@ export function TaskDetailPage() {
         key={task.id}
         subject="task"
         issueId={task.id}
+        favourite={{ kind: FavouriteKind.TASK, refId: task.id }}
         shortId={task.shortId}
         title={task.title}
         titlePlaceholder={t('tasks.titleLabel')}
@@ -133,6 +144,7 @@ export function TaskDetailPage() {
         menuItems={
           canWrite
             ? [
+                markAsItem,
                 {
                   label: t('common.delete'),
                   danger: true,
@@ -253,6 +265,9 @@ export function TaskDetailPage() {
                 {task.createdByName || '—'} · {timeAgo(task.createdAt)}
               </span>
             </PropField>
+
+            <IssueRelations subject={IssueKind.TASK} issueId={task.id} canWrite={canWrite} />
+            {picker}
           </>
         }
       />

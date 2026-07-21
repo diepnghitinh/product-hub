@@ -98,6 +98,59 @@ export function useUpdateTask() {
 }
 
 /**
+ * Pull task refs out of free text (a roadmap item's description), matching a
+ * task link `/tasks/TSK-5` — bare, or inside a full URL/anchor. Returns the
+ * unique shortId refs, upper-cased. The prefix is any `<CODE>-<number>`, so it
+ * catches `TSK-`/`BUG-` and team-derived codes like `ENG-` alike.
+ */
+export function taskRefsInText(text: string): string[] {
+  const refs = new Set<string>();
+  const re = /\/tasks\/([A-Za-z]{2,}-\d+)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) refs.add(m[1].toUpperCase());
+  return [...refs];
+}
+
+/**
+ * Resolve `/tasks/…` refs found in an item's description and link each to that
+ * item — the same write `PickTaskDialog` does. A ref that doesn't resolve (a
+ * typo, or a task from another workspace) is skipped silently; a task already on
+ * this item is left alone. Resolves via `GET /tasks/<ref>` (the API's `findByRef`
+ * accepts a shortId). Returns the shortIds actually linked.
+ */
+export function useLinkTasksByRef() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: async (args: {
+      refs: string[];
+      roadmapId: string;
+      roadmapItemId: string;
+      roadmapItemLabel: string;
+      projectId?: string;
+    }) => {
+      const linked: string[] = [];
+      for (const ref of args.refs) {
+        try {
+          const task = await apiGet<TaskDto>(`/tasks/${ref}`);
+          if (!task || task.roadmapItemId === args.roadmapItemId) continue;
+          await apiPatch<TaskDto>(`/tasks/${task.id}`, {
+            roadmapId: args.roadmapId,
+            roadmapItemId: args.roadmapItemId,
+            roadmapItemLabel: args.roadmapItemLabel,
+            projectId: args.projectId,
+          });
+          linked.push(task.shortId || task.id);
+        } catch {
+          // Unresolved or foreign ref — ignore, per the add-only behaviour.
+        }
+      }
+      return linked;
+    },
+    onSuccess: invalidate,
+  });
+}
+
+/**
  * Optimistic: the card lands in its new column the instant it's dropped, rather
  * than sitting in the old one until the server answers. If the write fails the
  * snapshot is restored, so it springs back to where it came from.

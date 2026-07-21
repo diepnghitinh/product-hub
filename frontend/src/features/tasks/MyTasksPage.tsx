@@ -3,11 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LayoutGrid, List } from 'lucide-react';
 import { Badge, Button, Spinner } from '@/components/ui';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
-import {
-  KanbanBoard,
-  KanbanCard,
-  KanbanCardToolbar,
-} from '@/components/KanbanBoard';
+import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
 import {
   FilterMenu,
   UNASSIGNED,
@@ -211,28 +207,28 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
   );
 }
 
-/** Task card visual — shared by the column list and the lifted drag overlay. */
+/** Task card — follows the shared `BoardCard` standard (see the roadmap item). */
 export function TaskCard({ task, overlay = false }: { task: TaskDto; overlay?: boolean }) {
+  const done = task.status === TaskStatus.DONE;
   return (
-    <KanbanCard overlay={overlay}>
-      <span
-        className={cn(
-          'text-[13px] leading-snug',
-          task.status === TaskStatus.DONE && 'text-muted-foreground line-through',
-        )}
-      >
-        {task.title}
-      </span>
-      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-        {task.roadmapItemLabel ? (
-          <Badge variant="muted" className="min-w-0 truncate" title={task.roadmapItemLabel}>
-            {task.roadmapItemLabel}
+    <BoardCard
+      overlay={overlay}
+      title={task.title}
+      titleClassName={done ? 'text-muted-foreground line-through' : undefined}
+      titleTrailing={
+        task.shortId ? (
+          <Badge variant="secondary" className="font-mono">
+            {task.shortId}
           </Badge>
-        ) : (
-          <span>{t('tasks.noBacklogItem')}</span>
-        )}
-      </div>
-    </KanbanCard>
+        ) : undefined
+      }
+      metaLeading={
+        <Badge variant="muted" className="max-w-full truncate">
+          {task.assigneeName || t('tasks.unassigned')}
+        </Badge>
+      }
+      metaTrailing={<BoardCardAge createdAt={task.createdAt} />}
+    />
   );
 }
 

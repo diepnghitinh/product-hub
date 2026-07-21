@@ -19,10 +19,12 @@ import { TaskDetailPage } from '@/features/tasks/TaskDetailPage';
 import { TeamBoardPage } from '@/features/teams/TeamBoardPage';
 import { RoadmapsPage } from '@/features/roadmaps/RoadmapsPage';
 import { RoadmapBoardPage } from '@/features/roadmaps/RoadmapBoardPage';
+import { RoadmapItemDetailPage } from '@/features/roadmaps/RoadmapItemDetailPage';
 import { MilestonesPage } from '@/features/milestones/MilestonesPage';
 import { MilestoneDetailPage } from '@/features/milestones/MilestoneDetailPage';
 import { AdminPeoplePage } from '@/features/admin/AdminPeoplePage';
 import { AdminSettingsPage } from '@/features/admin/AdminSettingsPage';
+import { MyProfilePage } from '@/features/account/MyProfilePage';
 import { PublicProjectPage } from '@/features/public/PublicProjectPage';
 import { PublicRoadmapPage } from '@/features/public/PublicRoadmapPage';
 import { PublicTeamBoardPage } from '@/features/public/PublicTeamBoardPage';
@@ -61,10 +63,12 @@ export default function App() {
           <Route path="/teams/:teamId" element={<TeamBoardPage />} />
           <Route path="/roadmaps" element={<RoadmapsPage />} />
           <Route path="/roadmaps/:roadmapId" element={<RoadmapBoardPage />} />
+          <Route path="/roadmaps/:roadmapId/items/:itemId" element={<RoadmapItemDetailPage />} />
           <Route path="/okrs" element={<MilestonesPage />} />
           <Route path="/okrs/:milestoneId" element={<MilestoneDetailPage />} />
           <Route path="/admin/people" element={<AdminPeoplePage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
+          <Route path="/profile" element={<MyProfilePage />} />
           <Route path="/design-patterns" element={<DesignPatternsPage />} />
         </Route>
       </Route>

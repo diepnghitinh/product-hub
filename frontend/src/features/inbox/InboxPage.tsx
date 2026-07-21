@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Inbox as InboxIcon } from 'lucide-react';
 import { Badge, Button, Spinner } from '@/components/ui';
@@ -8,7 +7,8 @@ import { timeAgo } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { INBOX_KIND_LABEL, InboxKind } from '@/types/enums';
 import { BugDetail } from '@/features/bugs/components/BugDetail';
-import { useInbox, useMarkInboxSeen } from './api';
+import { useInbox, useMarkInboxItemRead, useMarkInboxSeen } from './api';
+import type { InboxItemDto } from '@/types/dto';
 import { FullWidthPageLayout } from '@/layouts/shared';
 
 /**
@@ -20,23 +20,20 @@ import { FullWidthPageLayout } from '@/layouts/shared';
 export function InboxPage() {
   const { data, isLoading } = useInbox();
   const markSeen = useMarkInboxSeen();
+  const markItemRead = useMarkInboxItemRead();
   const [params, setParams] = useSearchParams();
-
-  // Mark everything read when the inbox is opened.
-  useEffect(() => {
-    if (data && data.unseenCount > 0) markSeen.mutate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.unseenCount]);
 
   const items = data?.items ?? [];
   // `?item=` = an explicit tap (drives mobile). Desktop falls back to the first.
   const tapped = params.get('item');
   const selected = items.find((i) => i.refId === tapped) ?? items[0];
 
-  function select(refId: string) {
+  // Open a notification: focus it in the detail pane and mark just this one read.
+  function openItem(item: InboxItemDto) {
     const next = new URLSearchParams(params);
-    next.set('item', refId);
+    next.set('item', item.refId);
     setParams(next, { replace: true });
+    if (!item.seen) markItemRead.mutate(item.key);
   }
   function clearSelection() {
     const next = new URLSearchParams(params);
@@ -80,7 +77,7 @@ export function InboxPage() {
                 <button
                   key={`${item.kind}-${item.id}`}
                   type="button"
-                  onClick={() => select(item.refId)}
+                  onClick={() => openItem(item)}
                   className={cn(
                     'flex items-start gap-3 border-b px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-accent',
                     active && 'bg-accent',

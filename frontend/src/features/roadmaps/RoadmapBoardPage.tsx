@@ -1,29 +1,23 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { BarChart3, Clock, Gauge, LayoutGrid, MoreHorizontal, Pencil, Table2, Trash2 } from 'lucide-react';
+import { BarChart3, Gauge, LayoutGrid, MoreHorizontal, Table2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Badge, Button, Menu, ProgressBar, Spinner } from '@/components/ui';
+import { Badge, Button, Menu, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { daysSince, formatDate } from '@/lib/format';
 import { firstImageUrl } from '@/lib/editorjs';
 import { t } from '@/i18n';
-import { BackLink } from '@/components/BackLink';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
-import {
-  KanbanBoard,
-  KanbanCard,
-  KanbanCardToolbar,
-} from '@/components/KanbanBoard';
+import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
 import {
   DEFAULT_ROADMAP_COLUMNS,
   ROADMAP_DIFFICULTY_COLOR,
   ROADMAP_DIFFICULTY_LABEL,
   ROADMAP_ITEM_STATUS_LABEL,
+  RoadmapDifficulty,
   RoadmapItemStatus,
 } from '@/types/enums';
 import { RoadmapWorkflowView } from './components/RoadmapWorkflowView';
 import type { RoadmapItem } from '@/types/dto';
-import { RoadmapItemDialog } from './components/RoadmapItemDialog';
 import { RoadmapColumnsDialog } from './components/RoadmapColumnsDialog';
 import { ShareLinkDialog } from '@/components/ShareLinkDialog';
 import { RoadmapRiceChart } from './components/RoadmapRiceChart';
@@ -43,6 +37,28 @@ const STATUS_VARIANT: Record<RoadmapItemStatus, 'muted' | 'warning' | 'success'>
   [RoadmapItemStatus.DONE]: 'success',
 };
 
+/** A fresh item for create-and-open. Title starts empty (shown as "Untitled"
+ *  on the card); the new item's page autofocuses the title to fill in. */
+function emptyRoadmapItem(id: string, phase: string): RoadmapItem {
+  return {
+    id,
+    title: '',
+    description: '',
+    phase,
+    status: RoadmapItemStatus.IDEA,
+    difficulty: RoadmapDifficulty.MEDIUM,
+    reach: 3,
+    impact: 3,
+    confidence: 3,
+    effort: 3,
+    progress: 0,
+    rice: 9,
+    imageUrl: '',
+    startDate: '',
+    assignees: [],
+  };
+}
+
 /** Roadmap item card visual — shared by the column list and the lifted drag overlay. */
 export function RoadmapCard({ item, overlay = false }: { item: RoadmapItem; overlay?: boolean }) {
   // Cover = the item's first description image. Prefer the persisted `imageUrl`,
@@ -50,95 +66,44 @@ export function RoadmapCard({ item, overlay = false }: { item: RoadmapItem; over
   // (and the public read-only view) still show one.
   const cover = item.imageUrl || firstImageUrl(item.description);
   return (
-    <KanbanCard overlay={overlay}>
-      {cover && (
-        <div
-          aria-hidden
-          style={{ backgroundImage: `url("${cover}")` }}
-          // The cover is a centered background that fills the full-width banner
-          // (background-size: cover — fills and crops the overflow). `bg-muted`
-          // shows through while it loads or behind a transparent image. Full-bleed:
-          // the negative insets cancel KanbanCard's p-3 so it meets the card edges.
-          className="h-28 w-full rounded-t-lg bg-muted bg-cover bg-center bg-no-repeat"
-        />
-      )}
-      <div className="flex flex-col gap-2 p-3">
-        <div className="flex items-start justify-between gap-1.5">
-          <span className="min-w-0 text-[13px] leading-snug">{item.title}</span>
-          <Badge variant="secondary" className="shrink-0 font-mono" title="RICE score">
-            {item.rice}
-          </Badge>
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <Badge variant={STATUS_VARIANT[item.status]}>
-            {ROADMAP_ITEM_STATUS_LABEL[item.status]}
-          </Badge>
-          <div className="flex shrink-0 items-center gap-2.5 text-[11px] tabular-nums text-muted-foreground">
-            {/* Difficulty — same dot colour as the item dialog (semantic tokens). */}
-            <span className="flex items-center gap-1" title={t('roadmaps.difficulty')}>
-              <span
-                className="size-2 rounded-full"
-                style={{ backgroundColor: ROADMAP_DIFFICULTY_COLOR[item.difficulty] }}
-                aria-hidden
-              />
-              {ROADMAP_DIFFICULTY_LABEL[item.difficulty]}
-            </span>
-            {/* Age since creation — how long the item has sat, e.g. "5d" / "10d". */}
-            {item.createdAt && (
-              <span
-                className="flex items-center gap-1"
-                title={`${t('roadmaps.createdOn')} ${formatDate(item.createdAt)}`}
-              >
-                <Clock className="size-3" aria-hidden />
-                {daysSince(item.createdAt) === 0 ? t('roadmaps.ageToday') : `${daysSince(item.createdAt)}d`}
-              </span>
-            )}
-          </div>
-        </div>
-        <ProgressBar value={item.progress} />
-      </div>
-    </KanbanCard>
-  );
-}
-
-/** A card's hover toolbar — edit + delete. `KanbanBoard` positions it and stops
- * pointer-down from starting a drag. */
-function ItemToolbar({ onOpen, onRemove }: { onOpen?: () => void; onRemove: () => void }) {
-  return (
-    <>
-      <button
-        type="button"
-        aria-label={t('common.edit')}
-        title={t('common.edit')}
-        className="grid size-7 place-items-center rounded-l-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        onClick={(e) => {
-          e.stopPropagation();
-          onOpen?.();
-        }}
-      >
-        <Pencil className="size-3.5" />
-      </button>
-      <span className="h-4 w-px bg-border" aria-hidden />
-      <button
-        type="button"
-        aria-label={t('common.delete')}
-        title={t('common.delete')}
-        className="grid size-7 place-items-center rounded-r-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-      >
-        <Trash2 className="size-3.5" />
-      </button>
-    </>
+    <BoardCard
+      overlay={overlay}
+      cover={cover || undefined}
+      title={item.title || t('roadmaps.untitled')}
+      titleTrailing={
+        <Badge variant="secondary" className="font-mono" title="RICE score">
+          {item.rice}
+        </Badge>
+      }
+      metaLeading={
+        <Badge variant={STATUS_VARIANT[item.status]}>
+          {ROADMAP_ITEM_STATUS_LABEL[item.status]}
+        </Badge>
+      }
+      metaTrailing={
+        <>
+          {/* Difficulty — same dot colour as the item dialog (semantic tokens). */}
+          <span className="flex items-center gap-1" title={t('roadmaps.difficulty')}>
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: ROADMAP_DIFFICULTY_COLOR[item.difficulty] }}
+              aria-hidden
+            />
+            {ROADMAP_DIFFICULTY_LABEL[item.difficulty]}
+          </span>
+          {/* Age since creation — how long the item has sat, e.g. "5d" / "10d". */}
+          <BoardCardAge createdAt={item.createdAt} />
+        </>
+      }
+      progress={item.progress}
+    />
   );
 }
 
 export function RoadmapBoardPage() {
   const { roadmapId } = useParams<{ roadmapId: string }>();
   const navigate = useNavigate();
-  const { user, isAdmin, canWrite, canManageDelivery } = useAuth();
+  const { isAdmin, canWrite, canManageDelivery } = useAuth();
 
   const { data: roadmap, isLoading } = useRoadmap(roadmapId);
   const replaceItems = useReplaceRoadmapItems();
@@ -146,9 +111,6 @@ export function RoadmapBoardPage() {
   const update = useUpdateRoadmap();
   const setSharing = useSetRoadmapSharing();
 
-  const [dialogItem, setDialogItem] = useState<RoadmapItem | null>(null);
-  const [dialogPhase, setDialogPhase] = useState<string>('now');
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [sortRice, setSortRice] = useState(false);
@@ -201,10 +163,13 @@ export function RoadmapBoardPage() {
   function save(next: RoadmapItem[]) {
     replaceItems.mutate({ id: roadmap!.id, items: next });
   }
-  function upsertItem(item: RoadmapItem) {
-    const exists = items.some((i) => i.id === item.id);
-    save(exists ? items.map((i) => (i.id === item.id ? item : i)) : [...items, item]);
-    setDialogOpen(false);
+  const openItem = (id: string) => navigate(`/roadmaps/${roadmap!.id}/items/${id}`);
+  /** Create-and-open: a new "Untitled" item is added to the column and its page
+   *  opens immediately to fill in — no dialog. */
+  function createItem(phase: string) {
+    const id = crypto.randomUUID();
+    save([...items, emptyRoadmapItem(id, phase)]);
+    navigate(`/roadmaps/${roadmap!.id}/items/${id}`);
   }
   function removeItem(id: string) {
     if (confirm(t('roadmaps.confirmDeleteItem'))) save(items.filter((i) => i.id !== id));
@@ -313,36 +278,20 @@ export function RoadmapBoardPage() {
           renderCard={(item, overlay) => <RoadmapCard item={item} overlay={overlay} />}
           onMove={onMove}
           disabled={!canWrite}
-          onCardClick={
-            canWrite
-              ? (item) => {
-                  setDialogItem(item);
-                  setDialogOpen(true);
-                }
-              : undefined
-          }
+          onCardClick={(item) => openItem(item.id)}
           renderCardToolbar={
             canWrite
               ? (item) => (
-                  <ItemToolbar
-                    onOpen={() => {
-                      setDialogItem(item);
-                      setDialogOpen(true);
-                    }}
+                  <KanbanCardToolbar
+                    editLabel={t('common.edit')}
+                    removeLabel={t('common.delete')}
+                    onEdit={() => openItem(item.id)}
                     onRemove={() => removeItem(item.id)}
                   />
                 )
               : undefined
           }
-          onColumnAdd={
-            canWrite
-              ? (col) => {
-                  setDialogItem(null);
-                  setDialogPhase(col.key);
-                  setDialogOpen(true);
-                }
-              : undefined
-          }
+          onColumnAdd={canWrite ? (col) => createItem(col.key) : undefined}
           addLabel={t('roadmaps.addItem')}
         />
       ) : (
@@ -357,31 +306,12 @@ export function RoadmapBoardPage() {
             <RoadmapRiceTable
               items={items}
               columns={columns}
-              onOpen={
-                canWrite
-                  ? (item) => {
-                      setDialogItem(item);
-                      setDialogOpen(true);
-                    }
-                  : undefined
-              }
+              onOpen={(item) => openItem(item.id)}
             />
           )}
         </div>
       )}
 
-      {dialogOpen && (
-        <RoadmapItemDialog
-          open={dialogOpen}
-          onClose={() => setDialogOpen(false)}
-          item={dialogItem ?? undefined}
-          defaultPhase={dialogPhase}
-          onSave={upsertItem}
-          roadmapId={roadmap.id}
-          projectId={roadmap.projectId}
-          columns={columns}
-        />
-      )}
       {columnsOpen && (
         <RoadmapColumnsDialog
           open={columnsOpen}

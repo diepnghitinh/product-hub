@@ -11,6 +11,13 @@ export interface InboxItem {
   kind: InboxKind;
   id: string;
   refId: string;
+  /**
+   * Stable per-notification key for read tracking: `kind:id:occurrence`. The
+   * occurrence is the item's timestamp, so an assigned bug that's updated again
+   * becomes a *new* key — i.e. it re-surfaces as unread — while a one-off mention
+   * keeps the same key forever.
+   */
+  key: string;
   title: string;
   actorName: string;
   seen: boolean;
@@ -20,6 +27,7 @@ export interface InboxItem {
 export interface InboxResult {
   items: InboxItem[];
   unseenCount: number;
+  /** Legacy field, always null now that read state is per-item. */
   seenAt: Date | null;
 }
 
@@ -30,7 +38,8 @@ export interface GetInboxRequest {
 
 /**
  * Assembles a user's inbox from two sources — comments that mention them and
- * bugs assigned to them — annotated as seen/unseen against `user.inboxSeenAt`.
+ * bugs assigned to them — annotating each with its own read state from
+ * `user.readInboxKeys` (per-item, not an all-or-nothing watermark).
  */
 @Injectable()
 export class GetInboxUseCase implements IUsecaseExecute<GetInboxRequest, Result<InboxResult>> {
@@ -42,7 +51,6 @@ export class GetInboxUseCase implements IUsecaseExecute<GetInboxRequest, Result<
 
   async execute({ tenantId, userId }: GetInboxRequest): Promise<Result<InboxResult>> {
     const user = await this.users.findById(userId);
-    const seenAt = user?.inboxSeenAt ?? null;
 
     const [mentions, assigned] = await Promise.all([
       this.comments.findMentionsForUser(tenantId, userId, 50),
@@ -61,6 +69,7 @@ export class GetInboxUseCase implements IUsecaseExecute<GetInboxRequest, Result<
         kind: InboxKind.MENTION,
         id: c.id.toString(),
         refId: c.bugId,
+        key: `${InboxKind.MENTION}:${c.id.toString()}:${c.createdAt.getTime()}`,
         title: c.body.length > 100 ? `${c.body.slice(0, 100)}…` : c.body,
         actorName: c.authorName,
         seen: false,
@@ -73,6 +82,7 @@ export class GetInboxUseCase implements IUsecaseExecute<GetInboxRequest, Result<
         kind: InboxKind.ASSIGNED_BUG,
         id: b.id.toString(),
         refId: b.id.toString(),
+        key: `${InboxKind.ASSIGNED_BUG}:${b.id.toString()}:${b.updatedAt.getTime()}`,
         title: b.title,
         actorName: b.reporterName,
         seen: false,
@@ -84,10 +94,10 @@ export class GetInboxUseCase implements IUsecaseExecute<GetInboxRequest, Result<
 
     let unseenCount = 0;
     for (const item of items) {
-      item.seen = seenAt ? item.createdAt.getTime() <= seenAt.getTime() : false;
+      item.seen = user ? user.isInboxItemRead(item.key) : false;
       if (!item.seen) unseenCount += 1;
     }
 
-    return Result.ok({ items, unseenCount, seenAt });
+    return Result.ok({ items, unseenCount, seenAt: null });
   }
 }

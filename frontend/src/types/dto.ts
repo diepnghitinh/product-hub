@@ -4,10 +4,13 @@ import {
   BugSeverity,
   BugStatus,
   BugStatusConfig,
+  FavouriteKind,
   FeatureStatus,
   InboxKind,
+  IssueKind,
   MilestoneStatus,
   ProjectEnvironment,
+  RelationType,
   RoadmapDifficulty,
   RoadmapItemStatus,
   RoadmapPhase,
@@ -32,6 +35,21 @@ export interface ListResponse<T> {
   page: number;
   limit: number;
   totalPages: number;
+}
+
+/**
+ * One resolved issue relation (mirrors the backend IssueLinkResponseDto).
+ * `relationType` is from the perspective of the issue you fetched; the linked
+ * issue's fields are inlined (flat).
+ */
+export interface IssueRelationDto {
+  id: string;
+  relationType: RelationType;
+  issueType: IssueKind;
+  targetId: string;
+  targetShortId: string;
+  targetTitle: string;
+  targetStatus: string;
 }
 
 export interface UserDto {
@@ -206,6 +224,28 @@ export interface AuditLogDto {
 }
 
 // ── Bugs, activity, inbox ────────────────────────────────────────────────────
+/** A pinned entity in the sidebar favourites (flat; mirrors the backend). */
+export interface FavouriteDto {
+  kind: FavouriteKind;
+  refId: string;
+  title: string;
+  /** Set for roadmap items — the board the item lives in. */
+  roadmapId?: string;
+  /** Set for team-scoped bugs/tasks. */
+  teamId?: string;
+  createdAt: string;
+}
+
+/** One emoji's tally on an entity (flat; mirrors the backend). */
+export interface ReactionGroupDto {
+  emoji: string;
+  count: number;
+  /** Whether the current user reacted with this emoji. */
+  reactedByMe: boolean;
+  /** Names of who reacted, for the hover tooltip. */
+  userNames: string[];
+}
+
 export interface BugDto {
   id: string;
   /** The team that owns this bug — drives which board columns apply. */
@@ -257,6 +297,8 @@ export interface InboxItemDto {
   kind: InboxKind;
   id: string;
   refId: string;
+  /** Stable per-notification key — passed back to mark this one read. */
+  key: string;
   title: string;
   actorName: string;
   seen: boolean;

@@ -6,6 +6,9 @@ import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
 import { usePageChrome } from '@/layouts/headers/PageChrome';
+import { FavouriteKind, ReactionTargetType } from '@/types/enums';
+import { FavouriteButton } from '@/features/favourites/FavouriteButton';
+import { ReactionBar } from '@/features/reactions/ReactionBar';
 import type { CommentDto } from '@/types/dto';
 import {
   useCreateIssueComment,
@@ -53,6 +56,8 @@ export interface IssueDetailMainProps {
    * breadcrumb ('topbar' — the standalone task/bug routes), or inline in the
    * title row ('header', default — the inbox pane, which has no topbar). */
   menuTarget?: 'header' | 'topbar';
+  /** When set (and a user is signed in) show a ⭐ pin toggle in the header. */
+  favourite?: { kind: FavouriteKind; refId: string; roadmapId?: string };
 }
 
 /** Initial-in-a-circle avatar used across the activity timeline. */
@@ -101,6 +106,7 @@ export function IssueDetailMain({
   onSaveDescription,
   menuItems,
   menuTarget = 'header',
+  favourite,
 }: IssueDetailMainProps) {
   // A public viewer passes `comments` directly, so skip the authed fetch entirely.
   const { data: fetched } = useIssueComments(subject, issueId, comments === undefined);
@@ -120,7 +126,7 @@ export function IssueDetailMain({
 
   // The ⋯ overflow menu. On a standalone route it portals up into the app
   // topbar (right of the breadcrumb); in the inbox pane it renders inline.
-  const { actions: topbarSlot } = usePageChrome();
+  const { crumbActions: crumbActionsSlot } = usePageChrome();
   const overflow =
     menuItems && menuItems.length > 0 ? (
       <Menu
@@ -166,11 +172,36 @@ export function IssueDetailMain({
         ) : (
           <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight">{title}</h1>
         )}
+        {/* Inbox pane (no topbar): favourite + ⋯ sit inline in the title row. */}
+        {menuTarget === 'header' && favourite && currentUserId && (
+          <FavouriteButton
+            kind={favourite.kind}
+            refId={favourite.refId}
+            roadmapId={favourite.roadmapId}
+            title={title}
+          />
+        )}
         {menuTarget === 'header' && overflow}
       </div>
 
-      {/* Standalone routes: lift the ⋯ into the topbar, right of the breadcrumb. */}
-      {menuTarget === 'topbar' && overflow && topbarSlot && createPortal(overflow, topbarSlot)}
+      {/* Standalone routes: lift the favourite star + the ⋯ menu up beside the
+          breadcrumb (the crumbActions slot), so they sit together after the crumb. */}
+      {menuTarget === 'topbar' &&
+        favourite &&
+        currentUserId &&
+        crumbActionsSlot &&
+        createPortal(
+          <FavouriteButton
+            kind={favourite.kind}
+            refId={favourite.refId}
+            roadmapId={favourite.roadmapId}
+            title={title}
+            size={16}
+            className="size-7"
+          />,
+          crumbActionsSlot,
+        )}
+      {menuTarget === 'topbar' && overflow && crumbActionsSlot && createPortal(overflow, crumbActionsSlot)}
 
       <div className="mt-4">
         {canWrite ? (
@@ -191,6 +222,15 @@ export function IssueDetailMain({
           <p className="text-sm text-muted-foreground">{descriptionPlaceholder}</p>
         )}
       </div>
+
+      {/* Reactions — social-style quick reactions, directly under the description. */}
+      {currentUserId && (
+        <ReactionBar
+          targetType={subject === 'bug' ? ReactionTargetType.BUG : ReactionTargetType.TASK}
+          targetId={issueId}
+          className="mt-3"
+        />
+      )}
 
       {/* ── Activity ──────────────────────────────────────────────────────── */}
       <section className="mt-10 border-t pt-6">

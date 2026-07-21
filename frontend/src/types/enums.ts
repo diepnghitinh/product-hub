@@ -89,6 +89,60 @@ export enum InboxKind {
   ASSIGNED_BUG = 'assigned-bug',
 }
 
+/** Kinds of entity a user can pin to their sidebar (mirrors the backend). */
+export enum FavouriteKind {
+  ROADMAP_ITEM = 'roadmap-item',
+  BUG = 'bug',
+  TASK = 'task',
+}
+
+/** Entities that can carry reactions (mirrors the backend). */
+export enum ReactionTargetType {
+  BUG = 'bug',
+  TASK = 'task',
+  ROADMAP_ITEM = 'roadmap-item',
+}
+
+/** The fixed quick-reaction palette — mirrors the backend allow-list + order. */
+export const REACTION_EMOJIS = ['👍', '❤️', '🎉', '😄', '🚀', '👀'] as const;
+export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
+
+/** How two same-type issues relate — the "Mark as" options (mirrors the backend). */
+export enum RelationType {
+  BLOCKS = 'blocks',
+  BLOCKED_BY = 'blocked_by',
+  PARENT_OF = 'parent_of',
+  SUB_ISSUE_OF = 'sub_issue_of',
+  RELATED_TO = 'related_to',
+  DUPLICATE_OF = 'duplicate_of',
+}
+
+/** The kind of issue a relation connects (same-type only for now). */
+export enum IssueKind {
+  TASK = 'task',
+  BUG = 'bug',
+}
+
+/** The six relation options in "Mark as" menu order (matches the mockup). */
+export const RELATION_TYPES: RelationType[] = [
+  RelationType.PARENT_OF,
+  RelationType.SUB_ISSUE_OF,
+  RelationType.RELATED_TO,
+  RelationType.BLOCKED_BY,
+  RelationType.BLOCKS,
+  RelationType.DUPLICATE_OF,
+];
+
+/** Verb form, used in the "Mark as" menu and the relation row ("Blocked by PRO-13"). */
+export const RELATION_TYPE_LABEL: Record<RelationType, string> = {
+  [RelationType.PARENT_OF]: 'Parent of',
+  [RelationType.SUB_ISSUE_OF]: 'Sub-issue of',
+  [RelationType.RELATED_TO]: 'Related to',
+  [RelationType.BLOCKED_BY]: 'Blocked by',
+  [RelationType.BLOCKS]: 'Blocking',
+  [RelationType.DUPLICATE_OF]: 'Duplicate of',
+};
+
 export enum WebhookEvent {
   BUG_CREATED = 'bug-created',
   BUG_ASSIGNED = 'bug-assigned',
@@ -297,6 +351,12 @@ export const DEFAULT_BUG_STATUSES: BugStatusConfig[] = BUG_STATUSES.map((key) =>
 export const INBOX_KIND_LABEL: Record<InboxKind, string> = {
   [InboxKind.MENTION]: 'Mention',
   [InboxKind.ASSIGNED_BUG]: 'Assigned',
+};
+
+export const FAVOURITE_KIND_LABEL: Record<FavouriteKind, string> = {
+  [FavouriteKind.ROADMAP_ITEM]: 'Roadmap item',
+  [FavouriteKind.BUG]: 'Bug',
+  [FavouriteKind.TASK]: 'Task',
 };
 
 export const ROADMAP_PHASES: RoadmapPhase[] = [

@@ -11,6 +11,7 @@ export const en = {
   'nav.milestones': 'OKRs',
   'nav.inbox': 'Inbox',
   'nav.tasks': 'My Tasks',
+  'nav.favourites': 'Favourites',
   'nav.assignedToMe': 'Assigned to me',
   'nav.today': 'Today & Overdue',
   'nav.personalList': 'Personal List',
@@ -22,6 +23,8 @@ export const en = {
   'nav.create': 'Create new',
   'nav.newTeam': 'New space',
   'theme.toggle': 'Toggle light / dark',
+  'theme.light': 'Light',
+  'theme.dark': 'Dark',
 
   'navgroup.overview': 'Overview',
   'navgroup.discovery': 'Product Discovery',
@@ -223,6 +226,17 @@ export const en = {
   'inbox.assignedYou': 'assigned you a bug',
   'inbox.selectPrompt': 'Select a notification to see its details.',
 
+  'fav.add': 'Add to favourites',
+  'fav.remove': 'Remove from favourites',
+  'fav.unpin': 'Unpin',
+  'fav.empty': 'No favourites yet',
+  'fav.added': 'Added to favourites',
+  'fav.removed': 'Removed from favourites',
+  'fav.actionFailed': 'Could not update favourites',
+
+  'reactions.add': 'Add reaction',
+  'reactions.failed': 'Could not update reaction',
+
   'roadmaps.title': 'Roadmaps',
   'roadmaps.new': 'New roadmap',
   'roadmaps.create': 'Create roadmap',
@@ -278,6 +292,8 @@ export const en = {
   'roadmaps.progress': 'Progress %',
   'roadmaps.sortRice': 'Sort by RICE',
   'roadmaps.notFound': 'Roadmap not found.',
+  'roadmaps.itemNotFound': 'Roadmap item not found.',
+  'roadmaps.untitled': 'Untitled',
   'roadmaps.delete': 'Delete roadmap',
   'roadmaps.confirmDelete': 'Delete this roadmap?',
   'roadmaps.confirmDeleteItem': 'Remove this item?',
@@ -285,6 +301,7 @@ export const en = {
   'roadmaps.itemTitlePlaceholder': 'Untitled backlog item',
   'roadmaps.done': 'Done',
   'roadmaps.description': 'Description',
+  'roadmaps.tasksLinked': 'Linked {count} task(s) from the description.',
   'roadmaps.phase': 'Phase',
   'roadmaps.score': 'Score',
   'roadmaps.startDate': 'Start date',
@@ -300,6 +317,15 @@ export const en = {
   'tasks.empty': 'No tasks yet — add the first piece of work.',
   'tasks.addPlaceholder': 'Add a task and press Enter…',
   'tasks.add': 'Add',
+  'tasks.team': 'Team',
+
+  // Issue relationships ("Mark as" → linked issues)
+  'relations.markAs': 'Mark as',
+  'relations.title': 'Relations',
+  'relations.search': 'Search by title or ID…',
+  'relations.empty': 'No matching issues.',
+  'relations.none': 'Search an issue to link.',
+  'relations.remove': 'Remove relation',
   'tasks.assign': 'Assign',
   'tasks.unassigned': 'Unassigned',
   'tasks.assignMe': 'Assign to me',
@@ -421,6 +447,13 @@ export const en = {
   'account.passwordChanged': 'Your password has been changed.',
   'account.passwordMismatch': 'Those passwords don’t match.',
   'account.passwordTooShort': 'Use at least 6 characters.',
+
+  // Profile menu — the signed-in user's avatar menu + My Profile page
+  'profile.myProfile': 'My Profile',
+  'profile.managePeople': 'Manage People',
+  'profile.appearance': 'Appearance',
+  'profile.logout': 'Log out',
+  'profile.passwordHint': 'Update the password you use to sign in.',
 
   'settings.title': 'Settings',
   'settings.subtitle': 'Configure your workspace, integrations and notifications.',
@@ -591,6 +624,8 @@ export const en = {
 
   'board.collapseColumn': 'Collapse',
   'board.expandColumn': 'Expand',
+  'board.ageToday': 'today',
+  'board.createdOn': 'Created',
   'tasks.addToColumn': 'Add task',
   'bugs.addToColumn': 'Add bug',
 } as const;

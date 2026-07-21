@@ -8,6 +8,8 @@ import {
   BUG_SEVERITY_COLOR,
   BUG_SEVERITY_LABEL,
   BugSeverity,
+  FavouriteKind,
+  IssueKind,
   TeamIssueType,
 } from '@/types/enums';
 import { useUsers } from '@/features/users/api';
@@ -15,6 +17,8 @@ import { IssueDetail, PropField } from '@/features/issues/IssueDetail';
 import { useTeamStatuses } from '@/features/teams/api';
 import { useBug, useDeleteBug, useSetBugStatus, useUpdateBug } from '../api';
 import { SeverityBadge } from './SeverityBadge';
+import { useRelationActions } from '@/features/issues/useRelationActions';
+import { IssueRelations } from '@/features/issues/IssueRelations';
 
 interface BugDetailProps {
   /** Bug shortId or uuid (`useBug` resolves either). */
@@ -40,6 +44,7 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
   const update = useUpdateBug();
   const setStatus = useSetBugStatus();
   const remove = useDeleteBug();
+  const { markAsItem, picker } = useRelationActions(IssueKind.BUG, bug?.id ?? '');
   // Readable by any member now, so @-mentions in comments work for everyone.
   const { data: usersData } = useUsers({ limit: 100 });
   const users = usersData?.items ?? [];
@@ -75,6 +80,7 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
       key={bug.id}
       subject="bug"
       issueId={bug.id}
+      favourite={{ kind: FavouriteKind.BUG, refId: bug.id }}
       shortId={bug.shortId}
       title={bug.title}
       titlePlaceholder={t('bugs.title2')}
@@ -90,8 +96,9 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
       onSaveTitle={(title) => save({ title })}
       onSaveDescription={(description) => save({ description })}
       menuTarget={menuTarget}
-      menuItems={
-        isAdmin
+      menuItems={[
+        ...(canWrite ? [markAsItem] : []),
+        ...(isAdmin
           ? [
               {
                 label: t('bugs.delete'),
@@ -104,8 +111,8 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
                 },
               },
             ]
-          : []
-      }
+          : []),
+      ]}
       sidebar={
         <>
           <PropField label={t('bugs.status')}>
@@ -187,6 +194,8 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
             </PropField>
           )}
 
+          <IssueRelations subject={IssueKind.BUG} issueId={bug.id} canWrite={canWrite} />
+          {picker}
         </>
       }
     />

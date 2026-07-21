@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { useAuth } from '@/lib/auth';
 import { useUsers } from '@/features/users/api';
-import { useTeamStatusesLookup } from '@/features/teams/api';
+import { useTeams, useTeamStatusesLookup } from '@/features/teams/api';
 import { TaskStatus, TeamIssueType, taskStatusColor } from '@/types/enums';
 import {
   useCreateTask,
@@ -43,6 +43,16 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
   // Columns are per-team, and these tasks can span teams — resolve per row.
   const statusesFor = useTeamStatusesLookup();
 
+  // Which team a new task lands in. Defaults to the workspace's default task
+  // team; the picker only surfaces when there's a real choice (>1 task team).
+  const { data: teams } = useTeams();
+  const taskTeams = (teams ?? []).filter(
+    (tm) => tm.issueType === TeamIssueType.TASK && !tm.archived,
+  );
+  const defaultTeamId = taskTeams.find((tm) => tm.isDefault)?.id ?? taskTeams[0]?.id ?? '';
+  const [teamId, setTeamId] = useState('');
+  const effectiveTeamId = teamId || defaultTeamId;
+
   const create = useCreateTask();
   const update = useUpdateTask();
   const setStatus = useSetTaskStatus();
@@ -60,6 +70,7 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
     if (!value || create.isPending) return;
     create.mutate({
       title: value,
+      teamId: effectiveTeamId || undefined,
       roadmapId,
       roadmapItemId: itemId,
       roadmapItemLabel: itemLabel,
@@ -110,23 +121,33 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
             return (
               <div
                 key={tk.id}
-                className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5"
+                className={cn(
+                  'grid items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5',
+                  // Fixed columns so status · assignee · delete line up across rows.
+                  canWrite
+                    ? 'grid-cols-[minmax(0,1fr)_128px_150px_28px]'
+                    : 'grid-cols-[minmax(0,1fr)_128px_150px]',
+                )}
               >
-                <span
-                  className="size-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: taskStatusColor(tk.status) }}
-                  aria-hidden
-                />
-                <span
-                  className={cn(
-                    'min-w-0 flex-1 basis-32 truncate text-sm',
-                    tk.status === TaskStatus.DONE && 'text-muted-foreground line-through',
-                  )}
-                  title={tk.title}
-                >
-                  {tk.title}
-                </span>
+                {/* Title (+ status dot) */}
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: taskStatusColor(tk.status) }}
+                    aria-hidden
+                  />
+                  <span
+                    className={cn(
+                      'min-w-0 flex-1 truncate text-sm',
+                      tk.status === TaskStatus.DONE && 'text-muted-foreground line-through',
+                    )}
+                    title={tk.title}
+                  >
+                    {tk.title}
+                  </span>
+                </div>
 
+                {/* Status */}
                 {canWrite ? (
                   <Select
                     value={tk.status}
@@ -135,60 +156,64 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
                       value: c.key,
                       label: c.label,
                     }))}
-                    className="h-7 w-[124px]"
+                    className="h-7 w-full"
                     aria-label={t('roadmaps.status')}
                   />
                 ) : (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="truncate text-xs text-muted-foreground">
                     {statusesFor(tk.teamId, TeamIssueType.TASK).find((c) => c.key === tk.status)
                       ?.label ?? tk.status}
                   </span>
                 )}
 
-                {isAdmin ? (
-                  <Combobox
-                    value={tk.assigneeId || ''}
-                    onChange={(v) => update.mutate({ id: tk.id, input: { assigneeId: v } })}
-                    placeholder={t('tasks.assign')}
-                    className="h-7 w-[140px]"
-                    options={[
-                      { value: '', label: t('tasks.unassigned') },
-                      ...users.map((u) => ({ value: u.id, label: u.name })),
-                    ]}
-                  />
-                ) : canWrite && tk.assigneeId && !mine ? (
-                  <span
-                    className="max-w-[120px] truncate text-xs text-muted-foreground"
-                    title={tk.assigneeName}
-                  >
-                    {tk.assigneeName}
-                  </span>
-                ) : canWrite ? (
-                  <Button
-                    type="button"
-                    variant={mine ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className="h-7"
-                    onClick={() =>
-                      update.mutate({
-                        id: tk.id,
-                        input: { assigneeId: mine ? '' : user?.id ?? '' },
-                      })
-                    }
-                  >
-                    {mine ? t('tasks.assignedYou') : t('tasks.assignMe')}
-                  </Button>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    {tk.assigneeName || t('tasks.unassigned')}
-                  </span>
-                )}
+                {/* Assignee */}
+                <div className="flex min-w-0 items-center">
+                  {isAdmin ? (
+                    <Combobox
+                      value={tk.assigneeId || ''}
+                      onChange={(v) => update.mutate({ id: tk.id, input: { assigneeId: v } })}
+                      placeholder={t('tasks.assign')}
+                      className="h-7 w-full"
+                      options={[
+                        { value: '', label: t('tasks.unassigned') },
+                        ...users.map((u) => ({ value: u.id, label: u.name })),
+                      ]}
+                    />
+                  ) : canWrite && tk.assigneeId && !mine ? (
+                    <span
+                      className="truncate text-xs text-muted-foreground"
+                      title={tk.assigneeName}
+                    >
+                      {tk.assigneeName}
+                    </span>
+                  ) : canWrite ? (
+                    <Button
+                      type="button"
+                      variant={mine ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="h-7"
+                      onClick={() =>
+                        update.mutate({
+                          id: tk.id,
+                          input: { assigneeId: mine ? '' : user?.id ?? '' },
+                        })
+                      }
+                    >
+                      {mine ? t('tasks.assignedYou') : t('tasks.assignMe')}
+                    </Button>
+                  ) : (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {tk.assigneeName || t('tasks.unassigned')}
+                    </span>
+                  )}
+                </div>
 
+                {/* Delete */}
                 {canWrite && (
                   <button
                     type="button"
                     onClick={() => remove.mutate(tk.id)}
-                    className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                    className="justify-self-end rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                     aria-label={t('common.delete')}
                   >
                     <Trash2 className="size-3.5" />
@@ -209,6 +234,15 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
             placeholder={t('tasks.addPlaceholder')}
             className="h-8 min-w-0 flex-1 basis-40"
           />
+          {taskTeams.length > 1 && (
+            <Select
+              value={effectiveTeamId}
+              onValueChange={setTeamId}
+              options={taskTeams.map((tm) => ({ value: tm.id, label: tm.name }))}
+              className="h-8 w-[150px]"
+              aria-label={t('tasks.team')}
+            />
+          )}
           <Button type="button" size="sm" onClick={add} disabled={!title.trim() || create.isPending}>
             {t('tasks.add')}
           </Button>

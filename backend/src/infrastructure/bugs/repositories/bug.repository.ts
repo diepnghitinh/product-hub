@@ -130,7 +130,7 @@ export class BugRepository
     if (query.search) {
       // Escaped: free text from the search box would otherwise throw on `(`.
       const re = new RegExp(query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      filter.$or = [{ title: re }, { description: re }, { _id: re }];
+      filter.$or = [{ title: re }, { description: re }, { _id: re }, { shortId: re }];
     }
 
     const [docs, total] = await Promise.all([

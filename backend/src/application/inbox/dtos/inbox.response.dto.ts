@@ -11,6 +11,9 @@ export class InboxItemDto {
   @ApiProperty({ description: 'Bug id to navigate to' })
   refId: string;
 
+  @ApiProperty({ description: 'Stable per-notification key for marking it read' })
+  key: string;
+
   @ApiProperty()
   title: string;
 

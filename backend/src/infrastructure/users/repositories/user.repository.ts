@@ -30,6 +30,8 @@ export class UserRepository
         passwordHash: doc.passwordHash,
         role: doc.role as Role,
         inboxSeenAt: doc.inboxSeenAt,
+        favourites: doc.favourites ?? [],
+        readInboxKeys: doc.readInboxKeys ?? [],
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
       },
@@ -48,6 +50,8 @@ export class UserRepository
       passwordHash: user.passwordHash,
       role: user.role,
       inboxSeenAt: user.inboxSeenAt ?? null,
+      favourites: user.favourites,
+      readInboxKeys: user.readInboxKeys,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

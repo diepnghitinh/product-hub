@@ -8,6 +8,8 @@ interface TopbarProps {
   onOpenMenu: () => void;
   /** Slot refs — the page portals its trailing crumb and actions into these. */
   crumbRef: (el: HTMLElement | null) => void;
+  /** Inline title actions (e.g. the favourite star) mount right after the crumb. */
+  crumbActionsRef: (el: HTMLElement | null) => void;
   actionsRef: (el: HTMLElement | null) => void;
 }
 
@@ -18,7 +20,7 @@ interface TopbarProps {
  * link once you're deeper than the section's own page. Pages outside the nav
  * model (a bug, a team board) have no section, so their own crumb is the root.
  */
-export function Topbar({ onOpenMenu, crumbRef, actionsRef }: TopbarProps) {
+export function Topbar({ onOpenMenu, crumbRef, crumbActionsRef, actionsRef }: TopbarProps) {
   const { pathname } = useLocation();
   const section = findNavItem(pathname);
   const atSectionRoot = section?.path === pathname;
@@ -55,6 +57,8 @@ export function Topbar({ onOpenMenu, crumbRef, actionsRef }: TopbarProps) {
         )}
         {/* The page's own crumb lands here. */}
         <span ref={crumbRef} className="flex min-w-0 items-center" />
+        {/* Inline title actions (e.g. the favourite star) — right of the crumb. */}
+        <span ref={crumbActionsRef} className="flex shrink-0 items-center" />
       </nav>
 
       <div ref={actionsRef} className="flex shrink-0 items-center gap-2" />

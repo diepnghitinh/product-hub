@@ -14,10 +14,11 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui';
+import { ChevronLeft, ChevronRight, Clock, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ProgressBar, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
+import { daysSince, formatDate } from '@/lib/format';
 
 /** A board column. Roadmap columns, bug statuses and task statuses all already
  * have this shape, so every board passes its own straight through. */
@@ -89,6 +90,106 @@ export function KanbanCard({
     >
       {children}
     </article>
+  );
+}
+
+/**
+ * The age chip a card shows — how long an item has sat, e.g. "5d" (or "today").
+ * Shared so Bugs, Tasks and Roadmap render the same clock+age the same way.
+ */
+export function BoardCardAge({ createdAt }: { createdAt?: string }) {
+  if (!createdAt) return null;
+  const days = daysSince(createdAt);
+  return (
+    <span className="flex items-center gap-1" title={`${t('board.createdOn')} ${formatDate(createdAt)}`}>
+      <Clock className="size-3" aria-hidden />
+      {days === 0 ? t('board.ageToday') : `${days}d`}
+    </span>
+  );
+}
+
+/**
+ * The shared card *content*, taken from the roadmap item as the standard so every
+ * board reads as one product: an optional cover, a title row (title + a trailing
+ * badge), a meta row (a leading badge + a trailing chip cluster), and an optional
+ * progress bar. Each board fills only the slots it has — a bug has no progress, a
+ * task has no cover — and the ones it leaves empty simply don't render.
+ *
+ * This owns the `p-3` the bare `KanbanCard` deliberately omits (so a cover can be
+ * full-bleed). Build a card by filling these slots, not by hand-rolling the frame.
+ */
+export function BoardCard({
+  overlay = false,
+  cover,
+  titleDotColor,
+  titleDotLabel,
+  title,
+  titleClassName,
+  titleTrailing,
+  metaLeading,
+  metaTrailing,
+  progress,
+}: {
+  overlay?: boolean;
+  /** Full-bleed cover image URL (roadmap items). */
+  cover?: string;
+  /** A small dot before the title — a CSS colour (bug severity, etc.). */
+  titleDotColor?: string;
+  /** Accessible name / hover tooltip for that dot (e.g. the severity label). */
+  titleDotLabel?: string;
+  title: ReactNode;
+  /** Extra classes on the title text — e.g. strike-through for a done task. */
+  titleClassName?: string;
+  /** Top-right of the title row — a RICE / short-id badge. */
+  titleTrailing?: ReactNode;
+  /** Bottom-left — the primary badge (status, backlog item, assignee…). */
+  metaLeading?: ReactNode;
+  /** Bottom-right — a quiet chip cluster (difficulty, age…). */
+  metaTrailing?: ReactNode;
+  /** 0–100 progress bar; omit to hide it. */
+  progress?: number;
+}) {
+  return (
+    <KanbanCard overlay={overlay}>
+      {cover && (
+        <div
+          aria-hidden
+          style={{ backgroundImage: `url("${cover}")` }}
+          // A centered background that fills the full-width banner (bg-cover) —
+          // `bg-muted` shows through while it loads or behind a transparent image.
+          className="h-28 w-full rounded-t-lg bg-muted bg-cover bg-center bg-no-repeat"
+        />
+      )}
+      <div className="flex flex-col gap-2 p-3">
+        <div className="flex items-start justify-between gap-1.5">
+          <span className={cn('flex min-w-0 items-start gap-1.5 text-[13px] leading-snug', titleClassName)}>
+            {titleDotColor && (
+              <span
+                className="mt-1 size-2 shrink-0 rounded-full"
+                style={{ backgroundColor: titleDotColor }}
+                title={titleDotLabel}
+                role={titleDotLabel ? 'img' : undefined}
+                aria-label={titleDotLabel}
+                aria-hidden={titleDotLabel ? undefined : true}
+              />
+            )}
+            <span className="min-w-0">{title}</span>
+          </span>
+          {titleTrailing && <span className="shrink-0">{titleTrailing}</span>}
+        </div>
+        {(metaLeading || metaTrailing) && (
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center">{metaLeading}</div>
+            {metaTrailing && (
+              <div className="flex shrink-0 items-center gap-2.5 text-[11px] tabular-nums text-muted-foreground">
+                {metaTrailing}
+              </div>
+            )}
+          </div>
+        )}
+        {progress != null && <ProgressBar value={progress} />}
+      </div>
+    </KanbanCard>
   );
 }
 

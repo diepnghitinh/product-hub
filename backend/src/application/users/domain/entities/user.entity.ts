@@ -2,6 +2,8 @@ import { AggregateRoot, UniqueEntityID } from '@core/domain';
 import { Role } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
+import { FavouriteKind } from '@application/favourites/domain/favourite-kind.enum';
+import { FavouriteRef } from '@application/favourites/domain/favourite.ref';
 import { UserProps } from './user.props';
 
 /**
@@ -21,6 +23,8 @@ export class UserEntity extends AggregateRoot<UserProps> {
       passwordHash: string;
       role?: Role;
       inboxSeenAt?: Date | null;
+      favourites?: FavouriteRef[];
+      readInboxKeys?: string[];
       createdAt?: Date;
       updatedAt?: Date;
     },
@@ -49,6 +53,8 @@ export class UserEntity extends AggregateRoot<UserProps> {
           passwordHash: props.passwordHash,
           role: props.role || Role.TESTER,
           inboxSeenAt: props.inboxSeenAt ?? null,
+          favourites: props.favourites ?? [],
+          readInboxKeys: props.readInboxKeys ?? [],
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
         },
@@ -78,6 +84,12 @@ export class UserEntity extends AggregateRoot<UserProps> {
   get inboxSeenAt(): Date | null | undefined {
     return this.props.inboxSeenAt;
   }
+  get favourites(): FavouriteRef[] {
+    return this.props.favourites;
+  }
+  get readInboxKeys(): string[] {
+    return this.props.readInboxKeys;
+  }
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -103,8 +115,44 @@ export class UserEntity extends AggregateRoot<UserProps> {
     this.touch();
   }
 
-  markInboxSeen(): void {
-    this.props.inboxSeenAt = new Date();
+  /**
+   * Mark inbox notifications read by their key (see GetInboxUseCase for the key
+   * format). Idempotent and de-duped; the list is bounded to the most recent
+   * 1000 keys so it can never grow without limit.
+   */
+  markInboxItemsRead(keys: string[]): void {
+    if (keys.length === 0) return;
+    const merged = Array.from(new Set([...this.props.readInboxKeys, ...keys]));
+    this.props.readInboxKeys =
+      merged.length > 1000 ? merged.slice(merged.length - 1000) : merged;
+    this.touch();
+  }
+
+  isInboxItemRead(key: string): boolean {
+    return this.props.readInboxKeys.includes(key);
+  }
+
+  /**
+   * Pin an entity to the sidebar. Idempotent and de-duped by (kind, refId) —
+   * re-favouriting an already-pinned item is a no-op, not a duplicate. Newest
+   * pins go to the front so the sidebar reads most-recent-first.
+   */
+  addFavourite(ref: FavouriteRef): void {
+    const exists = this.props.favourites.some(
+      (f) => f.kind === ref.kind && f.refId === ref.refId,
+    );
+    if (exists) return;
+    this.props.favourites = [ref, ...this.props.favourites];
+    this.touch();
+  }
+
+  /** Unpin an entity. A no-op if it wasn't pinned. */
+  removeFavourite(kind: FavouriteKind, refId: string): void {
+    const next = this.props.favourites.filter(
+      (f) => !(f.kind === kind && f.refId === refId),
+    );
+    if (next.length === this.props.favourites.length) return;
+    this.props.favourites = next;
     this.touch();
   }
 

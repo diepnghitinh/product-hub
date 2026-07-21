@@ -1,21 +1,21 @@
 import { Fragment, useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronsLeft, ChevronsRight, MoreHorizontal, Plus } from 'lucide-react';
+import { ChevronDown, ChevronsLeft, ChevronsRight, MoreHorizontal, Plus, Star, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { useTheme } from '@/lib/theme';
 import { Menu } from '@/components/ui';
-import { Icon } from '@/components/Icon';
+import { Icon, type IconName } from '@/components/Icon';
 import { cn } from '@/lib/utils';
 import { initials } from '@/lib/format';
-import { NAV_GROUPS, PROFILE_NAV_ITEMS, type NavItem } from '@/layouts/sidebar/menuConfig';
+import { NAV_GROUPS, type NavItem } from '@/layouts/sidebar/menuConfig';
 import { t } from '@/i18n';
-import { ROLE_LABEL } from '@/types/enums';
+import { FAVOURITE_KIND_LABEL, FavouriteKind } from '@/types/enums';
 import { useInbox } from '@/features/inbox/api';
+import { useFavourites, useRemoveFavourite } from '@/features/favourites/api';
 import { useTeams } from '@/features/teams/api';
 import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
 import { CreateTeamDialog } from '@/features/teams/CreateTeamDialog';
-import { ChangePasswordDialog } from '@/features/account/ChangePasswordDialog';
-import type { TeamDto } from '@/types/dto';
+import { ProfileMenu } from '@/layouts/sidebar/ProfileMenu';
+import type { FavouriteDto, TeamDto } from '@/types/dto';
 
 const COLLAPSE_KEY = 'ph_nav_collapsed';
 const EXPAND_KEY = 'ph_nav_expanded';
@@ -36,7 +36,7 @@ const ACTION =
  * so the whole rail reads as one list however a given row behaves.
  */
 const ROW =
-  'group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground';
+  'group flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground';
 
 /** A section label (Product Discovery, Teams…): quiet, Title-Case, gently spaced. */
 const HEADING =
@@ -50,18 +50,17 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
-  const { user, logout, isAdmin, canManageDelivery } = useAuth();
-  const { toggle: toggleTheme } = useTheme();
+  const { isAdmin, canManageDelivery } = useAuth();
   const navigate = useNavigate();
   const { data: inbox } = useInbox();
   const unseen = inbox?.unseenCount ?? 0;
+  const { data: favourites } = useFavourites();
   // Teams are dynamic (QC/Engineering are seeded); archived ones drop out.
   const { pathname } = useLocation();
   const { data: teams } = useTeams();
   const activeTeams = (teams ?? []).filter((x) => !x.archived);
 
   const [creatingTeam, setCreatingTeam] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
   const [collapsed, setCollapsed] = useState<boolean>(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
   );
@@ -85,11 +84,6 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const isOpen = (p: string) => openGroups[p] ?? isUnder(p);
   const toggleGroup = (p: string) =>
     setOpenGroups((g) => ({ ...g, [p]: !(g[p] ?? isUnder(p)) }));
-
-  function onLogout() {
-    logout();
-    navigate('/login');
-  }
 
   return (
     <aside
@@ -173,6 +167,27 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 py-3">
+        {/* Favourites — the user's pinned entities, first thing in the rail.
+            Hidden when there are none; each row links straight to its item. */}
+        {favourites && favourites.length > 0 && (
+          <>
+            <div className="flex flex-col gap-0.5">
+              <span className={cn(HEADING, collapsed && 'md:hidden')}>
+                <Star className="size-3.5" aria-hidden />
+                {t('nav.favourites')}
+              </span>
+              {favourites.map((fav) => (
+                <FavouriteNavItem
+                  key={`${fav.kind}:${fav.refId}`}
+                  fav={fav}
+                  collapsed={collapsed}
+                  onNavigate={onCloseMobile}
+                />
+              ))}
+            </div>
+            <div className={cn('mx-2 border-t border-sidebar-border', collapsed && 'md:mx-1')} />
+          </>
+        )}
         {NAV_GROUPS.map((group) => {
           const items = group.items.filter((i) => !i.adminOnly || isAdmin);
           if (items.length === 0) return null;
@@ -280,66 +295,8 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         })}
       </nav>
 
-      {/* Footer user menu */}
-      {user && (
-        <div className="shrink-0 border-t border-sidebar-border p-2">
-          <Menu
-            up
-            align="left"
-            triggerClassName="w-full"
-            trigger={
-              <span
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left hover:bg-sidebar-accent',
-                  collapsed && 'md:justify-center',
-                )}
-              >
-                <span
-                  className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground"
-                  aria-hidden
-                >
-                  {initials(user.name, user.email)}
-                </span>
-                <span
-                  className={cn(
-                    'flex min-w-0 flex-col leading-tight',
-                    collapsed && 'md:hidden',
-                  )}
-                >
-                  <span className="truncate text-[13px] font-medium text-foreground">
-                    {user.name}
-                  </span>
-                  <span className="truncate text-[11px] text-muted-foreground">
-                    {ROLE_LABEL[user.role]}
-                  </span>
-                </span>
-              </span>
-            }
-            items={[
-              // People + Settings moved here from the sidebar's Admin group.
-              // `closeOnSelect` so the menu dismisses when we navigate away.
-              ...PROFILE_NAV_ITEMS.filter((i) => !i.adminOnly || isAdmin).map((i) => ({
-                label: t(i.labelKey),
-                closeOnSelect: true,
-                onClick: () => {
-                  navigate(i.path);
-                  onCloseMobile();
-                },
-              })),
-              { label: t('theme.toggle'), onClick: toggleTheme },
-              { label: t('account.changePassword'), onClick: () => setChangingPassword(true) },
-              {
-                label: t('nav.designPatterns'),
-                onClick: () => {
-                  navigate('/design-patterns');
-                  onCloseMobile();
-                },
-              },
-              { label: t('nav.signOut'), onClick: onLogout, danger: true },
-            ]}
-          />
-        </div>
-      )}
+      {/* Footer — the signed-in user's menu: avatar → appearance, links, sign out. */}
+      <ProfileMenu collapsed={collapsed} onCloseMobile={onCloseMobile} />
 
       {/* Opening the new team's board is the confirmation — it proves the team
           exists and lands you where you'd go next anyway. */}
@@ -350,11 +307,6 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           navigate(`/teams/${team.id}`);
           onCloseMobile();
         }}
-      />
-
-      <ChangePasswordDialog
-        open={changingPassword}
-        onClose={() => setChangingPassword(false)}
       />
     </aside>
   );
@@ -534,6 +486,87 @@ function TeamNavItem({
       >
         <MoreHorizontal className="size-3.5" aria-hidden />
       </Link>
+    </div>
+  );
+}
+
+/** Icon per favourite kind — reuses the same glyphs as the nav/boards. */
+const FAV_ICON: Record<FavouriteKind, IconName> = {
+  [FavouriteKind.BUG]: 'bug',
+  [FavouriteKind.TASK]: 'tasks',
+  [FavouriteKind.ROADMAP_ITEM]: 'roadmap',
+};
+
+/** Where a pinned entity opens. A roadmap item deep-links to its board + dialog. */
+function favouriteHref(fav: FavouriteDto): string {
+  switch (fav.kind) {
+    case FavouriteKind.BUG:
+      return `/bugs/${fav.refId}`;
+    case FavouriteKind.TASK:
+      return `/tasks/${fav.refId}`;
+    case FavouriteKind.ROADMAP_ITEM:
+      return fav.roadmapId ? `/roadmaps/${fav.roadmapId}/items/${fav.refId}` : '/roadmaps';
+    default:
+      return '/';
+  }
+}
+
+/**
+ * One pinned entity in the sidebar. Expanded, it's an icon + title with a hover
+ * "unpin" (×) — the symbol is a real button, so like a team row the label is a
+ * separate <Link>. Collapsed, the icon alone links and the unpin is suppressed.
+ */
+function FavouriteNavItem({
+  fav,
+  collapsed,
+  onNavigate,
+}: {
+  fav: FavouriteDto;
+  collapsed: boolean;
+  onNavigate: () => void;
+}) {
+  const remove = useRemoveFavourite();
+  const to = favouriteHref(fav);
+  const label = fav.title || FAVOURITE_KIND_LABEL[fav.kind];
+
+  if (collapsed) {
+    return (
+      <NavLink
+        to={to}
+        onClick={onNavigate}
+        title={label}
+        className={({ isActive }) =>
+          cn(
+            ROW,
+            'md:justify-center md:gap-0',
+            isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+          )
+        }
+      >
+        <span className="grid size-5 shrink-0 place-items-center text-muted-foreground">
+          <Icon name={FAV_ICON[fav.kind]} size={18} />
+        </span>
+      </NavLink>
+    );
+  }
+
+  return (
+    <div className={cn(ROW, 'group/fav')}>
+      <span className="grid size-5 shrink-0 place-items-center text-muted-foreground transition-colors group-hover/fav:text-sidebar-accent-foreground">
+        <Icon name={FAV_ICON[fav.kind]} size={18} />
+      </span>
+      <Link to={to} onClick={onNavigate} className="min-w-0 flex-1 truncate" title={label}>
+        {label}
+      </Link>
+      <button
+        type="button"
+        onClick={() => remove.mutate({ kind: fav.kind, refId: fav.refId })}
+        title={t('fav.unpin')}
+        aria-label={t('fav.unpin')}
+        className={cn(ACTION, 'group-hover/fav:opacity-100')}
+      >
+        <X className="size-3.5" aria-hidden />
+      </button>
     </div>
   );
 }

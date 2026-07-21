@@ -1,0 +1,105 @@
+# docker-compose.yml — run the whole product-hub stack (db + API + web) with one command.
+#
+#   docker compose up --build          build the images and start everything
+#   docker compose up -d --build       …in the background
+#   docker compose logs -f             follow the logs
+#   docker compose down                stop (add -v to also wipe the database)
+#
+# Open the app at  http://localhost:8080
+# nginx serves the SPA and reverse-proxies /v1 to the API, so it's ONE origin
+# with no CORS. Swagger stays at http://localhost:3000/swagger for debugging.
+#
+# Config: every value below has a safe local default, so `up` works with zero
+# setup. To override (e.g. a real JWT secret or Azure storage), copy .env.example
+# to .env — compose reads it automatically. Do not run this alongside ./dev.sh;
+# they share host ports 3000 / 27017.
+
+name: product-hub
+
+services:
+  # ── MongoDB ──────────────────────────────────────────────────────────────
+  db:
+    image: mongo:7
+    container_name: producthub-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-producthub}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-producthub}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-producthub}
+    ports:
+      - '27017:27017' # exposed for Compass/mongosh; drop this line to keep it internal
+    volumes:
+      - producthub-mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ── NestJS API ───────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+    image: product-hub-backend:local
+    container_name: producthub-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: '3000'
+      # Talk to the db service over the compose network (not localhost).
+      MONGODB_URI: mongodb://${MONGO_USER:-producthub}:${MONGO_PASSWORD:-producthub}@db:27017/${MONGO_DB:-producthub}?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      # Same-origin means CORS isn't needed for the app; this only matters if you
+      # call the API cross-origin (e.g. straight from :3000 or another host).
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080}
+      # Optional Azure Blob storage for bug attachments. When unset the API falls
+      # back to inline base64 data URLs, so the stack runs fine without it.
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-}
+    ports:
+      - '3000:3000' # exposed for Swagger + direct API access; the app doesn't need it
+    healthcheck:
+      # Node 20 has global fetch — no extra tooling needed in the slim image.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3000/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+  # ── Web (Vite SPA served by nginx) ───────────────────────────────────────
+  web:
+    build:
+      context: ./frontend
+      args:
+        # Baked at build time. /v1 = same origin; nginx proxies it to the api.
+        VITE_API_URL: '/v1'
+    image: product-hub-frontend:local
+    container_name: producthub-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    volumes:
+      # Compose-only nginx config that enables the /v1 → api proxy. Keeps the
+      # image's baked-in nginx.conf production-clean.
+      - ./deploy/nginx.web.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:80/']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  producthub-mongo-data:

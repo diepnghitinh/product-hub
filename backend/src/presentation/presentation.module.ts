@@ -12,6 +12,9 @@ import { TasksPresentationModule } from './tasks/tasks.module';
 import { TeamsPresentationModule } from './teams/teams.module';
 import { ActivityPresentationModule } from './activity/activity.module';
 import { InboxPresentationModule } from './inbox/inbox.module';
+import { FavouritesPresentationModule } from './favourites/favourites.module';
+import { ReactionsPresentationModule } from './reactions/reactions.module';
+import { IssueLinksPresentationModule } from './issue-links/issue-links.module';
 import { RoadmapsPresentationModule } from './roadmaps/roadmaps.module';
 import { MilestonesPresentationModule } from './milestones/milestones.module';
 import { ApiKeysPresentationModule } from './api-keys/api-keys.module';
@@ -40,6 +43,10 @@ import { StoragePresentationModule } from './storage/storage.module';
     TeamsPresentationModule,
     ActivityPresentationModule,
     InboxPresentationModule,
+    FavouritesPresentationModule,
+    ReactionsPresentationModule,
+    // Controller is @Controller('issue-links') → /v1/issue-links, so no RouterModule prefix.
+    IssueLinksPresentationModule,
     RoadmapsPresentationModule,
     MilestonesPresentationModule,
     ApiKeysPresentationModule,

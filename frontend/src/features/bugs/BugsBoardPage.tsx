@@ -8,18 +8,13 @@ import { t } from '@/i18n';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { Icon } from '@/components/Icon';
 import { BackLink } from '@/components/BackLink';
-import {
-  KanbanBoard,
-  KanbanCard,
-  KanbanCardToolbar,
-} from '@/components/KanbanBoard';
+import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
 import {
   FilterMenu,
   UNASSIGNED,
   type FilterCategory,
   type FilterSelections,
 } from '@/components/FilterMenu';
-import { timeAgo } from '@/lib/format';
 import { useUsers } from '@/features/users/api';
 import { useProjects } from '@/features/projects/api';
 import {
@@ -44,22 +39,28 @@ const SEVERITY_DOT: Record<BugSeverity, string> = {
   [BugSeverity.CRITICAL]: 'bg-destructive',
 };
 
-/** Bug card visual — shared by the column list and the lifted drag overlay. */
+/** Bug card — follows the shared `BoardCard` standard (see the roadmap item). */
 export function BugCard({ bug, overlay = false }: { bug: BugDto; overlay?: boolean }) {
   return (
-    <KanbanCard overlay={overlay}>
-      <div className="flex items-start gap-2">
-        <span
-          className={cn('mt-1.5 size-2 shrink-0 rounded-full', SEVERITY_DOT[bug.severity])}
-          title={BUG_SEVERITY_LABEL[bug.severity]}
-        />
-        <span className="text-[13px] leading-snug">{bug.title}</span>
-      </div>
-      <div className="flex justify-between text-[11px] text-muted-foreground">
-        <span>{bug.assigneeName || t('bugs.unassigned')}</span>
-        <span>{timeAgo(bug.updatedAt)}</span>
-      </div>
-    </KanbanCard>
+    <BoardCard
+      overlay={overlay}
+      titleDotColor={BUG_SEVERITY_COLOR[bug.severity]}
+      titleDotLabel={BUG_SEVERITY_LABEL[bug.severity]}
+      title={bug.title}
+      titleTrailing={
+        bug.shortId ? (
+          <Badge variant="secondary" className="font-mono">
+            {bug.shortId}
+          </Badge>
+        ) : undefined
+      }
+      metaLeading={
+        <Badge variant="muted" className="max-w-full truncate">
+          {bug.assigneeName || t('bugs.unassigned')}
+        </Badge>
+      }
+      metaTrailing={<BoardCardAge createdAt={bug.createdAt} />}
+    />
   );
 }
 
