@@ -62,7 +62,8 @@ cursor
 /data/
 /prompt/
 /design/
-/docs/
+/docs/*
+!/docs/images/
 /features/
 /fixes/
 /docs/*.md
