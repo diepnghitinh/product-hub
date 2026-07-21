@@ -68,3 +68,6 @@ cursor
 /fixes/
 /docs/*.md
 /.claude/
+old-frontend
+old-report
+ref-backend
