@@ -327,6 +327,7 @@ export const en = {
   'tasks.title': 'Tasks',
   'tasks.empty': 'No tasks yet — add the first piece of work.',
   'tasks.addPlaceholder': 'Add a task and press Enter…',
+  'tasks.titlePlaceholder': 'Task title',
   'tasks.add': 'Add',
   'tasks.team': 'Team',
 
@@ -345,6 +346,8 @@ export const en = {
   'subtasks.title': 'Sub-tasks',
   'subtasks.empty': 'No sub-tasks yet — break this work into smaller pieces.',
   'subtasks.addPlaceholder': 'Add a sub-task and press Enter…',
+  'subtasks.add': 'Add sub-task',
+  'subtasks.titlePlaceholder': 'Sub-task title',
   'tasks.myTasks': 'My Tasks',
   'tasks.mySubtitle': 'Everything assigned to you, across every backlog item.',
   'tasks.assignedToMe': 'Assigned to me',

@@ -1,6 +1,6 @@
-import { useState, type KeyboardEvent } from 'react';
-import { Link2, Trash2 } from 'lucide-react';
-import { Button, Combobox, Input, ProgressBar, Select, Spinner } from '@/components/ui';
+import { useState } from 'react';
+import { Link2, Plus, Trash2 } from 'lucide-react';
+import { Button, Combobox, ProgressBar, Select, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { useAuth } from '@/lib/auth';
@@ -16,6 +16,7 @@ import {
   useUpdateTask,
 } from '../api';
 import { PickTaskDialog } from './PickTaskDialog';
+import { TaskComposerCard } from './TaskComposerCard';
 
 interface TaskPanelProps {
   roadmapId: string;
@@ -53,42 +54,26 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
     (tm) => tm.issueType === TeamIssueType.TASK && !tm.archived,
   );
   const defaultTeamId = taskTeams.find((tm) => tm.isDefault)?.id ?? taskTeams[0]?.id ?? '';
-  const [teamId, setTeamId] = useState('');
-  const effectiveTeamId = teamId || defaultTeamId;
 
   const create = useCreateTask();
   const update = useUpdateTask();
   const setStatus = useSetTaskStatus();
   const remove = useDeleteTask();
 
-  const [title, setTitle] = useState('');
+  // The people list is admin-only; everyone else can still self-assign at
+  // creation, so offer at least themselves in the composer. [[permission-model]]
+  const assignableUsers = isAdmin
+    ? users
+    : user
+      ? [{ id: user.id, name: user.name }]
+      : [];
+
+  const [adding, setAdding] = useState(false);
   const [pickOpen, setPickOpen] = useState(false);
 
   const done = tasks.filter((tk) => tk.status === TaskStatus.DONE).length;
   const total = tasks.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
-
-  function add() {
-    const value = title.trim();
-    if (!value || create.isPending) return;
-    create.mutate({
-      title: value,
-      teamId: effectiveTeamId || undefined,
-      roadmapId,
-      roadmapItemId: itemId,
-      roadmapItemLabel: itemLabel,
-      projectId,
-    });
-    setTitle('');
-  }
-
-  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    // Enter creates the task — and never bubbles up to submit the item form.
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      add();
-    }
-  }
 
   return (
     <div className="mt-5 border-t border-border pt-4">
@@ -239,33 +224,40 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
         )}
       </div>
 
-      {canWrite && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder={t('tasks.addPlaceholder')}
-            className="h-8 min-w-0 flex-1 basis-40"
+      {canWrite &&
+        (adding ? (
+          <TaskComposerCard
+            teams={taskTeams}
+            defaultTeamId={defaultTeamId}
+            users={assignableUsers}
+            pending={create.isPending}
+            onCancel={() => setAdding(false)}
+            onCreate={(input, done) =>
+              create.mutate(
+                {
+                  ...input,
+                  roadmapId,
+                  roadmapItemId: itemId,
+                  roadmapItemLabel: itemLabel,
+                  projectId,
+                },
+                // Keep the card open with its property picks so you can batch several.
+                { onSuccess: () => done() },
+              )
+            }
           />
-          {taskTeams.length > 1 && (
-            <Select
-              value={effectiveTeamId}
-              onValueChange={setTeamId}
-              options={taskTeams.map((tm) => ({ value: tm.id, label: tm.name }))}
-              className="h-8 w-[150px]"
-              aria-label={t('tasks.team')}
-            />
-          )}
-          <Button type="button" size="sm" onClick={add} disabled={!title.trim() || create.isPending}>
-            {t('tasks.add')}
-          </Button>
-          <Button type="button" size="sm" variant="outline" onClick={() => setPickOpen(true)}>
-            <Link2 className="size-3.5" aria-hidden />
-            {t('tasks.pick')}
-          </Button>
-        </div>
-      )}
+        ) : (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => setAdding(true)}>
+              <Plus className="size-3.5" aria-hidden />
+              {t('tasks.add')}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setPickOpen(true)}>
+              <Link2 className="size-3.5" aria-hidden />
+              {t('tasks.pick')}
+            </Button>
+          </div>
+        ))}
 
       {pickOpen && (
         <PickTaskDialog

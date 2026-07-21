@@ -1,7 +1,7 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
-import { Button, Combobox, Input, ProgressBar, Select, Spinner } from '@/components/ui';
+import { Plus, Trash2 } from 'lucide-react';
+import { Button, Combobox, ProgressBar, Select, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { useAuth } from '@/lib/auth';
@@ -9,6 +9,7 @@ import { useUsers } from '@/features/users/api';
 import { useTeamStatusesLookup } from '@/features/teams/api';
 import { TaskStatus, TeamIssueType, taskStatusColor } from '@/types/enums';
 import { useCreateTask, useDeleteTask, useSetTaskStatus, useTasks, useUpdateTask } from '../api';
+import { TaskComposerCard } from './TaskComposerCard';
 
 interface SubtaskPanelProps {
   /** The parent task whose sub-tasks these are. */
@@ -39,24 +40,12 @@ export function SubtaskPanel({ parentId, teamId }: SubtaskPanelProps) {
   const update = useUpdateTask();
   const setStatus = useSetTaskStatus();
   const remove = useDeleteTask();
-  const [title, setTitle] = useState('');
 
   const done = tasks.filter((tk) => tk.status === TaskStatus.DONE).length;
   const total = tasks.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
-  function add() {
-    const value = title.trim();
-    if (!value || create.isPending) return;
-    create.mutate({ title: value, parentId, teamId: teamId || undefined });
-    setTitle('');
-  }
-  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      add();
-    }
-  }
+  const [adding, setAdding] = useState(false);
 
   return (
     <section className="mt-8 border-t border-border pt-4">
@@ -64,11 +53,23 @@ export function SubtaskPanel({ parentId, teamId }: SubtaskPanelProps) {
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {t('subtasks.title')}
         </span>
-        {total > 0 && (
-          <span className="text-xs tabular-nums text-muted-foreground">
-            {t('tasks.doneOf').replace('{done}', String(done)).replace('{total}', String(total))}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {total > 0 && (
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {t('tasks.doneOf').replace('{done}', String(done)).replace('{total}', String(total))}
+            </span>
+          )}
+          {canWrite && (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="grid size-6 place-items-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label={t('subtasks.add')}
+            >
+              <Plus className="size-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {total > 0 && (
@@ -82,7 +83,7 @@ export function SubtaskPanel({ parentId, teamId }: SubtaskPanelProps) {
           <div className="flex justify-center py-3">
             <Spinner />
           </div>
-        ) : tasks.length === 0 ? (
+        ) : tasks.length === 0 && !adding ? (
           <p className="py-2 text-sm text-muted-foreground">{t('subtasks.empty')}</p>
         ) : (
           tasks.map((tk) => {
@@ -187,17 +188,36 @@ export function SubtaskPanel({ parentId, teamId }: SubtaskPanelProps) {
         )}
       </div>
 
-      {canWrite && (
-        <div className="mt-2">
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder={t('subtasks.addPlaceholder')}
-            className="h-8"
+      {canWrite &&
+        (adding ? (
+          <TaskComposerCard
+            defaultTeamId={teamId}
+            users={users}
+            pending={create.isPending}
+            titlePlaceholder={t('subtasks.titlePlaceholder')}
+            onCancel={() => setAdding(false)}
+            onCreate={(input, done) =>
+              create.mutate(
+                { ...input, parentId, teamId: teamId || undefined },
+                {
+                  // Keep the card open with its property picks so you can batch several.
+                  onSuccess: () => done(),
+                },
+              )
+            }
           />
-        </div>
-      )}
+        ) : (
+          tasks.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="mt-2 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Plus className="size-3.5" />
+              {t('subtasks.add')}
+            </button>
+          )
+        ))}
     </section>
   );
 }
