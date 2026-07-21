@@ -45,6 +45,7 @@ export class UpdateTaskUseCase
       roadmapItemLabel: dto.roadmapItemLabel,
       projectId: dto.projectId,
       dueDate: dto.dueDate,
+      estimate: dto.estimate,
     });
 
     await this.tasks.update(task);

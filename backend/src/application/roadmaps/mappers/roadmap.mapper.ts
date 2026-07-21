@@ -18,6 +18,9 @@ export class RoadmapMapper {
         startDate: item.startDate ?? '',
         assignees: item.assignees ?? [],
         rice: riceScore(item),
+        // Legacy items predate per-item timestamps — fall back to the roadmap's
+        // own creation date so their age is sensible rather than blank.
+        createdAt: item.createdAt ?? new Date(roadmap.createdAt).toISOString(),
       })),
       columns: roadmap.columns?.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS,
       itemCount: roadmap.items.length,

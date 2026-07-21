@@ -18,7 +18,7 @@ export function BugDetailPage() {
       <PageHeader
         title={bugId ?? ''}
         parent={{ to: '/bugs', label: t('bugs.title') }}
-        leading={<Icon name="bug" size={16} className="shrink-0 text-muted-foreground" />}
+        leading={<span className="flex h-5 w-5 items-center justify-center rounded-sm hover:bg-accent/60 hover:text-accent-foreground"><Icon name="bug" size={16} className="shrink-0" /></span>}
       />
       <BugDetail bugId={bugId} onDeleted={() => navigate('/bugs')} menuTarget="topbar" />
     </CenteredPageLayout>

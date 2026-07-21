@@ -20,6 +20,7 @@ export interface TaskDoc {
   createdBy: string;
   createdByName: string;
   dueDate: string;
+  estimate: number;
   order: number;
   createdAt: Date;
   updatedAt: Date;
@@ -47,6 +48,7 @@ export const TaskSchema = new Schema<TaskDoc>(
     createdBy: { type: String, default: '' },
     createdByName: { type: String, default: '' },
     dueDate: { type: String, default: '' },
+    estimate: { type: Number, default: 0 },
     order: { type: Number, default: 0 },
   },
   { timestamps: true },

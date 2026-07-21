@@ -86,6 +86,7 @@ export class CreateBugUseCase
         tenantId,
         WebhookEvent.BUG_ASSIGNED,
         `📌 Bug assigned to ${assigneeName}: ${bug.title}`,
+        { mentionUserIds: dto.assigneeId ? [dto.assigneeId] : [] },
       );
     }
 

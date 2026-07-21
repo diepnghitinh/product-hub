@@ -1,18 +1,30 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import { Circle, Trash2, Triangle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useEscapeBack } from '@/lib/useEscapeBack';
-import { Button, Combobox, DotLabel, Select, Spinner } from '@/components/ui';
+import { cn } from '@/lib/utils';
+import { Combobox, DatePicker, DotLabel, Select, Skeleton, Spinner } from '@/components/ui';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { Icon } from '@/components/Icon';
-import { timeAgo } from '@/lib/format';
+import { initials, timeAgo } from '@/lib/format';
 import { useUsers } from '@/features/users/api';
 import { IssueDetail, PropField } from '@/features/issues/IssueDetail';
-import { useTeamStatuses } from '@/features/teams/api';
-import { TeamIssueType } from '@/types/enums';
+import { useTeams, useTeamStatuses } from '@/features/teams/api';
+import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
+import { TASK_ESTIMATES, TaskStatus, TeamIssueType, taskEstimateLabel } from '@/types/enums';
 import { useDeleteTask, useSetTaskStatus, useTask, useUpdateTask } from './api';
 import { CenteredPageLayout } from '@/layouts/shared';
+
+/** Local calendar day (`YYYY-MM-DD`) — string-compared to `dueDate` so timezones
+ * never shift the overdue boundary. */
+const todayStr = () => new Date().toLocaleDateString('en-CA');
+const formatDueDate = (day: string) =>
+  new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 
 /** One task's detail. The body is the shared <IssueDetail> (main column +
  * Properties sidebar) — identical layout to Bug detail; only the sidebar rows
@@ -35,6 +47,35 @@ export function TaskDetailPage() {
   // Columns come from the team that owns this task.
   const columns = useTeamStatuses(task?.teamId, TeamIssueType.TASK);
   const statusCol = columns.find((c) => c.key === task?.status);
+
+  // Breadcrumb parent: the task's own team board when resolvable, so the crumb
+  // tells you which team the task belongs to — falls back to "My Tasks" if the
+  // task has no resolvable team. The leading icon follows suit: a skeleton
+  // while teams are still loading (never a guessed icon), the team's own
+  // symbol once resolved, or — for a genuinely team-less task — the current
+  // user's own avatar, matching the sidebar's "Assigned to me" treatment.
+  const { data: teams, isLoading: teamsLoading } = useTeams();
+  const team = teams?.find((tm) => tm.id === task?.teamId);
+  const parent = team
+    ? { to: `/teams/${team.id}`, label: team.name }
+    : { to: '/tasks', label: t('tasks.myTasks') };
+  const leadingIcon = teamsLoading ? (
+    <Skeleton className="size-4 shrink-0 rounded-full" />
+  ) : team ? (
+    <span className="flex h-5 w-5 items-center justify-center rounded-sm hover:bg-accent/60 hover:text-accent-foreground">
+      <TeamIconPicker team={team} readOnly size={16} className="shrink-0 text-muted-foreground" />
+    </span>
+  ) : user ? (
+    <span
+      className="grid size-4 shrink-0 place-items-center rounded-full bg-primary text-[8px] font-semibold text-primary-foreground flex h-5 w-5 items-center justify-center rounded-sm hover:bg-accent/60 hover:text-accent-foreground"
+    >
+      {initials(user.name, user.email)}
+    </span>
+  ) : (
+    <span className="flex h-5 w-5 items-center justify-center rounded-sm hover:bg-accent/60 hover:text-accent-foreground">
+      <Icon name="tasks" size={16} className="shrink-0" />
+    </span>
+  );
 
   const save = (input: Parameters<typeof update.mutate>[0]['input']) =>
     task && update.mutate({ id: task.id, input });
@@ -66,8 +107,8 @@ export function TaskDetailPage() {
           parent is named here. */}
       <PageHeader
         title={task.shortId || task.title}
-        parent={{ to: '/tasks', label: t('tasks.myTasks') }}
-        leading={<Icon name="tasks" size={16} className="shrink-0 text-muted-foreground" />}
+        parent={parent}
+        leading={leadingIcon}
       />
 
       <IssueDetail
@@ -125,7 +166,7 @@ export function TaskDetailPage() {
             </PropField>
 
             <PropField label={t('tasks.assignee')}>
-              {isAdmin ? (
+              {canWrite ? (
                 <Combobox
                   value={task.assigneeId || ''}
                   onChange={(v) => save({ assigneeId: v })}
@@ -135,20 +176,61 @@ export function TaskDetailPage() {
                     ...users.map((u) => ({ value: u.id, label: u.name })),
                   ]}
                 />
-              ) : canWrite ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() =>
-                    save({ assigneeId: task.assigneeId === user?.id ? '' : user?.id ?? '' })
-                  }
-                >
-                  {task.assigneeId === user?.id ? t('tasks.assignedYou') : t('tasks.assignMe')}
-                </Button>
               ) : (
                 <span className="text-sm">{task.assigneeName || t('tasks.unassigned')}</span>
+              )}
+            </PropField>
+
+            <PropField label={t('tasks.dueDate')}>
+              {canWrite ? (
+                <DatePicker
+                  value={task.dueDate}
+                  onChange={(v) => save({ dueDate: v })}
+                  placeholder={t('tasks.noDueDate')}
+                />
+              ) : task.dueDate ? (
+                <span
+                  className={cn(
+                    'text-sm',
+                    task.dueDate < todayStr() &&
+                      task.status !== TaskStatus.DONE &&
+                      'font-medium text-destructive',
+                  )}
+                >
+                  {formatDueDate(task.dueDate)}
+                </span>
+              ) : (
+                <span className="text-sm text-muted-foreground">{t('tasks.noDueDate')}</span>
+              )}
+            </PropField>
+
+            <PropField label={t('tasks.estimate')}>
+              {canWrite ? (
+                <Combobox
+                  value={String(task.estimate || 0)}
+                  onChange={(v) => save({ estimate: Number(v) })}
+                  placeholder={t('tasks.noEstimate')}
+                  searchPlaceholder={t('tasks.setEstimateTo')}
+                  options={[
+                    {
+                      value: '0',
+                      label: t('tasks.noEstimate'),
+                      icon: <Circle className="size-3.5 text-muted-foreground" />,
+                    },
+                    ...TASK_ESTIMATES.map((v) => ({
+                      value: String(v),
+                      label: taskEstimateLabel(v),
+                      icon: <Triangle className="size-3 fill-current text-muted-foreground" />,
+                    })),
+                  ]}
+                />
+              ) : task.estimate ? (
+                <span className="flex items-center gap-2 text-sm">
+                  <Triangle className="size-3 fill-current text-muted-foreground" />
+                  {taskEstimateLabel(task.estimate)}
+                </span>
+              ) : (
+                <span className="text-sm text-muted-foreground">{t('tasks.noEstimate')}</span>
               )}
             </PropField>
 

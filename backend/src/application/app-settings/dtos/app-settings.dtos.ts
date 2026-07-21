@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -16,16 +17,86 @@ import {
 } from 'class-validator';
 import { BugStatusConfig } from '@application/bugs/domain/enums/bug.enums';
 import { TaskStatusConfig, TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
-import { WebhookConfig } from '../domain/webhook.types';
+import { WebhookConfig, WebhookEvent, WebhookProvider } from '../domain/webhook.types';
 import { StorageProvider } from '../domain/storage.types';
 
 /** Column `key` slug — lowercase alnum + dashes. Built-ins fit this too. */
 const STATUS_KEY = /^[a-z0-9][a-z0-9-]*$/;
 
-export class UpdateWebhooksDto {
-  @ApiProperty({ type: 'array', items: { type: 'object' } })
+/** Maps a workspace member to their chat-platform id, for @mentions. */
+export class WebhookMemberMappingDto {
+  @ApiProperty({ example: 'a1b2c3d4' })
+  @IsString()
+  @MaxLength(120)
+  userId: string;
+
+  @ApiProperty({ example: '7553095341206175776', description: 'Lark open_id / Telegram user id.' })
+  @IsString()
+  @MaxLength(200)
+  providerUserId: string;
+
+  @ApiProperty({ example: 'Felix' })
+  @IsString()
+  @MaxLength(120)
+  displayName: string;
+}
+
+/** One outbound webhook. `url` is used by Lark; `botToken`+`chatId` by Telegram. */
+export class WebhookConfigDto {
+  @ApiProperty({ example: 'a1b2c3' })
+  @IsString()
+  @MaxLength(64)
+  id: string;
+
+  @ApiProperty({ enum: WebhookProvider, example: WebhookProvider.LARK })
+  @IsEnum(WebhookProvider)
+  provider: WebhookProvider;
+
+  @ApiProperty({ example: 'Lark' })
+  @IsString()
+  @MaxLength(120)
+  name: string;
+
+  @ApiProperty({ example: 'https://open.larksuite.com/open-apis/bot/v2/hook/xxxx' })
+  @IsString()
+  @MaxLength(1000)
+  url: string;
+
+  @ApiProperty({ required: false, description: 'Telegram bot token.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  botToken?: string;
+
+  @ApiProperty({ required: false, description: 'Telegram chat id the bot posts to.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  chatId?: string;
+
+  @ApiProperty({ enum: WebhookEvent, isArray: true })
   @IsArray()
-  webhooks: WebhookConfig[];
+  @IsEnum(WebhookEvent, { each: true })
+  events: WebhookEvent[];
+
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  enabled: boolean;
+
+  @ApiProperty({ type: [WebhookMemberMappingDto], required: false })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WebhookMemberMappingDto)
+  memberMappings?: WebhookMemberMappingDto[];
+}
+
+export class UpdateWebhooksDto {
+  @ApiProperty({ type: [WebhookConfigDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WebhookConfigDto)
+  webhooks: WebhookConfigDto[];
 }
 
 /** One board column: a slug `key` (built-in or custom) + editable label/color. */

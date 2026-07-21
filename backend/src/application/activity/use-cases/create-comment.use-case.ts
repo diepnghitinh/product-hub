@@ -2,6 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { IBugRepository } from '@application/bugs/repositories/bug.repository';
+import { INotifier } from '@application/webhooks/notifier.port';
+import { WebhookEvent } from '@application/app-settings/domain/webhook.types';
 import { CreateCommentDto } from '../dtos/create-comment.dto';
 import { CommentEntity } from '../domain/entities/comment.entity';
 import { ICommentRepository } from '../repositories/comment.repository';
@@ -21,6 +23,7 @@ export class CreateCommentUseCase
   constructor(
     @Inject(ICommentRepository) private readonly comments: ICommentRepository,
     @Inject(IBugRepository) private readonly bugs: IBugRepository,
+    @Inject(INotifier) private readonly notifier: INotifier,
   ) {}
 
   async execute({
@@ -46,6 +49,17 @@ export class CreateCommentUseCase
 
     const comment = created.getValue();
     await this.comments.append(comment);
+
+    // Best-effort @mention ping to the workspace's chat channels.
+    if (comment.mentions.length) {
+      await this.notifier.notify(
+        tenantId,
+        WebhookEvent.COMMENT_MENTION,
+        `💬 ${authorName} mentioned you on: ${bug.title}`,
+        { mentionUserIds: comment.mentions },
+      );
+    }
+
     return Result.ok(comment);
   }
 }

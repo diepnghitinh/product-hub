@@ -82,7 +82,7 @@ export function KanbanCard({
       className={cn(
         // Sits on the column's wash, so it needs less of its own weight: a
         // hairline border and a soft lift rather than a full card border.
-        'flex flex-col gap-2 rounded-lg border border-border/60 bg-card p-3 text-card-foreground shadow-sm transition-shadow hover:shadow-md',
+        'flex flex-col gap-2 rounded-lg border border-border/60 bg-card text-card-foreground shadow-sm transition-shadow hover:shadow-md',
         overlay && 'w-[256px] rotate-3 cursor-grabbing shadow-2xl',
         className,
       )}

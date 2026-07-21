@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
-import { TaskStatus } from '../domain/enums/task.enums';
+import { IsEnum, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { TASK_ESTIMATE_VALUES, TaskStatus } from '../domain/enums/task.enums';
 
 export class CreateTaskDto {
   @ApiProperty({ example: 'Wire the passkey ceremony to the auth endpoint' })
@@ -48,6 +48,14 @@ export class CreateTaskDto {
   @IsOptional()
   @IsString()
   dueDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Size estimate in points (0 = no estimate)',
+    enum: TASK_ESTIMATE_VALUES,
+  })
+  @IsOptional()
+  @IsIn(TASK_ESTIMATE_VALUES)
+  estimate?: number;
 
   @ApiPropertyOptional({ description: "Team whose issue list to create in (defaults to the workspace's team for this type)" })
   @IsOptional()

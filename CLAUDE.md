@@ -75,7 +75,8 @@ Every board — Bugs, My Tasks, Roadmap — must read as one product. All three 
 the same two components. **Compose them; never hand-roll board chrome.**
 
 - **`components/IssueBoardLayout.tsx`** — the page shell. Owns the full-height root, the
-  title/actions (which portal into the app topbar via `PageHeader`), the **view switch**, and
+  title/actions (which portal into the app topbar via `PageHeader`), the **view switch** (a
+  sub-header tab strip beneath the topbar, ClickUp-style — underlined, icon-led tabs), and
   the toolbar row, which holds *only* what narrows the list (`search · filters`). A board with
   nothing to narrow gets no toolbar. Don't rebuild any of it inside a page.
 - **`components/KanbanBoard.tsx`** — the board. Owns column width/spacing, the colour-dot

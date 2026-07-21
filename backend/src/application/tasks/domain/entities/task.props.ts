@@ -27,6 +27,8 @@ export interface TaskProps {
   createdByName: string;
   /** Optional due date as an ISO `YYYY-MM-DD` string ('' when unset). */
   dueDate: string;
+  /** Points on the Fibonacci-ish scale (1,2,3,5,8,13,21); `0` means unset. */
+  estimate: number;
   /** Position within its status group. */
   order: number;
   createdAt: Date;

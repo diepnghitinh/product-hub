@@ -1,0 +1,67 @@
+# compiled output
+/dist
+/node_modules
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS
+.DS_Store
+
+# AgentMemory local storage
+/data
+
+# Tests
+/coverage
+/.nyc_output
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+/.gitmodules
+.vscode
+cursor
+
+.env.dev
+.env.prod
+.env
+
+# Debug
+/3rd
+
+# Temporary files
+/tmp/*
+
+# Terminal Paste Image folder
+.cp-images/
+.gitnexus
+
+# playwright
+.playwright-mcp
+
+# agentmemory MCP local LMDB store (file-based, machine-local)
+/data/
+/prompt/
+/design/
+/docs/
+/features/
+/fixes/

@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RoadmapDifficulty, RoadmapItemStatus } from '../domain/enums/roadmap.enums';
 
 /** A person assigned to a roadmap item (denormalized id + name). */
@@ -31,6 +31,11 @@ export class RoadmapItemDto {
   @ApiProperty() startDate: string;
   @ApiProperty({ type: [RoadmapItemAssigneeDto] }) assignees: RoadmapItemAssigneeDto[];
   @ApiProperty({ description: 'Derived RICE score' }) rice: number;
+  @ApiProperty({ description: 'When the item was created (ISO)' }) createdAt: string;
+  @ApiPropertyOptional({ description: 'When work first started (ISO), once In progress' })
+  startedAt?: string;
+  @ApiPropertyOptional({ description: 'When the item was completed (ISO), once Done' })
+  completedAt?: string;
 }
 
 /** Flat roadmap shape. */

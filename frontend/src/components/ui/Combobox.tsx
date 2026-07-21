@@ -3,6 +3,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type ReactNode,
 } from 'react';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
@@ -12,6 +13,8 @@ export interface ComboboxOption {
   label: string;
   value: string;
   disabled?: boolean;
+  /** Rendered before the label, in both the trigger (when selected) and the row. */
+  icon?: ReactNode;
 }
 
 export interface ComboboxProps {
@@ -101,8 +104,14 @@ export function Combobox({
             className,
           )}
         >
-          <span className={cn('truncate', !selected && 'text-muted-foreground')}>
-            {selected ? selected.label : placeholder}
+          <span
+            className={cn(
+              'flex min-w-0 items-center gap-2 truncate',
+              !selected && 'text-muted-foreground',
+            )}
+          >
+            {selected?.icon}
+            <span className="truncate">{selected ? selected.label : placeholder}</span>
           </span>
           <ChevronsUpDown className="size-4 shrink-0 opacity-60" />
         </button>
@@ -145,11 +154,17 @@ export function Combobox({
                   onMouseEnter={() => setActive(i)}
                   onClick={() => !o.disabled && commit(o.value)}
                   className={cn(
-                    'relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none',
+                    'relative flex cursor-pointer select-none items-center gap-2 rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none',
                     i === active && 'bg-accent text-accent-foreground',
                     o.disabled && 'pointer-events-none opacity-50',
                   )}
                 >
+                  <span className={cn(
+                    'flex h-5 w-5 items-center justify-center rounded-sm',
+                    i === active && 'bg-accent/60 text-accent-foreground'
+                  )}>
+                    {o.icon}
+                  </span>
                   <span className="truncate">{o.label}</span>
                   {o.value === value && (
                     <Check className="absolute right-2 size-4" />

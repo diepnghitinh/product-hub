@@ -118,6 +118,21 @@ function parseListItems(listEl: Element): ListItem[] {
     });
 }
 
+/**
+ * The URL of the first embedded image in a rich-text HTML value (`''` when there
+ * is none). Used to derive a roadmap item's cover from its description — the
+ * first picture in the write-up becomes the card cover. SSR-safe: falls back to
+ * a regex when there's no DOMParser.
+ */
+export function firstImageUrl(html: string): string {
+  if (!html) return '';
+  if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
+    return html.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] ?? '';
+  }
+  const doc = new DOMParser().parseFromString(`<!doctype html><body>${html}`, 'text/html');
+  return doc.querySelector('img')?.getAttribute('src') ?? '';
+}
+
 export function htmlToBlocks(html: string): HtmlEditorBlock[] {
   if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
     return html ? [{ type: 'paragraph', data: { text: html } }] : [];

@@ -64,6 +64,7 @@ export class CreateTaskUseCase
       createdBy,
       createdByName,
       dueDate: dto.dueDate,
+      estimate: dto.estimate,
     });
     if (created.isFailure) return Result.fail(created.error as string);
 

@@ -8,7 +8,7 @@ import {
   TaskLabelConfig,
   DEFAULT_TASK_LABELS,
 } from '@application/tasks/domain/enums/task.enums';
-import { WebhookConfig } from './webhook.types';
+import { WebhookConfig, normalizeWebhook } from './webhook.types';
 import { CloudStorageConfig, defaultStorageConfig } from './storage.types';
 
 interface AppSettingsProps {
@@ -49,7 +49,7 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
       new AppSettingsEntity(
         {
           tenantId: props.tenantId,
-          webhooks: props.webhooks ?? [],
+          webhooks: (props.webhooks ?? []).map(normalizeWebhook),
           // Fall back to the shipped defaults for tenants that predate the field.
           bugStatuses: props.bugStatuses?.length ? props.bugStatuses : DEFAULT_BUG_STATUSES,
           taskStatuses: props.taskStatuses?.length ? props.taskStatuses : DEFAULT_TASK_STATUSES,

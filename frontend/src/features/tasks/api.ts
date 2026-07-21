@@ -30,6 +30,8 @@ export interface CreateTaskInput {
   projectId?: string;
   assigneeId?: string;
   dueDate?: string;
+  /** Points on the estimate scale (see `TASK_ESTIMATES`); `0`/omitted = unset. */
+  estimate?: number;
   /**
    * The team whose list to create in. Must be sent from a team's board —
    * without it the API files the task under the workspace's default task team,
@@ -46,6 +48,7 @@ export interface UpdateTaskInput {
   roadmapItemLabel?: string;
   projectId?: string;
   dueDate?: string;
+  estimate?: number;
   assigneeId?: string;
 }
 

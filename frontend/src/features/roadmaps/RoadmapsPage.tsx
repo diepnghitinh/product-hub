@@ -9,6 +9,7 @@ import { BackLink } from '@/components/BackLink';
 import { timeAgo } from '@/lib/format';
 import type { RoadmapDto } from '@/types/dto';
 import { useCreateRoadmap, useRoadmaps, useUpdateRoadmap } from './api';
+import { RoadmapTimingSummary } from './components/RoadmapTimingSummary';
 import { CenteredPageLayout } from '@/layouts/shared';
 
 const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]';
@@ -100,6 +101,9 @@ export function RoadmapsPage() {
               {r.description && (
                 <p className="text-sm text-muted-foreground">{r.description}</p>
               )}
+              {/* Average lead & cycle time with a month-over-month trend — hidden
+                  until the roadmap has a completed item to measure. */}
+              <RoadmapTimingSummary items={r.items} variant="card" className="mt-1" />
               <div className="mt-2 flex justify-between text-xs text-muted-foreground">
                 <span>
                   {r.itemCount} {t('roadmaps.items')}

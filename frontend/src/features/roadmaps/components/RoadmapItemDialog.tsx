@@ -10,6 +10,8 @@ import {
   Select,
 } from '@/components/ui';
 import { t } from '@/i18n';
+import { firstImageUrl } from '@/lib/editorjs';
+import { daysBetween, formatDate } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import { useUsers } from '@/features/users/api';
 import { TaskPanel } from '@/features/tasks/components/TaskPanel';
@@ -98,6 +100,14 @@ export function RoadmapItemDialog({
   const assignedIds = new Set(form.assignees.map((a) => a.id));
   const addableUsers = users.filter((u) => !assignedIds.has(u.id));
 
+  // Cycle & lead time — read from the persisted `item` (the backend stamps these
+  // on status change), so they reflect the saved state, not the in-dialog draft.
+  // A duration is shown only once both ends exist; otherwise a dash.
+  const dur = (from?: string, to?: string) =>
+    from && to ? (daysBetween(from, to) === 0 ? t('roadmaps.underDay') : `${daysBetween(from, to)}d`) : '—';
+  const leadTime = dur(item?.createdAt, item?.completedAt);
+  const cycleTime = dur(item?.startedAt, item?.completedAt);
+
   function addAssignee(id: string) {
     const u = users.find((x) => x.id === id);
     if (!u || assignedIds.has(id)) return;
@@ -107,7 +117,15 @@ export function RoadmapItemDialog({
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!form.title.trim()) return;
-    onSave({ ...form, title: form.title.trim(), rice: Math.round(score) });
+    // The cover mirrors the first picture in the description — "take the first
+    // image as the cover". Re-derived on every save so it never drifts from the
+    // write-up (add/remove/reorder images and the cover follows).
+    onSave({
+      ...form,
+      title: form.title.trim(),
+      rice: Math.round(score),
+      imageUrl: firstImageUrl(form.description),
+    });
   }
 
   return (
@@ -305,6 +323,40 @@ export function RoadmapItemDialog({
             </div>
           </div>
 
+          {/* Cycle & lead time — driven by status, stamped server-side. Shown for a
+              saved item only; a fresh draft has no dates yet. */}
+          {item?.createdAt && (
+            <section className="rounded-xl border border-border p-3">
+              <span className="inline-block rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t('roadmaps.timing')}
+              </span>
+              <dl className="mt-3 space-y-1.5 text-sm">
+                {(
+                  [
+                    { label: t('roadmaps.requested'), value: item.createdAt },
+                    { label: t('roadmaps.started'), value: item.startedAt },
+                    { label: t('roadmaps.completed'), value: item.completedAt },
+                  ] as { label: string; value?: string }[]
+                ).map(({ label, value }) => (
+                  <div key={label} className="flex items-center justify-between gap-2">
+                    <dt className="text-muted-foreground">{label}</dt>
+                    <dd className="tabular-nums">{value ? formatDate(value) : '—'}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
+                  <div className="text-xs text-muted-foreground">{t('roadmaps.leadTime')}</div>
+                  <div className="font-mono text-base font-bold text-primary">{leadTime}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
+                  <div className="text-xs text-muted-foreground">{t('roadmaps.cycleTime')}</div>
+                  <div className="font-mono text-base font-bold text-primary">{cycleTime}</div>
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">{t('roadmaps.timingHint')}</p>
+            </section>
+          )}
         </div>
       </form>
     </Dialog>

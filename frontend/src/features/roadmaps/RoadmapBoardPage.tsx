@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { BarChart3, Clock, Gauge, LayoutGrid, MoreHorizontal, Pencil, Table2, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, Menu, ProgressBar, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
+import { daysSince, formatDate } from '@/lib/format';
+import { firstImageUrl } from '@/lib/editorjs';
 import { t } from '@/i18n';
 import { BackLink } from '@/components/BackLink';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
@@ -14,9 +16,12 @@ import {
 } from '@/components/KanbanBoard';
 import {
   DEFAULT_ROADMAP_COLUMNS,
+  ROADMAP_DIFFICULTY_COLOR,
+  ROADMAP_DIFFICULTY_LABEL,
   ROADMAP_ITEM_STATUS_LABEL,
   RoadmapItemStatus,
 } from '@/types/enums';
+import { RoadmapWorkflowView } from './components/RoadmapWorkflowView';
 import type { RoadmapItem } from '@/types/dto';
 import { RoadmapItemDialog } from './components/RoadmapItemDialog';
 import { RoadmapColumnsDialog } from './components/RoadmapColumnsDialog';
@@ -40,18 +45,58 @@ const STATUS_VARIANT: Record<RoadmapItemStatus, 'muted' | 'warning' | 'success'>
 
 /** Roadmap item card visual — shared by the column list and the lifted drag overlay. */
 export function RoadmapCard({ item, overlay = false }: { item: RoadmapItem; overlay?: boolean }) {
+  // Cover = the item's first description image. Prefer the persisted `imageUrl`,
+  // but fall back to parsing the description so items saved before covers existed
+  // (and the public read-only view) still show one.
+  const cover = item.imageUrl || firstImageUrl(item.description);
   return (
     <KanbanCard overlay={overlay}>
-      <div className="flex items-start justify-between gap-1.5">
-        <span className="min-w-0 text-[13px] leading-snug">{item.title}</span>
-        <Badge variant="secondary" className="shrink-0 font-mono" title="RICE score">
-          {item.rice}
-        </Badge>
+      {cover && (
+        <div
+          aria-hidden
+          style={{ backgroundImage: `url("${cover}")` }}
+          // The cover is a centered background that fills the full-width banner
+          // (background-size: cover — fills and crops the overflow). `bg-muted`
+          // shows through while it loads or behind a transparent image. Full-bleed:
+          // the negative insets cancel KanbanCard's p-3 so it meets the card edges.
+          className="h-28 w-full rounded-t-lg bg-muted bg-cover bg-center bg-no-repeat"
+        />
+      )}
+      <div className="flex flex-col gap-2 p-3">
+        <div className="flex items-start justify-between gap-1.5">
+          <span className="min-w-0 text-[13px] leading-snug">{item.title}</span>
+          <Badge variant="secondary" className="shrink-0 font-mono" title="RICE score">
+            {item.rice}
+          </Badge>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <Badge variant={STATUS_VARIANT[item.status]}>
+            {ROADMAP_ITEM_STATUS_LABEL[item.status]}
+          </Badge>
+          <div className="flex shrink-0 items-center gap-2.5 text-[11px] tabular-nums text-muted-foreground">
+            {/* Difficulty — same dot colour as the item dialog (semantic tokens). */}
+            <span className="flex items-center gap-1" title={t('roadmaps.difficulty')}>
+              <span
+                className="size-2 rounded-full"
+                style={{ backgroundColor: ROADMAP_DIFFICULTY_COLOR[item.difficulty] }}
+                aria-hidden
+              />
+              {ROADMAP_DIFFICULTY_LABEL[item.difficulty]}
+            </span>
+            {/* Age since creation — how long the item has sat, e.g. "5d" / "10d". */}
+            {item.createdAt && (
+              <span
+                className="flex items-center gap-1"
+                title={`${t('roadmaps.createdOn')} ${formatDate(item.createdAt)}`}
+              >
+                <Clock className="size-3" aria-hidden />
+                {daysSince(item.createdAt) === 0 ? t('roadmaps.ageToday') : `${daysSince(item.createdAt)}d`}
+              </span>
+            )}
+          </div>
+        </div>
+        <ProgressBar value={item.progress} />
       </div>
-      <Badge variant={STATUS_VARIANT[item.status]} className="self-start">
-        {ROADMAP_ITEM_STATUS_LABEL[item.status]}
-      </Badge>
-      <ProgressBar value={item.progress} />
     </KanbanCard>
   );
 }
@@ -111,9 +156,15 @@ export function RoadmapBoardPage() {
   // and is shareable; `board` is the default and kept out of the query for clean URLs.
   const [searchParams, setSearchParams] = useSearchParams();
   const viewParam = searchParams.get('view');
-  const view: 'board' | 'chart' | 'table' =
-    viewParam === 'chart' ? 'chart' : viewParam === 'table' ? 'table' : 'board';
-  const setView = (v: 'board' | 'chart' | 'table') => {
+  const view: 'board' | 'chart' | 'table' | 'workflow' =
+    viewParam === 'chart'
+      ? 'chart'
+      : viewParam === 'table'
+        ? 'table'
+        : viewParam === 'workflow'
+          ? 'workflow'
+          : 'board';
+  const setView = (v: 'board' | 'chart' | 'table' | 'workflow') => {
     const next = new URLSearchParams(searchParams);
     if (v === 'board') next.delete('view');
     else next.set('view', v);
@@ -199,9 +250,10 @@ export function RoadmapBoardPage() {
         value: view,
         onChange: (v) => setView(v as 'board' | 'chart' | 'table'),
         options: [
-          { value: 'board', label: t('roadmaps.viewBoard') },
-          { value: 'chart', label: t('roadmaps.viewChart') },
-          { value: 'table', label: t('roadmaps.viewTable') },
+          { value: 'board', label: t('roadmaps.viewBoard'), icon: <LayoutGrid /> },
+          { value: 'chart', label: t('roadmaps.viewChart'), icon: <BarChart3 /> },
+          { value: 'table', label: t('roadmaps.viewTable'), icon: <Table2 /> },
+          { value: 'workflow', label: t('roadmaps.viewWorkflow'), icon: <Gauge /> },
         ],
       }}
       actions={
@@ -299,6 +351,8 @@ export function RoadmapBoardPage() {
             <div className="mx-auto w-full sm:w-1/2">
               <RoadmapRiceChart items={items} columns={columns} />
             </div>
+          ) : view === 'workflow' ? (
+            <RoadmapWorkflowView items={items} />
           ) : (
             <RoadmapRiceTable
               items={items}

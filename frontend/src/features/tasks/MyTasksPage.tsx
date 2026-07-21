@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { LayoutGrid, List } from 'lucide-react';
 import { Badge, Button, Spinner } from '@/components/ui';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
-import { Icon } from '@/components/Icon';
 import {
   KanbanBoard,
   KanbanCard,
@@ -25,7 +25,6 @@ import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
 import { TaskStatus, TeamIssueType, type TeamStatusConfig } from '@/types/enums';
 import type { TaskDto, TeamDto } from '@/types/dto';
 import { useDeleteTask, useSetTaskStatus, useTasks } from './api';
-import { CreateTaskDialog } from './components/CreateTaskDialog';
 
 /** The engineer's personal queue — every task assigned to them, as a kanban
  * (drag to change status) or a status-grouped list. Tasks can be created
@@ -46,9 +45,16 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
   const navigate = useNavigate();
   // Columns belong to the team that owns this board (default task team when standalone).
   const columns = useTeamStatuses(teamId, TeamIssueType.TASK);
-  const [createOpen, setCreateOpen] = useState(false);
-  // The column '+ Add' was clicked in — the new task opens there.
-  const [createStatus, setCreateStatus] = useState<string | undefined>();
+
+  // Creating opens the full New task page — carrying the board's team, and the
+  // column when added from one, so the draft opens pre-set exactly there.
+  const newTaskHref = (status?: string) => {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    if (teamId) params.set('teamId', teamId);
+    const qs = params.toString();
+    return `/tasks/new${qs ? `?${qs}` : ''}`;
+  };
 
   // Board is the default and kept out of the query for clean URLs; ?view=list
   // survives reloads and is shareable (same pattern as the roadmap board).
@@ -126,8 +132,10 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
 
   return (
     <IssueBoardLayout
-      // Same as Bugs: not in the nav model, so the crumb brings its own icon.
-      titleIcon={titleIcon ?? <Icon name="tasks" size={16} className="shrink-0 text-muted-foreground" />}
+      // Team boards (titleIcon passed in) aren't in the nav model, so they bring
+      // their own icon. Standalone "Assigned to me" IS in the nav model — the
+      // topbar's section icon already covers it, so adding one here would double up.
+      titleIcon={titleIcon}
       title={teamName ?? t('tasks.assignedToMe')}
       subtitle={teamName ? t('teams.issuesSubtitle') : t('tasks.mySubtitle')}
       search={{ value: search, onChange: setSearch, placeholder: t('tasks.search') }}
@@ -138,14 +146,16 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
         value: view,
         onChange: (v) => setView(v as 'board' | 'list'),
         options: [
-          { value: 'board', label: t('tasks.viewBoard') },
-          { value: 'list', label: t('tasks.viewList') },
+          { value: 'board', label: t('tasks.viewBoard'), icon: <LayoutGrid /> },
+          { value: 'list', label: t('tasks.viewList'), icon: <List /> },
         ],
       }}
       actions={
         canWrite || (shareTeam && canManageDelivery) ? (
           <div className="flex items-center gap-2">
-            {canWrite && <Button onClick={() => setCreateOpen(true)}>+ {t('tasks.new')}</Button>}
+            {canWrite && (
+              <Button onClick={() => navigate(newTaskHref())}>+ {t('tasks.new')}</Button>
+            )}
             {shareTeam && <TeamShareMenu team={shareTeam} />}
           </div>
         ) : undefined
@@ -159,7 +169,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
         <div className="mx-4 rounded-xl border border-dashed p-8 text-center md:mx-8">
           <p className="text-muted-foreground">{t('tasks.none')}</p>
           {canWrite && (
-            <Button size="sm" className="mt-3" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" className="mt-3" onClick={() => navigate(newTaskHref())}>
               {t('tasks.new')}
             </Button>
           )}
@@ -189,14 +199,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
                 )
               : undefined
           }
-          onColumnAdd={
-            canWrite
-              ? (col) => {
-                  setCreateStatus(col.key);
-                  setCreateOpen(true);
-                }
-              : undefined
-          }
+          onColumnAdd={canWrite ? (col) => navigate(newTaskHref(col.key)) : undefined}
           addLabel={t('tasks.addToColumn')}
         />
       ) : (
@@ -204,16 +207,6 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
           <TaskList tasks={tasks} columns={columns} />
         </div>
       )}
-
-      <CreateTaskDialog
-        open={createOpen}
-        onClose={() => {
-          setCreateOpen(false);
-          setCreateStatus(undefined);
-        }}
-        defaultStatus={createStatus}
-        teamId={teamId}
-      />
     </IssueBoardLayout>
   );
 }

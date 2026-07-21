@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { LayoutGrid, List } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -191,8 +192,8 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
         value: view,
         onChange: (v) => setView(v as 'board' | 'list'),
         options: [
-          { value: 'board', label: t('tasks.viewBoard') },
-          { value: 'list', label: t('tasks.viewList') },
+          { value: 'board', label: t('tasks.viewBoard'), icon: <LayoutGrid /> },
+          { value: 'list', label: t('tasks.viewList'), icon: <List /> },
         ],
       }}
       actions={

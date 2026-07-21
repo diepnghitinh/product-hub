@@ -53,6 +53,9 @@ export class TaskResponseDto {
   @ApiProperty()
   dueDate: string;
 
+  @ApiProperty({ description: 'Size estimate in points (0 = no estimate)' })
+  estimate: number;
+
   @ApiProperty()
   order: number;
 

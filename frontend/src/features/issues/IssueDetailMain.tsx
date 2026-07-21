@@ -125,10 +125,19 @@ export function IssueDetailMain({
     menuItems && menuItems.length > 0 ? (
       <Menu
         align="right"
-        triggerClassName="size-8 shrink-0 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        triggerClassName="size-9 shrink-0 rounded-md text-muted-foreground transition-colors hover:bg-transparent hover:text-muted-foreground"
         trigger={
           <>
-            <MoreHorizontal className="size-4" aria-hidden />
+            <span className="relative flex h-9 w-9 items-center justify-center">
+              <span
+                className={cn(
+                  'flex h-5 w-5 items-center justify-center rounded-sm',
+                  'hover:bg-accent/60 hover:text-accent-foreground'
+                )}
+              >
+                <MoreHorizontal className="size-4" aria-hidden />
+              </span>
+            </span>
             <span className="sr-only">{t('common.more')}</span>
           </>
         }
@@ -171,6 +180,7 @@ export function IssueDetailMain({
             placeholder={descriptionPlaceholder}
             minHeight={80}
             images
+            className="border-0"
           />
         ) : description ? (
           <div
@@ -207,9 +217,9 @@ export function IssueDetailMain({
               canEdit={canWrite && (c.authorId === currentUserId || isAdmin)}
             />
           ))}
-        </div>
 
-        {canWrite && <IssueComposer subject={subject} issueId={issueId} users={users} />}
+          {canWrite && <IssueComposer subject={subject} issueId={issueId} users={users} />}
+        </div>
       </section>
     </div>
   );
@@ -354,9 +364,7 @@ function IssueCommentItem({
           </div>
         ) : (
           <>
-            {comment.body && (
-              <p className="whitespace-pre-wrap text-sm text-foreground">{comment.body}</p>
-            )}
+            <p className="whitespace-pre-wrap text-sm text-foreground">{comment.body}</p>
             <CommentMedia urls={comment.images} />
           </>
         )}

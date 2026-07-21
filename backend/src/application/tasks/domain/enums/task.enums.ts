@@ -59,3 +59,10 @@ export interface TaskLabelConfig {
 }
 
 export const DEFAULT_TASK_LABELS: TaskLabelConfig[] = [];
+
+/**
+ * Points scale for a task's size estimate (Fibonacci-ish, mirrors Linear).
+ * `0` means unset ("No estimate") — the same zero-as-unset convention as
+ * `dueDate`'s `''`.
+ */
+export const TASK_ESTIMATE_VALUES = [0, 1, 2, 3, 5, 8, 13, 21] as const;

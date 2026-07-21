@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { InfrastructureActivityModule } from '@infrastructure/activity/activity.module';
 import { InfrastructureBugsModule } from '@infrastructure/bugs/bugs.module';
 import { InfrastructureTasksModule } from '@infrastructure/tasks/tasks.module';
+import { InfrastructureWebhooksModule } from '@infrastructure/webhooks/webhooks.module';
 import {
   GetCommentsUseCase,
   CreateCommentUseCase,
@@ -25,7 +26,12 @@ const useCases = [
 ];
 
 @Module({
-  imports: [InfrastructureActivityModule, InfrastructureBugsModule, InfrastructureTasksModule],
+  imports: [
+    InfrastructureActivityModule,
+    InfrastructureBugsModule,
+    InfrastructureTasksModule,
+    InfrastructureWebhooksModule,
+  ],
   providers: [...useCases],
   // Re-export the comment infra so the inbox slice can read mentions.
   exports: [...useCases, InfrastructureActivityModule],

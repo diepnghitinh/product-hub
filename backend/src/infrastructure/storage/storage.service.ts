@@ -41,10 +41,16 @@ export class StorageService implements IStorageService {
     throw new BadRequestException('Choose a storage provider first.');
   }
 
-  /** A collision-proof, path-safe object key under an `uploads/` prefix. */
+  /**
+   * A collision-proof, path-safe object key. Uploads are foldered by day
+   * (`uploads/yyyy-mm-dd/…`, UTC) so a growing bucket stays browsable instead of
+   * one flat list — the same scheme for S3 and Azure, where `/` reads as a
+   * virtual folder. Existing objects keep their old keys; only new keys change.
+   */
   private buildKey(originalName: string): string {
     const safe = originalName.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(-80) || 'file';
-    return `uploads/${uuid()}-${safe}`;
+    const day = new Date().toISOString().slice(0, 10); // yyyy-mm-dd (UTC)
+    return `uploads/${day}/${uuid()}-${safe}`;
   }
 
   private assertS3(config: CloudStorageConfig): void {

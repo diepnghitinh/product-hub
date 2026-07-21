@@ -14,6 +14,7 @@ import { BugDetailPage } from '@/features/bugs/BugDetailPage';
 import { InboxPage } from '@/features/inbox/InboxPage';
 import { MyTasksPage } from '@/features/tasks/MyTasksPage';
 import { MyTaskListView } from '@/features/tasks/MyTaskListView';
+import { NewTaskPage } from '@/features/tasks/NewTaskPage';
 import { TaskDetailPage } from '@/features/tasks/TaskDetailPage';
 import { TeamBoardPage } from '@/features/teams/TeamBoardPage';
 import { RoadmapsPage } from '@/features/roadmaps/RoadmapsPage';
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="/bugs/:bugId" element={<BugDetailPage />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/tasks" element={<MyTasksPage />} />
+          <Route path="/tasks/new" element={<NewTaskPage />} />
           <Route path="/tasks/today" element={<MyTaskListView mode="today" />} />
           <Route path="/tasks/personal" element={<MyTaskListView mode="personal" />} />
           <Route path="/tasks/:taskId" element={<TaskDetailPage />} />

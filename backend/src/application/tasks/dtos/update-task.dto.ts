@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { TASK_ESTIMATE_VALUES } from '../domain/enums/task.enums';
 
 export class UpdateTaskDto {
   @ApiPropertyOptional()
@@ -38,6 +39,14 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsString()
   dueDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Size estimate in points (0 to clear back to "no estimate")',
+    enum: TASK_ESTIMATE_VALUES,
+  })
+  @IsOptional()
+  @IsIn(TASK_ESTIMATE_VALUES)
+  estimate?: number;
 
   @ApiPropertyOptional({ description: 'Assignee user id (empty string to unassign)' })
   @IsOptional()

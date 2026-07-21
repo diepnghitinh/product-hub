@@ -95,6 +95,12 @@ export enum WebhookEvent {
   COMMENT_MENTION = 'comment-mention',
 }
 
+/** Chat platforms a webhook can post to. */
+export enum WebhookProvider {
+  LARK = 'lark',
+  TELEGRAM = 'telegram',
+}
+
 export enum RoadmapPhase {
   NOW = 'now',
   NEXT = 'next',
@@ -464,6 +470,13 @@ export const taskStatusLabel = (key: string): string =>
 export const taskStatusColor = (key: string): string =>
   TASK_STATUS_COLOR[key as TaskStatus] ?? 'hsl(var(--muted-foreground))';
 
+/** Points scale for a task's size estimate (mirrors the backend
+ * `TASK_ESTIMATE_VALUES`). `0` means unset ("No estimate"). */
+export const TASK_ESTIMATES = [1, 2, 3, 5, 8, 13, 21] as const;
+
+export const taskEstimateLabel = (value: number): string =>
+  value === 0 ? 'No estimate' : `${value} ${value === 1 ? 'Point' : 'Points'}`;
+
 /** A tenant-defined task label. No built-ins — a workspace defines its own. */
 export interface TaskLabelConfig {
   /** Stable slug stored on a task; the name/colour are editable. */
@@ -527,6 +540,11 @@ export const DEFAULT_TASK_STATUSES: TaskStatusConfig[] = [
   { key: TaskStatus.TODO, label: 'To do', color: '#6b7280' },
   { key: TaskStatus.IN_PROGRESS, label: 'In progress', color: '#2563eb' },
   { key: TaskStatus.DONE, label: 'Done', color: '#16a34a' },
+];
+
+export const WEBHOOK_PROVIDERS: WebhookProvider[] = [
+  WebhookProvider.LARK,
+  WebhookProvider.TELEGRAM,
 ];
 
 export const WEBHOOK_EVENTS: WebhookEvent[] = [

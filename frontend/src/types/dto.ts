@@ -22,6 +22,7 @@ import {
   TestResult,
   TestType,
   WebhookEvent,
+  WebhookProvider,
 } from './enums';
 
 /** Flat, paginated list envelope returned by list endpoints. */
@@ -301,6 +302,13 @@ export interface RoadmapItem {
   /** Optional start date, ISO `YYYY-MM-DD` ('' when unset). */
   startDate: string;
   assignees: RoadmapAssignee[];
+  /** When the item was created (ISO). Set and preserved server-side; optional
+   *  here only so a freshly-built draft item can omit it before the first save. */
+  createdAt?: string;
+  /** When work first started (status → In progress), ISO; absent until started. */
+  startedAt?: string;
+  /** When the item was completed (status → Done), ISO; absent until done. */
+  completedAt?: string;
 }
 
 export interface RoadmapDto {
@@ -342,6 +350,8 @@ export interface TaskDto {
   createdBy: string;
   createdByName: string;
   dueDate: string;
+  /** Points on the estimate scale (see `TASK_ESTIMATES`); `0` means unset. */
+  estimate: number;
   order: number;
   createdAt: string;
   updatedAt: string;
@@ -400,12 +410,27 @@ export interface CreatedApiKeyDto extends ApiKeyDto {
   key: string;
 }
 
+/** Maps a workspace member to their chat-platform id, so they can be @mentioned. */
+export interface WebhookMemberMapping {
+  userId: string;
+  /** Lark open_id / Telegram numeric user id. */
+  providerUserId: string;
+  displayName: string;
+}
+
 export interface WebhookConfig {
   id: string;
+  provider: WebhookProvider;
   name: string;
+  /** Lark incoming-webhook URL (unused for Telegram). */
   url: string;
+  /** Telegram bot token. */
+  botToken?: string;
+  /** Telegram chat id the bot posts to. */
+  chatId?: string;
   events: WebhookEvent[];
   enabled: boolean;
+  memberMappings?: WebhookMemberMapping[];
 }
 
 // ── Teams ────────────────────────────────────────────────────────────────────

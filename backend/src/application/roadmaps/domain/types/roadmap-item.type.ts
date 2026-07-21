@@ -49,6 +49,18 @@ export interface RoadmapItemData {
   startDate: string;
   /** People assigned (denormalized). */
   assignees: RoadmapAssignee[];
+  /** When the item was first created (ISO). Stamped and then preserved
+   *  server-side across the wholesale item replace, so reordering or editing
+   *  never resets it. Optional because items created before this field existed
+   *  have none stored — the mapper backfills those to the roadmap's own date. */
+  createdAt?: string;
+  /** When the item first entered a started status (in-progress, or straight to
+   *  done), ISO. Set once then preserved; absent until work starts. Drives cycle
+   *  time (startedAt → completedAt). */
+  startedAt?: string;
+  /** When the item first reached Done, ISO. Set once then preserved; absent until
+   *  completed. Drives lead time (createdAt → completedAt). */
+  completedAt?: string;
 }
 
 /** RICE = (reach × impact × confidence) / effort. Effort 0 → score 0. */

@@ -20,6 +20,7 @@ export class TaskMapper {
       createdBy: task.createdBy,
       createdByName: task.createdByName,
       dueDate: task.dueDate,
+      estimate: task.estimate,
       order: task.order,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
