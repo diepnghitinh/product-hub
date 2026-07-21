@@ -6,6 +6,7 @@ export interface CommentDoc {
   tenantId: string;
   bugId: string;
   taskId: string;
+  roadmapItemId: string;
   authorId: string;
   authorName: string;
   body: string;
@@ -19,9 +20,10 @@ export const CommentSchema = new Schema<CommentDoc>(
   {
     _id: { type: String, default: () => uuid() },
     tenantId: { type: String, required: true, index: true },
-    // A comment is on a bug OR a task — one is set, the other ''.
+    // A comment is on a bug OR a task OR a roadmap item — one is set, the rest ''.
     bugId: { type: String, default: '', index: true },
     taskId: { type: String, default: '', index: true },
+    roadmapItemId: { type: String, default: '', index: true },
     authorId: { type: String, default: '' },
     authorName: { type: String, default: '' },
     body: { type: String, required: true },

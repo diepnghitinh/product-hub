@@ -2,7 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
 import type { TeamDto } from '@/types/dto';
 import { defaultStatusesFor } from '@/types/enums';
-import type { TaskLabelConfig, TeamIssueType, TeamStatusConfig } from '@/types/enums';
+import type {
+  CustomFieldConfig,
+  TaskLabelConfig,
+  TeamIssueType,
+  TeamStatusConfig,
+} from '@/types/enums';
 
 /** All teams incl. archived — the nav filters archived out; settings shows them. */
 export function useTeams() {
@@ -52,6 +57,16 @@ export function useUpdateTeamLabels() {
   return useMutation({
     mutationFn: ({ id, labels }: { id: string; labels: TaskLabelConfig[] }) =>
       apiPut<TeamDto>(`/teams/${id}/labels`, { labels }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
+  });
+}
+
+/** Replace a team's custom fields (shared by its tasks/bugs; an empty list clears them). */
+export function useUpdateTeamCustomFields() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, customFields }: { id: string; customFields: CustomFieldConfig[] }) =>
+      apiPut<TeamDto>(`/teams/${id}/custom-fields`, { customFields }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['teams'] }),
   });
 }
@@ -116,4 +131,18 @@ export function useTeamLabels(teamId: string | undefined): TaskLabelConfig[] {
 export function useTeamLabelsLookup(): (teamId: string | undefined) => TaskLabelConfig[] {
   const { data: teams } = useTeams();
   return (teamId) => teams?.find((t) => t.id === teamId)?.labels ?? [];
+}
+
+/**
+ * A team's custom fields (shared by its tasks/bugs). Like labels there are no code
+ * defaults — an empty list is the expected start — so it just reads the team's set.
+ */
+export function useTeamCustomFields(teamId: string | undefined): CustomFieldConfig[] {
+  return useTeamCustomFieldsLookup()(teamId);
+}
+
+/** Same resolution as a function — for lists whose rows span teams. */
+export function useTeamCustomFieldsLookup(): (teamId: string | undefined) => CustomFieldConfig[] {
+  const { data: teams } = useTeams();
+  return (teamId) => teams?.find((t) => t.id === teamId)?.customFields ?? [];
 }

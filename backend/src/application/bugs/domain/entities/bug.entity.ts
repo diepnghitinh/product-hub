@@ -1,6 +1,7 @@
 import { AggregateRoot, UniqueEntityID } from '@core/domain';
 import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
+import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 import { BugAttachment, BugSeverity, BugStatus } from '../enums/bug.enums';
 import { BugProps } from './bug.props';
 
@@ -32,6 +33,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
       order?: number;
       attachments?: BugAttachment[];
       labelKeys?: string[];
+      customFields?: Record<string, CustomFieldValue>;
       createdAt?: Date;
       updatedAt?: Date;
     },
@@ -69,6 +71,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
           order: props.order ?? 0,
           attachments: props.attachments ?? [],
           labelKeys: props.labelKeys ?? [],
+          customFields: props.customFields ?? {},
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
         },
@@ -137,6 +140,9 @@ export class BugEntity extends AggregateRoot<BugProps> {
   get labelKeys(): string[] {
     return this.props.labelKeys;
   }
+  get customFields(): Record<string, CustomFieldValue> {
+    return this.props.customFields;
+  }
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -155,6 +161,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
     reportId?: string;
     attachments?: BugAttachment[];
     labelKeys?: string[];
+    customFields?: Record<string, CustomFieldValue>;
   }): void {
     if (fields.title !== undefined) {
       if (!fields.title.trim()) throw new Error('title cannot be empty');
@@ -169,6 +176,7 @@ export class BugEntity extends AggregateRoot<BugProps> {
     if (fields.reportId !== undefined) this.props.reportId = fields.reportId;
     if (fields.attachments !== undefined) this.props.attachments = fields.attachments;
     if (fields.labelKeys !== undefined) this.props.labelKeys = fields.labelKeys;
+    if (fields.customFields !== undefined) this.props.customFields = fields.customFields;
     this.touch();
   }
 

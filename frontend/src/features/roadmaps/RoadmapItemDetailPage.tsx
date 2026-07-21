@@ -25,6 +25,7 @@ import { TaskPanel } from '@/features/tasks/components/TaskPanel';
 import { taskRefsInText, useLinkTasksByRef } from '@/features/tasks/api';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { ReactionBar } from '@/features/reactions/ReactionBar';
+import { CommentThread } from '@/features/activity/CommentThread';
 import {
   DEFAULT_ROADMAP_COLUMNS,
   FavouriteKind,
@@ -64,14 +65,15 @@ const riceOf = (i: Pick<RoadmapItem, 'reach' | 'impact' | 'confidence' | 'effort
 export function RoadmapItemDetailPage() {
   const { roadmapId, itemId } = useParams<{ roadmapId: string; itemId: string }>();
   const navigate = useNavigate();
-  const { user, canManageDelivery, canEditDelivery: canWrite } = useAuth();
+  const { user, canManageDelivery, canEditDelivery: canWrite, isAdmin } = useAuth();
   useEscapeBack();
 
   const { data: roadmap, isLoading } = useRoadmap(roadmapId);
   const replaceItems = useReplaceRoadmapItems();
   const linkTasks = useLinkTasksByRef();
-  // People list is admin/product-only; only fetch it for those who can assign.
-  const { data: usersData } = useUsers({ limit: 100 }, canManageDelivery);
+  // People list feeds both the assignee picker and comment @-mentions, so fetch
+  // it for anyone who can write here (not just those who can manage assignees).
+  const { data: usersData } = useUsers({ limit: 100 }, canWrite);
   const users = usersData?.items ?? [];
   const { crumbActions } = usePageChrome();
 
@@ -271,6 +273,20 @@ export function RoadmapItemDetailPage() {
             itemId={item.id}
             itemLabel={`${columns.find((c) => c.key === item.phase)?.label ?? item.phase} · ${item.title}`}
           />
+
+          {/* ── Activity ─────────────────────────────────────────────────────── */}
+          <section className="mt-10 border-t pt-6">
+            <h2 className="mb-5 text-base font-semibold">{t('activity.title')}</h2>
+            <div className="flex flex-col gap-5">
+              <CommentThread
+                source={{ kind: 'roadmapItem', roadmapId: roadmap.id, id: item.id }}
+                users={users}
+                canWrite={canWrite}
+                isAdmin={isAdmin}
+                currentUserId={user?.id}
+              />
+            </div>
+          </section>
         </div>
 
         {/* ── Properties sidebar ──────────────────────────────────────────── */}

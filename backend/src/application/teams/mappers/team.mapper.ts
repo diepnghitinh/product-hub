@@ -13,6 +13,7 @@ export class TeamMapper {
       color: team.color,
       statuses: team.statuses,
       labels: team.labels,
+      customFields: team.customFields,
       archived: team.archived,
       isDefault: team.isDefault,
       order: team.order,

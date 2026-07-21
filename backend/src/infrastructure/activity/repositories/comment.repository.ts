@@ -22,6 +22,7 @@ export class CommentRepository
         tenantId: doc.tenantId,
         bugId: doc.bugId,
         taskId: doc.taskId,
+        roadmapItemId: doc.roadmapItemId,
         authorId: doc.authorId,
         authorName: doc.authorName,
         body: doc.body,
@@ -42,6 +43,7 @@ export class CommentRepository
       tenantId: comment.tenantId,
       bugId: comment.bugId,
       taskId: comment.taskId,
+      roadmapItemId: comment.roadmapItemId,
       authorId: comment.authorId,
       authorName: comment.authorName,
       body: comment.body,
@@ -64,6 +66,15 @@ export class CommentRepository
   async findByTask(tenantId: string, taskId: string): Promise<CommentEntity[]> {
     const docs = await this.model
       .find({ tenantId, taskId })
+      .sort({ createdAt: 1 })
+      .lean<CommentDoc[]>()
+      .exec();
+    return docs.map((d) => this.toDomain(d));
+  }
+
+  async findByRoadmapItem(tenantId: string, roadmapItemId: string): Promise<CommentEntity[]> {
+    const docs = await this.model
+      .find({ tenantId, roadmapItemId })
       .sort({ createdAt: 1 })
       .lean<CommentDoc[]>()
       .exec();

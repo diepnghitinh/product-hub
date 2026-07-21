@@ -1,5 +1,6 @@
 import { UniqueEntityID } from '@core/domain';
 import { TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
+import { CustomFieldConfig } from '../enums/custom-field.enums';
 import { TeamIssueType, TeamStatusConfig } from '../enums/team.enums';
 
 export interface TeamProps {
@@ -27,6 +28,12 @@ export interface TeamProps {
    * as given (a missing field on an old doc simply reads back as `[]`).
    */
   labels?: TaskLabelConfig[];
+  /**
+   * The team's own custom fields ({@link CustomFieldConfig}), shared by every
+   * task/bug in the team. Like labels there are no built-ins and no defaults —
+   * an empty list is a valid, expected state (a missing field reads back as `[]`).
+   */
+  customFields?: CustomFieldConfig[];
   /** Archived teams stay (with their issues) but drop out of the nav. */
   archived: boolean;
   /** Display order in the nav. */

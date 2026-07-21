@@ -1,4 +1,5 @@
 import { UniqueEntityID } from '@core/domain';
+import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 import { BugAttachment, BugSeverity, BugStatus } from '../enums/bug.enums';
 
 export interface BugProps {
@@ -33,6 +34,8 @@ export interface BugProps {
   attachments: BugAttachment[];
   /** Keys of the team labels on this bug (a subset of its team's `labels`). */
   labelKeys: string[];
+  /** Values for the team's custom fields, keyed by each field's stable `id`. */
+  customFields: Record<string, CustomFieldValue>;
   createdAt: Date;
   updatedAt: Date;
 }

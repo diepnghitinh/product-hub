@@ -4,6 +4,8 @@ import {
   BugSeverity,
   BugStatus,
   BugStatusConfig,
+  CustomFieldConfig,
+  CustomFieldValue,
   FavouriteKind,
   FeatureStatus,
   InboxKind,
@@ -271,6 +273,8 @@ export interface BugDto {
   attachments: BugAttachment[];
   /** Keys of the team labels on this bug (resolved against its team's `labels`). */
   labelKeys: string[];
+  /** Values for the team's custom fields, keyed by each field's stable `id`. */
+  customFields: Record<string, CustomFieldValue>;
   createdAt: string;
   updatedAt: string;
 }
@@ -378,6 +382,8 @@ export interface TaskDto {
   id: string;
   /** The team that owns this task — drives which board columns apply. */
   teamId: string;
+  /** Parent task id when this is a sub-task ('' for a top-level task). */
+  parentId: string;
   tenantId: string;
   /** Human-friendly per-tenant reference used in URLs, e.g. `TSK-7`. */
   shortId: string;
@@ -398,6 +404,8 @@ export interface TaskDto {
   estimate: number;
   /** Keys of the team labels on this task (resolved against its team's `labels`). */
   labelKeys: string[];
+  /** Values for the team's custom fields, keyed by each field's stable `id`. */
+  customFields: Record<string, CustomFieldValue>;
   order: number;
   createdAt: string;
   updatedAt: string;
@@ -497,6 +505,8 @@ export interface TeamDto {
   statuses: TeamStatusConfig[];
   /** This team's item labels, shared by its tasks/bugs. Empty until defined. */
   labels: TaskLabelConfig[];
+  /** This team's custom fields, shared by its tasks/bugs. Empty until defined. */
+  customFields: CustomFieldConfig[];
   archived: boolean;
   isDefault: boolean;
   order: number;

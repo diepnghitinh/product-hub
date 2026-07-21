@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
-import { Button, MentionTextarea, Menu, RichTextEditor, Textarea, type MenuItem } from '@/components/ui';
+import { Menu, RichTextEditor, type MenuItem } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
@@ -10,20 +10,8 @@ import { FavouriteKind, ReactionTargetType } from '@/types/enums';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { ReactionBar } from '@/features/reactions/ReactionBar';
 import type { CommentDto } from '@/types/dto';
-import {
-  useCreateIssueComment,
-  useDeleteIssueComment,
-  useIssueComments,
-  useUpdateIssueComment,
-  type IssueSubject,
-} from '@/features/activity/api';
-import { useMediaAttachments } from '@/features/uploads/useMediaAttachments';
-import { AttachMediaButton, AttachmentStrip, CommentMedia } from '@/features/activity/CommentMedia';
-
-interface Person {
-  id: string;
-  name: string;
-}
+import { type IssueSubject } from '@/features/activity/api';
+import { CommentThread, Avatar, type Person } from '@/features/activity/CommentThread';
 
 export interface IssueDetailMainProps {
   /** Which thread the comments belong to — routes + cache keys differ. */
@@ -58,21 +46,9 @@ export interface IssueDetailMainProps {
   menuTarget?: 'header' | 'topbar';
   /** When set (and a user is signed in) show a ⭐ pin toggle in the header. */
   favourite?: { kind: FavouriteKind; refId: string; roadmapId?: string };
-}
-
-/** Initial-in-a-circle avatar used across the activity timeline. */
-function Avatar({ name, className }: { name: string; className?: string }) {
-  return (
-    <span
-      className={cn(
-        'grid size-6 shrink-0 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground',
-        className,
-      )}
-      aria-hidden
-    >
-      {(name || '?').charAt(0).toUpperCase()}
-    </span>
-  );
+  /** Optional content rendered between the description and the Activity timeline
+   * — e.g. the task detail's Sub-tasks panel. Bugs pass nothing. */
+  beforeActivity?: ReactNode;
 }
 
 /**
@@ -107,11 +83,8 @@ export function IssueDetailMain({
   menuItems,
   menuTarget = 'header',
   favourite,
+  beforeActivity,
 }: IssueDetailMainProps) {
-  // A public viewer passes `comments` directly, so skip the authed fetch entirely.
-  const { data: fetched } = useIssueComments(subject, issueId, comments === undefined);
-  const thread = comments ?? fetched ?? [];
-
   // The rich editor emits HTML on every keystroke — debounce so we save once the
   // user pauses, not per character, and skip no-op round trips.
   const savedRef = useRef(description);
@@ -232,6 +205,9 @@ export function IssueDetailMain({
         />
       )}
 
+      {/* Optional inset (task detail's Sub-tasks) between description and Activity. */}
+      {beforeActivity}
+
       {/* ── Activity ──────────────────────────────────────────────────────── */}
       <section className="mt-10 border-t pt-6">
         <h2 className="mb-5 text-base font-semibold">{t('activity.title')}</h2>
@@ -248,167 +224,17 @@ export function IssueDetailMain({
             </span>
           </div>
 
-          {thread.map((c) => (
-            <IssueCommentItem
-              key={c.id}
-              subject={subject}
-              issueId={issueId}
-              comment={c}
-              canEdit={canWrite && (c.authorId === currentUserId || isAdmin)}
-            />
-          ))}
-
-          {canWrite && <IssueComposer subject={subject} issueId={issueId} users={users} />}
+          <CommentThread
+            source={subject === 'bug' ? { kind: 'bug', id: issueId } : { kind: 'task', id: issueId }}
+            users={users}
+            canWrite={canWrite}
+            isAdmin={isAdmin}
+            currentUserId={currentUserId}
+            comments={comments}
+          />
         </div>
       </section>
     </div>
   );
 }
 
-/** The comment box: @-mention textarea with drag / paste / pick media. */
-function IssueComposer({
-  subject,
-  issueId,
-  users,
-}: {
-  subject: IssueSubject;
-  issueId: string;
-  users: Person[];
-}) {
-  const create = useCreateIssueComment(subject, issueId);
-  const [body, setBody] = useState('');
-  const [mentionIds, setMentionIds] = useState<string[]>([]);
-  const media = useMediaAttachments();
-
-  function post() {
-    const text = body.trim();
-    if ((!text && media.items.length === 0) || media.busy) return;
-    create.mutate(
-      { body: text, mentions: mentionIds, images: media.urls },
-      {
-        onSuccess: () => {
-          setBody('');
-          setMentionIds([]);
-          media.clear();
-        },
-      },
-    );
-  }
-
-  return (
-    <div
-      className={cn(
-        'mt-5 rounded-lg border bg-card p-2 shadow-sm transition-colors focus-within:border-primary',
-        media.dragging && 'border-primary ring-2 ring-primary/30',
-      )}
-      {...media.dropHandlers}
-    >
-      <MentionTextarea
-        value={body}
-        onChange={setBody}
-        onMentionsChange={setMentionIds}
-        options={users.map((u) => ({ id: u.id, name: u.name }))}
-        placeholder={t('activity.placeholder')}
-        aria-label={t('activity.placeholder')}
-        className="min-h-[60px] resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
-      />
-      <AttachmentStrip items={media.items} busy={media.busy} onRemove={media.remove} className="mt-1" />
-      <div className="mt-1 flex items-center justify-between gap-2 px-1 pb-0.5">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <AttachMediaButton onFiles={media.addFiles} disabled={media.busy} />
-          <span className="truncate text-xs text-muted-foreground">
-            {media.dragging ? t('activity.dropHint') : t('activity.mentionHint')}
-          </span>
-        </div>
-        <Button
-          size="sm"
-          onClick={post}
-          disabled={(!body.trim() && media.items.length === 0) || media.busy}
-          loading={create.isPending}
-        >
-          {t('activity.comment')}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/** One comment in the thread — avatar, inline edit / delete, and any media. */
-function IssueCommentItem({
-  subject,
-  issueId,
-  comment,
-  canEdit,
-}: {
-  subject: IssueSubject;
-  issueId: string;
-  comment: CommentDto;
-  canEdit: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(comment.body);
-  const update = useUpdateIssueComment(subject, issueId);
-  const remove = useDeleteIssueComment(subject, issueId);
-  const edited = comment.updatedAt && comment.updatedAt !== comment.createdAt;
-
-  function saveEdit() {
-    const body = draft.trim();
-    if (!body || body === comment.body) {
-      setEditing(false);
-      return;
-    }
-    update.mutate({ commentId: comment.id, input: { body } }, { onSuccess: () => setEditing(false) });
-  }
-
-  return (
-    <div className="group flex gap-3">
-      <Avatar name={comment.authorName} />
-      <div className="min-w-0 flex-1">
-        <div className="mb-0.5 flex items-baseline gap-2 text-sm">
-          <span className="font-medium">{comment.authorName}</span>
-          <span className="text-xs text-muted-foreground">{timeAgo(comment.createdAt)}</span>
-          {edited && <span className="text-xs text-muted-foreground">· {t('activity.edited')}</span>}
-          {canEdit && !editing && (
-            <span className="ml-auto flex gap-2.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-              <button
-                type="button"
-                className="text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => {
-                  setDraft(comment.body);
-                  setEditing(true);
-                }}
-              >
-                {t('common.edit')}
-              </button>
-              <button
-                type="button"
-                className="text-xs text-muted-foreground hover:text-destructive"
-                onClick={() => confirm(t('activity.confirmDelete')) && remove.mutate(comment.id)}
-              >
-                {t('common.delete')}
-              </button>
-            </span>
-          )}
-        </div>
-        {editing ? (
-          <div className="mt-1 flex flex-col gap-2">
-            <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus />
-            <div className="flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button size="sm" onClick={saveEdit} loading={update.isPending}>
-                {t('common.save')}
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <p className="whitespace-pre-wrap text-sm text-foreground">{comment.body}</p>
-            <CommentMedia urls={comment.images} />
-          </>
-        )}
-      </div>
-    </div>
-  );
-}

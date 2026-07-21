@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
 import { t } from '@/i18n';
 import type { BugAttachment, BugDto, ListResponse } from '@/types/dto';
-import type { BugSeverity, BugStatus } from '@/types/enums';
+import type { BugSeverity, BugStatus, CustomFieldValue } from '@/types/enums';
 
 export interface BugQuery {
   /** Scope to a team's issue list. */
@@ -51,6 +51,8 @@ export interface UpdateBugInput {
   attachments?: BugAttachment[];
   /** Replace the bug's team-label keys ([] clears them). */
   labelKeys?: string[];
+  /** Replace the bug's custom-field values, keyed by field id. */
+  customFields?: Record<string, CustomFieldValue>;
 }
 
 const invalidateKey = ['bugs'];

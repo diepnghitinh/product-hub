@@ -545,6 +545,53 @@ export interface TaskLabelConfig {
   color: string;
 }
 
+/** Kinds of team-defined custom field (Jira/ClickUp-style). Mirrors the backend. */
+export enum CustomFieldType {
+  TEXT = 'text',
+  NUMBER = 'number',
+  SELECT = 'select',
+  DATE = 'date',
+  CHECKBOX = 'checkbox',
+}
+
+export const CUSTOM_FIELD_TYPES: CustomFieldType[] = [
+  CustomFieldType.TEXT,
+  CustomFieldType.NUMBER,
+  CustomFieldType.SELECT,
+  CustomFieldType.DATE,
+  CustomFieldType.CHECKBOX,
+];
+
+/** Type names for the picker (a small controlled vocabulary, like ROLE_LABEL). */
+export const CUSTOM_FIELD_TYPE_LABEL: Record<CustomFieldType, string> = {
+  [CustomFieldType.TEXT]: 'Text',
+  [CustomFieldType.NUMBER]: 'Number',
+  [CustomFieldType.SELECT]: 'Dropdown',
+  [CustomFieldType.DATE]: 'Date',
+  [CustomFieldType.CHECKBOX]: 'Checkbox',
+};
+
+/** True when the field type carries a fixed option list (only `select` does). */
+export function fieldTypeHasOptions(type: CustomFieldType): boolean {
+  return type === CustomFieldType.SELECT;
+}
+
+/**
+ * A team-defined custom field. `id` is the stable key stored in each item's
+ * `customFields` map; name/options/required stay editable. `options` is only
+ * meaningful for a `select` field.
+ */
+export interface CustomFieldConfig {
+  id: string;
+  name: string;
+  type: CustomFieldType;
+  options?: string[];
+  required?: boolean;
+}
+
+/** A stored custom-field value on a task/bug. Date is an ISO `YYYY-MM-DD` string. */
+export type CustomFieldValue = string | number | boolean;
+
 /** What kind of issue list a team owns — its board renders accordingly. */
 export enum TeamIssueType {
   BUG = 'bug',

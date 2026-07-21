@@ -19,6 +19,11 @@ export class CreateTaskDto {
   @IsEnum(TaskStatus)
   status?: TaskStatus;
 
+  @ApiPropertyOptional({ description: 'Parent task id — set to create this as a sub-task' })
+  @IsOptional()
+  @IsString()
+  parentId?: string;
+
   @ApiPropertyOptional({ description: 'Linked roadmap (backlog) id' })
   @IsOptional()
   @IsString()

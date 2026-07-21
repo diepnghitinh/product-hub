@@ -1,6 +1,7 @@
 import { Schema } from 'mongoose';
 import { v4 as uuid } from 'uuid';
 import { BugAttachment, BugSeverity, BugStatus } from '@application/bugs/domain/enums/bug.enums';
+import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 
 export interface BugDoc {
   _id: string;
@@ -24,6 +25,7 @@ export interface BugDoc {
   order: number;
   attachments: BugAttachment[];
   labelKeys: string[];
+  customFields: Record<string, CustomFieldValue>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,6 +57,9 @@ export const BugSchema = new Schema<BugDoc>(
     attachments: { type: [Schema.Types.Mixed], default: [] } as unknown as BugAttachment[],
     // Keys of the team labels on this bug; resolved against its team's `labels`.
     labelKeys: { type: [String], default: [] },
+    // Custom-field values keyed by the team field id; free-form so any field
+    // type's value round-trips. Empty by default.
+    customFields: { type: Schema.Types.Mixed, default: {} },
   },
   { timestamps: true },
 );

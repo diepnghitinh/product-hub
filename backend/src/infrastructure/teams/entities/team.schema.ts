@@ -2,6 +2,7 @@ import { Schema } from 'mongoose';
 import { v4 as uuid } from 'uuid';
 import { TeamIssueType, TeamStatusConfig } from '@application/teams/domain/enums/team.enums';
 import { TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
+import { CustomFieldConfig } from '@application/teams/domain/enums/custom-field.enums';
 import { TEAM_ICONS } from '@application/teams/domain/enums/team-icons';
 
 export interface TeamDoc {
@@ -14,6 +15,7 @@ export interface TeamDoc {
   color?: string | null;
   statuses?: TeamStatusConfig[];
   labels?: TaskLabelConfig[];
+  customFields?: CustomFieldConfig[];
   archived: boolean;
   order: number;
   publicEnabled: boolean;
@@ -42,6 +44,14 @@ export const TeamSchema = new Schema<TeamDoc>(
       type: [{ _id: false, key: String, name: String, color: String }],
       default: undefined,
     },
+    // Custom fields shared by the team's tasks/bugs. No built-ins — empty is valid.
+    // Stored as Mixed rather than a typed subdoc because the fields include the
+    // Mongoose-reserved keys `type` and `required`; the domain `setCustomFields`
+    // guard is the shape authority, so we persist the validated array as-is.
+    customFields: {
+      type: [Schema.Types.Mixed],
+      default: undefined,
+    } as unknown as CustomFieldConfig[],
     archived: { type: Boolean, default: false },
     order: { type: Number, default: 0 },
     publicEnabled: { type: Boolean, default: false },

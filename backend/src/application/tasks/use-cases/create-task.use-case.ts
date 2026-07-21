@@ -51,6 +51,7 @@ export class CreateTaskUseCase
     const created = TaskEntity.create({
       tenantId,
       teamId: dto.teamId || team?.id.toString() || '',
+      parentId: dto.parentId,
       shortId: await this.counter.nextShortId(tenantId, 'TSK'),
       title: dto.title,
       description: dto.description,

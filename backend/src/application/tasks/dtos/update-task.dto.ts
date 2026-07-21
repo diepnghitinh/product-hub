@@ -1,5 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsIn,
+  IsObject,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 import { TASK_ESTIMATE_VALUES } from '../domain/enums/task.enums';
 
 export class UpdateTaskDto {
@@ -14,6 +23,11 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ description: 'Parent task id (empty string to detach from its parent)' })
+  @IsOptional()
+  @IsString()
+  parentId?: string;
 
   @ApiPropertyOptional({ description: 'Linked roadmap (backlog) id' })
   @IsOptional()
@@ -62,4 +76,12 @@ export class UpdateTaskDto {
   @IsString({ each: true })
   @MaxLength(40, { each: true })
   labelKeys?: string[];
+
+  @ApiPropertyOptional({
+    type: Object,
+    description: 'Values for the team custom fields, keyed by field id (replaces the whole map)',
+  })
+  @IsOptional()
+  @IsObject()
+  customFields?: Record<string, CustomFieldValue>;
 }

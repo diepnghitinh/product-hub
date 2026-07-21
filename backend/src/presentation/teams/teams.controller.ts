@@ -17,6 +17,7 @@ import {
   GetTeamsUseCase,
   UpdateTeamStatusesUseCase,
   UpdateTeamLabelsUseCase,
+  UpdateTeamCustomFieldsUseCase,
   UpdateTeamUseCase,
   SetTeamSharingUseCase,
   TEAM_DEFAULT_LOCKED,
@@ -28,6 +29,7 @@ import {
   TeamResponseDto,
   UpdateTeamDto,
   UpdateTeamLabelsDto,
+  UpdateTeamCustomFieldsDto,
   UpdateTeamStatusesDto,
 } from '@application/teams/dtos/team.dtos';
 import { TeamMapper } from '@application/teams/mappers/team.mapper';
@@ -42,6 +44,7 @@ export class TeamsController {
     private readonly updateTeam: UpdateTeamUseCase,
     private readonly updateStatuses: UpdateTeamStatusesUseCase,
     private readonly updateLabels: UpdateTeamLabelsUseCase,
+    private readonly updateCustomFields: UpdateTeamCustomFieldsUseCase,
     private readonly setSharing: SetTeamSharingUseCase,
   ) {}
 
@@ -109,6 +112,23 @@ export class TeamsController {
     @Body() dto: UpdateTeamLabelsDto,
   ): Promise<TeamResponseDto> {
     const result = await this.updateLabels.execute({ tenantId: auth.tenantId, id, dto });
+    if (result.isFailure) {
+      const msg = result.error as string;
+      if (msg === TEAM_NOT_FOUND) throw new EntityNotFoundException(msg);
+      throw new BadRequestException(msg);
+    }
+    return TeamMapper.toResponseDto(result.getValue());
+  }
+
+  @Put(':id/custom-fields')
+  @Roles(Role.ADMIN, Role.PRODUCT)
+  @ApiOperation({ summary: "Replace a team's custom fields (shared by its tasks/bugs; may be empty)" })
+  async setCustomFields(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateTeamCustomFieldsDto,
+  ): Promise<TeamResponseDto> {
+    const result = await this.updateCustomFields.execute({ tenantId: auth.tenantId, id, dto });
     if (result.isFailure) {
       const msg = result.error as string;
       if (msg === TEAM_NOT_FOUND) throw new EntityNotFoundException(msg);

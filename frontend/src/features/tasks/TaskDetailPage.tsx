@@ -10,8 +10,9 @@ import { Icon } from '@/components/Icon';
 import { initials, timeAgo } from '@/lib/format';
 import { useUsers } from '@/features/users/api';
 import { IssueDetail, PropField } from '@/features/issues/IssueDetail';
-import { useTeams, useTeamStatuses, useTeamLabels } from '@/features/teams/api';
+import { useTeams, useTeamStatuses, useTeamLabels, useTeamCustomFields } from '@/features/teams/api';
 import { LabelChips, resolveLabels } from '@/features/labels/LabelChips';
+import { CustomFields } from '@/features/custom-fields/CustomFields';
 import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
 import {
   FavouriteKind,
@@ -25,6 +26,7 @@ import { useDeleteTask, useSetTaskStatus, useTask, useUpdateTask } from './api';
 import { CenteredPageLayout } from '@/layouts/shared';
 import { useRelationActions } from '@/features/issues/useRelationActions';
 import { IssueRelations } from '@/features/issues/IssueRelations';
+import { SubtaskPanel } from './components/SubtaskPanel';
 
 /** Local calendar day (`YYYY-MM-DD`) — string-compared to `dueDate` so timezones
  * never shift the overdue boundary. */
@@ -60,6 +62,8 @@ export function TaskDetailPage() {
   const statusCol = columns.find((c) => c.key === task?.status);
   // Labels are the task's team's own set — the same source the settings editor writes.
   const teamLabels = useTeamLabels(task?.teamId);
+  // Custom fields, likewise, come from the task's team.
+  const teamCustomFields = useTeamCustomFields(task?.teamId);
 
   // Breadcrumb parent: the task's own team board when resolvable, so the crumb
   // tells you which team the task belongs to — falls back to "My Tasks" if the
@@ -143,6 +147,7 @@ export function TaskDetailPage() {
         users={users}
         onSaveTitle={(title) => save({ title })}
         onSaveDescription={(description) => save({ description })}
+        beforeActivity={<SubtaskPanel parentId={task.id} teamId={task.teamId} />}
         menuTarget="topbar"
         menuItems={
           canWrite
@@ -218,6 +223,13 @@ export function TaskDetailPage() {
                 <span className="text-sm text-muted-foreground">—</span>
               )}
             </PropField>
+
+            <CustomFields
+              fields={teamCustomFields}
+              values={task.customFields ?? {}}
+              canWrite={canWrite}
+              onChange={(next) => save({ customFields: next })}
+            />
 
             <PropField label={t('tasks.dueDate')}>
               {canWrite ? (

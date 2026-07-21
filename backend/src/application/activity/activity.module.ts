@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { InfrastructureActivityModule } from '@infrastructure/activity/activity.module';
 import { InfrastructureBugsModule } from '@infrastructure/bugs/bugs.module';
 import { InfrastructureTasksModule } from '@infrastructure/tasks/tasks.module';
+import { InfrastructureRoadmapsModule } from '@infrastructure/roadmaps/roadmaps.module';
 import { InfrastructureWebhooksModule } from '@infrastructure/webhooks/webhooks.module';
 import {
   GetCommentsUseCase,
@@ -12,6 +13,10 @@ import {
   CreateTaskCommentUseCase,
   UpdateTaskCommentUseCase,
   DeleteTaskCommentUseCase,
+  GetRoadmapItemCommentsUseCase,
+  CreateRoadmapItemCommentUseCase,
+  UpdateRoadmapItemCommentUseCase,
+  DeleteRoadmapItemCommentUseCase,
 } from './use-cases';
 
 const useCases = [
@@ -23,6 +28,10 @@ const useCases = [
   CreateTaskCommentUseCase,
   UpdateTaskCommentUseCase,
   DeleteTaskCommentUseCase,
+  GetRoadmapItemCommentsUseCase,
+  CreateRoadmapItemCommentUseCase,
+  UpdateRoadmapItemCommentUseCase,
+  DeleteRoadmapItemCommentUseCase,
 ];
 
 @Module({
@@ -30,6 +39,7 @@ const useCases = [
     InfrastructureActivityModule,
     InfrastructureBugsModule,
     InfrastructureTasksModule,
+    InfrastructureRoadmapsModule,
     InfrastructureWebhooksModule,
   ],
   providers: [...useCases],

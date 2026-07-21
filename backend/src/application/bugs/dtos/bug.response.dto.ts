@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 import { BugAttachment, BugSeverity, BugStatus } from '../domain/enums/bug.enums';
 
 /** Flat bug shape — assignee/reporter names are denormalized so the board reads
@@ -63,6 +64,12 @@ export class BugResponseDto {
 
   @ApiProperty({ type: [String], description: "Keys of the team labels on this bug" })
   labelKeys: string[];
+
+  @ApiProperty({
+    type: Object,
+    description: 'Values for the team custom fields, keyed by each field id',
+  })
+  customFields: Record<string, CustomFieldValue>;
 
   @ApiProperty()
   createdAt: Date;

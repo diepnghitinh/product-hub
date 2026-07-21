@@ -7,6 +7,7 @@ import {
   CreateTeamDto,
   UpdateTeamDto,
   UpdateTeamLabelsDto,
+  UpdateTeamCustomFieldsDto,
   UpdateTeamStatusesDto,
 } from '../dtos/team.dtos';
 import { TeamEntity } from '../domain/entities/team.entity';
@@ -190,6 +191,36 @@ export class UpdateTeamLabelsUseCase
     if (!team) return Result.fail(TEAM_NOT_FOUND);
 
     const set = team.setLabels(dto.labels);
+    if (set.isFailure) return Result.fail(set.error as string);
+
+    await this.teams.save(team);
+    return Result.ok(team);
+  }
+}
+
+@Injectable()
+export class UpdateTeamCustomFieldsUseCase
+  implements
+    IUsecaseExecute<
+      { tenantId: string; id: string; dto: UpdateTeamCustomFieldsDto },
+      Result<TeamEntity>
+    >
+{
+  constructor(@Inject(ITeamRepository) private readonly teams: ITeamRepository) {}
+
+  async execute({
+    tenantId,
+    id,
+    dto,
+  }: {
+    tenantId: string;
+    id: string;
+    dto: UpdateTeamCustomFieldsDto;
+  }): Promise<Result<TeamEntity>> {
+    const team = await this.teams.findById(tenantId, id);
+    if (!team) return Result.fail(TEAM_NOT_FOUND);
+
+    const set = team.setCustomFields(dto.customFields);
     if (set.isFailure) return Result.fail(set.error as string);
 
     await this.teams.save(team);

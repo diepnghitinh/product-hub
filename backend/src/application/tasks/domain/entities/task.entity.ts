@@ -1,6 +1,7 @@
 import { AggregateRoot, UniqueEntityID } from '@core/domain';
 import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
+import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 import { TaskStatus } from '../enums/task.enums';
 import { TaskProps } from './task.props';
 
@@ -15,6 +16,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
     props: {
       tenantId: string;
       teamId?: string;
+      parentId?: string;
       shortId?: string;
       title: string;
       description?: string;
@@ -30,6 +32,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
       dueDate?: string;
       estimate?: number;
       labelKeys?: string[];
+      customFields?: Record<string, CustomFieldValue>;
       order?: number;
       createdAt?: Date;
       updatedAt?: Date;
@@ -51,6 +54,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
           id: id || new UniqueEntityID(),
           tenantId: props.tenantId,
           teamId: props.teamId || '',
+          parentId: props.parentId || '',
           shortId: props.shortId || '',
           title: props.title.trim(),
           description: props.description?.trim() || '',
@@ -66,6 +70,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
           dueDate: props.dueDate || '',
           estimate: props.estimate ?? 0,
           labelKeys: props.labelKeys ?? [],
+          customFields: props.customFields ?? {},
           order: props.order ?? 0,
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
@@ -83,6 +88,9 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
   }
   get teamId(): string {
     return this.props.teamId;
+  }
+  get parentId(): string {
+    return this.props.parentId;
   }
   get shortId(): string {
     return this.props.shortId;
@@ -129,6 +137,9 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
   get labelKeys(): string[] {
     return this.props.labelKeys;
   }
+  get customFields(): Record<string, CustomFieldValue> {
+    return this.props.customFields;
+  }
   get order(): number {
     return this.props.order;
   }
@@ -142,6 +153,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
   applyUpdate(fields: {
     title?: string;
     description?: string;
+    parentId?: string;
     roadmapId?: string;
     roadmapItemId?: string;
     roadmapItemLabel?: string;
@@ -149,12 +161,14 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
     dueDate?: string;
     estimate?: number;
     labelKeys?: string[];
+    customFields?: Record<string, CustomFieldValue>;
   }): void {
     if (fields.title !== undefined) {
       if (!fields.title.trim()) throw new Error('title cannot be empty');
       this.props.title = fields.title.trim();
     }
     if (fields.description !== undefined) this.props.description = fields.description.trim();
+    if (fields.parentId !== undefined) this.props.parentId = fields.parentId;
     if (fields.roadmapId !== undefined) this.props.roadmapId = fields.roadmapId;
     if (fields.roadmapItemId !== undefined) this.props.roadmapItemId = fields.roadmapItemId;
     if (fields.roadmapItemLabel !== undefined) this.props.roadmapItemLabel = fields.roadmapItemLabel;
@@ -162,6 +176,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
     if (fields.dueDate !== undefined) this.props.dueDate = fields.dueDate;
     if (fields.estimate !== undefined) this.props.estimate = fields.estimate;
     if (fields.labelKeys !== undefined) this.props.labelKeys = fields.labelKeys;
+    if (fields.customFields !== undefined) this.props.customFields = fields.customFields;
     this.touch();
   }
 

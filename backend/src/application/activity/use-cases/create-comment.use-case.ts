@@ -52,11 +52,15 @@ export class CreateCommentUseCase
 
     // Best-effort @mention ping to the workspace's chat channels.
     if (comment.mentions.length) {
+      const snippet =
+        comment.body.length > 280 ? `${comment.body.slice(0, 280)}…` : comment.body;
       await this.notifier.notify(
         tenantId,
         WebhookEvent.COMMENT_MENTION,
-        `💬 ${authorName} mentioned you on: ${bug.title}`,
-        { mentionUserIds: comment.mentions },
+        [`💬 ${authorName} mentioned you on: ${bug.title}`, snippet ? `“${snippet}”` : '']
+          .filter(Boolean)
+          .join('\n'),
+        { mentionUserIds: comment.mentions, link: `/bugs/${bug.shortId}` },
       );
     }
 

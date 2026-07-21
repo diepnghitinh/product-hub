@@ -22,9 +22,13 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
+  Checkbox,
   Dialog,
   Input,
+  SaveButton,
+  Select,
   Spinner,
+  TagInput,
 } from '@/components/ui';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
@@ -32,17 +36,26 @@ import { timeAgo } from '@/lib/format';
 import { env } from '@/lib/env';
 import {
   builtinStatusKeys,
+  CUSTOM_FIELD_TYPE_LABEL,
+  CUSTOM_FIELD_TYPES,
+  CustomFieldType,
   defaultStatusesFor,
   defaultTeamIcon,
+  fieldTypeHasOptions,
   TEST_RESULTS,
 } from '@/types/enums';
 import type { CreatedApiKeyDto } from '@/types/dto';
 import { useApiKeys, useGenerateApiKey, useRevokeApiKey } from '@/features/api-keys/api';
 import { TeamsSection } from './TeamsSection';
 import { TeamSymbol } from '@/components/TeamSymbol';
-import { useTeams, useUpdateTeamStatuses, useUpdateTeamLabels } from '@/features/teams/api';
+import {
+  useTeams,
+  useUpdateTeamStatuses,
+  useUpdateTeamLabels,
+  useUpdateTeamCustomFields,
+} from '@/features/teams/api';
 import type { TeamDto } from '@/types/dto';
-import type { TaskLabelConfig } from '@/types/enums';
+import type { CustomFieldConfig, TaskLabelConfig } from '@/types/enums';
 import { CloudStorageSection } from './CloudStorageSection';
 import { WebhooksSection } from './WebhooksSection';
 import { CenteredPageLayout } from '@/layouts/shared';
@@ -195,7 +208,6 @@ function StatusColumnsEditor({
   defaults,
   builtinKeys,
   onSave,
-  saving,
 }: {
   title: string;
   hint: string;
@@ -204,8 +216,7 @@ function StatusColumnsEditor({
   value: StatusColumn[] | undefined;
   defaults: StatusColumn[];
   builtinKeys: Set<string>;
-  onSave: (rows: StatusColumn[]) => void;
-  saving: boolean;
+  onSave: (rows: StatusColumn[]) => Promise<unknown>;
 }) {
   const [rows, setRows] = useState<StatusColumn[]>([]);
   const loading = value === undefined;
@@ -319,13 +330,12 @@ function StatusColumnsEditor({
         )}
       </CardContent>
       <CardFooter className="justify-end">
-        <Button
-          onClick={() => onSave(rows)}
-          loading={saving}
+        <SaveButton
+          onSave={() => onSave(rows)}
           disabled={rows.length === 0 || rows.some((r) => !r.label.trim())}
         >
           {saveLabel}
-        </Button>
+        </SaveButton>
       </CardFooter>
     </Card>
   );
@@ -347,10 +357,10 @@ function TeamSettingsSection({ team }: { team: TeamDto }) {
         value={team.statuses}
         defaults={defaultStatusesFor(team.issueType)}
         builtinKeys={builtinStatusKeys(team.issueType)}
-        onSave={(rows) => save.mutate({ id: team.id, statuses: rows })}
-        saving={save.isPending}
+        onSave={(rows) => save.mutateAsync({ id: team.id, statuses: rows })}
       />
       <TeamLabelsEditor team={team} />
+      <CustomFieldsEditor team={team} />
     </div>
   );
 }
@@ -432,13 +442,130 @@ function TeamLabelsEditor({ team }: { team: TeamDto }) {
         </div>
       </CardContent>
       <CardFooter className="justify-end">
-        <Button
-          onClick={() => save.mutate({ id: team.id, labels: rows })}
-          loading={save.isPending}
+        <SaveButton
+          onSave={() => save.mutateAsync({ id: team.id, labels: rows })}
           disabled={rows.some((r) => !r.name.trim())}
         >
           {t('labels.save')}
-        </Button>
+        </SaveButton>
+      </CardFooter>
+    </Card>
+  );
+}
+
+/** Per-team custom fields (Jira/ClickUp-style). Mirrors the labels editor, with a
+ *  type picker, an optional dropdown-options list, and a "required" toggle. `id` is
+ *  a stable generated slug — the name/type/options stay editable. */
+function CustomFieldsEditor({ team }: { team: TeamDto }) {
+  const save = useUpdateTeamCustomFields();
+  const [rows, setRows] = useState<CustomFieldConfig[]>([]);
+
+  useEffect(() => {
+    setRows(team.customFields ?? []);
+  }, [team.customFields]);
+
+  function update(id: string, patch: Partial<CustomFieldConfig>) {
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+  function changeType(id: string, type: CustomFieldType) {
+    setRows((rs) =>
+      rs.map((r) => {
+        if (r.id !== id) return r;
+        // Seed an empty option list when switching to dropdown; drop it otherwise.
+        const next: CustomFieldConfig = { ...r, type };
+        if (fieldTypeHasOptions(type)) next.options = r.options ?? [];
+        else delete next.options;
+        return next;
+      }),
+    );
+  }
+  function addField() {
+    const taken = new Set(rows.map((r) => r.id));
+    let n = rows.length + 1;
+    while (taken.has(`field-${n}`)) n += 1;
+    setRows((rs) => [...rs, { id: `field-${n}`, name: 'New field', type: CustomFieldType.TEXT }]);
+  }
+  function removeField(id: string) {
+    setRows((rs) => rs.filter((r) => r.id !== id));
+  }
+
+  const invalid =
+    rows.some((r) => !r.name.trim()) ||
+    rows.some((r) => fieldTypeHasOptions(r.type) && !(r.options ?? []).length);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('customFields.title')}</CardTitle>
+        <CardDescription>{t('customFields.teamHint')}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="divide-y rounded-xl border">
+          {rows.length === 0 && (
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              {t('customFields.empty')}
+            </p>
+          )}
+          {rows.map((r) => (
+            <div key={r.id} className="space-y-2 p-3 sm:px-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <Input
+                  className="min-w-0 flex-1 sm:max-w-xs"
+                  value={r.name}
+                  placeholder={t('customFields.namePlaceholder')}
+                  onChange={(e) => update(r.id, { name: e.target.value })}
+                />
+                <Select
+                  className="w-36 shrink-0"
+                  value={r.type}
+                  onValueChange={(v) => changeType(r.id, v as CustomFieldType)}
+                  options={CUSTOM_FIELD_TYPES.map((ct) => ({
+                    value: ct,
+                    label: CUSTOM_FIELD_TYPE_LABEL[ct],
+                  }))}
+                />
+                <label className="flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
+                  <Checkbox
+                    checked={!!r.required}
+                    onCheckedChange={(c) => update(r.id, { required: c === true })}
+                  />
+                  {t('customFields.required')}
+                </label>
+                <button
+                  type="button"
+                  aria-label={t('customFields.remove')}
+                  className="ml-auto grid size-7 place-items-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => removeField(r.id)}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+              {fieldTypeHasOptions(r.type) && (
+                <TagInput
+                  className="sm:max-w-md"
+                  value={r.options ?? []}
+                  onChange={(opts) => update(r.id, { options: opts })}
+                  placeholder={t('customFields.optionsPlaceholder')}
+                  aria-invalid={!(r.options ?? []).length}
+                />
+              )}
+            </div>
+          ))}
+          <div className="p-2">
+            <Button variant="ghost" size="sm" onClick={addField}>
+              <Plus className="mr-1.5 size-3.5" />
+              {t('customFields.add')}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="justify-end">
+        <SaveButton
+          onSave={() => save.mutateAsync({ id: team.id, customFields: rows })}
+          disabled={invalid}
+        >
+          {t('customFields.save')}
+        </SaveButton>
       </CardFooter>
     </Card>
   );

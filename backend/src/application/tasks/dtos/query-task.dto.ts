@@ -31,6 +31,13 @@ export class QueryTaskDto extends PaginationDto {
   @IsString()
   mine?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by parent task id(s) — a task’s sub-tasks', isArray: true })
+  @IsOptional()
+  @TransformQueryArray()
+  @IsArray()
+  @IsString({ each: true })
+  parentId?: string[];
+
   @ApiPropertyOptional({
     description: 'Filter by linked backlog item (roadmap item) id(s)',
     isArray: true,

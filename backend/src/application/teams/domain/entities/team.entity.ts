@@ -3,6 +3,11 @@ import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
 import { TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import {
+  CUSTOM_FIELD_TYPES,
+  CustomFieldConfig,
+  fieldTypeHasOptions,
+} from '../enums/custom-field.enums';
+import {
   DEFAULT_TEAM_KEYS,
   TeamIssueType,
   TeamStatusConfig,
@@ -31,6 +36,7 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
       color?: string | null;
       statuses?: TeamStatusConfig[];
       labels?: TaskLabelConfig[];
+      customFields?: CustomFieldConfig[];
       archived?: boolean;
       order?: number;
       publicEnabled?: boolean;
@@ -67,6 +73,8 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
           statuses: props.statuses?.length ? props.statuses : undefined,
           // Labels have no built-ins or defaults — empty is the expected start.
           labels: props.labels ?? [],
+          // Custom fields, likewise — a team starts with none.
+          customFields: props.customFields ?? [],
           archived: props.archived ?? false,
           order: props.order ?? 0,
           publicEnabled: props.publicEnabled ?? false,
@@ -118,6 +126,10 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
   /** The team's item labels — shared by every task/bug in it. Empty until defined. */
   get labels(): TaskLabelConfig[] {
     return this.props.labels ?? [];
+  }
+  /** The team's custom fields — shared by every task/bug in it. Empty until defined. */
+  get customFields(): CustomFieldConfig[] {
+    return this.props.customFields ?? [];
   }
   get archived(): boolean {
     return this.props.archived;
@@ -202,6 +214,38 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
       name: l.name.trim(),
       color: l.color,
     }));
+    this.touch();
+    return Result.ok();
+  }
+
+  /**
+   * Replace the team's custom fields. Like labels: no built-ins, an empty list is
+   * valid, and `id` is the stable slug stored on each item's value map. We guard
+   * the shape — unique ids, non-empty names, a known type, and a `select` field
+   * must carry at least one (unique) option; options are dropped for other types.
+   */
+  setCustomFields(fields: CustomFieldConfig[]): Result<void> {
+    const ids = fields.map((f) => f.id);
+    if (new Set(ids).size !== ids.length) return Result.fail('Duplicate custom field ids');
+    if (fields.some((f) => !f.name?.trim())) return Result.fail('Custom field names cannot be empty');
+    if (fields.some((f) => !CUSTOM_FIELD_TYPES.includes(f.type)))
+      return Result.fail('Unknown custom field type');
+
+    const cleaned: CustomFieldConfig[] = [];
+    for (const f of fields) {
+      const field: CustomFieldConfig = { id: f.id, name: f.name.trim(), type: f.type };
+      if (fieldTypeHasOptions(f.type)) {
+        const options = (f.options ?? []).map((o) => o.trim()).filter(Boolean);
+        if (!options.length) return Result.fail(`Dropdown field "${field.name}" needs at least one option`);
+        if (new Set(options).size !== options.length)
+          return Result.fail(`Dropdown field "${field.name}" has duplicate options`);
+        field.options = options;
+      }
+      if (f.required) field.required = true;
+      cleaned.push(field);
+    }
+
+    this.props.customFields = cleaned;
     this.touch();
     return Result.ok();
   }

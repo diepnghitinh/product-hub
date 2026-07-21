@@ -1,4 +1,5 @@
 import { UniqueEntityID } from '@core/domain';
+import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 import { TaskStatus } from '../enums/task.enums';
 
 export interface TaskProps {
@@ -6,6 +7,8 @@ export interface TaskProps {
   tenantId: string;
   /** The team whose issue list this task belongs to. */
   teamId: string;
+  /** Parent task id when this is a sub-task ('' for a top-level task). */
+  parentId: string;
   /** Human-friendly per-tenant reference used in URLs, e.g. `TSK-7`. The
    * internal UUID remains the real identity. */
   shortId: string;
@@ -31,6 +34,8 @@ export interface TaskProps {
   estimate: number;
   /** Keys of the team labels on this task (a subset of its team's `labels`). */
   labelKeys: string[];
+  /** Values for the team's custom fields, keyed by each field's stable `id`. */
+  customFields: Record<string, CustomFieldValue>;
   /** Position within its status group. */
   order: number;
   createdAt: Date;

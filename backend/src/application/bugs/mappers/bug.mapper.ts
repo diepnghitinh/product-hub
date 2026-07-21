@@ -24,6 +24,7 @@ export class BugMapper {
       order: bug.order,
       attachments: bug.attachments,
       labelKeys: bug.labelKeys,
+      customFields: bug.customFields,
       createdAt: bug.createdAt,
       updatedAt: bug.updatedAt,
     };

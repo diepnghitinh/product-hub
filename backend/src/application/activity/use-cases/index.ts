@@ -3,3 +3,4 @@ export * from './create-comment.use-case';
 export * from './update-comment.use-case';
 export * from './delete-comment.use-case';
 export * from './task-comment.use-cases';
+export * from './roadmap-item-comment.use-cases';

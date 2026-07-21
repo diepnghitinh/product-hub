@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 import { TaskStatus } from '../domain/enums/task.enums';
 
 /** Flat task shape — assignee/author names are denormalized so a task list reads
@@ -13,6 +14,9 @@ export class TaskResponseDto {
 
   @ApiProperty({ description: 'The team whose issue list this is in' })
   teamId: string;
+
+  @ApiProperty({ description: 'Parent task id when this is a sub-task ("" if top-level)' })
+  parentId: string;
 
   @ApiProperty({ description: 'Human-friendly reference used in URLs', example: 'BUG-12' })
   shortId: string;
@@ -58,6 +62,12 @@ export class TaskResponseDto {
 
   @ApiProperty({ type: [String], description: "Keys of the team labels on this task" })
   labelKeys: string[];
+
+  @ApiProperty({
+    type: Object,
+    description: 'Values for the team custom fields, keyed by each field id',
+  })
+  customFields: Record<string, CustomFieldValue>;
 
   @ApiProperty()
   order: number;

@@ -14,8 +14,9 @@ import {
 } from '@/types/enums';
 import { useUsers } from '@/features/users/api';
 import { IssueDetail, PropField } from '@/features/issues/IssueDetail';
-import { useTeamStatuses, useTeamLabels } from '@/features/teams/api';
+import { useTeamStatuses, useTeamLabels, useTeamCustomFields } from '@/features/teams/api';
 import { LabelChips, resolveLabels } from '@/features/labels/LabelChips';
+import { CustomFields } from '@/features/custom-fields/CustomFields';
 import { useBug, useDeleteBug, useSetBugStatus, useUpdateBug } from '../api';
 import { SeverityBadge } from './SeverityBadge';
 import { useRelationActions } from '@/features/issues/useRelationActions';
@@ -55,6 +56,7 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
   const statusLabel = (k: string) => columns.find((c) => c.key === k)?.label ?? k;
   // Labels are the bug's team's own set — the same source the settings editor writes.
   const teamLabels = useTeamLabels(bug?.teamId);
+  const teamCustomFields = useTeamCustomFields(bug?.teamId);
 
   if (isLoading) {
     return (
@@ -188,6 +190,13 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
               <span className="text-sm text-muted-foreground">—</span>
             )}
           </PropField>
+
+          <CustomFields
+            fields={teamCustomFields}
+            values={bug.customFields ?? {}}
+            canWrite={canWrite}
+            onChange={(next) => save({ customFields: next })}
+          />
 
           <PropField label={t('bugs.type')}>
             {canWrite ? (

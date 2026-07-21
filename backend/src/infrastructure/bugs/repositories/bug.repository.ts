@@ -44,6 +44,7 @@ export class BugRepository
         order: doc.order,
         attachments: doc.attachments,
         labelKeys: doc.labelKeys,
+        customFields: doc.customFields,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
       },
@@ -75,6 +76,7 @@ export class BugRepository
       order: bug.order,
       attachments: bug.attachments,
       labelKeys: bug.labelKeys,
+      customFields: bug.customFields,
       createdAt: bug.createdAt,
       updatedAt: bug.updatedAt,
     };

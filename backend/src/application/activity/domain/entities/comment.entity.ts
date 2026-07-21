@@ -14,6 +14,7 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
       tenantId: string;
       bugId?: string;
       taskId?: string;
+      roadmapItemId?: string;
       authorId: string;
       authorName: string;
       body: string;
@@ -30,7 +31,8 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
     ]);
     if (!guard.succeeded) return Result.fail(guard.message);
     // A comment belongs to exactly one subject — a bug or a task.
-    if (!props.bugId && !props.taskId) return Result.fail('bugId or taskId is required');
+    if (!props.bugId && !props.taskId && !props.roadmapItemId)
+      return Result.fail('bugId, taskId or roadmapItemId is required');
     // A comment needs *something*: text or at least one attachment. A dropped
     // screenshot or short clip can stand on its own, so an empty body is fine
     // as long as there's media.
@@ -46,6 +48,7 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
           tenantId: props.tenantId,
           bugId: props.bugId || '',
           taskId: props.taskId || '',
+          roadmapItemId: props.roadmapItemId || '',
           authorId: props.authorId,
           authorName: props.authorName,
           body,
@@ -70,6 +73,10 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
   }
   get taskId(): string {
     return this.props.taskId;
+  }
+
+  get roadmapItemId(): string {
+    return this.props.roadmapItemId;
   }
   get authorId(): string {
     return this.props.authorId;

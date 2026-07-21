@@ -1,5 +1,6 @@
 // Core primitives (stable public API, shadcn/Radix internals)
 export { Button, buttonVariants, type ButtonProps } from './Button';
+export { SaveButton, type SaveButtonProps } from './SaveButton';
 export { Input } from './Input';
 export { PasswordInput } from './PasswordInput';
 export { Textarea } from './Textarea';

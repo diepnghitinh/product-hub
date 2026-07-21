@@ -14,6 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { TEAM_COLORS, TeamIssueType } from '../domain/enums/team.enums';
+import { CustomFieldType } from '../domain/enums/custom-field.enums';
 import { TEAM_ICONS } from '../domain/enums/team-icons';
 
 /** One board column. */
@@ -69,6 +70,44 @@ export class UpdateTeamLabelsDto {
   @ValidateNested({ each: true })
   @Type(() => TeamLabelDto)
   labels: TeamLabelDto[];
+}
+
+/** One team-defined custom field (shared by the team's tasks/bugs). */
+export class CustomFieldDto {
+  @ApiProperty({ example: 'field-1', description: 'Stable id; never changes once items use it' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  id: string;
+
+  @ApiProperty({ example: 'Story points' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  name: string;
+
+  @ApiProperty({ enum: CustomFieldType, description: 'text · number · select · date · checkbox' })
+  @IsEnum(CustomFieldType)
+  type: CustomFieldType;
+
+  @ApiPropertyOptional({ type: [String], description: 'Choices for a select field (ignored otherwise)' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  options?: string[];
+
+  @ApiPropertyOptional({ description: 'When true, an empty value is flagged on the item' })
+  @IsOptional()
+  @IsBoolean()
+  required?: boolean;
+}
+
+export class UpdateTeamCustomFieldsDto {
+  @ApiProperty({ type: [CustomFieldDto], description: 'The full custom-field list (empty clears them)' })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CustomFieldDto)
+  customFields: CustomFieldDto[];
 }
 
 export class CreateTeamDto {
@@ -152,6 +191,9 @@ export class TeamResponseDto {
 
   @ApiProperty({ type: [TeamLabelDto], description: "This team's item labels (may be empty)" })
   labels: TeamLabelDto[];
+
+  @ApiProperty({ type: [CustomFieldDto], description: "This team's custom fields (may be empty)" })
+  customFields: CustomFieldDto[];
 
   @ApiProperty()
   archived: boolean;

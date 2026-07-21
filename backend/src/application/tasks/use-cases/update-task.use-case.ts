@@ -40,6 +40,7 @@ export class UpdateTaskUseCase
     task.applyUpdate({
       title: dto.title,
       description: dto.description,
+      parentId: dto.parentId,
       roadmapId: dto.roadmapId,
       roadmapItemId: dto.roadmapItemId,
       roadmapItemLabel: dto.roadmapItemLabel,
@@ -47,6 +48,7 @@ export class UpdateTaskUseCase
       dueDate: dto.dueDate,
       estimate: dto.estimate,
       labelKeys: dto.labelKeys,
+      customFields: dto.customFields,
     });
 
     await this.tasks.update(task);

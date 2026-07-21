@@ -25,6 +25,7 @@ import {
   ProgressBar,
   RadioGroup,
   RadioGroupItem,
+  SaveButton,
   Select,
   Switch,
   Table,
@@ -159,6 +160,19 @@ export function DesignPatternsPage() {
               Loading
             </Button>
             <Button disabled>Disabled</Button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* The one save button: spins while saving, then shows a fading
+                "Saved" confirmation. Click it to see the full cycle. */}
+            <SaveButton onSave={() => new Promise((r) => setTimeout(r, 900))}>
+              Save changes
+            </SaveButton>
+            <SaveButton
+              variant="secondary"
+              onSave={() => new Promise((r) => setTimeout(r, 900))}
+            >
+              Save
+            </SaveButton>
           </div>
         </div>
       </Section>

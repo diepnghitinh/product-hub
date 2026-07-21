@@ -4,12 +4,14 @@ import {
   IsArray,
   IsEnum,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 import { BugSeverity } from '../domain/enums/bug.enums';
 
 /** One attachment on a bug — matches the upload endpoint's response shape. */
@@ -95,4 +97,12 @@ export class UpdateBugDto {
   @IsString({ each: true })
   @MaxLength(40, { each: true })
   labelKeys?: string[];
+
+  @ApiPropertyOptional({
+    type: Object,
+    description: 'Values for the team custom fields, keyed by field id (replaces the whole map)',
+  })
+  @IsOptional()
+  @IsObject()
+  customFields?: Record<string, CustomFieldValue>;
 }

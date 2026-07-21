@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
 import { t } from '@/i18n';
 import type { ListResponse, TaskDto } from '@/types/dto';
-import type { TaskStatus } from '@/types/enums';
+import type { CustomFieldValue, TaskStatus } from '@/types/enums';
 
 export interface TaskQuery {
   /** Scope to a team's issue list. */
@@ -13,6 +13,8 @@ export interface TaskQuery {
   assigneeId?: string[];
   /** Tasks assigned to OR created by this user id (the "My Tasks" filter). */
   mine?: string;
+  /** A task's sub-tasks — filter to children of this parent task id. */
+  parentId?: string | string[];
   roadmapItemId?: string | string[];
   roadmapId?: string[];
   projectId?: string[];
@@ -24,6 +26,8 @@ export interface CreateTaskInput {
   description?: string;
   /** Built-in `TaskStatus` or a team's custom column key. Defaults to the first column. */
   status?: TaskStatus | string;
+  /** Set to create this task as a sub-task of the given parent. */
+  parentId?: string;
   roadmapId?: string;
   roadmapItemId?: string;
   roadmapItemLabel?: string;
@@ -43,6 +47,8 @@ export interface CreateTaskInput {
 export interface UpdateTaskInput {
   title?: string;
   description?: string;
+  /** Set/clear the parent task (empty string detaches this sub-task). */
+  parentId?: string;
   roadmapId?: string;
   roadmapItemId?: string;
   roadmapItemLabel?: string;
@@ -52,6 +58,8 @@ export interface UpdateTaskInput {
   assigneeId?: string;
   /** Replace the task's team-label keys ([] clears them). */
   labelKeys?: string[];
+  /** Replace the task's custom-field values, keyed by field id. */
+  customFields?: Record<string, CustomFieldValue>;
 }
 
 /** Refresh both the lists and any open task detail — `['task', id]` doesn't

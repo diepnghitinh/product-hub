@@ -27,6 +27,7 @@ export class TaskRepository
       {
         tenantId: doc.tenantId,
         teamId: doc.teamId,
+        parentId: doc.parentId,
         shortId: doc.shortId,
         title: doc.title,
         description: doc.description,
@@ -42,6 +43,7 @@ export class TaskRepository
         dueDate: doc.dueDate,
         estimate: doc.estimate,
         labelKeys: doc.labelKeys,
+        customFields: doc.customFields,
         order: doc.order,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
@@ -57,6 +59,7 @@ export class TaskRepository
       _id: task.id.toString(),
       tenantId: task.tenantId,
       teamId: task.teamId,
+      parentId: task.parentId,
       shortId: task.shortId,
       title: task.title,
       description: task.description,
@@ -72,6 +75,7 @@ export class TaskRepository
       dueDate: task.dueDate,
       estimate: task.estimate,
       labelKeys: task.labelKeys,
+      customFields: task.customFields,
       order: task.order,
       createdAt: task.createdAt,
       updatedAt: task.updatedAt,
@@ -122,6 +126,7 @@ export class TaskRepository
     // is equivalent to the old equality match for existing callers.
     if (query.status?.length) filter.status = { $in: query.status };
     if (query.assigneeId?.length) filter.assigneeId = { $in: resolveAssignees(query.assigneeId) };
+    if (query.parentId?.length) filter.parentId = { $in: query.parentId };
     if (query.roadmapItemId?.length) filter.roadmapItemId = { $in: query.roadmapItemId };
     if (query.roadmapId?.length) filter.roadmapId = { $in: query.roadmapId };
     if (query.projectId?.length) filter.projectId = { $in: query.projectId };

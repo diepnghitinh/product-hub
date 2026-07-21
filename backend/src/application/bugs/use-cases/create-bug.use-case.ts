@@ -76,17 +76,33 @@ export class CreateBugUseCase
     await this.bugs.save(bug);
 
     // Best-effort outbound notifications (never block the response).
+    const severityLabel: Record<string, string> = {
+      low: 'Low',
+      medium: 'Medium',
+      high: 'High',
+      critical: 'Critical',
+    };
     await this.notifier.notify(
       tenantId,
       WebhookEvent.BUG_CREATED,
-      `🐞 New bug [${bug.severity}]: ${bug.title} — reported by ${reporterName}`,
+      [
+        `🐛 New bug reported: ${bug.title}`,
+        `Severity: ${severityLabel[bug.severity] ?? bug.severity}`,
+        `Type: ${bug.type}`,
+        `Status: ${bug.status}`,
+        `Reporter: ${reporterName}`,
+        assigneeName ? `Assigned to: ${assigneeName}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      { link: `/bugs/${bug.shortId}` },
     );
     if (assigneeName) {
       await this.notifier.notify(
         tenantId,
         WebhookEvent.BUG_ASSIGNED,
-        `📌 Bug assigned to ${assigneeName}: ${bug.title}`,
-        { mentionUserIds: dto.assigneeId ? [dto.assigneeId] : [] },
+        [`📌 Bug assigned: ${bug.title}`, `Status: ${bug.status}`].join('\n'),
+        { mentionUserIds: dto.assigneeId ? [dto.assigneeId] : [], link: `/bugs/${bug.shortId}` },
       );
     }
 

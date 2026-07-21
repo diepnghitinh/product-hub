@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute, Role } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
-import { ITaskRepository } from '@application/tasks/repositories/task.repository';
+import { IRoadmapRepository } from '@application/roadmaps/repositories/roadmap.repository';
 import { INotifier } from '@application/webhooks/notifier.port';
 import { WebhookEvent } from '@application/app-settings/domain/webhook.types';
 import { CreateCommentDto } from '../dtos/create-comment.dto';
@@ -12,42 +12,48 @@ import { COMMENT_FORBIDDEN } from './update-comment.use-case';
 import { COMMENT_DELETE_FORBIDDEN } from './delete-comment.use-case';
 
 /**
- * Task comment thread — the task-side twin of the bug comment use-cases. Shares
- * the `Comment` collection (a comment carries a `bugId` OR a `taskId`); a task
- * comment's mentions are stored but not surfaced in the inbox in v1.
+ * Roadmap-item comment thread — the roadmap-side twin of the bug/task comment
+ * use-cases. Shares the `Comment` collection (a comment carries a `bugId` OR a
+ * `taskId` OR a `roadmapItemId`). A roadmap item lives inside its roadmap's
+ * `items[]`, so create loads the roadmap to validate the item and title the
+ * @mention ping; the other operations key straight off the item id.
  */
 
-export interface CreateTaskCommentRequest {
+export interface CreateRoadmapItemCommentRequest {
   tenantId: string;
-  taskId: string;
+  roadmapId: string;
+  itemId: string;
   authorId: string;
   authorName: string;
   dto: CreateCommentDto;
 }
 
 @Injectable()
-export class CreateTaskCommentUseCase
-  implements IUsecaseExecute<CreateTaskCommentRequest, Result<CommentEntity>>
+export class CreateRoadmapItemCommentUseCase
+  implements IUsecaseExecute<CreateRoadmapItemCommentRequest, Result<CommentEntity>>
 {
   constructor(
     @Inject(ICommentRepository) private readonly comments: ICommentRepository,
-    @Inject(ITaskRepository) private readonly tasks: ITaskRepository,
+    @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
     @Inject(INotifier) private readonly notifier: INotifier,
   ) {}
 
   async execute({
     tenantId,
-    taskId,
+    roadmapId,
+    itemId,
     authorId,
     authorName,
     dto,
-  }: CreateTaskCommentRequest): Promise<Result<CommentEntity>> {
-    const task = await this.tasks.findById(taskId);
-    if (!task || task.tenantId !== tenantId) return Result.fail('Task not found');
+  }: CreateRoadmapItemCommentRequest): Promise<Result<CommentEntity>> {
+    const roadmap = await this.roadmaps.findById(roadmapId);
+    if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
+    const item = roadmap.items.find((i) => i.id === itemId);
+    if (!item) return Result.fail('Roadmap item not found');
 
     const created = CommentEntity.create({
       tenantId,
-      taskId,
+      roadmapItemId: itemId,
       authorId,
       authorName,
       body: dto.body,
@@ -59,19 +65,18 @@ export class CreateTaskCommentUseCase
     const comment = created.getValue();
     await this.comments.append(comment);
 
-    // Best-effort @mention ping to the workspace's chat channels — the task-side
-    // twin of the bug comment notify (Lark/Telegram). Task comments were missing
-    // this, so mentioning someone in a task never reached the channel.
+    // Best-effort @mention ping to the workspace's chat channels — same as bug
+    // and task comments, so a mention on a roadmap item reaches Lark/Telegram too.
     if (comment.mentions.length) {
       const snippet =
         comment.body.length > 280 ? `${comment.body.slice(0, 280)}…` : comment.body;
       await this.notifier.notify(
         tenantId,
         WebhookEvent.COMMENT_MENTION,
-        [`💬 ${authorName} mentioned you on: ${task.title}`, snippet ? `“${snippet}”` : '']
+        [`💬 ${authorName} mentioned you on: ${item.title}`, snippet ? `“${snippet}”` : '']
           .filter(Boolean)
           .join('\n'),
-        { mentionUserIds: comment.mentions, link: `/tasks/${task.shortId}` },
+        { mentionUserIds: comment.mentions, link: `/roadmaps/${roadmapId}/items/${itemId}` },
       );
     }
 
@@ -79,25 +84,28 @@ export class CreateTaskCommentUseCase
   }
 }
 
-export interface GetTaskCommentsRequest {
+export interface GetRoadmapItemCommentsRequest {
   tenantId: string;
-  taskId: string;
+  itemId: string;
 }
 
 @Injectable()
-export class GetTaskCommentsUseCase
-  implements IUsecaseExecute<GetTaskCommentsRequest, Result<CommentEntity[]>>
+export class GetRoadmapItemCommentsUseCase
+  implements IUsecaseExecute<GetRoadmapItemCommentsRequest, Result<CommentEntity[]>>
 {
   constructor(@Inject(ICommentRepository) private readonly comments: ICommentRepository) {}
 
-  async execute({ tenantId, taskId }: GetTaskCommentsRequest): Promise<Result<CommentEntity[]>> {
-    return Result.ok(await this.comments.findByTask(tenantId, taskId));
+  async execute({
+    tenantId,
+    itemId,
+  }: GetRoadmapItemCommentsRequest): Promise<Result<CommentEntity[]>> {
+    return Result.ok(await this.comments.findByRoadmapItem(tenantId, itemId));
   }
 }
 
-export interface UpdateTaskCommentRequest {
+export interface UpdateRoadmapItemCommentRequest {
   tenantId: string;
-  taskId: string;
+  itemId: string;
   commentId: string;
   userId: string;
   role: Role;
@@ -105,21 +113,21 @@ export interface UpdateTaskCommentRequest {
 }
 
 @Injectable()
-export class UpdateTaskCommentUseCase
-  implements IUsecaseExecute<UpdateTaskCommentRequest, Result<CommentEntity>>
+export class UpdateRoadmapItemCommentUseCase
+  implements IUsecaseExecute<UpdateRoadmapItemCommentRequest, Result<CommentEntity>>
 {
   constructor(@Inject(ICommentRepository) private readonly comments: ICommentRepository) {}
 
   async execute({
     tenantId,
-    taskId,
+    itemId,
     commentId,
     userId,
     role,
     dto,
-  }: UpdateTaskCommentRequest): Promise<Result<CommentEntity>> {
+  }: UpdateRoadmapItemCommentRequest): Promise<Result<CommentEntity>> {
     const comment = await this.comments.findById(tenantId, commentId);
-    if (!comment || comment.taskId !== taskId) return Result.fail('Comment not found');
+    if (!comment || comment.roadmapItemId !== itemId) return Result.fail('Comment not found');
     if (comment.authorId !== userId && role !== Role.ADMIN && role !== Role.PRODUCT) {
       return Result.fail(COMMENT_FORBIDDEN);
     }
@@ -130,29 +138,29 @@ export class UpdateTaskCommentUseCase
   }
 }
 
-export interface DeleteTaskCommentRequest {
+export interface DeleteRoadmapItemCommentRequest {
   tenantId: string;
-  taskId: string;
+  itemId: string;
   commentId: string;
   userId: string;
   role: Role;
 }
 
 @Injectable()
-export class DeleteTaskCommentUseCase
-  implements IUsecaseExecute<DeleteTaskCommentRequest, Result<void>>
+export class DeleteRoadmapItemCommentUseCase
+  implements IUsecaseExecute<DeleteRoadmapItemCommentRequest, Result<void>>
 {
   constructor(@Inject(ICommentRepository) private readonly comments: ICommentRepository) {}
 
   async execute({
     tenantId,
-    taskId,
+    itemId,
     commentId,
     userId,
     role,
-  }: DeleteTaskCommentRequest): Promise<Result<void>> {
+  }: DeleteRoadmapItemCommentRequest): Promise<Result<void>> {
     const comment = await this.comments.findById(tenantId, commentId);
-    if (!comment || comment.taskId !== taskId) return Result.fail('Comment not found');
+    if (!comment || comment.roadmapItemId !== itemId) return Result.fail('Comment not found');
     if (comment.authorId !== userId && role !== Role.ADMIN && role !== Role.PRODUCT) {
       return Result.fail(COMMENT_DELETE_FORBIDDEN);
     }
