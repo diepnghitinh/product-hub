@@ -17,8 +17,8 @@ const formatDay = (day: string) =>
   new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
 /**
- * The two flat "My Tasks" sub-views. Both list every task assigned to (or created
- * by) me across all teams; `mode` chooses the slice and grouping:
+ * The two flat "My Tasks" sub-views. Both list every task assigned to me across
+ * all teams; `mode` chooses the slice and grouping:
  *  - `today`    → not-done tasks due today or overdue, split into Overdue / Today.
  *  - `personal` → the whole personal list as one flat, checkable list.
  */

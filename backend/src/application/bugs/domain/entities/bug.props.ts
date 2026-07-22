@@ -28,6 +28,10 @@ export interface BugProps {
   assigneeName: string;
   reporterId: string;
   reporterName: string;
+  /** Optional start date as an ISO `YYYY-MM-DD` string ('' when unset). */
+  startDate: string;
+  /** Optional end / target date as an ISO `YYYY-MM-DD` string ('' when unset). */
+  endDate: string;
   /** Position within its status column. */
   order: number;
   /** Files attached to the bug (screenshots, short screen-recordings). */

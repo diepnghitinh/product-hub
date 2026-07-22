@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
-import { CounterService } from '@module-shared/services/counter.service';
+import { uniqueRef } from '@module-shared/utils/short-id.util';
 import { ITeamRepository } from '@application/teams/repositories/team.repository';
 import { DEFAULT_TEAMS, TeamIssueType } from '@application/teams/domain/enums/team.enums';
 import { IUserRepository } from '@application/users/repositories/user.repository';
@@ -26,7 +26,6 @@ export class CreateBugUseCase
     @Inject(IBugRepository) private readonly bugs: IBugRepository,
     @Inject(IUserRepository) private readonly users: IUserRepository,
     @Inject(INotifier) private readonly notifier: INotifier,
-    private readonly counter: CounterService,
     @Inject(ITeamRepository) private readonly teams: ITeamRepository,
   ) {}
 
@@ -54,7 +53,9 @@ export class CreateBugUseCase
     const created = BugEntity.create({
       tenantId,
       teamId: dto.teamId || team?.id.toString() || '',
-      shortId: await this.counter.nextShortId(tenantId, 'BUG'),
+      shortId: await uniqueRef('BUG', (ref) =>
+        this.bugs.findByRef(tenantId, ref).then((b) => b !== null),
+      ),
       title: dto.title,
       description: dto.description,
       severity: dto.severity,
@@ -69,6 +70,8 @@ export class CreateBugUseCase
       assigneeName,
       reporterId,
       reporterName,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
     });
     if (created.isFailure) return Result.fail(created.error as string);
 

@@ -4,7 +4,6 @@ import {
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
-  GripVertical,
   MoreHorizontal,
   Plus,
   Star,
@@ -639,22 +638,9 @@ function TeamNavItem({
       >
         {team.name}
       </Link>
-      {/* Drag affordance — revealed on hover. The whole row is the drag source;
-          the grip is the cue. Desktop-only (`max-md:hidden`): native drag doesn't
-          fire on touch, so a mobile grip would be a control that does nothing. */}
-      <span
-        aria-hidden
-        title={t('teams.reorder')}
-        className={cn(
-          ACTION,
-          'max-md:hidden cursor-grab active:cursor-grabbing group-hover/team:opacity-100',
-        )}
-      >
-        <GripVertical className="size-3.5" />
-      </span>
       {canManageDelivery && (
         // This team's own settings — where its board columns (statuses) are
-        // owned, since a board can't add one. Revealed on hover like the grip.
+        // owned, since a board can't add one. Revealed on hover.
         <Link
           to={`/admin/settings?tab=team:${team.id}`}
           draggable={false}

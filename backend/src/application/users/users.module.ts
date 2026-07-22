@@ -8,6 +8,8 @@ import {
   DeleteUserUseCase,
   ChangePasswordUseCase,
   ResetUserPasswordUseCase,
+  GetPersonalStatusesUseCase,
+  ReplacePersonalStatusesUseCase,
 } from './use-cases';
 
 const useCases = [
@@ -18,6 +20,8 @@ const useCases = [
   DeleteUserUseCase,
   ChangePasswordUseCase,
   ResetUserPasswordUseCase,
+  GetPersonalStatusesUseCase,
+  ReplacePersonalStatusesUseCase,
 ];
 
 @Module({

@@ -10,6 +10,8 @@
     "start": "node -r ts-node/register/transpile-only -r tsconfig-paths/register src/main.ts",
     "start:dev": "node --watch -r ts-node/register/transpile-only -r tsconfig-paths/register src/main.ts",
     "start:prod": "node dist/src/main",
+    "migrate:issues": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/migrate-issues.ts",
+    "migrate:issues:apply": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/migrate-issues.ts --apply",
     "lint": "eslint \"{src,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch"
@@ -32,6 +34,7 @@
     "exceljs": "^4.4.0",
     "helmet": "^8.1.0",
     "mongoose": "^8.24.1",
+    "nanoid": "^3.3.16",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",

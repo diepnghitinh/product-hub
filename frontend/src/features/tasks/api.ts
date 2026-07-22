@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
 import { t } from '@/i18n';
 import type { ListResponse, TaskDto } from '@/types/dto';
-import type { CustomFieldValue, TaskStatus } from '@/types/enums';
+import type { CustomFieldValue, TaskStatus, TeamStatusConfig } from '@/types/enums';
 
 export interface TaskQuery {
   /** Scope to a team's issue list. */
@@ -11,8 +11,14 @@ export interface TaskQuery {
   /** Multi-value — serialized as repeated keys (`?status=a&status=b`). */
   status?: TaskStatus[];
   assigneeId?: string[];
-  /** Tasks assigned to OR created by this user id (the "My Tasks" filter). */
+  /** Tasks assigned to this user id (the "Assigned to me" / personal views). */
   mine?: string;
+  /**
+   * The caller's *private personal board* — returns only their own personal
+   * tasks (owner taken from the token, never a param). Every other list omits
+   * this, so personal tasks never surface in team/assigned views.
+   */
+  personal?: boolean;
   /** A task's sub-tasks — filter to children of this parent task id. */
   parentId?: string | string[];
   roadmapItemId?: string | string[];
@@ -33,6 +39,11 @@ export interface CreateTaskInput {
   roadmapItemLabel?: string;
   projectId?: string;
   assigneeId?: string;
+  /** Start of the work window, ISO `YYYY-MM-DD`. */
+  startDate?: string;
+  /** End / target date, ISO `YYYY-MM-DD` (the deadline). */
+  endDate?: string;
+  /** @deprecated Legacy alias of `endDate`; prefer `endDate`. */
   dueDate?: string;
   /** Points on the estimate scale (see `TASK_ESTIMATES`); `0`/omitted = unset. */
   estimate?: number;
@@ -42,6 +53,12 @@ export interface CreateTaskInput {
    * not the one you were looking at.
    */
   teamId?: string;
+  /**
+   * Create this as a *private personal* task on the caller's Personal board
+   * (owned by them, in no team). The owner comes from the token; `status` is a
+   * personal-board column key.
+   */
+  personal?: boolean;
 }
 
 export interface UpdateTaskInput {
@@ -53,6 +70,9 @@ export interface UpdateTaskInput {
   roadmapItemId?: string;
   roadmapItemLabel?: string;
   projectId?: string;
+  startDate?: string;
+  endDate?: string;
+  /** @deprecated Legacy alias of `endDate`; prefer `endDate`. */
   dueDate?: string;
   estimate?: number;
   assigneeId?: string;
@@ -110,12 +130,13 @@ export function useUpdateTask() {
 /**
  * Pull task refs out of free text (a roadmap item's description), matching a
  * task link `/tasks/TSK-5` — bare, or inside a full URL/anchor. Returns the
- * unique shortId refs, upper-cased. The prefix is any `<CODE>-<number>`, so it
- * catches `TSK-`/`BUG-` and team-derived codes like `ENG-` alike.
+ * unique shortId refs, upper-cased. A ref is `<CODE>-<id>`: the id is a random
+ * suffix (`TSK-6HCUHKX`) or, for older rows, digits (`TSK-5`), so it catches
+ * `TSK-`/`BUG-` and team-derived codes like `ENG-` alike.
  */
 export function taskRefsInText(text: string): string[] {
   const refs = new Set<string>();
-  const re = /\/tasks\/([A-Za-z]{2,}-\d+)/g;
+  const re = /\/tasks\/([A-Za-z]{2,}-[A-Za-z0-9]+)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) refs.add(m[1].toUpperCase());
   return [...refs];
@@ -202,5 +223,28 @@ export function useDeleteTask() {
   return useMutation({
     mutationFn: (id: string) => apiDelete<{ ok: true }>(`/tasks/${id}`),
     onSuccess: invalidate,
+  });
+}
+
+/**
+ * The columns of the caller's *private personal board*. Per-user (owned via the
+ * token) and shaped exactly like a team's statuses (`{ key, label, color }`), so
+ * the same `KanbanBoard`/`TeamStatusConfig` plumbing renders them. Seeded from
+ * the task defaults for every account.
+ */
+export function usePersonalStatuses() {
+  return useQuery({
+    queryKey: ['personal-statuses'],
+    queryFn: () => apiGet<TeamStatusConfig[]>('/users/me/personal-statuses'),
+  });
+}
+
+/** Replace the caller's personal-board columns (add / rename / recolour / reorder / remove). */
+export function useReplacePersonalStatuses() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (statuses: TeamStatusConfig[]) =>
+      apiPut<TeamStatusConfig[]>('/users/me/personal-statuses', { personalStatuses: statuses }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['personal-statuses'] }),
   });
 }

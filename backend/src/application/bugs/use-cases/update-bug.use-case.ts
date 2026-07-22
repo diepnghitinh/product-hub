@@ -46,6 +46,8 @@ export class UpdateBugUseCase
       caseId: dto.caseId,
       caseLabel: dto.caseLabel,
       reportId: dto.reportId,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
       attachments: dto.attachments,
       labelKeys: dto.labelKeys,
       customFields: dto.customFields,

@@ -8,6 +8,7 @@ import {
   Post,
   Put,
   Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser, Roles } from '@core/decorators';
@@ -22,13 +23,17 @@ import {
   DeleteUserUseCase,
   ChangePasswordUseCase,
   ResetUserPasswordUseCase,
+  GetPersonalStatusesUseCase,
+  ReplacePersonalStatusesUseCase,
 } from '@application/users/use-cases';
 import { CreateUserDto } from '@application/users/dtos/create-user.dto';
 import { UpdateUserDto } from '@application/users/dtos/update-user.dto';
 import { QueryUserDto } from '@application/users/dtos/query-user.dto';
 import { ChangePasswordDto } from '@application/users/dtos/change-password.dto';
 import { ResetPasswordDto } from '@application/users/dtos/reset-password.dto';
+import { ReplacePersonalStatusesDto } from '@application/users/dtos/personal-statuses.dto';
 import { UserResponseDto } from '@application/users/dtos/user.response.dto';
+import { TaskStatusConfig } from '@application/tasks/domain/enums/task.enums';
 import { UserMapper } from '@application/users/mappers';
 
 @ApiTags('Users')
@@ -43,6 +48,8 @@ export class UsersController {
     private readonly deleteUser: DeleteUserUseCase,
     private readonly changePassword: ChangePasswordUseCase,
     private readonly resetUserPassword: ResetUserPasswordUseCase,
+    private readonly getPersonalStatuses: GetPersonalStatusesUseCase,
+    private readonly replacePersonalStatuses: ReplacePersonalStatusesUseCase,
   ) {}
 
   // Self-service — declared before ':id' routes. Any authenticated user.
@@ -55,6 +62,29 @@ export class UsersController {
     const result = await this.changePassword.execute({ userId: auth.userId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return { ok: true };
+  }
+
+  // Personal-board columns are private to each user. Both routes read the owner
+  // from the token, so no one can see or edit another person's board.
+  @Get('me/personal-statuses')
+  @ApiOperation({ summary: 'Get your private personal-board columns' })
+  async getMyPersonalStatuses(
+    @AuthUser() auth: JwtPayload,
+  ): Promise<TaskStatusConfig[]> {
+    const result = await this.getPersonalStatuses.execute({ userId: auth.userId });
+    if (result.isFailure) throw new EntityNotFoundException(result.error as string);
+    return result.getValue();
+  }
+
+  @Put('me/personal-statuses')
+  @ApiOperation({ summary: 'Add / rename / recolour / reorder / remove your personal-board columns' })
+  async putMyPersonalStatuses(
+    @AuthUser() auth: JwtPayload,
+    @Body() dto: ReplacePersonalStatusesDto,
+  ): Promise<TaskStatusConfig[]> {
+    const result = await this.replacePersonalStatuses.execute({ userId: auth.userId, dto });
+    if (result.isFailure) throw new BadRequestException(result.error as string);
+    return result.getValue();
   }
 
   @Get()

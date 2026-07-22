@@ -22,6 +22,14 @@ export interface ComboboxProps {
   /** Selected value (controlled). */
   value?: string;
   onChange: (value: string) => void;
+  /**
+   * A fixed leading icon shown inside the trigger, left of the value — marks
+   * what the field *is* (e.g. an assignee glyph), independent of which option
+   * is picked. When set it *replaces* the selected option's own
+   * {@link ComboboxOption.icon} in the trigger (so the field reads as one
+   * identity icon, not two); the per-option icon still shows in the dropdown.
+   */
+  leadingIcon?: ReactNode;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
@@ -40,6 +48,7 @@ export function Combobox({
   options,
   value,
   onChange,
+  leadingIcon,
   placeholder = 'Select…',
   searchPlaceholder = 'Search…',
   emptyText = 'No results.',
@@ -110,7 +119,13 @@ export function Combobox({
               !selected && 'text-muted-foreground',
             )}
           >
-            {selected?.icon}
+            {leadingIcon ? (
+              <span className="grid size-4 shrink-0 place-items-center text-muted-foreground [&>svg]:size-4">
+                {leadingIcon}
+              </span>
+            ) : (
+              selected?.icon
+            )}
             <span className="truncate">{selected ? selected.label : placeholder}</span>
           </span>
           <ChevronsUpDown className="size-4 shrink-0 opacity-60" />

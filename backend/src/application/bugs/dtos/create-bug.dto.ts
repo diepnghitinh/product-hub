@@ -59,6 +59,16 @@ export class CreateBugDto {
   @IsString()
   assigneeId?: string;
 
+  @ApiPropertyOptional({ description: 'Start date as YYYY-MM-DD' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'End / target date as YYYY-MM-DD' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
   @ApiPropertyOptional({ description: "Team whose issue list to create in (defaults to the workspace's team for this type)" })
   @IsOptional()
   @IsString()

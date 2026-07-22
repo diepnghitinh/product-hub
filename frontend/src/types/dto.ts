@@ -269,6 +269,10 @@ export interface BugDto {
   assigneeName: string;
   reporterId: string;
   reporterName: string;
+  /** Optional start date, ISO `YYYY-MM-DD` ('' when unset). */
+  startDate: string;
+  /** Optional end / target date, ISO `YYYY-MM-DD` ('' when unset). */
+  endDate: string;
   order: number;
   attachments: BugAttachment[];
   /** Keys of the team labels on this bug (resolved against its team's `labels`). */
@@ -357,6 +361,13 @@ export interface RoadmapItem {
   startedAt?: string;
   /** When the item was completed (status → Done), ISO; absent until done. */
   completedAt?: string;
+  /** Linked OKR — the milestone objective (and optionally one key result under it)
+   *  this item advances. Denormalized: `okrLabel` is the leaf title shown on the
+   *  card. Empty strings when unlinked; `keyResultId` is '' at the objective level. */
+  milestoneId: string;
+  objectiveId: string;
+  keyResultId: string;
+  okrLabel: string;
 }
 
 export interface RoadmapDto {
@@ -382,6 +393,10 @@ export interface TaskDto {
   id: string;
   /** The team that owns this task — drives which board columns apply. */
   teamId: string;
+  /** When set, a *private personal* task on this user's Personal board (its
+   *  columns come from the owner's `personalStatuses`, not a team). '' = a
+   *  normal team task. */
+  ownerId: string;
   /** Parent task id when this is a sub-task ('' for a top-level task). */
   parentId: string;
   tenantId: string;
@@ -399,6 +414,12 @@ export interface TaskDto {
   assigneeName: string;
   createdBy: string;
   createdByName: string;
+  /** Optional start date, ISO `YYYY-MM-DD` ('' when unset). */
+  startDate: string;
+  /** Optional end / target date, ISO `YYYY-MM-DD` ('' when unset) — the deadline
+   *  the board sorts and flags overdue on. */
+  endDate: string;
+  /** @deprecated Legacy alias of `endDate`, kept in sync server-side. */
   dueDate: string;
   /** Points on the estimate scale (see `TASK_ESTIMATES`); `0` means unset. */
   estimate: number;

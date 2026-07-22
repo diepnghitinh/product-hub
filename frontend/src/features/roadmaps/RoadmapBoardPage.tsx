@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { BarChart3, CalendarDays, Gauge, LayoutGrid, MoreHorizontal, Table2 } from 'lucide-react';
+import { BarChart3, CalendarDays, Gauge, LayoutGrid, MoreHorizontal, Table2, Target } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, Menu, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -57,6 +57,10 @@ function emptyRoadmapItem(id: string, phase: string): RoadmapItem {
     imageUrl: '',
     startDate: '',
     assignees: [],
+    milestoneId: '',
+    objectiveId: '',
+    keyResultId: '',
+    okrLabel: '',
   };
 }
 
@@ -75,6 +79,15 @@ export function RoadmapCard({ item, overlay = false }: { item: RoadmapItem; over
         <Badge variant="secondary" className="font-mono" title="RICE score">
           {item.rice}
         </Badge>
+      }
+      labels={
+        item.okrLabel ? (
+          // Linked OKR — informational chip (the denormalized objective/KR title).
+          <Badge variant="muted" className="min-w-0 max-w-full gap-1 font-normal" title={item.okrLabel}>
+            <Target className="size-3 shrink-0 text-primary" aria-hidden />
+            <span className="truncate">{item.okrLabel}</span>
+          </Badge>
+        ) : undefined
       }
       metaLeading={
         <Badge variant={STATUS_VARIANT[item.status]}>

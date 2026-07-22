@@ -10,6 +10,12 @@ export { SymbolPicker, type SymbolPickerProps } from './SymbolPicker';
 export { Combobox, type ComboboxOption, type ComboboxProps } from './Combobox';
 export { DotLabel } from './DotLabel';
 export { DatePicker, type DatePickerProps } from './DatePicker';
+export {
+  DateRangePicker,
+  formatDateRange,
+  type DateRange,
+  type DateRangePickerProps,
+} from './DateRangePicker';
 export { RichTextEditor, type RichTextEditorProps } from './RichTextEditor';
 export { MultiSelect, type MultiSelectOption, type MultiSelectProps } from './MultiSelect';
 export { MentionTextarea, type MentionOption } from './MentionTextarea';
@@ -24,6 +30,7 @@ export {
 export { Label } from './Label';
 export { Field } from './Field';
 export { Dialog } from './Dialog';
+export { Drawer } from './Drawer';
 export { Spinner } from './Spinner';
 export { ProgressBar } from './ProgressBar';
 export { Menu, type MenuItem } from './Menu';

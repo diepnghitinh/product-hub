@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutGrid, List } from 'lucide-react';
-import { Badge, Button, Spinner } from '@/components/ui';
+import { CalendarRange, LayoutGrid, List } from 'lucide-react';
+import { Badge, Button, Spinner, Switch } from '@/components/ui';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
+import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
 import { LabelChips } from '@/features/labels/LabelChips';
 import {
   FilterMenu,
@@ -56,22 +57,37 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
     return `/tasks/new${qs ? `?${qs}` : ''}`;
   };
 
-  // Board is the default and kept out of the query for clean URLs; ?view=list
-  // survives reloads and is shareable (same pattern as the roadmap board).
+  // Board is the default and kept out of the query for clean URLs; ?view=list |
+  // ?view=timeline survive reloads and are shareable (same pattern as the roadmap board).
   const [searchParams, setSearchParams] = useSearchParams();
-  const view: 'board' | 'list' = searchParams.get('view') === 'list' ? 'list' : 'board';
-  const setView = (v: 'board' | 'list') => {
+  const viewParam = searchParams.get('view');
+  const view: 'board' | 'list' | 'timeline' =
+    viewParam === 'list' ? 'list' : viewParam === 'timeline' ? 'timeline' : 'board';
+  const setView = (v: 'board' | 'list' | 'timeline') => {
     const next = new URLSearchParams(searchParams);
     if (v === 'board') next.delete('view');
     else next.set('view', v);
     setSearchParams(next, { replace: true });
   };
 
+  // Sub-tasks (a task with a parentId) share the board with top-level tasks.
+  // This toggle hides them so the board reads as just the parent work items.
+  // Like `view` it rides in the URL — default on (shown), so clean URLs mean the
+  // current behaviour, and the choice survives reload and is shareable.
+  const showSubtasks = searchParams.get('subtasks') !== 'hide';
+  const setShowSubtasks = (show: boolean) => {
+    const next = new URLSearchParams(searchParams);
+    if (show) next.delete('subtasks');
+    else next.set('subtasks', 'hide');
+    setSearchParams(next, { replace: true });
+  };
+
   const [filters, setFilters] = useState<FilterSelections>({});
   const [search, setSearch] = useState('');
 
-  // Assigned to me OR created by me — so a task I create always lands here, even
-  // if it wasn't assigned. Sentinel keeps it empty if the user isn't loaded yet.
+  // Strictly assigned to me — the view is titled "Assigned to me". Tasks I create
+  // from here still appear because New task defaults the assignee to me. Sentinel
+  // keeps the list empty (not "everyone's") until the user is loaded.
   const { data, isLoading } = useTasks({
     teamId,
     search: search || undefined,
@@ -83,6 +99,11 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
     projectId: filters.projectId,
   });
   const tasks = data?.items ?? [];
+  // Offer the toggle only when there's something to hide; filter client-side (the
+  // list is already fully fetched, capped at 100) so the fetched set — and thus
+  // `hasSubtasks` — stays stable whether they're shown or hidden.
+  const hasSubtasks = tasks.some((tk) => tk.parentId);
+  const visibleTasks = showSubtasks ? tasks : tasks.filter((tk) => !tk.parentId);
   const setStatus = useSetTaskStatus();
   const remove = useDeleteTask();
 
@@ -126,7 +147,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
   /** Tasks don't persist ordering, so the drop slot is ignored — only the
    * destination column matters. */
   function onMove(id: string, toStatus: string) {
-    const task = tasks.find((tk) => tk.id === id);
+    const task = visibleTasks.find((tk) => tk.id === id);
     if (task && task.status !== toStatus) setStatus.mutate({ id, status: toStatus as TaskStatus });
   }
 
@@ -140,14 +161,27 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
       subtitle={teamName ? t('teams.issuesSubtitle') : t('tasks.mySubtitle')}
       search={{ value: search, onChange: setSearch, placeholder: t('tasks.search') }}
       filters={
-        <FilterMenu size="default" categories={filterCategories} value={filters} onChange={setFilters} />
+        <div className="flex items-center gap-2 sm:gap-3">
+          <FilterMenu size="default" categories={filterCategories} value={filters} onChange={setFilters} />
+          {hasSubtasks && (
+            <label className="flex cursor-pointer select-none items-center gap-2 text-sm text-muted-foreground">
+              <Switch
+                checked={showSubtasks}
+                onCheckedChange={setShowSubtasks}
+                aria-label={t('tasks.showSubtasks')}
+              />
+              <span className="whitespace-nowrap">{t('tasks.showSubtasks')}</span>
+            </label>
+          )}
+        </div>
       }
       view={{
         value: view,
-        onChange: (v) => setView(v as 'board' | 'list'),
+        onChange: (v) => setView(v as 'board' | 'list' | 'timeline'),
         options: [
           { value: 'board', label: t('tasks.viewBoard'), icon: <LayoutGrid /> },
           { value: 'list', label: t('tasks.viewList'), icon: <List /> },
+          { value: 'timeline', label: t('boards.viewTimeline'), icon: <CalendarRange /> },
         ],
       }}
       actions={
@@ -165,7 +199,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
         <div className={cn('grid place-items-center rounded-xl border border-dashed p-8', BOARD_GUTTER)}>
           <Spinner />
         </div>
-      ) : tasks.length === 0 ? (
+      ) : visibleTasks.length === 0 ? (
         <div className="mx-4 rounded-xl border border-dashed p-8 text-center md:mx-8">
           <p className="text-muted-foreground">{t('tasks.none')}</p>
           {canWrite && (
@@ -177,7 +211,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
       ) : view === 'board' ? (
         <KanbanBoard
           columns={columns}
-          items={tasks}
+          items={visibleTasks}
           getId={(tk) => tk.id}
           getColumnKey={(tk) => tk.status}
           renderCard={(task, overlay) => (
@@ -204,9 +238,13 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
           onColumnAdd={canWrite ? (col) => navigate(newTaskHref(col.key)) : undefined}
           addLabel={t('tasks.addToColumn')}
         />
-      ) : (
+      ) : view === 'list' ? (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>
-          <TaskList tasks={tasks} columns={columns} labelsFor={labelsFor} />
+          <TaskList tasks={visibleTasks} columns={columns} labelsFor={labelsFor} />
+        </div>
+      ) : (
+        <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6 pt-1', BOARD_GUTTER)}>
+          <IssueTimelineView items={visibleTasks} issueType={TeamIssueType.TASK} />
         </div>
       )}
     </IssueBoardLayout>
@@ -231,13 +269,6 @@ export function TaskCard({
       overlay={overlay}
       title={task.title}
       titleClassName={done ? 'text-muted-foreground line-through' : undefined}
-      titleTrailing={
-        task.shortId ? (
-          <Badge variant="secondary" className="font-mono">
-            {task.shortId}
-          </Badge>
-        ) : undefined
-      }
       labels={<LabelChips keys={task.labelKeys} labels={labels} />}
       metaLeading={
         <Badge variant="muted" className="max-w-full truncate">

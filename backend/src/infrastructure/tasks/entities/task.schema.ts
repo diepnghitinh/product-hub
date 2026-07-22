@@ -7,6 +7,7 @@ export interface TaskDoc {
   _id: string;
   tenantId: string;
   teamId: string;
+  ownerId: string;
   parentId: string;
   shortId: string;
   title: string;
@@ -21,6 +22,8 @@ export interface TaskDoc {
   assigneeName: string;
   createdBy: string;
   createdByName: string;
+  startDate: string;
+  endDate: string;
   dueDate: string;
   estimate: number;
   labelKeys: string[];
@@ -36,6 +39,10 @@ export const TaskSchema = new Schema<TaskDoc>(
     tenantId: { type: String, required: true, index: true },
     // The team whose issue list this task is in.
     teamId: { type: String, default: '', index: true },
+    // When set, a private personal task owned by this user (their Personal board),
+    // not in a team. Team/assigned views filter `ownerId: ''`; the personal board
+    // filters `ownerId: <me>` — so personal tasks never leak into team lists.
+    ownerId: { type: String, default: '', index: true },
     // Parent task id when this is a sub-task ('' for a top-level task).
     parentId: { type: String, default: '', index: true },
     // Human-friendly reference used in URLs (e.g. TSK-7). Unique per tenant;
@@ -53,6 +60,10 @@ export const TaskSchema = new Schema<TaskDoc>(
     assigneeName: { type: String, default: '' },
     createdBy: { type: String, default: '' },
     createdByName: { type: String, default: '' },
+    startDate: { type: String, default: '' },
+    // Deadline the board sorts/flags on. `dueDate` is its legacy mirror, kept in
+    // sync by the domain so pre-range rows and old readers keep working.
+    endDate: { type: String, default: '' },
     dueDate: { type: String, default: '' },
     estimate: { type: Number, default: 0 },
     // Keys of the team labels on this task; resolved against its team's `labels`.

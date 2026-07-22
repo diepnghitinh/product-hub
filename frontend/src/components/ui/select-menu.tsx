@@ -23,7 +23,9 @@ const SelectMenuTrigger = React.forwardRef<
     )}
     {...props}
   >
-    {children}
+    {/* Value slot truncates so a long label ellipsizes inside the trigger instead
+        of overflowing past it (e.g. over an adjacent clear button). */}
+    <span className="min-w-0 flex-1 truncate text-left">{children}</span>
     <SelectPrimitive.Icon asChild>
       <ChevronDown className="size-4 shrink-0 opacity-60" />
     </SelectPrimitive.Icon>

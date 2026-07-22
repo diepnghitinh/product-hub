@@ -30,6 +30,8 @@ export class BugEntity extends AggregateRoot<BugProps> {
       assigneeName?: string;
       reporterId: string;
       reporterName?: string;
+      startDate?: string;
+      endDate?: string;
       order?: number;
       attachments?: BugAttachment[];
       labelKeys?: string[];
@@ -68,6 +70,8 @@ export class BugEntity extends AggregateRoot<BugProps> {
           assigneeName: props.assigneeName || '',
           reporterId: props.reporterId,
           reporterName: props.reporterName || '',
+          startDate: props.startDate || '',
+          endDate: props.endDate || '',
           order: props.order ?? 0,
           attachments: props.attachments ?? [],
           labelKeys: props.labelKeys ?? [],
@@ -131,6 +135,12 @@ export class BugEntity extends AggregateRoot<BugProps> {
   get reporterName(): string {
     return this.props.reporterName;
   }
+  get startDate(): string {
+    return this.props.startDate;
+  }
+  get endDate(): string {
+    return this.props.endDate;
+  }
   get order(): number {
     return this.props.order;
   }
@@ -159,6 +169,8 @@ export class BugEntity extends AggregateRoot<BugProps> {
     caseId?: string;
     caseLabel?: string;
     reportId?: string;
+    startDate?: string;
+    endDate?: string;
     attachments?: BugAttachment[];
     labelKeys?: string[];
     customFields?: Record<string, CustomFieldValue>;
@@ -174,6 +186,8 @@ export class BugEntity extends AggregateRoot<BugProps> {
     if (fields.caseId !== undefined) this.props.caseId = fields.caseId;
     if (fields.caseLabel !== undefined) this.props.caseLabel = fields.caseLabel;
     if (fields.reportId !== undefined) this.props.reportId = fields.reportId;
+    if (fields.startDate !== undefined) this.props.startDate = fields.startDate;
+    if (fields.endDate !== undefined) this.props.endDate = fields.endDate;
     if (fields.attachments !== undefined) this.props.attachments = fields.attachments;
     if (fields.labelKeys !== undefined) this.props.labelKeys = fields.labelKeys;
     if (fields.customFields !== undefined) this.props.customFields = fields.customFields;

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEnum, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { TASK_ESTIMATE_VALUES, TaskStatus } from '../domain/enums/task.enums';
 
 export class CreateTaskDto {
@@ -49,7 +49,17 @@ export class CreateTaskDto {
   @IsString()
   assigneeId?: string;
 
-  @ApiPropertyOptional({ description: 'Due date as YYYY-MM-DD' })
+  @ApiPropertyOptional({ description: 'Start date as YYYY-MM-DD' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'End / target date as YYYY-MM-DD' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @ApiPropertyOptional({ deprecated: true, description: 'Legacy alias of endDate' })
   @IsOptional()
   @IsString()
   dueDate?: string;
@@ -66,4 +76,11 @@ export class CreateTaskDto {
   @IsOptional()
   @IsString()
   teamId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Create on the caller’s private Personal board (owned by them, not in a team)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  personal?: boolean;
 }

@@ -1,7 +1,25 @@
 import { Link } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import {
+  CalendarRange,
+  CircleDot,
+  CircleUser,
+  FlaskConical,
+  Trash2,
+  TriangleAlert,
+  Type,
+  User,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Combobox, DotLabel, Input, MultiSelect, Select, Spinner } from '@/components/ui';
+import {
+  Combobox,
+  DateRangePicker,
+  DotLabel,
+  Input,
+  MultiSelect,
+  Select,
+  Spinner,
+  formatDateRange,
+} from '@/components/ui';
 import { t } from '@/i18n';
 import {
   BUG_SEVERITIES,
@@ -13,7 +31,7 @@ import {
   TeamIssueType,
 } from '@/types/enums';
 import { useUsers } from '@/features/users/api';
-import { IssueDetail, PropField } from '@/features/issues/IssueDetail';
+import { IssueDetail, PropField, PropSection, PropValue } from '@/features/issues/IssueDetail';
 import { useTeamStatuses, useTeamLabels, useTeamCustomFields } from '@/features/teams/api';
 import { LabelChips, resolveLabels } from '@/features/labels/LabelChips';
 import { CustomFields } from '@/features/custom-fields/CustomFields';
@@ -120,55 +138,127 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
       ]}
       sidebar={
         <>
-          <PropField label={t('bugs.status')}>
-            {canWrite ? (
-              <Select
-                value={bug.status}
-                onValueChange={(v) => setStatus.mutate({ id: bug.id, status: v })}
-                // Colours come from the tenant's board config, so the dots match
-                // the columns on /bugs exactly.
-                options={columns.map((c) => ({
-                  value: c.key,
-                  label: <DotLabel color={c.color}>{c.label}</DotLabel>,
-                }))}
-              />
-            ) : (
-              <span className="text-sm">{statusLabel(bug.status)}</span>
-            )}
-          </PropField>
+          <PropSection label={t('tasks.properties')}>
+            <PropField bare label={t('bugs.status')}>
+              {canWrite ? (
+                <Select
+                  value={bug.status}
+                  onValueChange={(v) => setStatus.mutate({ id: bug.id, status: v })}
+                  // Colours come from the tenant's board config, so the dots match
+                  // the columns on /bugs exactly.
+                  options={columns.map((c) => ({
+                    value: c.key,
+                    label: <DotLabel color={c.color}>{c.label}</DotLabel>,
+                  }))}
+                />
+              ) : (
+                <PropValue icon={<CircleDot />}>{statusLabel(bug.status)}</PropValue>
+              )}
+            </PropField>
 
-          <PropField label={t('bugs.severity')}>
-            {canWrite ? (
-              <Select
-                value={bug.severity}
-                onValueChange={(v) => save({ severity: v as BugSeverity })}
-                options={BUG_SEVERITIES.map((s) => ({
-                  value: s,
-                  label: <DotLabel color={BUG_SEVERITY_COLOR[s]}>{BUG_SEVERITY_LABEL[s]}</DotLabel>,
-                }))}
-              />
-            ) : (
-              <SeverityBadge severity={bug.severity} />
-            )}
-          </PropField>
+            <PropField bare label={t('bugs.severity')}>
+              {canWrite ? (
+                <Select
+                  value={bug.severity}
+                  onValueChange={(v) => save({ severity: v as BugSeverity })}
+                  options={BUG_SEVERITIES.map((s) => ({
+                    value: s,
+                    label: (
+                      <DotLabel color={BUG_SEVERITY_COLOR[s]}>{BUG_SEVERITY_LABEL[s]}</DotLabel>
+                    ),
+                  }))}
+                />
+              ) : (
+                <PropValue icon={<TriangleAlert />}>
+                  <SeverityBadge severity={bug.severity} />
+                </PropValue>
+              )}
+            </PropField>
 
-          <PropField label={t('bugs.assignee')}>
-            {isAdmin ? (
-              <Combobox
-                value={bug.assigneeId || ''}
-                onChange={(v) => save({ assigneeId: v })}
-                placeholder={t('bugs.unassigned')}
-                options={[
-                  { value: '', label: t('bugs.unassigned') },
-                  ...users.map((u) => ({ value: u.id, label: u.name })),
-                ]}
-              />
-            ) : (
-              <span className="text-sm">{bug.assigneeName || t('bugs.unassigned')}</span>
-            )}
-          </PropField>
+            <PropField bare label={t('bugs.assignee')}>
+              {isAdmin ? (
+                <Combobox
+                  leadingIcon={<CircleUser />}
+                  value={bug.assigneeId || ''}
+                  onChange={(v) => save({ assigneeId: v })}
+                  placeholder={t('bugs.unassigned')}
+                  options={[
+                    { value: '', label: t('bugs.unassigned') },
+                    ...users.map((u) => ({ value: u.id, label: u.name })),
+                  ]}
+                />
+              ) : (
+                <PropValue icon={<CircleUser />} muted={!bug.assigneeName}>
+                  {bug.assigneeName || t('bugs.unassigned')}
+                </PropValue>
+              )}
+            </PropField>
 
-          <PropField label={t('labels.title')}>
+            <PropField bare label={t('bugs.type')}>
+              {canWrite ? (
+                <Input
+                  icon={<Type />}
+                  defaultValue={bug.type}
+                  onBlur={(e) => e.target.value !== bug.type && save({ type: e.target.value })}
+                />
+              ) : (
+                <PropValue icon={<Type />} muted={!bug.type}>
+                  {bug.type || '—'}
+                </PropValue>
+              )}
+            </PropField>
+
+            <PropField bare label={t('bugs.dates')}>
+              {canWrite ? (
+                <DateRangePicker
+                  start={bug.startDate}
+                  end={bug.endDate}
+                  onChange={(r) => save({ startDate: r.start, endDate: r.end })}
+                  placeholder={t('bugs.setDates')}
+                />
+              ) : bug.startDate || bug.endDate ? (
+                <PropValue icon={<CalendarRange />}>
+                  {formatDateRange(bug.startDate, bug.endDate)}
+                </PropValue>
+              ) : (
+                <PropValue icon={<CalendarRange />} muted>
+                  {t('bugs.noDates')}
+                </PropValue>
+              )}
+            </PropField>
+
+            <PropField bare label={t('bugs.reporter')}>
+              <PropValue icon={<User />} muted={!bug.reporterName}>
+                {bug.reporterName || '—'}
+              </PropValue>
+            </PropField>
+
+            <CustomFields
+              fields={teamCustomFields}
+              values={bug.customFields ?? {}}
+              canWrite={canWrite}
+              onChange={(next) => save({ customFields: next })}
+            />
+
+            {bug.caseId && bug.caseLabel && (
+              <PropField bare label={t('bugs.linkedCase')}>
+                <PropValue icon={<FlaskConical />}>
+                  {bug.projectId && bug.reportId ? (
+                    <Link
+                      to={`/testing/${bug.projectId}/reports/${bug.reportId}`}
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      {bug.caseLabel}
+                    </Link>
+                  ) : (
+                    bug.caseLabel
+                  )}
+                </PropValue>
+              </PropField>
+            )}
+          </PropSection>
+
+          <PropSection label={t('labels.title')}>
             {canWrite ? (
               teamLabels.length > 0 ? (
                 <MultiSelect
@@ -189,45 +279,7 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
             ) : (
               <span className="text-sm text-muted-foreground">—</span>
             )}
-          </PropField>
-
-          <CustomFields
-            fields={teamCustomFields}
-            values={bug.customFields ?? {}}
-            canWrite={canWrite}
-            onChange={(next) => save({ customFields: next })}
-          />
-
-          <PropField label={t('bugs.type')}>
-            {canWrite ? (
-              <Input
-                defaultValue={bug.type}
-                onBlur={(e) => e.target.value !== bug.type && save({ type: e.target.value })}
-              />
-            ) : (
-              <span className="text-sm">{bug.type || '—'}</span>
-            )}
-          </PropField>
-
-          <PropField label={t('bugs.reporter')}>
-            <span className="text-sm">{bug.reporterName || '—'}</span>
-          </PropField>
-
-          {bug.caseId && bug.caseLabel && (
-            <PropField label={t('bugs.linkedCase')}>
-              {bug.projectId && bug.reportId ? (
-                <Link
-                  to={`/testing/${bug.projectId}/reports/${bug.reportId}`}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
-                >
-                  <span aria-hidden>🔗</span>
-                  {bug.caseLabel}
-                </Link>
-              ) : (
-                <span className="text-sm">{bug.caseLabel}</span>
-              )}
-            </PropField>
-          )}
+          </PropSection>
 
           <IssueRelations subject={IssueKind.BUG} issueId={bug.id} canWrite={canWrite} />
           {picker}

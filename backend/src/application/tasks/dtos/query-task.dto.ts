@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsEnum, IsOptional, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsArray, IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 import { PaginationDto } from '@module-shared/modules/pagination/pagination.dto';
 import { TransformQueryArray } from '@module-shared/utils/query-array.util';
 import { TaskStatus } from '../domain/enums/task.enums';
@@ -26,10 +27,18 @@ export class QueryTaskDto extends PaginationDto {
   @IsString()
   teamId?: string;
 
-  @ApiPropertyOptional({ description: 'Tasks assigned to OR created by this user id' })
+  @ApiPropertyOptional({ description: 'Tasks assigned to this user id (the "Assigned to me" views)' })
   @IsOptional()
   @IsString()
   mine?: string;
+
+  @ApiPropertyOptional({
+    description: 'Return the caller’s private Personal board (their owned tasks) instead of team tasks',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  personal?: boolean;
 
   @ApiPropertyOptional({ description: 'Filter by parent task id(s) — a task’s sub-tasks', isArray: true })
   @IsOptional()

@@ -36,6 +36,14 @@ export class RoadmapItemDto {
   startedAt?: string;
   @ApiPropertyOptional({ description: 'When the item was completed (ISO), once Done' })
   completedAt?: string;
+  @ApiProperty({ description: 'Linked OKR milestone id, empty when unlinked' })
+  milestoneId: string;
+  @ApiProperty({ description: 'Linked OKR objective id, empty when unlinked' })
+  objectiveId: string;
+  @ApiProperty({ description: 'Linked key result id, empty when linked at objective level' })
+  keyResultId: string;
+  @ApiProperty({ description: 'Denormalized OKR label shown on the card' })
+  okrLabel: string;
 }
 
 /** Flat roadmap shape. */

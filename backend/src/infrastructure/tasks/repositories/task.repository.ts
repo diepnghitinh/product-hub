@@ -27,6 +27,7 @@ export class TaskRepository
       {
         tenantId: doc.tenantId,
         teamId: doc.teamId,
+        ownerId: doc.ownerId,
         parentId: doc.parentId,
         shortId: doc.shortId,
         title: doc.title,
@@ -40,6 +41,8 @@ export class TaskRepository
         assigneeName: doc.assigneeName,
         createdBy: doc.createdBy,
         createdByName: doc.createdByName,
+        startDate: doc.startDate,
+        endDate: doc.endDate,
         dueDate: doc.dueDate,
         estimate: doc.estimate,
         labelKeys: doc.labelKeys,
@@ -59,6 +62,7 @@ export class TaskRepository
       _id: task.id.toString(),
       tenantId: task.tenantId,
       teamId: task.teamId,
+      ownerId: task.ownerId,
       parentId: task.parentId,
       shortId: task.shortId,
       title: task.title,
@@ -72,6 +76,8 @@ export class TaskRepository
       assigneeName: task.assigneeName,
       createdBy: task.createdBy,
       createdByName: task.createdByName,
+      startDate: task.startDate,
+      endDate: task.endDate,
       dueDate: task.dueDate,
       estimate: task.estimate,
       labelKeys: task.labelKeys,
@@ -118,10 +124,20 @@ export class TaskRepository
     await this.model.updateOne({ _id: id }, { $set: { shortId } }).exec();
   }
 
-  async findByTenant(tenantId: string, query: QueryTaskDto): Promise<TaskPaginationResponse> {
+  async findByTenant(
+    tenantId: string,
+    query: QueryTaskDto,
+    opts?: { personalOwnerId?: string },
+  ): Promise<TaskPaginationResponse> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 200;
     const filter: Record<string, unknown> = { tenantId };
+    // The privacy boundary. A personal task (ownerId set) lives on exactly one
+    // user's private board; `personalOwnerId` scopes the query to that owner.
+    // *Every other* view passes no owner, so it filters `ownerId: ''` — personal
+    // tasks are thereby excluded from all team lists and "assigned to me". This is
+    // the single chokepoint that keeps private tasks private; do not remove it.
+    filter.ownerId = opts?.personalOwnerId ?? '';
     // Multi-value filters — a single value arrives as a 1-item array, so `$in`
     // is equivalent to the old equality match for existing callers.
     if (query.status?.length) filter.status = { $in: query.status };
@@ -131,9 +147,13 @@ export class TaskRepository
     if (query.roadmapId?.length) filter.roadmapId = { $in: query.roadmapId };
     if (query.projectId?.length) filter.projectId = { $in: query.projectId };
     if (query.teamId) filter.teamId = query.teamId;
-    // "My tasks": assigned to me OR created by me (so tasks I create always show).
+    // "Assigned to me": strictly the tasks assigned to me — the view is titled
+    // exactly that. New tasks still appear because creating from a personal view
+    // auto-assigns to the current user (see NewTaskPage's assignee default). This
+    // wins over any explicit assignee filter, which is a contradiction on a
+    // personal board, so it's set after the assigneeId clause above.
     if (query.mine) {
-      filter.$or = [{ assigneeId: query.mine }, { createdBy: query.mine }];
+      filter.assigneeId = query.mine;
     }
     if (query.search) {
       // Escaped: the task picker's search box takes free text, so an unbalanced

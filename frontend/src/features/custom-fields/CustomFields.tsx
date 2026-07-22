@@ -1,7 +1,25 @@
+import { Calendar, Hash, List, SquareCheck, Type } from 'lucide-react';
 import { Checkbox, DatePicker, Input, Select } from '@/components/ui';
 import { PropField } from '@/features/issues/IssueDetail';
 import { t } from '@/i18n';
 import { CustomFieldType, type CustomFieldConfig, type CustomFieldValue } from '@/types/enums';
+
+/** The icon-led sidebar row for a custom field is keyed off its type. */
+function fieldIcon(type: CustomFieldType) {
+  switch (type) {
+    case CustomFieldType.NUMBER:
+      return <Hash />;
+    case CustomFieldType.SELECT:
+      return <List />;
+    case CustomFieldType.DATE:
+      return <Calendar />;
+    case CustomFieldType.CHECKBOX:
+      return <SquareCheck />;
+    case CustomFieldType.TEXT:
+    default:
+      return <Type />;
+  }
+}
 
 /** A field with no value set (a checkbox is "missing" only when required + unchecked). */
 function isEmpty(value: CustomFieldValue | undefined): boolean {
@@ -46,7 +64,7 @@ export function CustomFields({ fields, values, canWrite, onChange }: CustomField
         const missing = isMissing(field, value);
         const label = field.required ? `${field.name} *` : field.name;
         return (
-          <PropField key={field.id} label={label}>
+          <PropField key={field.id} label={label} icon={fieldIcon(field.type)}>
             {canWrite ? (
               <div className="space-y-1">
                 <FieldControl

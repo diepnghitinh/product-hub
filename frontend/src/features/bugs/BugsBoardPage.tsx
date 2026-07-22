@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { LayoutGrid, List } from 'lucide-react';
+import { CalendarRange, LayoutGrid, List } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
+import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
 import { Icon } from '@/components/Icon';
 import { BackLink } from '@/components/BackLink';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
@@ -59,13 +60,6 @@ export function BugCard({
       titleDotColor={BUG_SEVERITY_COLOR[bug.severity]}
       titleDotLabel={BUG_SEVERITY_LABEL[bug.severity]}
       title={bug.title}
-      titleTrailing={
-        bug.shortId ? (
-          <Badge variant="secondary" className="font-mono">
-            {bug.shortId}
-          </Badge>
-        ) : undefined
-      }
       labels={<LabelChips keys={bug.labelKeys} labels={labels} />}
       metaLeading={
         <Badge variant="muted" className="max-w-full truncate">
@@ -89,7 +83,7 @@ interface BugsBoardPageProps {
 }
 
 export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBoardPageProps = {}) {
-  const { canEditDelivery: canWrite, canManageDelivery } = useAuth();
+  const { user, canEditDelivery: canWrite, canManageDelivery } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const projectId = params.get('projectId') || undefined;
@@ -100,9 +94,11 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<FilterSelections>({});
-  // Board is default and kept out of the URL; ?view=list is shareable.
-  const view: 'board' | 'list' = params.get('view') === 'list' ? 'list' : 'board';
-  const setView = (v: 'board' | 'list') => {
+  // Board is default and kept out of the URL; ?view=list | ?view=timeline are shareable.
+  const viewParam = params.get('view');
+  const view: 'board' | 'list' | 'timeline' =
+    viewParam === 'list' ? 'list' : viewParam === 'timeline' ? 'timeline' : 'board';
+  const setView = (v: 'board' | 'list' | 'timeline') => {
     const next = new URLSearchParams(params);
     if (v === 'board') next.delete('view');
     else next.set('view', v);
@@ -155,8 +151,13 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
       label: t('filters.assignee'),
       searchable: true,
       options: [
+        // Everyone gets a self-filter first — the people list below is
+        // manager-only, so without this a member can't filter to their own bugs.
+        ...(user ? [{ id: user.id, label: t('filters.assignedToMe') }] : []),
         { id: UNASSIGNED, label: t('filters.unassigned') },
-        ...(usersData?.items ?? []).map((u) => ({ id: u.id, label: u.name })),
+        ...(usersData?.items ?? [])
+          .filter((u) => u.id !== user?.id)
+          .map((u) => ({ id: u.id, label: u.name })),
       ],
     },
     // Already scoped by the URL — a project filter would be redundant.
@@ -207,10 +208,11 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
       }
       view={{
         value: view,
-        onChange: (v) => setView(v as 'board' | 'list'),
+        onChange: (v) => setView(v as 'board' | 'list' | 'timeline'),
         options: [
           { value: 'board', label: t('tasks.viewBoard'), icon: <LayoutGrid /> },
           { value: 'list', label: t('tasks.viewList'), icon: <List /> },
+          { value: 'timeline', label: t('boards.viewTimeline'), icon: <CalendarRange /> },
         ],
       }}
       actions={
@@ -267,7 +269,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           }
           addLabel={t('bugs.addToColumn')}
         />
-      ) : (
+      ) : view === 'list' ? (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>
           <BugList
             bugs={bugs}
@@ -275,6 +277,10 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
             labelsFor={labelsFor}
             onOpen={(b) => navigate(`/bugs/${b.shortId || b.id}`)}
           />
+        </div>
+      ) : (
+        <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6 pt-1', BOARD_GUTTER)}>
+          <IssueTimelineView items={bugs} issueType={TeamIssueType.BUG} />
         </div>
       )}
 

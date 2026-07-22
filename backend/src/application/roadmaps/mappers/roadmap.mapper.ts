@@ -17,6 +17,10 @@ export class RoadmapMapper {
         imageUrl: item.imageUrl ?? '',
         startDate: item.startDate ?? '',
         assignees: item.assignees ?? [],
+        milestoneId: item.milestoneId ?? '',
+        objectiveId: item.objectiveId ?? '',
+        keyResultId: item.keyResultId ?? '',
+        okrLabel: item.okrLabel ?? '',
         rice: riceScore(item),
         // Legacy items predate per-item timestamps — fall back to the roadmap's
         // own creation date so their age is sensible rather than blank.

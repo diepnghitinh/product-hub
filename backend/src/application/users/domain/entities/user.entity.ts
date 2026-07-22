@@ -4,6 +4,7 @@ import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
 import { FavouriteKind } from '@application/favourites/domain/favourite-kind.enum';
 import { FavouriteRef } from '@application/favourites/domain/favourite.ref';
+import { TaskStatusConfig, DEFAULT_TASK_STATUSES } from '@application/tasks/domain/enums/task.enums';
 import { UserProps } from './user.props';
 
 /**
@@ -24,6 +25,7 @@ export class UserEntity extends AggregateRoot<UserProps> {
       role?: Role;
       inboxSeenAt?: Date | null;
       favourites?: FavouriteRef[];
+      personalStatuses?: TaskStatusConfig[];
       readInboxKeys?: string[];
       createdAt?: Date;
       updatedAt?: Date;
@@ -54,6 +56,12 @@ export class UserEntity extends AggregateRoot<UserProps> {
           role: props.role || Role.TESTER,
           inboxSeenAt: props.inboxSeenAt ?? null,
           favourites: props.favourites ?? [],
+          // Seed personal-board columns from the shipped defaults so every user
+          // (including accounts that predate the field) starts with To do / In
+          // progress / Done. They can rename/recolour/add/remove from there.
+          personalStatuses: props.personalStatuses?.length
+            ? props.personalStatuses
+            : DEFAULT_TASK_STATUSES,
           readInboxKeys: props.readInboxKeys ?? [],
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
@@ -86,6 +94,9 @@ export class UserEntity extends AggregateRoot<UserProps> {
   }
   get favourites(): FavouriteRef[] {
     return this.props.favourites;
+  }
+  get personalStatuses(): TaskStatusConfig[] {
+    return this.props.personalStatuses;
   }
   get readInboxKeys(): string[] {
     return this.props.readInboxKeys;
@@ -153,6 +164,18 @@ export class UserEntity extends AggregateRoot<UserProps> {
     );
     if (next.length === this.props.favourites.length) return;
     this.props.favourites = next;
+    this.touch();
+  }
+
+  /**
+   * Replace this user's personal-board columns wholesale. Callers reassign any
+   * personal tasks off a removed column *before* calling this (same contract as
+   * team statuses), so the entity only guards the list is non-empty — a board
+   * with zero columns has nowhere to put a task.
+   */
+  replacePersonalStatuses(statuses: TaskStatusConfig[]): void {
+    if (!statuses.length) return;
+    this.props.personalStatuses = statuses;
     this.touch();
   }
 

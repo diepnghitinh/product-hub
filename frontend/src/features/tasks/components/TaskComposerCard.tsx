@@ -3,7 +3,7 @@ import { Circle, Triangle } from 'lucide-react';
 import {
   Button,
   Combobox,
-  DatePicker,
+  DateRangePicker,
   DotLabel,
   Input,
   Select,
@@ -18,7 +18,8 @@ export interface TaskDraft {
   description?: string;
   status?: string;
   assigneeId?: string;
-  dueDate?: string;
+  startDate?: string;
+  endDate?: string;
   estimate?: number;
   /** The team the composer resolved to — its picker's choice, or the default. */
   teamId?: string;
@@ -30,8 +31,9 @@ interface TeamOption {
 }
 
 /**
- * Linear-style inline create card shared by the two task twins — sub-tasks
- * ({@link SubtaskPanel}) and a backlog item's tasks ({@link TaskPanel}). A titled
+ * Linear-style inline create card used by the shared Sub-tasks section
+ * ({@link SubtaskSection}), for both a team task's sub-tasks and a backlog
+ * item's tasks. A titled
  * composer exposing the same property controls as the New-task form
  * (status · assignee · due date · estimate), laid out on one row with the
  * Cancel/Create buttons. Stays open after Create (title/description cleared,
@@ -73,7 +75,8 @@ export function TaskComposerCard({
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<string | undefined>();
   const [assigneeId, setAssigneeId] = useState('');
-  const [dueDate, setDueDate] = useState<string | undefined>();
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [estimate, setEstimate] = useState(0);
 
   const effectiveStatus = status ?? columns[0]?.key;
@@ -86,7 +89,8 @@ export function TaskComposerCard({
         description: description.trim() || undefined,
         status: effectiveStatus || undefined,
         assigneeId: assigneeId || undefined,
-        dueDate: dueDate || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
         estimate: estimate || undefined,
         teamId: effectiveTeamId || undefined,
       },
@@ -160,11 +164,15 @@ export function TaskComposerCard({
             ...users.map((u) => ({ value: u.id, label: u.name })),
           ]}
         />
-        <DatePicker
-          value={dueDate}
-          onChange={(v) => setDueDate(v || undefined)}
-          placeholder={t('tasks.dueDate')}
-          className="h-8 w-[150px]"
+        <DateRangePicker
+          start={startDate}
+          end={endDate}
+          onChange={(r) => {
+            setStartDate(r.start);
+            setEndDate(r.end);
+          }}
+          placeholder={t('tasks.dates')}
+          className="h-8 w-[180px]"
         />
         <Combobox
           value={String(estimate || 0)}

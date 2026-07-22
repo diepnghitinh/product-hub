@@ -81,6 +81,16 @@ export class UpdateBugDto {
   @IsString()
   assigneeId?: string;
 
+  @ApiPropertyOptional({ description: 'Start date as YYYY-MM-DD (empty string to clear)' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'End / target date as YYYY-MM-DD (empty string to clear)' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
   @ApiPropertyOptional({ type: [BugAttachmentDto] })
   @IsOptional()
   @IsArray()

@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Circle, Triangle } from 'lucide-react';
+import { CalendarRange, Circle, CircleDot, CircleUser, Gauge, Map as MapIcon, Triangle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useEscapeBack } from '@/lib/useEscapeBack';
 import {
   Button,
   Combobox,
-  DatePicker,
+  DateRangePicker,
   DotLabel,
   RichTextEditor,
   Select,
@@ -17,7 +17,7 @@ import { PageHeader } from '@/layouts/headers/PageHeader';
 import { Icon } from '@/components/Icon';
 import { initials } from '@/lib/format';
 import { useUsers } from '@/features/users/api';
-import { PropField } from '@/features/issues/IssueDetail';
+import { PropField, PropSection } from '@/features/issues/IssueDetail';
 import { useTeams, useTeamStatuses } from '@/features/teams/api';
 import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
 import { useRoadmaps } from '@/features/roadmaps/api';
@@ -58,7 +58,8 @@ export function NewTaskPage() {
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<string | undefined>(presetStatus);
   const [assigneeId, setAssigneeId] = useState(user?.id ?? '');
-  const [dueDate, setDueDate] = useState<string | undefined>();
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [estimate, setEstimate] = useState(0);
   const [itemId, setItemId] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +130,8 @@ export function NewTaskPage() {
         // Sent so a team board's task lands in that team, not the workspace default.
         teamId,
         assigneeId: assigneeId || undefined,
-        dueDate: dueDate || undefined,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
         estimate: estimate || undefined,
         roadmapItemId: itemId || undefined,
         roadmapItemLabel: link?.label,
@@ -162,7 +164,7 @@ export function NewTaskPage() {
         }
       />
 
-      <div className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_260px]">
         {/* Main column — mirrors IssueDetailMain, minus the post-creation activity. */}
         <div className="min-w-0">
           {error && (
@@ -199,67 +201,73 @@ export function NewTaskPage() {
         </div>
 
         {/* Properties — the same sidebar the detail page shows, all editable. */}
-        <aside className="flex flex-col gap-3 rounded-xl border bg-card p-4 text-card-foreground shadow-sm md:sticky md:top-6">
-          <PropField label={t('tasks.status')}>
-            <Select
-              value={effectiveStatus}
-              onValueChange={setStatus}
-              options={columns.map((c) => ({
-                value: c.key,
-                label: <DotLabel color={c.color}>{c.label}</DotLabel>,
-              }))}
-            />
-          </PropField>
+        <aside className="flex flex-col gap-5 md:sticky md:top-6">
+          <PropSection label={t('tasks.properties')}>
+            <PropField label={t('tasks.status')} icon={<CircleDot />}>
+              <Select
+                value={effectiveStatus}
+                onValueChange={setStatus}
+                options={columns.map((c) => ({
+                  value: c.key,
+                  label: <DotLabel color={c.color}>{c.label}</DotLabel>,
+                }))}
+              />
+            </PropField>
 
-          <PropField label={t('tasks.assignee')}>
-            <Combobox
-              value={assigneeId}
-              onChange={setAssigneeId}
-              placeholder={t('tasks.unassigned')}
-              options={[
-                { value: '', label: t('tasks.unassigned') },
-                ...users.map((u) => ({ value: u.id, label: u.name })),
-              ]}
-            />
-          </PropField>
+            <PropField label={t('tasks.assignee')} icon={<CircleUser />}>
+              <Combobox
+                value={assigneeId}
+                onChange={setAssigneeId}
+                placeholder={t('tasks.unassigned')}
+                options={[
+                  { value: '', label: t('tasks.unassigned') },
+                  ...users.map((u) => ({ value: u.id, label: u.name })),
+                ]}
+              />
+            </PropField>
 
-          <PropField label={t('tasks.dueDate')}>
-            <DatePicker
-              value={dueDate}
-              onChange={(v) => setDueDate(v || undefined)}
-              placeholder={t('tasks.noDueDate')}
-            />
-          </PropField>
+            <PropField label={t('tasks.dates')} icon={<CalendarRange />}>
+              <DateRangePicker
+                start={startDate}
+                end={endDate}
+                onChange={(r) => {
+                  setStartDate(r.start);
+                  setEndDate(r.end);
+                }}
+                placeholder={t('tasks.setDates')}
+              />
+            </PropField>
 
-          <PropField label={t('tasks.estimate')}>
-            <Combobox
-              value={String(estimate || 0)}
-              onChange={(v) => setEstimate(Number(v))}
-              placeholder={t('tasks.noEstimate')}
-              searchPlaceholder={t('tasks.setEstimateTo')}
-              options={[
-                {
-                  value: '0',
-                  label: t('tasks.noEstimate'),
-                  icon: <Circle className="size-3.5 text-muted-foreground" />,
-                },
-                ...TASK_ESTIMATES.map((v) => ({
-                  value: String(v),
-                  label: taskEstimateLabel(v),
-                  icon: <Triangle className="size-3 fill-current text-muted-foreground" />,
-                })),
-              ]}
-            />
-          </PropField>
+            <PropField label={t('tasks.estimate')} icon={<Gauge />}>
+              <Combobox
+                value={String(estimate || 0)}
+                onChange={(v) => setEstimate(Number(v))}
+                placeholder={t('tasks.noEstimate')}
+                searchPlaceholder={t('tasks.setEstimateTo')}
+                options={[
+                  {
+                    value: '0',
+                    label: t('tasks.noEstimate'),
+                    icon: <Circle className="size-3.5 text-muted-foreground" />,
+                  },
+                  ...TASK_ESTIMATES.map((v) => ({
+                    value: String(v),
+                    label: taskEstimateLabel(v),
+                    icon: <Triangle className="size-3 fill-current text-muted-foreground" />,
+                  })),
+                ]}
+              />
+            </PropField>
 
-          <PropField label={t('tasks.backlogItem')}>
-            <Combobox
-              value={itemId}
-              onChange={setItemId}
-              options={itemOptions}
-              placeholder={t('tasks.noBacklogItem')}
-            />
-          </PropField>
+            <PropField label={t('tasks.backlogItem')} icon={<MapIcon />}>
+              <Combobox
+                value={itemId}
+                onChange={setItemId}
+                options={itemOptions}
+                placeholder={t('tasks.noBacklogItem')}
+              />
+            </PropField>
+          </PropSection>
         </aside>
       </div>
     </CenteredPageLayout>

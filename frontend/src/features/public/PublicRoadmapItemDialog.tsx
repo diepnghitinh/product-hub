@@ -1,3 +1,4 @@
+import { Target } from 'lucide-react';
 import { Dialog, DotLabel, ProgressBar } from '@/components/ui';
 import type { RoadmapColumn, RoadmapItem } from '@/types/dto';
 import { ROADMAP_ITEM_STATUS_COLOR, ROADMAP_ITEM_STATUS_LABEL } from '@/types/enums';
@@ -24,6 +25,13 @@ export function PublicRoadmapItemDialog({
         <span className="font-mono text-muted-foreground" title="RICE score">
           RICE {item.rice}
         </span>
+        {item.okrLabel && (
+          // Linked OKR — the denormalized objective / key-result title.
+          <span className="inline-flex min-w-0 items-center gap-1.5" title={item.okrLabel}>
+            <Target className="size-3.5 shrink-0 text-primary" aria-hidden />
+            <span className="truncate">{item.okrLabel}</span>
+          </span>
+        )}
       </div>
       <div className="mt-3">
         <ProgressBar value={item.progress} />

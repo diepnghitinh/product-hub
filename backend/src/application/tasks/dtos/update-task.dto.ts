@@ -49,7 +49,20 @@ export class UpdateTaskDto {
   @IsString()
   projectId?: string;
 
-  @ApiPropertyOptional({ description: 'Due date as YYYY-MM-DD (empty string to clear)' })
+  @ApiPropertyOptional({ description: 'Start date as YYYY-MM-DD (empty string to clear)' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'End / target date as YYYY-MM-DD (empty string to clear)' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @ApiPropertyOptional({
+    deprecated: true,
+    description: 'Legacy alias of endDate (empty string to clear); kept in sync',
+  })
   @IsOptional()
   @IsString()
   dueDate?: string;

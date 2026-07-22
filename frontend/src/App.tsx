@@ -14,6 +14,7 @@ import { BugDetailPage } from '@/features/bugs/BugDetailPage';
 import { InboxPage } from '@/features/inbox/InboxPage';
 import { MyTasksPage } from '@/features/tasks/MyTasksPage';
 import { MyTaskListView } from '@/features/tasks/MyTaskListView';
+import { PersonalBoardPage } from '@/features/tasks/PersonalBoardPage';
 import { NewTaskPage } from '@/features/tasks/NewTaskPage';
 import { TaskDetailPage } from '@/features/tasks/TaskDetailPage';
 import { TeamBoardPage } from '@/features/teams/TeamBoardPage';
@@ -57,7 +58,7 @@ export default function App() {
           <Route path="/tasks" element={<MyTasksPage />} />
           <Route path="/tasks/new" element={<NewTaskPage />} />
           <Route path="/tasks/today" element={<MyTaskListView mode="today" />} />
-          <Route path="/tasks/personal" element={<MyTaskListView mode="personal" />} />
+          <Route path="/tasks/personal" element={<PersonalBoardPage />} />
           <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
           {/* A team's own issue list — renders the bug or task board by issueType. */}
           <Route path="/teams/:teamId" element={<TeamBoardPage />} />

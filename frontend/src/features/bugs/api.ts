@@ -30,6 +30,10 @@ export interface CreateBugInput {
   caseLabel?: string;
   reportId?: string;
   assigneeId?: string;
+  /** Start of the work window, ISO `YYYY-MM-DD`. */
+  startDate?: string;
+  /** End / target date, ISO `YYYY-MM-DD`. */
+  endDate?: string;
   /**
    * The team whose list to create in. Must be sent from a team's board —
    * without it the API files the bug under the workspace's default bug team,
@@ -48,6 +52,10 @@ export interface UpdateBugInput {
   caseLabel?: string;
   reportId?: string;
   assigneeId?: string;
+  /** Start of the work window, ISO `YYYY-MM-DD` (empty string clears it). */
+  startDate?: string;
+  /** End / target date, ISO `YYYY-MM-DD` (empty string clears it). */
+  endDate?: string;
   attachments?: BugAttachment[];
   /** Replace the bug's team-label keys ([] clears them). */
   labelKeys?: string[];

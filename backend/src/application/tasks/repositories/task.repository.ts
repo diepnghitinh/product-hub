@@ -20,7 +20,13 @@ export abstract class ITaskRepository {
   setShortId: (id: string, shortId: string) => Promise<void>;
   /** File rows with no team into `teamId`; returns how many moved. */
   assignMissingTeam: (tenantId: string, teamId: string) => Promise<number>;
-  findByTenant: (tenantId: string, query: QueryTaskDto) => Promise<TaskPaginationResponse>;
+  /** `opts.personalOwnerId` scopes to that user's private personal board; without
+   *  it the query excludes personal tasks (filters `ownerId: ''`). */
+  findByTenant: (
+    tenantId: string,
+    query: QueryTaskDto,
+    opts?: { personalOwnerId?: string },
+  ) => Promise<TaskPaginationResponse>;
   save: (task: TaskEntity) => Promise<void>;
   update: (task: TaskEntity) => Promise<void>;
   delete: (id: string) => Promise<void>;

@@ -65,6 +65,7 @@ cursor
 /docs/*
 !/docs/images/
 /features/
+/enhancement/
 /fixes/
 /docs/*.md
 /.claude/

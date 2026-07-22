@@ -16,6 +16,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
     props: {
       tenantId: string;
       teamId?: string;
+      ownerId?: string;
       parentId?: string;
       shortId?: string;
       title: string;
@@ -29,6 +30,8 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
       assigneeName?: string;
       createdBy: string;
       createdByName?: string;
+      startDate?: string;
+      endDate?: string;
       dueDate?: string;
       estimate?: number;
       labelKeys?: string[];
@@ -54,6 +57,7 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
           id: id || new UniqueEntityID(),
           tenantId: props.tenantId,
           teamId: props.teamId || '',
+          ownerId: props.ownerId || '',
           parentId: props.parentId || '',
           shortId: props.shortId || '',
           title: props.title.trim(),
@@ -67,7 +71,12 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
           assigneeName: props.assigneeName || '',
           createdBy: props.createdBy,
           createdByName: props.createdByName || '',
-          dueDate: props.dueDate || '',
+          startDate: props.startDate || '',
+          // endDate is the source of truth; fall back to a legacy `dueDate` so a
+          // task stored before the range existed shows its deadline as the end.
+          endDate: props.endDate || props.dueDate || '',
+          // dueDate mirrors endDate for old readers; seed it from whichever came in.
+          dueDate: props.dueDate || props.endDate || '',
           estimate: props.estimate ?? 0,
           labelKeys: props.labelKeys ?? [],
           customFields: props.customFields ?? {},
@@ -88,6 +97,13 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
   }
   get teamId(): string {
     return this.props.teamId;
+  }
+  get ownerId(): string {
+    return this.props.ownerId;
+  }
+  /** A private personal task (ownerId set) — not in a team, private to its owner. */
+  get isPersonal(): boolean {
+    return this.props.ownerId !== '';
   }
   get parentId(): string {
     return this.props.parentId;
@@ -128,6 +144,12 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
   get createdByName(): string {
     return this.props.createdByName;
   }
+  get startDate(): string {
+    return this.props.startDate;
+  }
+  get endDate(): string {
+    return this.props.endDate;
+  }
   get dueDate(): string {
     return this.props.dueDate;
   }
@@ -150,6 +172,16 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
     return this.props.updatedAt;
   }
 
+  /**
+   * Access rule for a task. A team task is visible to (and editable by) anyone in
+   * the tenant with the right role; a *personal* task (ownerId set) is private to
+   * its owner and to admins. Used by the get/update/delete/status use-cases so a
+   * personal task can't be read or mutated by another member who guesses its ref.
+   */
+  isVisibleTo(userId: string, isAdmin: boolean): boolean {
+    return !this.isPersonal || this.props.ownerId === userId || isAdmin;
+  }
+
   applyUpdate(fields: {
     title?: string;
     description?: string;
@@ -158,6 +190,8 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
     roadmapItemId?: string;
     roadmapItemLabel?: string;
     projectId?: string;
+    startDate?: string;
+    endDate?: string;
     dueDate?: string;
     estimate?: number;
     labelKeys?: string[];
@@ -173,7 +207,18 @@ export class TaskEntity extends AggregateRoot<TaskProps> {
     if (fields.roadmapItemId !== undefined) this.props.roadmapItemId = fields.roadmapItemId;
     if (fields.roadmapItemLabel !== undefined) this.props.roadmapItemLabel = fields.roadmapItemLabel;
     if (fields.projectId !== undefined) this.props.projectId = fields.projectId;
-    if (fields.dueDate !== undefined) this.props.dueDate = fields.dueDate;
+    if (fields.startDate !== undefined) this.props.startDate = fields.startDate;
+    // endDate is the deadline; keep the legacy dueDate mirror in lock-step so old
+    // readers (and a rollback) stay correct.
+    if (fields.endDate !== undefined) {
+      this.props.endDate = fields.endDate;
+      this.props.dueDate = fields.endDate;
+    }
+    // Legacy write path: a client still sending dueDate updates both endpoints.
+    if (fields.dueDate !== undefined) {
+      this.props.dueDate = fields.dueDate;
+      this.props.endDate = fields.dueDate;
+    }
     if (fields.estimate !== undefined) this.props.estimate = fields.estimate;
     if (fields.labelKeys !== undefined) this.props.labelKeys = fields.labelKeys;
     if (fields.customFields !== undefined) this.props.customFields = fields.customFields;

@@ -47,7 +47,11 @@ export class TasksController {
     @AuthUser() auth: JwtPayload,
     @Query() query: QueryTaskDto,
   ): Promise<IServiceListResponse<TaskResponseDto>> {
-    const result = await this.getTasks.execute({ tenantId: auth.tenantId, query });
+    const result = await this.getTasks.execute({
+      tenantId: auth.tenantId,
+      userId: auth.userId,
+      query,
+    });
     const { data, total, page, limit } = result.getValue();
     return ServiceResponse.paginate(TaskMapper.toResponseDtoArray(data), total, page, limit);
   }
@@ -75,7 +79,12 @@ export class TasksController {
     @AuthUser() auth: JwtPayload,
     @Param('id') id: string,
   ): Promise<TaskResponseDto> {
-    const result = await this.getTask.execute({ id, tenantId: auth.tenantId });
+    const result = await this.getTask.execute({
+      id,
+      tenantId: auth.tenantId,
+      requesterId: auth.userId,
+      isAdmin: auth.role === Role.ADMIN,
+    });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return TaskMapper.toResponseDto(result.getValue());
   }
@@ -88,7 +97,13 @@ export class TasksController {
     @Param('id') id: string,
     @Body() dto: UpdateTaskDto,
   ): Promise<TaskResponseDto> {
-    const result = await this.updateTask.execute({ id, tenantId: auth.tenantId, dto });
+    const result = await this.updateTask.execute({
+      id,
+      tenantId: auth.tenantId,
+      requesterId: auth.userId,
+      isAdmin: auth.role === Role.ADMIN,
+      dto,
+    });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return TaskMapper.toResponseDto(result.getValue());
   }
@@ -104,6 +119,8 @@ export class TasksController {
     const result = await this.setStatus.execute({
       id,
       tenantId: auth.tenantId,
+      requesterId: auth.userId,
+      isAdmin: auth.role === Role.ADMIN,
       status: dto.status,
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
@@ -117,7 +134,12 @@ export class TasksController {
     @AuthUser() auth: JwtPayload,
     @Param('id') id: string,
   ): Promise<{ ok: true }> {
-    const result = await this.deleteTask.execute({ id, tenantId: auth.tenantId });
+    const result = await this.deleteTask.execute({
+      id,
+      tenantId: auth.tenantId,
+      requesterId: auth.userId,
+      isAdmin: auth.role === Role.ADMIN,
+    });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return { ok: true };
   }

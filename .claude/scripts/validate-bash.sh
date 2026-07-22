@@ -1,8 +1,40 @@
 #!/bin/bash
-COMMAND=$(cat | jq -r '.tool_input.command')
-BLOCKED="vendor|deployments|node_modules|\.env|__pycache__|\.git/|dist/|build/"
 
-if echo "$COMMAND" | grep -qE "$BLOCKED"; then
- echo "ERROR: Blocked directory pattern" >&2
- exit 2
+# Read JSON input from stdin
+INPUT=$(cat)
+
+# Extract the command from JSON - correct path
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+
+# If no command found, allow it
+if [ -z "$COMMAND" ]; then
+  exit 0
 fi
+
+# Define forbidden patterns
+FORBIDDEN_PATTERNS=(
+  "node_modules"
+  "frontend/node_modules"
+  # "pipelines/data"
+  "\.env"
+  "build/"
+  "dist/"
+  # "data/"
+  "__pycache__"
+  "\.git/"
+  "venv/"
+  "\.pyc$"
+  "\.csv$"
+  "\.log$"
+)
+
+# Check if command contains any forbidden patterns
+for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
+  if echo "$COMMAND" | grep -qE "$pattern"; then
+    echo "ERROR: Access to '$pattern' is blocked by security policy" >&2
+    exit 2  # Exit code 2 = blocking error
+  fi
+done
+
+# Command is clean, allow it
+exit 0

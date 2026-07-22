@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { HelpCircle, MoreHorizontal, Trash2, X } from 'lucide-react';
+import {
+  Activity,
+  Calendar,
+  CircleDot,
+  Gauge,
+  HelpCircle,
+  MoreHorizontal,
+  Target,
+  Trash2,
+  Users,
+  X,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useEscapeBack } from '@/lib/useEscapeBack';
 import {
@@ -20,7 +31,8 @@ import { Icon } from '@/components/Icon';
 import { firstImageUrl } from '@/lib/editorjs';
 import { daysBetween, formatDate } from '@/lib/format';
 import { useUsers } from '@/features/users/api';
-import { PropField } from '@/features/issues/IssueDetail';
+import { useMilestones } from '@/features/milestones/api';
+import { DetailGrid, PropField, PropSection, PropSidebar, PropValue } from '@/features/issues/IssueDetail';
 import { TaskPanel } from '@/features/tasks/components/TaskPanel';
 import { taskRefsInText, useLinkTasksByRef } from '@/features/tasks/api';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
@@ -39,7 +51,7 @@ import {
   RoadmapDifficulty,
   RoadmapItemStatus,
 } from '@/types/enums';
-import type { RoadmapItem } from '@/types/dto';
+import type { Objective, RoadmapItem } from '@/types/dto';
 import { useReplaceRoadmapItems, useRoadmap } from './api';
 import { CenteredPageLayout } from '@/layouts/shared';
 
@@ -53,6 +65,10 @@ const RICE_FIELDS = [
 
 const riceOf = (i: Pick<RoadmapItem, 'reach' | 'impact' | 'confidence' | 'effort'>) =>
   i.effort > 0 ? (i.reach * i.impact * i.confidence) / i.effort : 0;
+
+/** Sentinel for the key-result Select's "link at the objective level" option —
+ *  distinct from '' (unlinked) so choosing it clears just the KR, not the OKR. */
+const OKR_WHOLE = '__whole__';
 
 /**
  * A roadmap item as a full page — the same shell and two-column layout as Task
@@ -75,6 +91,8 @@ export function RoadmapItemDetailPage() {
   // it for anyone who can write here (not just those who can manage assignees).
   const { data: usersData } = useUsers({ limit: 100 }, canWrite);
   const users = usersData?.items ?? [];
+  // Milestones feed the OKR picker (link this item to an objective / key result).
+  const { data: milestones } = useMilestones();
   const { crumbActions } = usePageChrome();
 
   const items = roadmap?.items ?? [];
@@ -116,6 +134,20 @@ export function RoadmapItemDetailPage() {
   const clampRice = (v: string) => Math.min(5, Math.max(1, Number(v) || 1));
   const assignedIds = new Set(item.assignees.map((a) => a.id));
   const addableUsers = users.filter((u) => !assignedIds.has(u.id));
+  // OKR picker — every objective across all milestones, labelled "Milestone ›
+  // Objective". `linkedObjective` is the one this item points at (if any), whose
+  // key results fill the optional second Select.
+  const objectiveOptions = (milestones ?? []).flatMap((m) =>
+    m.objectives.map((o) => ({ value: o.id, label: `${m.title} › ${o.title}`, milestoneId: m.id })),
+  );
+  let linkedObjective: Objective | undefined;
+  for (const m of milestones ?? []) {
+    const found = m.objectives.find((o) => o.id === item.objectiveId);
+    if (found) {
+      linkedObjective = found;
+      break;
+    }
+  }
   const dur = (from?: string, to?: string) =>
     from && to
       ? daysBetween(from, to) === 0
@@ -156,6 +188,26 @@ export function RoadmapItemDetailPage() {
     if (!u || assignedIds.has(id)) return;
     save({ assignees: [...item.assignees, { id: u.id, name: u.name }] });
   };
+
+  // ── OKR link ────────────────────────────────────────────────────────────────
+  const linkObjective = (objectiveId: string) => {
+    const opt = objectiveOptions.find((o) => o.value === objectiveId);
+    const obj = (milestones ?? []).flatMap((m) => m.objectives).find((o) => o.id === objectiveId);
+    if (!opt || !obj) return;
+    // Link at the objective level; the label is the objective's title until a KR
+    // is chosen. `keyResultId` resets so a re-link doesn't keep the old KR.
+    save({ milestoneId: opt.milestoneId, objectiveId, keyResultId: '', okrLabel: obj.title });
+  };
+  const linkKeyResult = (v: string) => {
+    if (!linkedObjective) return;
+    if (v === OKR_WHOLE) {
+      save({ keyResultId: '', okrLabel: linkedObjective.title });
+      return;
+    }
+    const kr = linkedObjective.keyResults.find((k) => k.id === v);
+    if (kr) save({ keyResultId: v, okrLabel: kr.title });
+  };
+  const clearOkr = () => save({ milestoneId: '', objectiveId: '', keyResultId: '', okrLabel: '' });
 
   const removeItem = () => {
     if (confirm(t('roadmaps.confirmDeleteItem')))
@@ -216,7 +268,7 @@ export function RoadmapItemDetailPage() {
           crumbActions,
         )}
 
-      <div className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_280px]">
+      <DetailGrid>
         {/* ── Main column ─────────────────────────────────────────────────── */}
         <div className="min-w-0">
           {canWrite ? (
@@ -290,100 +342,181 @@ export function RoadmapItemDetailPage() {
         </div>
 
         {/* ── Properties sidebar ──────────────────────────────────────────── */}
-        <aside className="flex flex-col gap-3 rounded-xl border bg-card p-3.5 text-card-foreground shadow-sm md:sticky md:top-6">
-          <PropField label={t('roadmaps.status')}>
-            {canWrite ? (
-              <Select
-                value={item.status}
-                onValueChange={(v) => save({ status: v as RoadmapItemStatus })}
-                options={ROADMAP_ITEM_STATUSES.map((s) => ({
-                  value: s,
-                  label: (
-                    <DotLabel color={ROADMAP_ITEM_STATUS_COLOR[s]}>
-                      {ROADMAP_ITEM_STATUS_LABEL[s]}
-                    </DotLabel>
-                  ),
-                }))}
-              />
-            ) : (
-              <DotLabel color={ROADMAP_ITEM_STATUS_COLOR[item.status]}>
-                {ROADMAP_ITEM_STATUS_LABEL[item.status]}
-              </DotLabel>
-            )}
-          </PropField>
-
-          <PropField label={t('roadmaps.difficulty')}>
-            {canWrite ? (
-              <Select
-                value={item.difficulty}
-                onValueChange={(v) => save({ difficulty: v as RoadmapDifficulty })}
-                options={ROADMAP_DIFFICULTIES.map((d) => ({
-                  value: d,
-                  label: (
-                    <DotLabel color={ROADMAP_DIFFICULTY_COLOR[d]}>
-                      {ROADMAP_DIFFICULTY_LABEL[d]}
-                    </DotLabel>
-                  ),
-                }))}
-              />
-            ) : (
-              <DotLabel color={ROADMAP_DIFFICULTY_COLOR[item.difficulty]}>
-                {ROADMAP_DIFFICULTY_LABEL[item.difficulty]}
-              </DotLabel>
-            )}
-          </PropField>
-
-          <PropField label={t('roadmaps.startDate')}>
-            {canWrite ? (
-              <DatePicker value={item.startDate} onChange={(v) => save({ startDate: v })} clearable />
-            ) : (
-              <span className="text-sm">{item.startDate ? formatDate(item.startDate) : '—'}</span>
-            )}
-          </PropField>
-
-          <PropField label={t('roadmaps.assignees')}>
-            <div className="flex flex-col gap-2">
-              {item.assignees.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {item.assignees.map((a) => (
-                    <span
-                      key={a.id}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background py-0.5 pl-0.5 pr-2 text-sm"
-                    >
-                      <span className="grid size-5 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                        {a.name.charAt(0).toUpperCase()}
-                      </span>
-                      {a.name}
-                      {canWrite && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            save({ assignees: item.assignees.filter((x) => x.id !== a.id) })
-                          }
-                          className="text-muted-foreground transition-colors hover:text-destructive"
-                          aria-label={t('common.delete')}
-                        >
-                          <X className="size-3.5" />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {canManageDelivery && addableUsers.length > 0 ? (
+        <PropSidebar>
+          <PropSection label={t('tasks.properties')}>
+            <PropField bare label={t('roadmaps.status')}>
+              {canWrite ? (
                 <Select
-                  value=""
-                  onValueChange={addAssignee}
-                  placeholder={t('roadmaps.addAssignee')}
-                  options={addableUsers.map((u) => ({ value: u.id, label: u.name }))}
+                  value={item.status}
+                  onValueChange={(v) => save({ status: v as RoadmapItemStatus })}
+                  options={ROADMAP_ITEM_STATUSES.map((s) => ({
+                    value: s,
+                    label: (
+                      <DotLabel color={ROADMAP_ITEM_STATUS_COLOR[s]}>
+                        {ROADMAP_ITEM_STATUS_LABEL[s]}
+                      </DotLabel>
+                    ),
+                  }))}
                 />
               ) : (
-                item.assignees.length === 0 && (
-                  <span className="text-sm text-muted-foreground">—</span>
-                )
+                <PropValue icon={<CircleDot />}>
+                  <DotLabel color={ROADMAP_ITEM_STATUS_COLOR[item.status]}>
+                    {ROADMAP_ITEM_STATUS_LABEL[item.status]}
+                  </DotLabel>
+                </PropValue>
               )}
-            </div>
-          </PropField>
+            </PropField>
+
+            <PropField bare label={t('roadmaps.difficulty')}>
+              {canWrite ? (
+                <Select
+                  value={item.difficulty}
+                  onValueChange={(v) => save({ difficulty: v as RoadmapDifficulty })}
+                  options={ROADMAP_DIFFICULTIES.map((d) => ({
+                    value: d,
+                    label: (
+                      <DotLabel color={ROADMAP_DIFFICULTY_COLOR[d]}>
+                        {ROADMAP_DIFFICULTY_LABEL[d]}
+                      </DotLabel>
+                    ),
+                  }))}
+                />
+              ) : (
+                <PropValue icon={<Gauge />}>
+                  <DotLabel color={ROADMAP_DIFFICULTY_COLOR[item.difficulty]}>
+                    {ROADMAP_DIFFICULTY_LABEL[item.difficulty]}
+                  </DotLabel>
+                </PropValue>
+              )}
+            </PropField>
+
+            <PropField bare label={t('roadmaps.startDate')}>
+              {canWrite ? (
+                <DatePicker
+                  value={item.startDate}
+                  onChange={(v) => save({ startDate: v })}
+                  clearable
+                />
+              ) : (
+                <PropValue icon={<Calendar />} muted={!item.startDate}>
+                  {item.startDate ? formatDate(item.startDate) : '—'}
+                </PropValue>
+              )}
+            </PropField>
+
+            <PropField label={t('roadmaps.progress')} icon={<Activity />} align="stack">
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={progressDraft}
+                  disabled={!canWrite}
+                  onChange={(e) => setProgressDraft(Number(e.target.value) || 0)}
+                  onPointerUp={() =>
+                    progressDraft !== item.progress && save({ progress: progressDraft })
+                  }
+                  onKeyUp={() => progressDraft !== item.progress && save({ progress: progressDraft })}
+                  className="h-1.5 flex-1 cursor-pointer accent-primary"
+                  aria-label={t('roadmaps.progress')}
+                />
+                <span className="w-10 text-right text-sm tabular-nums text-muted-foreground">
+                  {progressDraft}%
+                </span>
+              </div>
+            </PropField>
+
+            <PropField label={t('roadmaps.assignees')} icon={<Users />} align="stack">
+              <div className="flex flex-col gap-2">
+                {item.assignees.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {item.assignees.map((a) => (
+                      <span
+                        key={a.id}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background py-0.5 pl-0.5 pr-2 text-sm"
+                      >
+                        <span className="grid size-5 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                          {a.name.charAt(0).toUpperCase()}
+                        </span>
+                        {a.name}
+                        {canWrite && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              save({ assignees: item.assignees.filter((x) => x.id !== a.id) })
+                            }
+                            className="text-muted-foreground transition-colors hover:text-destructive"
+                            aria-label={t('common.delete')}
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {canManageDelivery && addableUsers.length > 0 ? (
+                  <Select
+                    value=""
+                    onValueChange={addAssignee}
+                    placeholder={t('roadmaps.addAssignee')}
+                    options={addableUsers.map((u) => ({ value: u.id, label: u.name }))}
+                  />
+                ) : (
+                  item.assignees.length === 0 && (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  )
+                )}
+              </div>
+            </PropField>
+
+            <PropField label={t('roadmaps.okr')} icon={<Target />} align="stack">
+              {canWrite ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <Select
+                        value={item.objectiveId}
+                        onValueChange={linkObjective}
+                        placeholder={t('roadmaps.linkOkr')}
+                        aria-label={t('roadmaps.okr')}
+                        options={objectiveOptions.map(({ value, label }) => ({ value, label }))}
+                      />
+                    </div>
+                    {item.objectiveId && (
+                      <button
+                        type="button"
+                        onClick={clearOkr}
+                        className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
+                        aria-label={t('roadmaps.unlinkOkr')}
+                        title={t('roadmaps.unlinkOkr')}
+                      >
+                        <X className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                  {linkedObjective && linkedObjective.keyResults.length > 0 && (
+                    <Select
+                      value={item.keyResultId || OKR_WHOLE}
+                      onValueChange={linkKeyResult}
+                      aria-label={t('roadmaps.keyResult')}
+                      options={[
+                        { value: OKR_WHOLE, label: t('roadmaps.wholeObjective') },
+                        ...linkedObjective.keyResults.map((k) => ({ value: k.id, label: k.title })),
+                      ]}
+                    />
+                  )}
+                </div>
+              ) : item.okrLabel ? (
+                <span className="inline-flex min-w-0 items-center gap-1.5 text-sm">
+                  <Target className="size-3.5 shrink-0 text-primary" aria-hidden />
+                  <span className="truncate">{item.okrLabel}</span>
+                </span>
+              ) : (
+                <span className="text-sm text-muted-foreground">—</span>
+              )}
+            </PropField>
+          </PropSection>
 
           {/* RICE */}
           <section className="rounded-xl border border-border p-3">
@@ -423,26 +556,6 @@ export function RoadmapItemDetailPage() {
             </div>
           </section>
 
-          <PropField label={t('roadmaps.progress')}>
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={progressDraft}
-                disabled={!canWrite}
-                onChange={(e) => setProgressDraft(Number(e.target.value) || 0)}
-                onPointerUp={() => progressDraft !== item.progress && save({ progress: progressDraft })}
-                onKeyUp={() => progressDraft !== item.progress && save({ progress: progressDraft })}
-                className="h-1.5 flex-1 cursor-pointer accent-primary"
-                aria-label={t('roadmaps.progress')}
-              />
-              <span className="w-10 text-right text-sm tabular-nums text-muted-foreground">
-                {progressDraft}%
-              </span>
-            </div>
-          </PropField>
-
           {/* Timing — driven by status, stamped server-side. */}
           {item.createdAt && (
             <section className="rounded-xl border border-border p-3">
@@ -479,8 +592,8 @@ export function RoadmapItemDetailPage() {
               </div>
             </section>
           )}
-        </aside>
-      </div>
+        </PropSidebar>
+      </DetailGrid>
     </CenteredPageLayout>
   );
 }

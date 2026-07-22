@@ -61,7 +61,9 @@ export class PublicTeamsController {
       const bugs = await this.getBugs.execute({ tenantId, query: { teamId } as QueryBugDto });
       items = BugMapper.toResponseDtoArray(bugs.getValue().data);
     } else {
-      const tasks = await this.getTasks.execute({ tenantId, query: { teamId } as QueryTaskDto });
+      // Public boards only ever show a team's tasks. Empty requester keeps the
+      // personal-task filter on (ownerId='') so a personal card can't leak here.
+      const tasks = await this.getTasks.execute({ tenantId, userId: '', query: { teamId } as QueryTaskDto });
       items = TaskMapper.toResponseDtoArray(tasks.getValue().data);
     }
     return { team: TeamMapper.toResponseDto(team), issueType: team.issueType, items };
@@ -88,7 +90,9 @@ export class PublicTeamsController {
       const comments = await this.getBugComments.execute({ tenantId, bugId: itemId });
       return CommentMapper.toResponseDtoArray(comments.getValue());
     }
-    const task = await this.getTask.execute({ id: itemId, tenantId });
+    // isVisibleTo('', false) is true for a team task but false for a personal
+    // one, so a personal ref can't be read through a shared team link.
+    const task = await this.getTask.execute({ id: itemId, tenantId, requesterId: '', isAdmin: false });
     if (task.isFailure || TaskMapper.toResponseDto(task.getValue()).teamId !== teamId) throw gone();
     const comments = await this.getTaskComments.execute({ tenantId, taskId: itemId });
     return CommentMapper.toResponseDtoArray(comments.getValue());

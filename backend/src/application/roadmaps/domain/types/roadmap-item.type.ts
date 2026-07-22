@@ -61,6 +61,15 @@ export interface RoadmapItemData {
   /** When the item first reached Done, ISO. Set once then preserved; absent until
    *  completed. Drives lead time (createdAt → completedAt). */
   completedAt?: string;
+  /** Linked OKR — the milestone objective (and optionally one specific key result
+   *  under it) this item advances. All denormalized so cards render without loading
+   *  the milestone: `okrLabel` is the leaf title shown on the card — the key
+   *  result's title when one is chosen, else the objective's. Empty strings when the
+   *  item isn't linked; `keyResultId` is '' when linked at the objective level. */
+  milestoneId: string;
+  objectiveId: string;
+  keyResultId: string;
+  okrLabel: string;
 }
 
 /** RICE = (reach × impact × confidence) / effort. Effort 0 → score 0. */

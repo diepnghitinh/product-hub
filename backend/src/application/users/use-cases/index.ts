@@ -5,3 +5,5 @@ export * from './update-user.use-case';
 export * from './delete-user.use-case';
 export * from './change-password.use-case';
 export * from './reset-user-password.use-case';
+export * from './get-personal-statuses.use-case';
+export * from './replace-personal-statuses.use-case';

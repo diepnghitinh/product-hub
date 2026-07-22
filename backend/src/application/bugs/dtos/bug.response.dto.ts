@@ -56,6 +56,12 @@ export class BugResponseDto {
   @ApiProperty()
   reporterName: string;
 
+  @ApiProperty({ description: 'Start date as YYYY-MM-DD ("" when unset)' })
+  startDate: string;
+
+  @ApiProperty({ description: 'End / target date as YYYY-MM-DD ("" when unset)' })
+  endDate: string;
+
   @ApiProperty()
   order: number;
 

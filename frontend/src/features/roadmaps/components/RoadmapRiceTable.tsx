@@ -1,3 +1,4 @@
+import { Target } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -44,6 +45,7 @@ export function RoadmapRiceTable({
             <TableHead>{t('roadmaps.itemTitle')}</TableHead>
             <TableHead>{t('roadmaps.phase')}</TableHead>
             <TableHead>{t('roadmaps.status')}</TableHead>
+            <TableHead>{t('roadmaps.okr')}</TableHead>
             <TableHead className="text-right">{t('roadmaps.reach')}</TableHead>
             <TableHead className="text-right">{t('roadmaps.impact')}</TableHead>
             <TableHead className="text-right">{t('roadmaps.confidence')}</TableHead>
@@ -73,6 +75,21 @@ export function RoadmapRiceTable({
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                   {ROADMAP_ITEM_STATUS_LABEL[item.status]}
+                </TableCell>
+                <TableCell>
+                  {/* Linked OKR — the denormalized leaf label (objective or KR title),
+                      same read-only treatment as the item detail page. */}
+                  {item.okrLabel ? (
+                    <span
+                      className="inline-flex max-w-[220px] items-center gap-1.5 text-sm"
+                      title={item.okrLabel}
+                    >
+                      <Target className="size-3.5 shrink-0 text-primary" aria-hidden />
+                      <span className="min-w-0 truncate">{item.okrLabel}</span>
+                    </span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">{item.reach}</TableCell>
                 <TableCell className="text-right tabular-nums">{item.impact}</TableCell>

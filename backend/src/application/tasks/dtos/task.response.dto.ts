@@ -15,6 +15,11 @@ export class TaskResponseDto {
   @ApiProperty({ description: 'The team whose issue list this is in' })
   teamId: string;
 
+  @ApiProperty({
+    description: "Owner of a private personal task ('' for a normal team task)",
+  })
+  ownerId: string;
+
   @ApiProperty({ description: 'Parent task id when this is a sub-task ("" if top-level)' })
   parentId: string;
 
@@ -54,7 +59,13 @@ export class TaskResponseDto {
   @ApiProperty()
   createdByName: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Start date as YYYY-MM-DD ("" when unset)' })
+  startDate: string;
+
+  @ApiProperty({ description: 'End / target date as YYYY-MM-DD ("" when unset)' })
+  endDate: string;
+
+  @ApiProperty({ deprecated: true, description: 'Legacy alias of endDate, kept in sync' })
   dueDate: string;
 
   @ApiProperty({ description: 'Size estimate in points (0 = no estimate)' })
