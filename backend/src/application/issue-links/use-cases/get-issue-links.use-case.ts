@@ -1,8 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
-import { ITaskRepository } from '@application/tasks/repositories/task.repository';
-import { IBugRepository } from '@application/bugs/repositories/bug.repository';
+import { IIssueRepository } from '@application/issues/repositories/issue.repository';
 import { IIssueLinkRepository } from '../repositories/issue-link.repository';
 import { INVERSE_RELATION, IssueKind } from '../domain/relation-type.enum';
 import { IssueLinkResponseDto } from '../dtos/issue-link.response.dto';
@@ -26,8 +25,8 @@ export class GetIssueLinksUseCase
 {
   constructor(
     @Inject(IIssueLinkRepository) private readonly links: IIssueLinkRepository,
-    @Inject(ITaskRepository) private readonly tasks: ITaskRepository,
-    @Inject(IBugRepository) private readonly bugs: IBugRepository,
+    // One repo for both kinds — tasks and bugs share the unified `issues` collection.
+    @Inject(IIssueRepository) private readonly issues: IIssueRepository,
   ) {}
 
   async execute(req: GetIssueLinksRequest): Promise<Result<IssueLinkResponseDto[]>> {
@@ -37,7 +36,7 @@ export class GetIssueLinksUseCase
       const outgoing = row.sourceId === req.issueId;
       const otherId = outgoing ? row.targetId : row.sourceId;
       const relationType = outgoing ? row.relationType : INVERSE_RELATION[row.relationType];
-      const issue = await this.resolve(req.issueType, otherId);
+      const issue = await this.resolve(otherId);
       if (!issue) continue; // the linked issue was deleted — drop the dangling row
       out.push({
         id: row.id,
@@ -53,14 +52,9 @@ export class GetIssueLinksUseCase
   }
 
   private async resolve(
-    kind: IssueKind,
     id: string,
   ): Promise<{ shortId: string; title: string; status: string } | null> {
-    if (kind === IssueKind.Task) {
-      const t = await this.tasks.findById(id);
-      return t ? { shortId: t.shortId, title: t.title, status: t.status } : null;
-    }
-    const b = await this.bugs.findById(id);
-    return b ? { shortId: b.shortId, title: b.title, status: b.status } : null;
+    const issue = await this.issues.findById(id);
+    return issue ? { shortId: issue.shortId, title: issue.title, status: issue.status } : null;
   }
 }

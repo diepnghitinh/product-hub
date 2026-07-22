@@ -9,6 +9,14 @@ export class CreateCommentDto {
   @IsString()
   body: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Id of the comment being replied to. Threads are one level deep — a reply to a reply attaches to that reply’s root.',
+  })
+  @IsOptional()
+  @IsString()
+  parentId?: string;
+
   @ApiPropertyOptional({ type: [String], description: 'User ids mentioned in the body' })
   @IsOptional()
   @IsArray()

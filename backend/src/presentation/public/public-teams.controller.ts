@@ -6,16 +6,12 @@ import { GetPublicTeamUseCase } from '@application/teams/use-cases/team.use-case
 import { TeamMapper } from '@application/teams/mappers/team.mapper';
 import { TeamResponseDto } from '@application/teams/dtos/team.dtos';
 import { TeamIssueType } from '@application/teams/domain/enums/team.enums';
-import { GetBugsUseCase } from '@application/bugs/use-cases/get-bugs.use-case';
-import { GetBugUseCase } from '@application/bugs/use-cases/get-bug.use-case';
-import { BugMapper } from '@application/bugs/mappers/bug.mapper';
-import { BugResponseDto } from '@application/bugs/dtos/bug.response.dto';
-import { QueryBugDto } from '@application/bugs/dtos/query-bug.dto';
-import { GetTasksUseCase } from '@application/tasks/use-cases/get-tasks.use-case';
-import { GetTaskUseCase } from '@application/tasks/use-cases/get-task.use-case';
-import { TaskMapper } from '@application/tasks/mappers/task.mapper';
-import { TaskResponseDto } from '@application/tasks/dtos/task.response.dto';
-import { QueryTaskDto } from '@application/tasks/dtos/query-task.dto';
+import { GetIssuesUseCase } from '@application/issues/use-cases/get-issues.use-case';
+import { GetIssueUseCase } from '@application/issues/use-cases/get-issue.use-case';
+import { IssueMapper } from '@application/issues/mappers/issue.mapper';
+import { IssueResponseDto } from '@application/issues/dtos/issue.response.dto';
+import { QueryIssueDto } from '@application/issues/dtos/query-issue.dto';
+import { IssueKind } from '@application/issues/domain/enums/issue.enums';
 import { GetCommentsUseCase } from '@application/activity/use-cases/get-comments.use-case';
 import { GetTaskCommentsUseCase } from '@application/activity/use-cases/task-comment.use-cases';
 import { CommentMapper } from '@application/activity/mappers/comment.mapper';
@@ -24,14 +20,16 @@ import { CommentResponseDto } from '@application/activity/dtos/comment.response.
 interface PublicTeamBoardView {
   team: TeamResponseDto;
   issueType: TeamIssueType;
-  items: (BugResponseDto | TaskResponseDto)[];
+  items: IssueResponseDto[];
 }
 
 /**
  * Public read-only team board (no auth) resolved from a share token. A team is
- * typed BUG or TASK, so the board is that team's bug list or task list. The
- * board columns live on the team; comments are fetched lazily per card so the
- * board payload stays small.
+ * typed BUG or TASK, so the board is that team's bug list or task list — both
+ * read from the unified `issues` collection, the same source the app itself
+ * writes to, so a shared board never lags behind the live board. The board
+ * columns live on the team; comments are fetched lazily per card so the board
+ * payload stays small.
  */
 @ApiTags('Public API')
 @Public()
@@ -39,10 +37,8 @@ interface PublicTeamBoardView {
 export class PublicTeamsController {
   constructor(
     private readonly getPublicTeam: GetPublicTeamUseCase,
-    private readonly getBugs: GetBugsUseCase,
-    private readonly getBug: GetBugUseCase,
-    private readonly getTasks: GetTasksUseCase,
-    private readonly getTask: GetTaskUseCase,
+    private readonly getIssues: GetIssuesUseCase,
+    private readonly getIssue: GetIssueUseCase,
     private readonly getBugComments: GetCommentsUseCase,
     private readonly getTaskComments: GetTaskCommentsUseCase,
   ) {}
@@ -55,17 +51,16 @@ export class PublicTeamsController {
     const team = result.getValue();
     const tenantId = team.tenantId;
     const teamId = team.id.toString();
+    const kind = team.issueType === TeamIssueType.BUG ? IssueKind.BUG : IssueKind.TASK;
 
-    let items: (BugResponseDto | TaskResponseDto)[];
-    if (team.issueType === TeamIssueType.BUG) {
-      const bugs = await this.getBugs.execute({ tenantId, query: { teamId } as QueryBugDto });
-      items = BugMapper.toResponseDtoArray(bugs.getValue().data);
-    } else {
-      // Public boards only ever show a team's tasks. Empty requester keeps the
-      // personal-task filter on (ownerId='') so a personal card can't leak here.
-      const tasks = await this.getTasks.execute({ tenantId, userId: '', query: { teamId } as QueryTaskDto });
-      items = TaskMapper.toResponseDtoArray(tasks.getValue().data);
-    }
+    // Empty userId leaves the personal-task filter on (ownerId '') so a private
+    // card can't leak onto a shared board; `kind` scopes to the team's issue type.
+    const issues = await this.getIssues.execute({
+      tenantId,
+      userId: '',
+      query: { teamId, kind: [kind] } as QueryIssueDto,
+    });
+    const items = IssueMapper.toResponseDtoArray(issues.getValue().data);
     return { team: TeamMapper.toResponseDto(team), issueType: team.issueType, items };
   }
 
@@ -82,18 +77,18 @@ export class PublicTeamsController {
     const teamId = team.id.toString();
     const gone = () => new EntityNotFoundException('This link is not available');
 
-    // Verify the card actually belongs to the shared team, so a token can't be
-    // used to read comments of other items in the same workspace.
+    // Verify the card actually belongs to the shared team, so a token can't read
+    // comments of other items in the same workspace. isVisibleTo('', false) is
+    // true for a team task/bug but false for a personal task, so a personal ref
+    // can't be read through a shared team link.
+    const issue = await this.getIssue.execute({ id: itemId, tenantId, requesterId: '', isAdmin: false });
+    if (issue.isFailure || IssueMapper.toResponseDto(issue.getValue()).teamId !== teamId) throw gone();
+
+    // Comments are still stored per kind; a team is a single kind, so branch the fetch.
     if (team.issueType === TeamIssueType.BUG) {
-      const bug = await this.getBug.execute({ id: itemId, tenantId });
-      if (bug.isFailure || BugMapper.toResponseDto(bug.getValue()).teamId !== teamId) throw gone();
       const comments = await this.getBugComments.execute({ tenantId, bugId: itemId });
       return CommentMapper.toResponseDtoArray(comments.getValue());
     }
-    // isVisibleTo('', false) is true for a team task but false for a personal
-    // one, so a personal ref can't be read through a shared team link.
-    const task = await this.getTask.execute({ id: itemId, tenantId, requesterId: '', isAdmin: false });
-    if (task.isFailure || TaskMapper.toResponseDto(task.getValue()).teamId !== teamId) throw gone();
     const comments = await this.getTaskComments.execute({ tenantId, taskId: itemId });
     return CommentMapper.toResponseDtoArray(comments.getValue());
   }

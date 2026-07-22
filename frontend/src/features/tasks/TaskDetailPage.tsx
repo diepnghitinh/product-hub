@@ -38,10 +38,10 @@ export function TaskDetailPage() {
   // Personal board, not a team, and never says "My Tasks".
   const isPersonal = !!task?.ownerId;
   const parent = isPersonal
-    ? { to: '/tasks/personal', label: t('personal.title') }
+    ? { to: '/issues/personal', label: t('personal.title') }
     : team
     ? { to: `/teams/${team.id}`, label: team.name }
-    : { to: '/tasks', label: t('tasks.myTasks') };
+    : { to: '/issues', label: t('tasks.assignedToMe') };
   const leadingIcon = isPersonal ? (
     <span className="flex h-5 w-5 items-center justify-center rounded-sm hover:bg-accent/60 hover:text-accent-foreground">
       <Lock size={16} className="shrink-0 text-muted-foreground" />
@@ -75,7 +75,7 @@ export function TaskDetailPage() {
       <TaskDetail
         taskId={taskId}
         menuTarget="topbar"
-        onDeleted={() => navigate(isPersonal ? '/tasks/personal' : '/tasks')}
+        onDeleted={() => navigate(isPersonal ? '/issues/personal' : '/issues')}
       />
     </CenteredPageLayout>
   );

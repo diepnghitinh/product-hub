@@ -1,8 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
-import { ITaskRepository } from '@application/tasks/repositories/task.repository';
-import { IBugRepository } from '@application/bugs/repositories/bug.repository';
+import { IIssueRepository } from '@application/issues/repositories/issue.repository';
 import { IIssueLinkRepository } from '../repositories/issue-link.repository';
 import { IssueKind, RelationType } from '../domain/relation-type.enum';
 
@@ -26,8 +25,8 @@ export class CreateIssueLinkUseCase
 {
   constructor(
     @Inject(IIssueLinkRepository) private readonly links: IIssueLinkRepository,
-    @Inject(ITaskRepository) private readonly tasks: ITaskRepository,
-    @Inject(IBugRepository) private readonly bugs: IBugRepository,
+    // One repo for both kinds — tasks and bugs share the unified `issues` collection.
+    @Inject(IIssueRepository) private readonly issues: IIssueRepository,
   ) {}
 
   async execute(req: CreateIssueLinkRequest): Promise<Result<void>> {
@@ -35,8 +34,8 @@ export class CreateIssueLinkUseCase
       return Result.fail('An issue cannot be linked to itself');
     }
     const [source, target] = await Promise.all([
-      this.belongsToTenant(req.issueType, req.tenantId, req.sourceId),
-      this.belongsToTenant(req.issueType, req.tenantId, req.targetId),
+      this.belongsToTenant(req.tenantId, req.sourceId),
+      this.belongsToTenant(req.tenantId, req.targetId),
     ]);
     if (!source || !target) return Result.fail('Issue not found');
 
@@ -51,13 +50,8 @@ export class CreateIssueLinkUseCase
     return Result.ok();
   }
 
-  private async belongsToTenant(
-    kind: IssueKind,
-    tenantId: string,
-    id: string,
-  ): Promise<boolean> {
-    const found =
-      kind === IssueKind.Task ? await this.tasks.findById(id) : await this.bugs.findById(id);
+  private async belongsToTenant(tenantId: string, id: string): Promise<boolean> {
+    const found = await this.issues.findById(id);
     return !!found && found.tenantId === tenantId;
   }
 }

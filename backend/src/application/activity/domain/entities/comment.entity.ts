@@ -15,6 +15,7 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
       bugId?: string;
       taskId?: string;
       roadmapItemId?: string;
+      parentId?: string;
       authorId: string;
       authorName: string;
       body: string;
@@ -49,6 +50,7 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
           bugId: props.bugId || '',
           taskId: props.taskId || '',
           roadmapItemId: props.roadmapItemId || '',
+          parentId: props.parentId || '',
           authorId: props.authorId,
           authorName: props.authorName,
           body,
@@ -77,6 +79,9 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
 
   get roadmapItemId(): string {
     return this.props.roadmapItemId;
+  }
+  get parentId(): string {
+    return this.props.parentId;
   }
   get authorId(): string {
     return this.props.authorId;

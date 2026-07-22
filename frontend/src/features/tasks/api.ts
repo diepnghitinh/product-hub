@@ -1,9 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
-import { t } from '@/i18n';
-import type { ListResponse, TaskDto } from '@/types/dto';
+import { apiGet, apiPatch, apiPut } from '@/lib/api';
+import { IssueKind } from '@/types/enums';
+import { makeIssueHooks } from '@/features/issues/hook-factory';
+import type { TaskDto } from '@/types/dto';
 import type { CustomFieldValue, TaskStatus, TeamStatusConfig } from '@/types/enums';
+
+/**
+ * Tasks read/write the unified **`/issues`** collection (with `kind: task`), not the
+ * retired `/tasks` endpoint — `/issues` is authoritative. The fetch + optimistic
+ * cache logic lives once in `makeIssueHooks`; this file only binds it to the task
+ * cache namespace (`['tasks']`/`['task']`), `kind: task`, and `TaskDto`, so the hook
+ * names, params, return types and cache keys every caller already uses are unchanged.
+ * (Personal-board *columns* at the bottom stay on `/users/me/personal-statuses` —
+ * they were never a task endpoint.)
+ */
 
 export interface TaskQuery {
   /** Scope to a team's issue list. */
@@ -82,50 +92,20 @@ export interface UpdateTaskInput {
   customFields?: Record<string, CustomFieldValue>;
 }
 
-/** Refresh both the lists and any open task detail — `['task', id]` doesn't
- * prefix-match `['tasks']`, so it needs invalidating separately. */
-function useInvalidate() {
-  const qc = useQueryClient();
-  return () => {
-    qc.invalidateQueries({ queryKey: ['tasks'] });
-    qc.invalidateQueries({ queryKey: ['task'] });
-  };
-}
+// Bound to the task cache namespace (`['tasks']`/`['task']`) + `kind: task`; all the
+// fetch/optimistic logic lives in `makeIssueHooks` (see issues/hook-factory.ts).
+const hooks = makeIssueHooks<TaskDto, TaskQuery, CreateTaskInput, UpdateTaskInput>({
+  listKey: 'tasks',
+  detailKey: 'task',
+  kind: IssueKind.TASK,
+});
 
 /** List tasks — filter by backlog item, assignee, status, project. */
-export function useTasks(query?: TaskQuery) {
-  return useQuery({
-    queryKey: ['tasks', query ?? {}],
-    // 100 is the backend's PaginationDto cap — anything higher fails validation.
-    queryFn: () => apiGet<ListResponse<TaskDto>>('/tasks', { limit: 100, ...query }),
-  });
-}
-
+export const useTasks = hooks.useList;
 /** A single task — drives the task detail page. */
-export function useTask(id: string | undefined) {
-  return useQuery({
-    queryKey: ['task', id],
-    queryFn: () => apiGet<TaskDto>(`/tasks/${id}`),
-    enabled: !!id,
-  });
-}
-
-export function useCreateTask() {
-  const invalidate = useInvalidate();
-  return useMutation({
-    mutationFn: (input: CreateTaskInput) => apiPost<TaskDto>('/tasks', input),
-    onSuccess: invalidate,
-  });
-}
-
-export function useUpdateTask() {
-  const invalidate = useInvalidate();
-  return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateTaskInput }) =>
-      apiPatch<TaskDto>(`/tasks/${id}`, input),
-    onSuccess: invalidate,
-  });
-}
+export const useTask = hooks.useDetail;
+export const useCreateTask = hooks.useCreate;
+export const useUpdateTask = hooks.useUpdate;
 
 /**
  * Pull task refs out of free text (a roadmap item's description), matching a
@@ -150,7 +130,7 @@ export function taskRefsInText(text: string): string[] {
  * accepts a shortId). Returns the shortIds actually linked.
  */
 export function useLinkTasksByRef() {
-  const invalidate = useInvalidate();
+  const invalidate = hooks.useInvalidate();
   return useMutation({
     mutationFn: async (args: {
       refs: string[];
@@ -162,9 +142,9 @@ export function useLinkTasksByRef() {
       const linked: string[] = [];
       for (const ref of args.refs) {
         try {
-          const task = await apiGet<TaskDto>(`/tasks/${ref}`);
+          const task = await apiGet<TaskDto>(`/issues/${ref}`);
           if (!task || task.roadmapItemId === args.roadmapItemId) continue;
-          await apiPatch<TaskDto>(`/tasks/${task.id}`, {
+          await apiPatch<TaskDto>(`/issues/${task.id}`, {
             roadmapId: args.roadmapId,
             roadmapItemId: args.roadmapItemId,
             roadmapItemLabel: args.roadmapItemLabel,
@@ -181,50 +161,10 @@ export function useLinkTasksByRef() {
   });
 }
 
-/**
- * Optimistic: the card lands in its new column the instant it's dropped, rather
- * than sitting in the old one until the server answers. If the write fails the
- * snapshot is restored, so it springs back to where it came from.
- */
-export function useSetTaskStatus() {
-  const qc = useQueryClient();
-  const invalidate = useInvalidate();
-  return useMutation({
-    // `status` is a column key — built-in or custom, so a string.
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      apiPatch<TaskDto>(`/tasks/${id}/status`, { status }),
-    onMutate: async ({ id, status }) => {
-      // Stop in-flight refetches from clobbering the optimistic state.
-      await qc.cancelQueries({ queryKey: ['tasks'] });
-      await qc.cancelQueries({ queryKey: ['task', id] });
-      const lists = qc.getQueriesData<ListResponse<TaskDto>>({ queryKey: ['tasks'] });
-      const detail = qc.getQueryData<TaskDto>(['task', id]);
-      qc.setQueriesData<ListResponse<TaskDto>>({ queryKey: ['tasks'] }, (old) =>
-        old
-          ? { ...old, items: old.items.map((tk) => (tk.id === id ? { ...tk, status } : tk)) }
-          : old,
-      );
-      qc.setQueryData<TaskDto>(['task', id], (old) => (old ? { ...old, status } : old));
-      return { lists, detail };
-    },
-    onError: (err, { id }, ctx) => {
-      ctx?.lists.forEach(([key, data]) => qc.setQueryData(key, data));
-      if (ctx?.detail) qc.setQueryData(['task', id], ctx.detail);
-      // Say why — an unexplained snap-back just reads as a broken board.
-      toast.error(t('boards.moveFailed'), { description: err.message });
-    },
-    // Resync either way — the server owns updatedAt and any derived fields.
-    onSettled: invalidate,
-  });
-}
-
-export function useDeleteTask() {
-  const invalidate = useInvalidate();
-  return useMutation({
-    mutationFn: (id: string) => apiDelete<{ ok: true }>(`/tasks/${id}`),
-    onSuccess: invalidate,
-  });
-}
+/** Optimistic status move — the card jumps columns on drop, snaps back on failure
+ * (see `makeIssueHooks`). */
+export const useSetTaskStatus = hooks.useSetStatus;
+export const useDeleteTask = hooks.useRemove;
 
 /**
  * The columns of the caller's *private personal board*. Per-user (owned via the

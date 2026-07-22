@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { InfrastructureUsersModule } from '@infrastructure/users/users.module';
-import { InfrastructureBugsModule } from '@infrastructure/bugs/bugs.module';
-import { InfrastructureTasksModule } from '@infrastructure/tasks/tasks.module';
+import { InfrastructureIssuesModule } from '@infrastructure/issues/issues.module';
 import { InfrastructureRoadmapsModule } from '@infrastructure/roadmaps/roadmaps.module';
 import {
   AddFavouriteUseCase,
@@ -16,8 +15,7 @@ const useCases = [GetFavouritesUseCase, AddFavouriteUseCase, RemoveFavouriteUseC
   // validate + snapshot a pin at add-time.
   imports: [
     InfrastructureUsersModule,
-    InfrastructureBugsModule,
-    InfrastructureTasksModule,
+    InfrastructureIssuesModule,
     InfrastructureRoadmapsModule,
   ],
   providers: [...useCases],

@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+// Load the per-environment config from /config before anything reads env.
+import '@shared/utils/dotenv';
 import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';

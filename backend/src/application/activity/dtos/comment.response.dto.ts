@@ -8,6 +8,9 @@ export class CommentResponseDto {
   @ApiProperty()
   bugId: string;
 
+  @ApiProperty({ description: 'Empty for a top-level comment; else the id of the comment it replies to' })
+  parentId: string;
+
   @ApiProperty()
   authorId: string;
 

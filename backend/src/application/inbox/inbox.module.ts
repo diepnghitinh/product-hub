@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { InfrastructureUsersModule } from '@infrastructure/users/users.module';
-import { InfrastructureBugsModule } from '@infrastructure/bugs/bugs.module';
+import { InfrastructureIssuesModule } from '@infrastructure/issues/issues.module';
 import { InfrastructureActivityModule } from '@infrastructure/activity/activity.module';
 import {
   GetInboxUseCase,
@@ -12,7 +12,7 @@ const useCases = [GetInboxUseCase, MarkInboxSeenUseCase, MarkInboxItemReadUseCas
 
 @Module({
   // Inbox is a read model over users + bugs + comments (no store of its own).
-  imports: [InfrastructureUsersModule, InfrastructureBugsModule, InfrastructureActivityModule],
+  imports: [InfrastructureUsersModule, InfrastructureIssuesModule, InfrastructureActivityModule],
   providers: [...useCases],
   exports: [...useCases],
 })

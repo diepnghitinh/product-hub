@@ -1,9 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
-import { t } from '@/i18n';
-import type { BugAttachment, BugDto, ListResponse } from '@/types/dto';
+import { makeIssueHooks } from '@/features/issues/hook-factory';
+import { IssueKind } from '@/types/enums';
+import type { BugAttachment, BugDto } from '@/types/dto';
 import type { BugSeverity, BugStatus, CustomFieldValue } from '@/types/enums';
+
+/**
+ * Bugs read/write the unified **`/issues`** collection (with `kind: bug`), not the
+ * retired `/bugs` endpoint — `/issues` is authoritative. The fetch + optimistic cache
+ * logic lives once in `makeIssueHooks`; this file only binds it to the bug cache
+ * namespace (`['bugs']`/`['bug']`), `kind: bug`, and `BugDto` (a subset of the served
+ * `IssueDto`), so every caller's hook names, params, return types and cache keys stay
+ * exactly as they were.
+ */
 
 export interface BugQuery {
   /** Scope to a team's issue list. */
@@ -63,88 +70,19 @@ export interface UpdateBugInput {
   customFields?: Record<string, CustomFieldValue>;
 }
 
-const invalidateKey = ['bugs'];
+// Bound to the bug cache namespace (`['bugs']`/`['bug']`) + `kind: bug`; all the
+// fetch/optimistic logic lives in `makeIssueHooks` (see issues/hook-factory.ts).
+const hooks = makeIssueHooks<BugDto, BugQuery, CreateBugInput, UpdateBugInput>({
+  listKey: 'bugs',
+  detailKey: 'bug',
+  kind: IssueKind.BUG,
+});
 
-export function useBugs(query?: BugQuery) {
-  return useQuery({
-    queryKey: ['bugs', query ?? {}],
-    queryFn: () => apiGet<ListResponse<BugDto>>('/bugs', { limit: 100, ...query }),
-  });
-}
-
-export function useBug(id: string | undefined) {
-  return useQuery({
-    queryKey: ['bug', id],
-    queryFn: () => apiGet<BugDto>(`/bugs/${id}`),
-    enabled: !!id,
-  });
-}
-
-export function useCreateBug() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: CreateBugInput) => apiPost<BugDto>('/bugs', input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: invalidateKey }),
-  });
-}
-
-export function useUpdateBug() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, input }: { id: string; input: UpdateBugInput }) =>
-      apiPatch<BugDto>(`/bugs/${id}`, input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: invalidateKey });
-      // Detail queries are keyed by the route ref (shortId *or* uuid), so
-      // invalidate the whole 'bug' prefix — an edit made via the uuid must still
-      // refetch a detail opened by shortId, or a new attachment wouldn't show
-      // until reload.
-      qc.invalidateQueries({ queryKey: ['bug'] });
-    },
-  });
-}
-
-/**
- * Optimistic: the card lands in its new column the instant it's dropped, rather
- * than sitting in the old one until the server answers. If the write fails the
- * snapshot is restored, so it springs back to where it came from.
- */
-export function useSetBugStatus() {
-  const qc = useQueryClient();
-  return useMutation({
-    // `status` is a column key — built-in or custom, so a string.
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      apiPatch<BugDto>(`/bugs/${id}/status`, { status }),
-    onMutate: async ({ id, status }) => {
-      // Stop in-flight refetches from clobbering the optimistic state.
-      await qc.cancelQueries({ queryKey: invalidateKey });
-      await qc.cancelQueries({ queryKey: ['bug', id] });
-      const lists = qc.getQueriesData<ListResponse<BugDto>>({ queryKey: invalidateKey });
-      const detail = qc.getQueryData<BugDto>(['bug', id]);
-      qc.setQueriesData<ListResponse<BugDto>>({ queryKey: invalidateKey }, (old) =>
-        old ? { ...old, items: old.items.map((b) => (b.id === id ? { ...b, status } : b)) } : old,
-      );
-      qc.setQueryData<BugDto>(['bug', id], (old) => (old ? { ...old, status } : old));
-      return { lists, detail };
-    },
-    onError: (err, { id }, ctx) => {
-      ctx?.lists.forEach(([key, data]) => qc.setQueryData(key, data));
-      if (ctx?.detail) qc.setQueryData(['bug', id], ctx.detail);
-      // Say why — an unexplained snap-back just reads as a broken board.
-      toast.error(t('boards.moveFailed'), { description: err.message });
-    },
-    // Resync either way — the server owns updatedAt and any derived fields.
-    onSettled: (_d, _e, { id }) => {
-      qc.invalidateQueries({ queryKey: invalidateKey });
-      qc.invalidateQueries({ queryKey: ['bug', id] });
-    },
-  });
-}
-
-export function useDeleteBug() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => apiDelete<{ ok: true }>(`/bugs/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: invalidateKey }),
-  });
-}
+export const useBugs = hooks.useList;
+export const useBug = hooks.useDetail;
+export const useCreateBug = hooks.useCreate;
+export const useUpdateBug = hooks.useUpdate;
+/** Optimistic status move — the card jumps columns on drop, snaps back on failure
+ * (see `makeIssueHooks`). */
+export const useSetBugStatus = hooks.useSetStatus;
+export const useDeleteBug = hooks.useRemove;

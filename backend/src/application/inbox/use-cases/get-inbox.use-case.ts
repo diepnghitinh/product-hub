@@ -2,8 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { IUserRepository } from '@application/users/repositories/user.repository';
-import { IBugRepository } from '@application/bugs/repositories/bug.repository';
-import { QueryBugDto } from '@application/bugs/dtos/query-bug.dto';
+import { IIssueRepository } from '@application/issues/repositories/issue.repository';
+import { QueryIssueDto } from '@application/issues/dtos/query-issue.dto';
+import { IssueKind } from '@application/issues/domain/enums/issue.enums';
 import { ICommentRepository } from '@application/activity/repositories/comment.repository';
 import { InboxKind } from '../domain/inbox-kind.enum';
 
@@ -45,7 +46,8 @@ export interface GetInboxRequest {
 export class GetInboxUseCase implements IUsecaseExecute<GetInboxRequest, Result<InboxResult>> {
   constructor(
     @Inject(IUserRepository) private readonly users: IUserRepository,
-    @Inject(IBugRepository) private readonly bugs: IBugRepository,
+    // Assigned section reads bugs from the unified issues store (kind-filtered below).
+    @Inject(IIssueRepository) private readonly issues: IIssueRepository,
     @Inject(ICommentRepository) private readonly comments: ICommentRepository,
   ) {}
 
@@ -54,10 +56,16 @@ export class GetInboxUseCase implements IUsecaseExecute<GetInboxRequest, Result<
 
     const [mentions, assigned] = await Promise.all([
       this.comments.findMentionsForUser(tenantId, userId, 50),
-      this.bugs.findByTenant(
+      this.issues.findByTenant(
         tenantId,
-        // assigneeId is a multi-value filter (string[]) — wrap the single id.
-        Object.assign(new QueryBugDto(), { assigneeId: [userId], page: 1, limit: 50 }),
+        // The inbox's "assigned" section is bugs only — filter kind so assigned
+        // tasks don't leak in. assigneeId is multi-value (string[]) — wrap the id.
+        Object.assign(new QueryIssueDto(), {
+          kind: [IssueKind.BUG],
+          assigneeId: [userId],
+          page: 1,
+          limit: 50,
+        }),
       ),
     ]);
 

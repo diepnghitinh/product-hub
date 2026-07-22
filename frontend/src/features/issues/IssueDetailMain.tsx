@@ -11,7 +11,7 @@ import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { ReactionBar } from '@/features/reactions/ReactionBar';
 import type { CommentDto } from '@/types/dto';
 import { type IssueSubject } from '@/features/activity/api';
-import { CommentThread, Avatar, type Person } from '@/features/activity/CommentThread';
+import { ActivityHeader, CommentThread, Avatar, type Person } from '@/features/activity/CommentThread';
 
 export interface IssueDetailMainProps {
   /** Which thread the comments belong to — routes + cache keys differ. */
@@ -210,7 +210,7 @@ export function IssueDetailMain({
 
       {/* ── Activity ──────────────────────────────────────────────────────── */}
       <section className="mt-10 border-t pt-6">
-        <h2 className="mb-5 text-base font-semibold">{t('activity.title')}</h2>
+        <ActivityHeader />
 
         <div className="flex flex-col gap-5">
           {/* System event — the issue's creation opens the timeline. */}

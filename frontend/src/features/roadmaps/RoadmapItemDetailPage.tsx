@@ -5,6 +5,7 @@ import {
   Activity,
   Calendar,
   CircleDot,
+  FileText,
   Gauge,
   HelpCircle,
   MoreHorizontal,
@@ -37,7 +38,7 @@ import { TaskPanel } from '@/features/tasks/components/TaskPanel';
 import { taskRefsInText, useLinkTasksByRef } from '@/features/tasks/api';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { ReactionBar } from '@/features/reactions/ReactionBar';
-import { CommentThread } from '@/features/activity/CommentThread';
+import { ActivityHeader, CommentThread } from '@/features/activity/CommentThread';
 import {
   DEFAULT_ROADMAP_COLUMNS,
   FavouriteKind,
@@ -53,6 +54,7 @@ import {
 } from '@/types/enums';
 import type { Objective, RoadmapItem } from '@/types/dto';
 import { useReplaceRoadmapItems, useRoadmap } from './api';
+import { BACKLOG_TEMPLATES, type BacklogTemplate } from './backlogTemplates';
 import { CenteredPageLayout } from '@/layouts/shared';
 
 /** RICE inputs, in order, with the field key + help copy. */
@@ -107,6 +109,15 @@ export function RoadmapItemDetailPage() {
   // Debounce description saves the way the issue detail does — save on pause.
   const descTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => void (descTimer.current && clearTimeout(descTimer.current)), []);
+
+  // Applying a backlog template seeds the editor's value and bumps `nonce` to
+  // remount it (the editor reads `value` only at mount, keyed) — so the template
+  // shows regardless of when the optimistic cache flushes. Clears on item change.
+  const [seed, setSeed] = useState<{ nonce: number; html: string | null }>({
+    nonce: 0,
+    html: null,
+  });
+  useEffect(() => setSeed({ nonce: 0, html: null }), [itemId]);
 
   if (isLoading) {
     return (
@@ -181,6 +192,18 @@ export function RoadmapItemDetailPage() {
         });
       }
     }, 700);
+  };
+
+  // The description as the editor will render it (seed wins right after a
+  // template is applied), and whether it already holds anything worth guarding.
+  const effectiveDesc = seed.html ?? item.description;
+  const descHasContent =
+    /<(img|video)/i.test(effectiveDesc) || effectiveDesc.replace(/<[^>]*>/g, '').trim().length > 0;
+  const applyTemplate = (tpl: BacklogTemplate) => {
+    if (descHasContent && !confirm(t('roadmaps.templateReplaceConfirm'))) return;
+    const html = tpl.buildHtml();
+    setSeed((s) => ({ nonce: s.nonce + 1, html }));
+    save({ description: html });
   };
 
   const addAssignee = (id: string) => {
@@ -292,15 +315,24 @@ export function RoadmapItemDetailPage() {
 
           <div className="mt-4">
             {canWrite ? (
-              <RichTextEditor
-                key={item.id}
-                value={item.description}
-                onChange={saveDescription}
-                placeholder={t('roadmaps.description')}
-                minHeight={80}
-                images
-                className="border-0"
-              />
+              <>
+                {descHasContent ? (
+                  <div className="mb-2 flex justify-end">
+                    <BacklogTemplateMenu onApply={applyTemplate} />
+                  </div>
+                ) : (
+                  <BacklogTemplatePanel onApply={applyTemplate} />
+                )}
+                <RichTextEditor
+                  key={`${item.id}:${seed.nonce}`}
+                  value={effectiveDesc}
+                  onChange={saveDescription}
+                  placeholder={t('roadmaps.description')}
+                  minHeight={80}
+                  images
+                  className="border-0"
+                />
+              </>
             ) : item.description ? (
               <div
                 className="text-sm text-muted-foreground [&_a]:text-primary [&_a]:underline [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md"
@@ -328,7 +360,7 @@ export function RoadmapItemDetailPage() {
 
           {/* ── Activity ─────────────────────────────────────────────────────── */}
           <section className="mt-10 border-t pt-6">
-            <h2 className="mb-5 text-base font-semibold">{t('activity.title')}</h2>
+            <ActivityHeader />
             <div className="flex flex-col gap-5">
               <CommentThread
                 source={{ kind: 'roadmapItem', roadmapId: roadmap.id, id: item.id }}
@@ -595,5 +627,52 @@ export function RoadmapItemDetailPage() {
         </PropSidebar>
       </DetailGrid>
     </CenteredPageLayout>
+  );
+}
+
+/** The empty-state prompt above the description: pick a proven structure to start
+ *  from (User Story / INVEST, JTBD) instead of a blank page. */
+function BacklogTemplatePanel({ onApply }: { onApply: (tpl: BacklogTemplate) => void }) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2">
+      <span className="mr-1 text-xs font-medium text-muted-foreground">
+        {t('roadmaps.startFromTemplate')}
+      </span>
+      {BACKLOG_TEMPLATES.map((tpl) => (
+        <button
+          key={tpl.id}
+          type="button"
+          onClick={() => onApply(tpl)}
+          title={t(tpl.hintKey)}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
+        >
+          <FileText className="size-3.5 text-primary" aria-hidden />
+          {t(tpl.labelKey)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Quiet templates menu shown once the description has content — applying
+ *  confirms first (see `applyTemplate`), since it replaces what's there. */
+function BacklogTemplateMenu({ onApply }: { onApply: (tpl: BacklogTemplate) => void }) {
+  return (
+    <Menu
+      align="right"
+      triggerClassName="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
+      trigger={
+        <>
+          <FileText className="size-3.5" aria-hidden />
+          {t('roadmaps.templates')}
+        </>
+      }
+      items={BACKLOG_TEMPLATES.map((tpl) => ({
+        label: t(tpl.labelKey),
+        icon: <FileText className="size-4" />,
+        closeOnSelect: true,
+        onClick: () => onApply(tpl),
+      }))}
+    />
   );
 }

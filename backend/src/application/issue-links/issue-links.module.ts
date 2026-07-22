@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { InfrastructureIssueLinksModule } from '@infrastructure/issue-links/issue-links.module';
-import { InfrastructureTasksModule } from '@infrastructure/tasks/tasks.module';
-import { InfrastructureBugsModule } from '@infrastructure/bugs/bugs.module';
+import { InfrastructureIssuesModule } from '@infrastructure/issues/issues.module';
 import {
   CreateIssueLinkUseCase,
   DeleteIssueLinkUseCase,
@@ -11,9 +10,9 @@ import {
 const useCases = [CreateIssueLinkUseCase, GetIssueLinksUseCase, DeleteIssueLinkUseCase];
 
 @Module({
-  // Tasks + Bugs infra are imported to resolve linked issues (title/shortId/status)
-  // and to validate a link's endpoints belong to the tenant.
-  imports: [InfrastructureIssueLinksModule, InfrastructureTasksModule, InfrastructureBugsModule],
+  // Issues infra resolves linked issues (title/shortId/status) and validates a
+  // link's endpoints belong to the tenant — one collection for both kinds.
+  imports: [InfrastructureIssueLinksModule, InfrastructureIssuesModule],
   providers: [...useCases],
   exports: [...useCases],
 })
