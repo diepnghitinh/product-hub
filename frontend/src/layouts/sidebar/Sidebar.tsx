@@ -1,6 +1,15 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState, type DragEvent } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronsLeft, ChevronsRight, MoreHorizontal, Plus, Star, X } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
+  GripVertical,
+  MoreHorizontal,
+  Plus,
+  Star,
+  X,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Menu } from '@/components/ui';
 import { Icon, type IconName } from '@/components/Icon';
@@ -19,6 +28,13 @@ import type { FavouriteDto, TeamDto } from '@/types/dto';
 
 const COLLAPSE_KEY = 'ph_nav_collapsed';
 const EXPAND_KEY = 'ph_nav_expanded';
+/**
+ * Personalisation: the order the teams sit in *this* rail, saved by id. Local to
+ * the browser like the collapse/expand state above — so one member rearranging
+ * their sidebar never reorders anyone else's. Teams not listed here (newly added)
+ * fall in by their natural `order` until they're dragged.
+ */
+const TEAMS_ORDER_KEY = 'ph_nav_team_order';
 
 /**
  * A hover-revealed action on a nav heading or row (`+`, `⋯`). Invisible until its
@@ -264,15 +280,12 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                       </span>
                     )}
                   </span>
-                  {activeTeams.map((team) => (
-                    <TeamNavItem
-                      key={team.id}
-                      team={team}
-                      collapsed={collapsed}
-                      active={pathname === `/teams/${team.id}`}
-                      onNavigate={onCloseMobile}
-                    />
-                  ))}
+                  <TeamNavList
+                    teams={activeTeams}
+                    collapsed={collapsed}
+                    pathname={pathname}
+                    onNavigate={onCloseMobile}
+                  />
                   {/* A quiet "add another" foot to the list — the same create the
                       heading's `+` runs, but where the eye lands after reading the
                       spaces. Mirrors a workspace's "+ New Space". */}
@@ -428,64 +441,231 @@ function NavParentItem({
   );
 }
 
+/** Reorder wiring the list hands each expanded team row. */
+interface RowDrag {
+  /** This row is the one being lifted — dimmed in place. */
+  dragging: boolean;
+  /** A team is landing just above this row — draw the insertion line. */
+  isOver: boolean;
+  onDragStart: (e: DragEvent) => void;
+  onDragEnd: () => void;
+  onDragOver: (e: DragEvent) => void;
+  onDrop: (e: DragEvent) => void;
+}
+
+/**
+ * The teams in the rail, reorderable by the current user. The order is *personal*
+ * — saved per browser (`TEAMS_ORDER_KEY`), like the collapse/expand state — so
+ * everyone (not just admins) can arrange their own sidebar, and doing so never
+ * moves anyone else's. Teams with no saved position (newly added) trail behind in
+ * their natural `order`, so the list is always complete.
+ *
+ * Reorder is an expanded-rail action: the collapsed desktop rail stays pure
+ * navigation, so rows there don't drag. Follows the app's native-DnD idiom
+ * (grip cue + drag/over/drop + an insertion line) already used by the test-case
+ * table, rather than the heavier board — the right weight for a vertical list.
+ */
+function TeamNavList({
+  teams,
+  collapsed,
+  pathname,
+  onNavigate,
+}: {
+  teams: TeamDto[];
+  collapsed: boolean;
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  const [orderIds, setOrderIds] = useState<string[]>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(TEAMS_ORDER_KEY) || '[]');
+      return Array.isArray(raw) ? (raw as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
+  useEffect(() => {
+    localStorage.setItem(TEAMS_ORDER_KEY, JSON.stringify(orderIds));
+  }, [orderIds]);
+
+  // Sort by the saved personal order; anything unranked (a new team) falls back
+  // to its natural `order`, so it lands after the arranged ones instead of jumping.
+  const ordered = useMemo(() => {
+    const rank = new Map(orderIds.map((id, i) => [id, i] as const));
+    return [...teams].sort((a, b) => {
+      const ra = rank.get(a.id) ?? Infinity;
+      const rb = rank.get(b.id) ?? Infinity;
+      return ra === rb ? a.order - b.order : ra - rb;
+    });
+  }, [teams, orderIds]);
+
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const stopDrag = () => {
+    setDragId(null);
+    setOverId(null);
+  };
+
+  // Move the dragged team to the dropped-on team's slot, then persist the full
+  // order — the same splice the test-case table uses, so it reaches every position.
+  function reorder(targetId: string) {
+    if (!dragId || dragId === targetId) return;
+    const ids = ordered.map((x) => x.id);
+    const from = ids.indexOf(dragId);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    const next = [...ids];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setOrderIds(next);
+  }
+
+  return (
+    <>
+      {ordered.map((team) => (
+        <TeamNavItem
+          key={team.id}
+          team={team}
+          collapsed={collapsed}
+          active={pathname === `/teams/${team.id}`}
+          onNavigate={onNavigate}
+          // Collapsed rail is pure navigation — no reorder wiring there.
+          drag={
+            collapsed
+              ? undefined
+              : {
+                  dragging: dragId === team.id,
+                  isOver: overId === team.id && dragId !== null && dragId !== team.id,
+                  onDragStart: (e) => {
+                    setDragId(team.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  },
+                  onDragEnd: stopDrag,
+                  onDragOver: (e) => {
+                    if (!dragId || dragId === team.id) return;
+                    e.preventDefault();
+                    if (overId !== team.id) setOverId(team.id);
+                  },
+                  onDrop: (e) => {
+                    e.preventDefault();
+                    reorder(team.id);
+                    stopDrag();
+                  },
+                }
+          }
+        />
+      ))}
+    </>
+  );
+}
+
 /**
  * A team in the nav — a workspace "space". The symbol is a picker in place
  * (admin/product only) — so it's a real button and can't live inside the row's
  * <a>; the name is the link instead. Collapsed, the icon is the only hit target,
- * so it stays pure navigation and the picker is suppressed.
+ * so it stays pure navigation (and doesn't drag).
+ *
+ * Expanded, the whole row is a drag source (`drag`) so the current user can
+ * reorder the rail; the inner links are `draggable={false}` so grabbing a name
+ * drags the row rather than the link's URL, while a plain click still navigates.
  */
 function TeamNavItem({
   team,
   collapsed,
   active,
   onNavigate,
+  drag,
 }: {
   team: TeamDto;
   collapsed: boolean;
   active: boolean;
   onNavigate: () => void;
+  drag?: RowDrag;
 }) {
   const { canManageDelivery } = useAuth();
-  const editable = canManageDelivery && !collapsed;
 
-  const row = cn(ROW, active && 'bg-sidebar-accent text-sidebar-accent-foreground', collapsed && 'md:justify-center md:gap-0');
-
-  if (!editable) {
+  // Collapsed rail: icon-only navigation, no picker, no reorder.
+  if (collapsed) {
     return (
       <NavLink
         to={`/teams/${team.id}`}
         onClick={onNavigate}
-        title={collapsed ? team.name : undefined}
-        className={row}
+        title={team.name}
+        className={cn(
+          ROW,
+          active && 'bg-sidebar-accent text-sidebar-accent-foreground',
+          'md:justify-center md:gap-0',
+        )}
       >
         <span className="grid size-5 shrink-0 place-items-center">
           <TeamIconPicker team={team} size={18} readOnly />
         </span>
-        <span className={cn('flex-1 truncate', collapsed && 'md:hidden')}>{team.name}</span>
+        <span className="flex-1 truncate md:hidden">{team.name}</span>
       </NavLink>
     );
   }
 
   return (
-    <div className={cn(row, 'group/team')}>
+    <div
+      draggable
+      onDragStart={drag?.onDragStart}
+      onDragEnd={drag?.onDragEnd}
+      onDragOver={drag?.onDragOver}
+      onDrop={drag?.onDrop}
+      className={cn(
+        ROW,
+        'group/team relative',
+        active && 'bg-sidebar-accent text-sidebar-accent-foreground',
+        drag?.dragging && 'opacity-40',
+        // Insertion line marking where the dragged team will land — a
+        // pseudo-element, so it never nudges the row's height.
+        drag?.isOver &&
+          "before:absolute before:inset-x-1 before:-top-px before:h-0.5 before:rounded-full before:bg-primary before:content-['']",
+      )}
+    >
       <span className="grid size-5 shrink-0 place-items-center">
-        <TeamIconPicker team={team} size={18} className="-my-0.5" />
+        <TeamIconPicker
+          team={team}
+          size={18}
+          className="-my-0.5"
+          readOnly={!canManageDelivery}
+        />
       </span>
-      <Link to={`/teams/${team.id}`} onClick={onNavigate} className="min-w-0 flex-1 truncate">
+      <Link
+        to={`/teams/${team.id}`}
+        draggable={false}
+        onClick={onNavigate}
+        className="min-w-0 flex-1 truncate"
+      >
         {team.name}
       </Link>
-      {/* This team's own settings — where its board columns (statuses) are
-          owned, since a board can't add one. Revealed on hover, like the
-          section overflow above; always shown on touch, where there is no hover. */}
-      <Link
-        to={`/admin/settings?tab=team:${team.id}`}
-        onClick={onNavigate}
-        title={t('teams.settings').replace('{team}', team.name)}
-        aria-label={t('teams.settings').replace('{team}', team.name)}
-        className={cn(ACTION, 'group-hover/team:opacity-100')}
+      {/* Drag affordance — revealed on hover. The whole row is the drag source;
+          the grip is the cue. Desktop-only (`max-md:hidden`): native drag doesn't
+          fire on touch, so a mobile grip would be a control that does nothing. */}
+      <span
+        aria-hidden
+        title={t('teams.reorder')}
+        className={cn(
+          ACTION,
+          'max-md:hidden cursor-grab active:cursor-grabbing group-hover/team:opacity-100',
+        )}
       >
-        <MoreHorizontal className="size-3.5" aria-hidden />
-      </Link>
+        <GripVertical className="size-3.5" />
+      </span>
+      {canManageDelivery && (
+        // This team's own settings — where its board columns (statuses) are
+        // owned, since a board can't add one. Revealed on hover like the grip.
+        <Link
+          to={`/admin/settings?tab=team:${team.id}`}
+          draggable={false}
+          onClick={onNavigate}
+          title={t('teams.settings').replace('{team}', team.name)}
+          aria-label={t('teams.settings').replace('{team}', team.name)}
+          className={cn(ACTION, 'group-hover/team:opacity-100')}
+        >
+          <MoreHorizontal className="size-3.5" aria-hidden />
+        </Link>
+      )}
     </div>
   );
 }

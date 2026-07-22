@@ -609,6 +609,7 @@ export const en = {
   'teams.notFound': 'Team not found.',
   'teams.issuesSubtitle': 'This team’s issues.',
   'teams.add': 'Add team',
+  'teams.reorder': 'Drag to reorder',
   'teams.icon': 'Team symbol',
   'teams.changeIcon': 'Change symbol',
   'teams.name': 'Team name',
