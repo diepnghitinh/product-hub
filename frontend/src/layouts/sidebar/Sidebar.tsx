@@ -1,9 +1,11 @@
 import { Fragment, useEffect, useMemo, useState, type DragEvent } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
+  CalendarClock,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
+  CircleDot,
   MoreHorizontal,
   Plus,
   Star,
@@ -284,6 +286,8 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                     collapsed={collapsed}
                     pathname={pathname}
                     onNavigate={onCloseMobile}
+                    isOpen={isOpen}
+                    onToggle={toggleGroup}
                   />
                   {/* A quiet "add another" foot to the list — the same create the
                       heading's `+` runs, but where the eye lands after reading the
@@ -469,11 +473,17 @@ function TeamNavList({
   collapsed,
   pathname,
   onNavigate,
+  isOpen,
+  onToggle,
 }: {
   teams: TeamDto[];
   collapsed: boolean;
   pathname: string;
   onNavigate: () => void;
+  /** Shared expand-state mechanics (`EXPAND_KEY`) — a cycles-enabled team is a
+   *  collapsible parent (its Current/Upcoming links), keyed by its route. */
+  isOpen: (path: string) => boolean;
+  onToggle: (path: string) => void;
 }) {
   const [orderIds, setOrderIds] = useState<string[]>(() => {
     try {
@@ -527,6 +537,8 @@ function TeamNavList({
           team={team}
           collapsed={collapsed}
           active={pathname === `/teams/${team.id}`}
+          open={isOpen(`/teams/${team.id}`)}
+          onToggleOpen={() => onToggle(`/teams/${team.id}`)}
           onNavigate={onNavigate}
           // Collapsed rail is pure navigation — no reorder wiring there.
           drag={
@@ -572,16 +584,24 @@ function TeamNavItem({
   team,
   collapsed,
   active,
+  open,
+  onToggleOpen,
   onNavigate,
   drag,
 }: {
   team: TeamDto;
   collapsed: boolean;
   active: boolean;
+  open: boolean;
+  onToggleOpen: () => void;
   onNavigate: () => void;
   drag?: RowDrag;
 }) {
   const { canManageDelivery } = useAuth();
+  // Which cycle child (if any) the current URL points at — `?cycle=` belongs to
+  // this team's board only when the row itself is the active route.
+  const { search } = useLocation();
+  const cycleQ = active ? new URLSearchParams(search).get('cycle') : null;
 
   // Collapsed rail: icon-only navigation, no picker, no reorder.
   if (collapsed) {
@@ -605,52 +625,107 @@ function TeamNavItem({
   }
 
   return (
-    <div
-      draggable
-      onDragStart={drag?.onDragStart}
-      onDragEnd={drag?.onDragEnd}
-      onDragOver={drag?.onDragOver}
-      onDrop={drag?.onDrop}
-      className={cn(
-        ROW,
-        'group/team relative',
-        active && 'bg-sidebar-accent text-sidebar-accent-foreground',
-        drag?.dragging && 'opacity-40',
-        // Insertion line marking where the dragged team will land — a
-        // pseudo-element, so it never nudges the row's height.
-        drag?.isOver &&
-          "before:absolute before:inset-x-1 before:-top-px before:h-0.5 before:rounded-full before:bg-primary before:content-['']",
-      )}
-    >
-      <span className="grid size-5 shrink-0 place-items-center">
-        <TeamIconPicker
-          team={team}
-          size={18}
-          className="-my-0.5"
-          readOnly={!canManageDelivery}
-        />
-      </span>
-      <Link
-        to={`/teams/${team.id}`}
-        draggable={false}
-        onClick={onNavigate}
-        className="min-w-0 flex-1 truncate"
+    <div>
+      <div
+        draggable
+        onDragStart={drag?.onDragStart}
+        onDragEnd={drag?.onDragEnd}
+        onDragOver={drag?.onDragOver}
+        onDrop={drag?.onDrop}
+        className={cn(
+          ROW,
+          'group/team relative',
+          // A selected cycle child carries the highlight instead of the row.
+          active && !cycleQ && 'bg-sidebar-accent text-sidebar-accent-foreground',
+          drag?.dragging && 'opacity-40',
+          // Insertion line marking where the dragged team will land — a
+          // pseudo-element, so it never nudges the row's height.
+          drag?.isOver &&
+            "before:absolute before:inset-x-1 before:-top-px before:h-0.5 before:rounded-full before:bg-primary before:content-['']",
+        )}
       >
-        {team.name}
-      </Link>
-      {canManageDelivery && (
-        // This team's own settings — where its board columns (statuses) are
-        // owned, since a board can't add one. Revealed on hover.
+        <span className="grid size-5 shrink-0 place-items-center">
+          <TeamIconPicker
+            team={team}
+            size={18}
+            className="-my-0.5"
+            readOnly={!canManageDelivery}
+          />
+        </span>
         <Link
-          to={`/admin/settings?tab=team:${team.id}`}
+          to={`/teams/${team.id}`}
           draggable={false}
           onClick={onNavigate}
-          title={t('teams.settings').replace('{team}', team.name)}
-          aria-label={t('teams.settings').replace('{team}', team.name)}
-          className={cn(ACTION, 'group-hover/team:opacity-100')}
+          className="min-w-0 flex-1 truncate"
         >
-          <MoreHorizontal className="size-3.5" aria-hidden />
+          {team.name}
         </Link>
+        {canManageDelivery && (
+          // This team's own settings — where its board columns (statuses) are
+          // owned, since a board can't add one. Revealed on hover.
+          <Link
+            to={`/admin/settings?tab=team:${team.id}`}
+            draggable={false}
+            onClick={onNavigate}
+            title={t('teams.settings').replace('{team}', team.name)}
+            aria-label={t('teams.settings').replace('{team}', team.name)}
+            className={cn(ACTION, 'group-hover/team:opacity-100')}
+          >
+            <MoreHorizontal className="size-3.5" aria-hidden />
+          </Link>
+        )}
+        {team.cyclesEnabled && (
+          // Cycles make the team a parent — same chevron mechanics as NavParentItem.
+          <button
+            type="button"
+            onClick={onToggleOpen}
+            aria-expanded={open}
+            aria-label={t('cycles.title')}
+            className={cn(ACTION, 'opacity-100')}
+          >
+            <Icon
+              name="chevron-right"
+              size={14}
+              className={cn('transition-transform duration-150', open && 'rotate-90')}
+            />
+          </button>
+        )}
+      </div>
+
+      {team.cyclesEnabled && open && (
+        // Current / Upcoming — the board pre-scoped by the `?cycle=` sentinels,
+        // which the API resolves per-read, so these links never go stale as
+        // cycles roll. Same guide-line look as NavParentItem children.
+        <div className="ml-[18px] mt-0.5 flex flex-col gap-0.5 border-l border-sidebar-border pl-2.5">
+          <Link
+            to={`/teams/${team.id}?cycle=current`}
+            draggable={false}
+            onClick={onNavigate}
+            className={cn(
+              ROW,
+              cycleQ === 'current' && 'bg-sidebar-accent text-sidebar-accent-foreground',
+            )}
+          >
+            <span className="grid size-5 shrink-0 place-items-center">
+              <CircleDot className="size-3.5" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1 truncate">{t('cycles.current')}</span>
+          </Link>
+          <Link
+            to={`/teams/${team.id}?cycle=upcoming`}
+            draggable={false}
+            onClick={onNavigate}
+            className={cn(
+              ROW,
+              cycleQ === 'upcoming' && 'bg-sidebar-accent text-sidebar-accent-foreground',
+            )}
+          >
+            <span className="grid size-5 shrink-0 place-items-center">
+              <CalendarClock className="size-3.5" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1 truncate">{t('cycles.upcoming')}</span>
+          </Link>
+        </div>
       )}
     </div>
   );

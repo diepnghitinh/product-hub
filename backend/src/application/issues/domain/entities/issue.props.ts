@@ -41,6 +41,16 @@ export interface IssueProps {
   roadmapItemLabel: string;
   /** Optional link to a project. */
   projectId: string;
+  /** The team cycle (auto-sprint) this issue is committed to; '' = none.
+   *  Team-scoped like `teamId`; always '' on a personal task. */
+  cycleId: string;
+  /**
+   * How many times the scheduler auto-carried this issue into the next cycle
+   * because it was still unfinished when its cycle ended. `0` = created fresh in
+   * its cycle (or manually placed — a manual cycle change resets this to 0).
+   * Drives the "Carried over ×N" badge; stays 0 for a no-cycle issue.
+   */
+  carryOverCount: number;
 
   // ── people ───────────────────────────────────────────────────────────────
   assigneeId: string;

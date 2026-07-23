@@ -59,6 +59,15 @@ export class UpdateIssueDto {
   @IsString()
   assigneeId?: string;
 
+  @ApiPropertyOptional({
+    description:
+      "Team cycle to commit this issue to; '' leaves the cycle. Must be one of the " +
+      "issue's team's current/upcoming cycles (completed ones are history)",
+  })
+  @IsOptional()
+  @IsString()
+  cycleId?: string;
+
   @ApiPropertyOptional({ description: 'Start date as YYYY-MM-DD (empty string to clear)' })
   @IsOptional()
   @IsString()

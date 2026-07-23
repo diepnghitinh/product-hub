@@ -1,3 +1,5 @@
+import { CycleRollup } from '@application/cycles/domain/enums/cycle.enums';
+import { BurndownIssueRow } from '@application/cycles/domain/cycle-burndown';
 import { IssueEntity } from '../domain/entities/issue.entity';
 import { QueryIssueDto } from '../dtos/query-issue.dto';
 
@@ -29,6 +31,32 @@ export abstract class IIssueRepository {
     opts?: { personalOwnerId?: string },
   ) => Promise<IssuePaginationResponse>;
   countByStatus: (tenantId: string, status: string) => Promise<number>;
+  /** Scope/completed (count + points) per cycle id, in one aggregation. Feeds
+   *  both the live rollups and the freeze at cycle completion. */
+  cycleRollups: (
+    tenantId: string,
+    cycleIds: string[],
+    completedStatusKeys: string[],
+  ) => Promise<Record<string, CycleRollup>>;
+  /** The rows a cycle's burn-up is reconstructed from — its current members
+   *  plus `extraIds` (a completed cycle's swept-away `unfinishedIds`, so its
+   *  frozen scope is still represented). Projected to just the timestamps and
+   *  grouping fields the chart needs. */
+  issuesForBurndown: (
+    tenantId: string,
+    cycleId: string,
+    extraIds: string[],
+  ) => Promise<BurndownIssueRow[]>;
+  /** Sweep unfinished issues out of completed cycles into `toCycleId` (auto-
+   *  rollover) or '' (back to no-cycle). Idempotent; returns how many moved. */
+  moveUnfinishedIssues: (
+    tenantId: string,
+    fromCycleIds: string[],
+    toCycleId: string,
+    completedStatusKeys: string[],
+  ) => Promise<number>;
+  /** Detach every issue pointing at these cycles (deleted upcoming cycles). */
+  clearCycleIds: (tenantId: string, cycleIds: string[]) => Promise<number>;
   save: (issue: IssueEntity) => Promise<void>;
   update: (issue: IssueEntity) => Promise<void>;
   delete: (id: string) => Promise<void>;

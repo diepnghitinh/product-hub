@@ -39,10 +39,11 @@ function WorkloadSummary({ people }: { people: PersonWorkload[] }) {
 }
 
 /**
- * The Box view: a responsive grid of fixed-height (~300px) cards — the Workload chart
- * first, then the Unassigned bucket, then a card per person. Each card scrolls its task
- * list in-card, so the grid stays a tidy set of equal-height tiles however much work a
- * person is carrying. Wraps to fewer columns as the screen narrows (1 up on mobile).
+ * The Box view: a responsive grid — the Workload chart first, then the Unassigned
+ * bucket, then a card per person. Cards take their natural height (`items-start`)
+ * and the PAGE scrolls, so expanding a status reveals the whole list with no
+ * nested in-card scrollbar. Only the chart keeps a fixed height — its bars need
+ * one to mean anything. Wraps to fewer columns as the screen narrows (1 up on mobile).
  */
 export function TeamWorkloadView({ people }: { people: PersonWorkload[] }) {
   // Unassigned rides up front (right after the Workload chart), then the real people.
@@ -53,7 +54,7 @@ export function TeamWorkloadView({ people }: { people: PersonWorkload[] }) {
   }, [people]);
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {people.length > 1 && (
         <div className="h-[300px]">
           {/* Chart bars follow the card order — Unassigned first (position 0). */}
@@ -61,9 +62,7 @@ export function TeamWorkloadView({ people }: { people: PersonWorkload[] }) {
         </div>
       )}
       {ordered.map((person) => (
-        <div key={person.id} className="h-[300px]">
-          <WorkloadCard person={person} />
-        </div>
+        <WorkloadCard key={person.id} person={person} />
       ))}
     </div>
   );

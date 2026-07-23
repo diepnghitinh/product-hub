@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "rev": 322,
+  "savedAt": "2026-07-23T16:57:24.280Z",
+  "id": "project-mrwvv6c7-1",
+  "name": "product-os",
+  "color": "#0a84ff",
+  "viewport": {
+    "x": 857.857156435259,
+    "y": 1912.4481130223835,
+    "zoom": 0.7160792149072995
+  },
+  "nodes": [
+    {
+      "id": "term-mrxoj3ai-3",
+      "kind": "terminal",
+      "position": {
+        "x": -97.07951843121623,
+        "y": -2498.0448367769354
+      },
+      "size": {
+        "width": 701,
+        "height": 619
+      },
+      "title": "Cho phép chọn ngày bắt đầu loop",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-mrxqw7ys-2",
+      "kind": "terminal",
+      "position": {
+        "x": -945.4776231748465,
+        "y": -2501.1147172816786
+      },
+      "size": {
+        "width": 803,
+        "height": 854
+      },
+      "title": "Kiểm tra tự động tạo cycle",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "cwd": ".",
+      "agentId": "claude"
+    }
+  ],
+  "bridges": [],
+  "ropes": [],
+  "kanban": {
+    "columns": [
+      {
+        "id": "kcol-si39u19f",
+        "title": "To Do",
+        "color": "#0a84ff"
+      },
+      {
+        "id": "kcol-tfyiu3dd",
+        "title": "In Progress",
+        "color": "#ffd60a"
+      },
+      {
+        "id": "kcol-cnsxx78c",
+        "title": "Done",
+        "color": "#32d74b"
+      }
+    ],
+    "assignments": [
+      {
+        "nodeId": "term-mrwvvcey-2",
+        "columnId": "kcol-si39u19f"
+      }
+    ]
+  }
+}

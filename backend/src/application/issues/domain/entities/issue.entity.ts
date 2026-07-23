@@ -38,6 +38,8 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
       roadmapItemId?: string;
       roadmapItemLabel?: string;
       projectId?: string;
+      cycleId?: string;
+      carryOverCount?: number;
       assigneeId?: string;
       assigneeName?: string;
       createdBy: string;
@@ -90,6 +92,8 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
           roadmapItemId: props.roadmapItemId || '',
           roadmapItemLabel: props.roadmapItemLabel || '',
           projectId: props.projectId || '',
+          cycleId: props.cycleId || '',
+          carryOverCount: props.carryOverCount ?? 0,
           assigneeId: props.assigneeId || '',
           assigneeName: props.assigneeName || '',
           createdBy: props.createdBy,
@@ -173,6 +177,12 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
   }
   get projectId(): string {
     return this.props.projectId;
+  }
+  get cycleId(): string {
+    return this.props.cycleId;
+  }
+  get carryOverCount(): number {
+    return this.props.carryOverCount;
   }
   get assigneeId(): string {
     return this.props.assigneeId;
@@ -321,6 +331,16 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
   assign(userId: string, userName: string): void {
     this.props.assigneeId = userId;
     this.props.assigneeName = userName;
+    this.touch();
+  }
+
+  /** Commit to (or leave, with '') a team cycle. The use-case validates the
+   *  cycle — same team, not completed — like `assign` validates the user.
+   *  A manual placement is a deliberate fresh commitment, so it clears the
+   *  auto-rollover carry count (only the scheduler's boundary sweep accrues it). */
+  setCycle(cycleId: string): void {
+    this.props.cycleId = cycleId;
+    this.props.carryOverCount = 0;
     this.touch();
   }
 

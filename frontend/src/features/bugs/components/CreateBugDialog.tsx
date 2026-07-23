@@ -17,6 +17,9 @@ interface CreateBugDialogProps {
   defaultStatus?: string;
   /** The team whose list to create in — without it the API uses the default team. */
   teamId?: string;
+  /** Create straight into a team cycle (a cycle-filtered board creates there —
+   *  otherwise the new card instantly vanishes from the filtered view). */
+  defaultCycleId?: string;
 }
 
 export function CreateBugDialog({
@@ -28,6 +31,7 @@ export function CreateBugDialog({
   defaultReportId,
   defaultStatus,
   teamId,
+  defaultCycleId,
 }: CreateBugDialogProps) {
   const create = useCreateBug();
   const [title, setTitle] = useState('');
@@ -46,6 +50,7 @@ export function CreateBugDialog({
         description: description.trim(),
         status: defaultStatus || undefined,
         teamId: teamId || undefined,
+        cycleId: defaultCycleId || undefined,
         projectId: defaultProjectId || undefined,
         caseId: defaultCaseId || undefined,
         caseLabel: defaultCaseLabel || undefined,

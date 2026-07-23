@@ -19,6 +19,7 @@ import { NewTaskPage } from '@/features/tasks/NewTaskPage';
 import { TaskDetailPage } from '@/features/tasks/TaskDetailPage';
 import { MyTeamPage } from '@/features/my-team/MyTeamPage';
 import { TeamBoardPage } from '@/features/teams/TeamBoardPage';
+import { TeamCyclesPage } from '@/features/cycles/TeamCyclesPage';
 import { RoadmapsPage } from '@/features/roadmaps/RoadmapsPage';
 import { RoadmapBoardPage } from '@/features/roadmaps/RoadmapBoardPage';
 import { RoadmapItemDetailPage } from '@/features/roadmaps/RoadmapItemDetailPage';
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="/my-team" element={<MyTeamPage />} />
           {/* A team's own issue list — renders the bug or task board by issueType. */}
           <Route path="/teams/:teamId" element={<TeamBoardPage />} />
+          <Route path="/teams/:teamId/cycles" element={<TeamCyclesPage />} />
           <Route path="/roadmaps" element={<RoadmapsPage />} />
           <Route path="/roadmaps/:roadmapId" element={<RoadmapBoardPage />} />
           <Route path="/roadmaps/:roadmapId/items/:itemId" element={<RoadmapItemDetailPage />} />

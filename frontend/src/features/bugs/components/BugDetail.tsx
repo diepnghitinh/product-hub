@@ -32,7 +32,8 @@ import {
 } from '@/types/enums';
 import { useUsers } from '@/features/users/api';
 import { IssueDetail, PropField, PropSection, PropValue } from '@/features/issues/IssueDetail';
-import { useTeamStatuses, useTeamLabels, useTeamCustomFields } from '@/features/teams/api';
+import { useTeams, useTeamStatuses, useTeamLabels, useTeamCustomFields } from '@/features/teams/api';
+import { CyclePropField } from '@/features/cycles/CycleControls';
 import { LabelChips, resolveLabels } from '@/features/labels/LabelChips';
 import { CustomFields } from '@/features/custom-fields/CustomFields';
 import { useBug, useDeleteBug, useSetBugStatus, useUpdateBug } from '../api';
@@ -75,6 +76,9 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
   // Labels are the bug's team's own set — the same source the settings editor writes.
   const teamLabels = useTeamLabels(bug?.teamId);
   const teamCustomFields = useTeamCustomFields(bug?.teamId);
+  // The full team object — the cycle picker needs its `cyclesEnabled` config.
+  const { data: teams } = useTeams();
+  const team = teams?.find((tm) => tm.id === bug?.teamId);
 
   if (isLoading) {
     return (
@@ -226,6 +230,14 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
                 </PropValue>
               )}
             </PropField>
+
+            <CyclePropField
+              team={team}
+              value={bug.cycleId}
+              canWrite={canWrite}
+              carryOverCount={bug.carryOverCount}
+              onChange={(v) => save({ cycleId: v })}
+            />
 
             <PropField bare label={t('bugs.reporter')}>
               <PropValue icon={<User />} muted={!bug.reporterName}>

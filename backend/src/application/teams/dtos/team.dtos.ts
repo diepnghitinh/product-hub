@@ -195,6 +195,27 @@ export class TeamResponseDto {
   @ApiProperty({ type: [CustomFieldDto], description: "This team's custom fields (may be empty)" })
   customFields: CustomFieldDto[];
 
+  @ApiProperty({ description: 'Whether the automatic sprint rhythm is on' })
+  cyclesEnabled: boolean;
+
+  @ApiProperty({ description: 'Weeks per cycle (1–4)' })
+  cycleLengthWeeks: number;
+
+  @ApiProperty({ description: 'Weeks between cycles with no current cycle (0–2)' })
+  cycleCooldownWeeks: number;
+
+  @ApiProperty({ description: 'Weekday a cycle starts on: 1 = Monday … 7 = Sunday' })
+  cycleStartDay: number;
+
+  @ApiProperty({
+    nullable: true,
+    description: "Explicit loop anchor date (YYYY-MM-DD); null = use the weekday in today's week",
+  })
+  cycleStartDate: string | null;
+
+  @ApiProperty({ description: 'Unfinished issues move to the next cycle when one ends' })
+  cycleAutoRollover: boolean;
+
   @ApiProperty()
   archived: boolean;
 

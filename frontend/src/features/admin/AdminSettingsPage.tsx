@@ -23,11 +23,13 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
+  DatePicker,
   Dialog,
   Input,
   SaveButton,
   Select,
   Spinner,
+  Switch,
   TagInput,
 } from '@/components/ui';
 import { t } from '@/i18n';
@@ -39,6 +41,8 @@ import {
   CUSTOM_FIELD_TYPE_LABEL,
   CUSTOM_FIELD_TYPES,
   CustomFieldType,
+  CYCLE_COOLDOWN_WEEKS,
+  CYCLE_LENGTH_WEEKS,
   defaultStatusesFor,
   defaultTeamIcon,
   fieldTypeHasOptions,
@@ -54,6 +58,7 @@ import {
   useUpdateTeamLabels,
   useUpdateTeamCustomFields,
 } from '@/features/teams/api';
+import { useUpdateCycleConfig } from '@/features/cycles/api';
 import type { TeamDto } from '@/types/dto';
 import type { CustomFieldConfig, TaskLabelConfig } from '@/types/enums';
 import { CloudStorageSection } from './CloudStorageSection';
@@ -359,9 +364,145 @@ function TeamSettingsSection({ team }: { team: TeamDto }) {
         builtinKeys={builtinStatusKeys(team.issueType)}
         onSave={(rows) => save.mutateAsync({ id: team.id, statuses: rows })}
       />
+      <TeamCyclesEditor team={team} />
       <TeamLabelsEditor team={team} />
       <CustomFieldsEditor team={team} />
     </div>
+  );
+}
+
+/** Weeks label per rhythm value (t() takes no params, so plurals are enumerated). */
+const CYCLE_WEEK_LABEL: Record<number, string> = {
+  1: t('cycles.weeks1'),
+  2: t('cycles.weeks2'),
+  3: t('cycles.weeks3'),
+  4: t('cycles.weeks4'),
+};
+
+/**
+ * A team's automatic sprint rhythm. Config only — cycles themselves are never
+ * created or closed by hand: enabling seeds the current + 2 upcoming cycles
+ * server-side, the lazy scheduler rolls them forever, and disabling deletes the
+ * upcoming ones (past cycles stay readable). Rhythm edits regenerate the
+ * upcoming cycles; the active one finishes as planned.
+ */
+function TeamCyclesEditor({ team }: { team: TeamDto }) {
+  const save = useUpdateCycleConfig();
+  const seed = () => ({
+    cyclesEnabled: team.cyclesEnabled,
+    cycleLengthWeeks: team.cycleLengthWeeks,
+    cycleCooldownWeeks: team.cycleCooldownWeeks,
+    cycleStartDate: team.cycleStartDate,
+    cycleAutoRollover: team.cycleAutoRollover,
+  });
+  const [cfg, setCfg] = useState(seed);
+
+  // Re-seed whenever the saved config round-trips (same pattern as labels).
+  useEffect(
+    () => setCfg(seed()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- seed reads exactly these
+    [
+      team.cyclesEnabled,
+      team.cycleLengthWeeks,
+      team.cycleCooldownWeeks,
+      team.cycleStartDate,
+      team.cycleAutoRollover,
+    ],
+  );
+
+  const set = (patch: Partial<ReturnType<typeof seed>>) => setCfg((c) => ({ ...c, ...patch }));
+  const off = !cfg.cyclesEnabled;
+  // Dim + disable the rhythm rows while cycles are off — the values persist
+  // server-side, so re-enabling picks the old rhythm back up.
+  const rowCls = cn(
+    'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-3 sm:px-4 transition-opacity',
+    off && 'opacity-50',
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('cycles.title')}</CardTitle>
+        <CardDescription>{t('cycles.teamHint')}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="divide-y rounded-xl border">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-3 sm:px-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{t('cycles.enable')}</p>
+              <p className="text-xs text-muted-foreground">{t('cycles.enableHint')}</p>
+            </div>
+            <Switch
+              checked={cfg.cyclesEnabled}
+              onCheckedChange={(v) => set({ cyclesEnabled: v })}
+              aria-label={t('cycles.enable')}
+            />
+          </div>
+          <div className={rowCls}>
+            <p className="text-sm font-medium">{t('cycles.length')}</p>
+            <Select
+              className="w-40"
+              disabled={off}
+              value={String(cfg.cycleLengthWeeks)}
+              onValueChange={(v) => set({ cycleLengthWeeks: Number(v) })}
+              options={CYCLE_LENGTH_WEEKS.map((n) => ({
+                value: String(n),
+                label: CYCLE_WEEK_LABEL[n],
+              }))}
+              aria-label={t('cycles.length')}
+            />
+          </div>
+          <div className={rowCls}>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{t('cycles.cooldown')}</p>
+              <p className="text-xs text-muted-foreground">{t('cycles.cooldownRowHint')}</p>
+            </div>
+            <Select
+              className="w-40"
+              disabled={off}
+              value={String(cfg.cycleCooldownWeeks)}
+              onValueChange={(v) => set({ cycleCooldownWeeks: Number(v) })}
+              options={CYCLE_COOLDOWN_WEEKS.map((n) => ({
+                value: String(n),
+                label: n === 0 ? t('cycles.noCooldown') : CYCLE_WEEK_LABEL[n],
+              }))}
+              aria-label={t('cycles.cooldown')}
+            />
+          </div>
+          <div className={rowCls}>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{t('cycles.startDate')}</p>
+              <p className="text-xs text-muted-foreground">{t('cycles.startDateHint')}</p>
+            </div>
+            <DatePicker
+              className="w-44"
+              disabled={off}
+              value={cfg.cycleStartDate ?? ''}
+              onChange={(v) => set({ cycleStartDate: v || null })}
+              placeholder={t('cycles.startDatePlaceholder')}
+            />
+          </div>
+          <div className={rowCls}>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{t('cycles.autoRollover')}</p>
+              <p className="text-xs text-muted-foreground">{t('cycles.autoRolloverHint')}</p>
+            </div>
+            <Switch
+              disabled={off}
+              checked={cfg.cycleAutoRollover}
+              onCheckedChange={(v) => set({ cycleAutoRollover: v })}
+              aria-label={t('cycles.autoRollover')}
+            />
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="justify-between gap-4">
+        <p className="text-xs text-muted-foreground">{t('cycles.rhythmChangeNote')}</p>
+        <SaveButton onSave={() => save.mutateAsync({ id: team.id, input: cfg })}>
+          {t('cycles.save')}
+        </SaveButton>
+      </CardFooter>
+    </Card>
   );
 }
 

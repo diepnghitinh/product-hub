@@ -34,6 +34,9 @@ export interface TaskQuery {
   roadmapItemId?: string | string[];
   roadmapId?: string[];
   projectId?: string[];
+  /** Team cycle: a cycle id, or `current` / `upcoming` / `none` — the sentinels
+   *  resolve server-side against `teamId`, so saved links never go stale. */
+  cycleId?: string;
   search?: string;
 }
 
@@ -63,6 +66,9 @@ export interface CreateTaskInput {
    * not the one you were looking at.
    */
   teamId?: string;
+  /** Create straight into a team cycle (a board filtered to a cycle creates
+   *  there). A concrete current/upcoming cycle id of the task's team. */
+  cycleId?: string;
   /**
    * Create this as a *private personal* task on the caller's Personal board
    * (owned by them, in no team). The owner comes from the token; `status` is a
@@ -86,6 +92,9 @@ export interface UpdateTaskInput {
   dueDate?: string;
   estimate?: number;
   assigneeId?: string;
+  /** Commit to a team cycle ('' leaves it; only the task's own team's
+   *  current/upcoming cycles are accepted server-side). */
+  cycleId?: string;
   /** Replace the task's team-label keys ([] clears them). */
   labelKeys?: string[];
   /** Replace the task's custom-field values, keyed by field id. */

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarRange, Circle, CircleDot, CircleUser, Gauge, Map as MapIcon, Triangle } from 'lucide-react';
+import { Circle, CircleUser, Gauge, Map as MapIcon, Triangle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useEscapeBack } from '@/lib/useEscapeBack';
 import {
@@ -17,9 +17,10 @@ import { PageHeader } from '@/layouts/headers/PageHeader';
 import { Icon } from '@/components/Icon';
 import { initials } from '@/lib/format';
 import { useUsers } from '@/features/users/api';
-import { PropField, PropSection } from '@/features/issues/IssueDetail';
+import { DetailGrid, PropField, PropSection, PropSidebar } from '@/features/issues/IssueDetail';
 import { useTeams, useTeamStatuses } from '@/features/teams/api';
 import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
+import { CyclePropField } from '@/features/cycles/CycleControls';
 import { useRoadmaps } from '@/features/roadmaps/api';
 import { TASK_ESTIMATES, TeamIssueType, taskEstimateLabel } from '@/types/enums';
 import { CenteredPageLayout } from '@/layouts/shared';
@@ -45,6 +46,9 @@ export function NewTaskPage() {
   // Missing teamId is correct on the team-less /tasks route (default task team).
   const teamId = searchParams.get('teamId') || undefined;
   const presetStatus = searchParams.get('status') || undefined;
+  // A cycle-filtered board creates INTO its cycle (already resolved to a
+  // concrete id by the board) — otherwise the new card would vanish from it.
+  const presetCycleId = searchParams.get('cycleId') || undefined;
 
   const create = useCreateTask();
   const { data: usersData } = useUsers({ limit: 100 });
@@ -62,6 +66,9 @@ export function NewTaskPage() {
   const [endDate, setEndDate] = useState('');
   const [estimate, setEstimate] = useState(0);
   const [itemId, setItemId] = useState('');
+  // Seeded from the board that opened this (a cycle-filtered board), and editable
+  // here via the same Cycle picker the detail sidebar shows.
+  const [cycleId, setCycleId] = useState(presetCycleId ?? '');
   const [error, setError] = useState<string | null>(null);
 
   // Fall back to the first column so the Status select always shows a real value.
@@ -129,6 +136,7 @@ export function NewTaskPage() {
         status: effectiveStatus || undefined,
         // Sent so a team board's task lands in that team, not the workspace default.
         teamId,
+        cycleId: cycleId || undefined,
         assigneeId: assigneeId || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
@@ -164,7 +172,7 @@ export function NewTaskPage() {
         }
       />
 
-      <div className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_260px]">
+      <DetailGrid>
         {/* Main column — mirrors IssueDetailMain, minus the post-creation activity. */}
         <div className="min-w-0">
           {error && (
@@ -200,10 +208,11 @@ export function NewTaskPage() {
           </section>
         </div>
 
-        {/* Properties — the same sidebar the detail page shows, all editable. */}
-        <aside className="flex flex-col gap-5 md:sticky md:top-6">
+        {/* Properties — the same bare sidebar the detail page shows (icon rides
+            inside each control), all editable before the task exists. */}
+        <PropSidebar>
           <PropSection label={t('tasks.properties')}>
-            <PropField label={t('tasks.status')} icon={<CircleDot />}>
+            <PropField bare label={t('tasks.status')}>
               <Select
                 value={effectiveStatus}
                 onValueChange={setStatus}
@@ -214,8 +223,9 @@ export function NewTaskPage() {
               />
             </PropField>
 
-            <PropField label={t('tasks.assignee')} icon={<CircleUser />}>
+            <PropField bare label={t('tasks.assignee')}>
               <Combobox
+                leadingIcon={<CircleUser />}
                 value={assigneeId}
                 onChange={setAssigneeId}
                 placeholder={t('tasks.unassigned')}
@@ -226,7 +236,7 @@ export function NewTaskPage() {
               />
             </PropField>
 
-            <PropField label={t('tasks.dates')} icon={<CalendarRange />}>
+            <PropField bare label={t('tasks.dates')}>
               <DateRangePicker
                 start={startDate}
                 end={endDate}
@@ -238,8 +248,13 @@ export function NewTaskPage() {
               />
             </PropField>
 
-            <PropField label={t('tasks.estimate')} icon={<Gauge />}>
+            {/* Cycle — the same control the detail sidebar shows; renders nothing
+                unless the team runs cycles (so nothing on the team-less route). */}
+            <CyclePropField team={team} value={cycleId} canWrite onChange={setCycleId} />
+
+            <PropField bare label={t('tasks.estimate')}>
               <Combobox
+                leadingIcon={<Gauge />}
                 value={String(estimate || 0)}
                 onChange={(v) => setEstimate(Number(v))}
                 placeholder={t('tasks.noEstimate')}
@@ -259,8 +274,9 @@ export function NewTaskPage() {
               />
             </PropField>
 
-            <PropField label={t('tasks.backlogItem')} icon={<MapIcon />}>
+            <PropField bare label={t('tasks.backlogItem')}>
               <Combobox
+                leadingIcon={<MapIcon />}
                 value={itemId}
                 onChange={setItemId}
                 options={itemOptions}
@@ -268,8 +284,8 @@ export function NewTaskPage() {
               />
             </PropField>
           </PropSection>
-        </aside>
-      </div>
+        </PropSidebar>
+      </DetailGrid>
     </CenteredPageLayout>
   );
 }

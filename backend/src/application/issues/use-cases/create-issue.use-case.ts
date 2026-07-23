@@ -7,6 +7,9 @@ import { DEFAULT_TEAMS, TeamIssueType } from '@application/teams/domain/enums/te
 import { IUserRepository } from '@application/users/repositories/user.repository';
 import { INotifier } from '@application/webhooks/notifier.port';
 import { WebhookEvent } from '@application/app-settings/domain/webhook.types';
+import { ICycleRepository } from '@application/cycles/repositories/cycle.repository';
+import { CycleStatus } from '@application/cycles/domain/enums/cycle.enums';
+import { todayISO } from '@application/cycles/domain/cycle-dates';
 import { CreateIssueDto } from '../dtos/create-issue.dto';
 import { IssueEntity } from '../domain/entities/issue.entity';
 import { IssueKind } from '../domain/enums/issue.enums';
@@ -27,6 +30,7 @@ export class CreateIssueUseCase
     @Inject(IIssueRepository) private readonly issues: IIssueRepository,
     @Inject(IUserRepository) private readonly users: IUserRepository,
     @Inject(ITeamRepository) private readonly teams: ITeamRepository,
+    @Inject(ICycleRepository) private readonly cycles: ICycleRepository,
     @Inject(INotifier) private readonly notifier: INotifier,
   ) {}
 
@@ -60,10 +64,43 @@ export class CreateIssueUseCase
           DEFAULT_TEAMS.find((t) => t.issueType === issueType)!.key,
         );
 
+    const teamId = dto.personal ? '' : dto.teamId || team?.id.toString() || '';
+
+    // Born into a cycle. Two ways in:
+    //  1. An explicit cycleId (a board filtered to one creates into it) — validated
+    //     like the update path: the issue's own team's cycle, still open, never on a
+    //     personal task. Otherwise the card would "save" and instantly vanish from the
+    //     filtered board (the teamId pitfall all over again).
+    //  2. Auto-add: no cycle named, but the landing team runs cycles → join its
+    //     ACTIVE cycle, so new work shows under "Current" instead of an invisible
+    //     no-cycle backlog (Scrum — new work enters the sprint). No active cycle
+    //     (cooldown, or cycles off) ⇒ it stays cycle-less.
+    let cycleId = dto.cycleId;
+    if (cycleId) {
+      if (dto.personal) return Result.fail('Personal tasks cannot join a cycle');
+      const cycle = await this.cycles.findById(tenantId, cycleId);
+      if (!cycle || cycle.teamId !== teamId) return Result.fail('Cycle not found');
+      if (cycle.statusOn(todayISO()) === CycleStatus.COMPLETED) {
+        return Result.fail('Completed cycles cannot take new issues');
+      }
+    } else if (!dto.personal && teamId) {
+      // `team` is the kind's default team; the issue may land in a different one
+      // (dto.teamId), so read the landing team's own rhythm.
+      const landingTeam =
+        team && team.id.toString() === teamId ? team : await this.teams.findById(tenantId, teamId);
+      if (landingTeam?.cyclesEnabled) {
+        const active = (await this.cycles.findByTeam(tenantId, teamId)).find(
+          (c) => c.statusOn(todayISO()) === CycleStatus.ACTIVE,
+        );
+        if (active) cycleId = active.id.toString();
+      }
+    }
+
     const created = IssueEntity.create({
       kind,
       tenantId,
-      teamId: dto.personal ? '' : dto.teamId || team?.id.toString() || '',
+      teamId,
+      cycleId,
       ownerId: dto.personal ? createdBy : '',
       parentId: dto.parentId,
       shortId: await uniqueRef(isBug ? 'BUG' : 'TSK', (ref) =>

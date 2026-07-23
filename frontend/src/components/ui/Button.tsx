@@ -48,6 +48,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
 }
 
+/** The app's button. `asChild` renders the (single) child element instead —
+ *  used to style router `<Link>`s as buttons. */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   {
     className,
@@ -73,8 +75,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       {...props}
     >
-      {!asChild && loading && <Loader2 className="size-4 animate-spin" aria-hidden />}
-      {children}
+      {/* Radix Slot demands exactly ONE element child — even a compiled
+          `[false, children]` array crashes it — so asChild passes the child
+          through bare (the spinner only ever belongs to a real <button>). */}
+      {asChild ? (
+        children
+      ) : (
+        <>
+          {loading && <Loader2 className="size-4 animate-spin" aria-hidden />}
+          {children}
+        </>
+      )}
     </Comp>
   );
 });

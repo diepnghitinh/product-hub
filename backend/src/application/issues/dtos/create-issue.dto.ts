@@ -64,6 +64,14 @@ export class CreateIssueDto {
   @IsString()
   teamId?: string;
 
+  @ApiPropertyOptional({
+    description:
+      "Team cycle to create into (a board filtered to a cycle creates there). Must be one of the issue's team's current/upcoming cycles; never valid with `personal`",
+  })
+  @IsOptional()
+  @IsString()
+  cycleId?: string;
+
   @ApiPropertyOptional({ description: 'Link to a project' })
   @IsOptional()
   @IsString()

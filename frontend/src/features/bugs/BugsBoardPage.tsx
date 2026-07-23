@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, LayoutGrid, List } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Badge, Button, Spinner } from '@/components/ui';
+import { Badge, Button, Checkbox, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
@@ -33,6 +33,20 @@ import { CreateBugDialog } from './components/CreateBugDialog';
 import { useBugs, useDeleteBug, useSetBugStatus } from './api';
 import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
 import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
+import {
+  CarryOverBadge,
+  CycleBoardBanner,
+  CycleChip,
+  CycleFilterSelect,
+} from '@/features/cycles/CycleControls';
+import { useCycles, useFocusedCycle, useResolvedCycleId } from '@/features/cycles/api';
+import { CycleInsightsButton } from '@/features/cycles/CycleInsights';
+import { useIssueSelection, type IssueSelection } from '@/features/issues/useIssueSelection';
+import {
+  BulkActionBar,
+  buildAssigneeOptions,
+  buildCycleOptions,
+} from '@/features/issues/BulkActionBar';
 
 /** Severity → dot color (shadcn semantic tokens). */
 const SEVERITY_DOT: Record<BugSeverity, string> = {
@@ -66,7 +80,12 @@ export function BugCard({
           {bug.assigneeName || t('bugs.unassigned')}
         </Badge>
       }
-      metaTrailing={<BoardCardAge createdAt={bug.createdAt} />}
+      metaTrailing={
+        <>
+          <CarryOverBadge count={bug.carryOverCount} />
+          <BoardCardAge createdAt={bug.createdAt} />
+        </>
+      }
     />
   );
 }
@@ -108,6 +127,23 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   // The column '+ Add' was clicked in — the new bug opens there.
   const [createStatus, setCreateStatus] = useState<string | undefined>();
 
+  // Cycle scope rides in ?cycle= (an id or current/upcoming/none — the API
+  // resolves the sentinels against this team, so the sidebar's saved links stay
+  // valid as cycles roll). Only meaningful on a team board.
+  const cycleParam = params.get('cycle') || '';
+  const setCycleParam = (v: string) => {
+    const next = new URLSearchParams(params);
+    if (v) next.set('cycle', v);
+    else next.delete('cycle');
+    setParams(next, { replace: true });
+  };
+  // The concrete cycle id behind the filter (sentinels resolved) — what a create
+  // from this filtered board carries.
+  const resolvedCycleId = useResolvedCycleId(shareTeam, cycleParam);
+  // The scoped cycle as a DTO — drives the board's cycle banner; when it's set,
+  // the banner carries the rhythm, so the toolbar's ambient chip stands down.
+  const focusedCycle = useFocusedCycle(shareTeam, cycleParam);
+
   const setStatus = useSetBugStatus();
   const remove = useDeleteBug();
   // Columns belong to the team that owns this board (default bug team when standalone).
@@ -120,6 +156,14 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   const { data: usersData } = useUsers({ limit: 100 }, canManageDelivery);
   const { data: projectsData } = useProjects({ limit: 100 });
 
+  // Bulk multi-select — List view, team boards only (see MyTasksPage for the note).
+  const selection = useIssueSelection();
+  const bulkEnabled = !!teamId && canWrite;
+  const cyclesEnabled = !!shareTeam?.cyclesEnabled;
+  const { data: cyclesData } = useCycles(cyclesEnabled ? teamId : undefined);
+  const assigneeOptions = buildAssigneeOptions(user, usersData?.items);
+  const cycleOptions = cyclesEnabled ? buildCycleOptions(cyclesData) : undefined;
+
   const { data, isLoading } = useBugs({
     teamId,
     search: search || undefined,
@@ -128,6 +172,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
     assigneeId: filters.assigneeId,
     // A ?projectId= in the URL scopes the whole board; the filter narrows within it.
     projectId: projectId ? [projectId] : filters.projectId,
+    cycleId: teamId ? cycleParam || undefined : undefined,
     caseId,
   });
 
@@ -204,8 +249,17 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
       subtitle={teamName ? t('teams.issuesSubtitle') : undefined}
       search={{ value: search, onChange: setSearch, placeholder: t('bugs.search') }}
       filters={
-        <FilterMenu size="default" categories={filterCategories} value={filters} onChange={setFilters} />
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <FilterMenu size="default" categories={filterCategories} value={filters} onChange={setFilters} />
+        </div>
       }
+      filtersEnd={
+        <>
+          {!focusedCycle && <CycleChip team={shareTeam} />}
+          <CycleFilterSelect team={shareTeam} value={cycleParam} onChange={setCycleParam} />
+        </>
+      }
+      banner={<CycleBoardBanner team={shareTeam} value={cycleParam} onChange={setCycleParam} />}
       view={{
         value: view,
         onChange: (v) => setView(v as 'board' | 'list' | 'timeline'),
@@ -216,10 +270,12 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
         ],
       }}
       actions={
-        (canWrite && !teamId) || (shareTeam && canManageDelivery) ? (
+        (canWrite && !teamId) || (shareTeam && canManageDelivery) || shareTeam?.cyclesEnabled ? (
           <div className="flex items-center gap-2">
+            {/* Read-only, so it rides in for anyone viewing a cycle team's board. */}
+            <CycleInsightsButton team={shareTeam} cycleParam={cycleParam} />
             {canWrite && !teamId && <Button onClick={() => setCreateOpen(true)}>+ {t('bugs.new')}</Button>}
-            {shareTeam && <TeamShareMenu team={shareTeam} />}
+            {shareTeam && canManageDelivery && <TeamShareMenu team={shareTeam} />}
           </div>
         ) : undefined
       }
@@ -275,18 +331,36 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           addLabel={teamId ? t('issues.add') : t('bugs.addToColumn')}
         />
       ) : view === 'list' ? (
-        <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>
+        <div
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto',
+            BOARD_GUTTER,
+            // Leave room for the floating bar so it never hides the last rows.
+            bulkEnabled && selection.count > 0 ? 'pb-24' : 'pb-6',
+          )}
+        >
           <BugList
             bugs={bugs}
             columns={columns}
             labelsFor={labelsFor}
             onOpen={(b) => navigate(`/bugs/${b.shortId || b.id}`)}
+            selection={bulkEnabled ? selection : undefined}
           />
         </div>
       ) : (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6 pt-1', BOARD_GUTTER)}>
           <IssueTimelineView items={bugs} issueType={TeamIssueType.BUG} />
         </div>
+      )}
+
+      {bulkEnabled && view === 'list' && (
+        <BulkActionBar
+          selection={selection}
+          visibleIds={bugs.map((b) => b.id)}
+          columns={columns}
+          assignees={assigneeOptions}
+          cycles={cycleOptions}
+        />
       )}
 
       {createOpen && (
@@ -298,6 +372,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           }}
           defaultStatus={createStatus}
           teamId={teamId}
+          defaultCycleId={resolvedCycleId}
           defaultProjectId={projectId}
           defaultCaseId={caseId}
           defaultCaseLabel={caseName}
@@ -315,20 +390,33 @@ export function BugList({
   columns,
   labelsFor,
   onOpen,
+  selection,
 }: {
   bugs: BugDto[];
   columns: { key: string; label: string; color: string }[];
   labelsFor: (teamId: string | undefined) => TaskLabelConfig[];
   onOpen: (bug: BugDto) => void;
+  /** When present, each row gets a checkbox and each column a select-all. */
+  selection?: IssueSelection;
 }) {
   return (
     <div className="flex flex-col gap-6">
       {columns.map((col) => {
         const list = bugs.filter((b) => b.status === col.key);
         if (list.length === 0) return null;
+        const ids = list.map((b) => b.id);
+        const selected = selection ? ids.filter((id) => selection.isSelected(id)).length : 0;
+        const headState = selected === 0 ? false : selected === list.length ? true : 'indeterminate';
         return (
           <section key={col.key}>
             <div className="mb-2 flex items-center gap-2">
+              {selection && (
+                <Checkbox
+                  checked={headState}
+                  onCheckedChange={(v) => selection.setMany(ids, v === true)}
+                  aria-label={t('bulk.selectColumn')}
+                />
+              )}
               <span
                 className="size-2 rounded-full"
                 style={{ backgroundColor: col.color }}
@@ -339,32 +427,48 @@ export function BugList({
             </div>
             <div className="rounded-xl border bg-card p-2 text-card-foreground shadow-sm">
               {list.map((bug) => (
-                <button
+                <div
                   key={bug.id}
-                  type="button"
-                  onClick={() => onOpen(bug)}
-                  className="flex w-full items-center gap-3 rounded-md px-4 py-3 text-left text-foreground transition-colors hover:bg-accent [&:not(:last-child)]:border-b"
+                  className="flex items-center gap-1 [&:not(:last-child)]:border-b"
                 >
-                  <span
-                    className={cn('size-2 shrink-0 rounded-full', SEVERITY_DOT[bug.severity])}
-                    title={BUG_SEVERITY_LABEL[bug.severity]}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-sm">{bug.title}</span>
-                  <LabelChips
-                    keys={bug.labelKeys}
-                    labels={labelsFor(bug.teamId)}
-                    max={3}
-                    className="hidden shrink-0 sm:flex"
-                  />
-                  {bug.shortId && (
-                    <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-                      {bug.shortId}
+                  {selection && (
+                    <span className="pl-2">
+                      <Checkbox
+                        checked={selection.isSelected(bug.id)}
+                        onCheckedChange={(v) => selection.set(bug.id, v === true)}
+                        aria-label={t('bulk.selectRow')}
+                      />
                     </span>
                   )}
-                  <Badge variant="muted" className="max-w-[35%] shrink-0 truncate">
-                    {bug.assigneeName || t('bugs.unassigned')}
-                  </Badge>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => onOpen(bug)}
+                    className={cn(
+                      'flex min-w-0 flex-1 items-center gap-3 rounded-md px-4 py-3 text-left text-foreground transition-colors hover:bg-accent',
+                      selection?.isSelected(bug.id) && 'bg-accent',
+                    )}
+                  >
+                    <span
+                      className={cn('size-2 shrink-0 rounded-full', SEVERITY_DOT[bug.severity])}
+                      title={BUG_SEVERITY_LABEL[bug.severity]}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm">{bug.title}</span>
+                    <LabelChips
+                      keys={bug.labelKeys}
+                      labels={labelsFor(bug.teamId)}
+                      max={3}
+                      className="hidden shrink-0 sm:flex"
+                    />
+                    {bug.shortId && (
+                      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                        {bug.shortId}
+                      </span>
+                    )}
+                    <Badge variant="muted" className="max-w-[35%] shrink-0 truncate">
+                      {bug.assigneeName || t('bugs.unassigned')}
+                    </Badge>
+                  </button>
+                </div>
               ))}
             </div>
           </section>

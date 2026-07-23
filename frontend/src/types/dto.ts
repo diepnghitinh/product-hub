@@ -6,6 +6,7 @@ import {
   BugStatusConfig,
   CustomFieldConfig,
   CustomFieldValue,
+  CycleStatus,
   FavouriteKind,
   FeatureStatus,
   InboxKind,
@@ -262,6 +263,10 @@ export interface BugDto {
   status: string;
   type: string;
   projectId: string;
+  /** The team cycle this bug is committed to ('' = none). */
+  cycleId: string;
+  /** Times auto-rollover carried this bug into the next cycle (0 = none). */
+  carryOverCount: number;
   caseId: string;
   caseLabel: string;
   reportId: string;
@@ -412,6 +417,10 @@ export interface TaskDto {
   roadmapItemId: string;
   roadmapItemLabel: string;
   projectId: string;
+  /** The team cycle this task is committed to ('' = none; always '' when personal). */
+  cycleId: string;
+  /** Times auto-rollover carried this task into the next cycle (0 = none). */
+  carryOverCount: number;
   assigneeId: string;
   assigneeName: string;
   createdBy: string;
@@ -463,6 +472,10 @@ export interface IssueDto {
   roadmapItemId: string;
   roadmapItemLabel: string;
   projectId: string;
+  /** The team cycle this issue is committed to ('' = none; always '' when personal). */
+  cycleId: string;
+  /** Times auto-rollover carried this issue into the next cycle (0 = none). */
+  carryOverCount: number;
   assigneeId: string;
   assigneeName: string;
   createdBy: string;
@@ -591,6 +604,20 @@ export interface TeamDto {
   labels: TaskLabelConfig[];
   /** This team's custom fields, shared by its tasks/bugs. Empty until defined. */
   customFields: CustomFieldConfig[];
+  /** Automatic sprint rhythm (cycles). Off by default; the rhythm fields keep
+   *  their values while off so re-enabling picks up the old settings. */
+  cyclesEnabled: boolean;
+  /** Weeks per cycle (1–4). */
+  cycleLengthWeeks: number;
+  /** Weeks between cycles with no current cycle at all (0–2). */
+  cycleCooldownWeeks: number;
+  /** Weekday a cycle starts on: 1 = Monday … 7 = Sunday. Fallback anchor, used
+   *  only when `cycleStartDate` is null. */
+  cycleStartDay: number;
+  /** Explicit loop anchor date (YYYY-MM-DD); null = use the weekday in today's week. */
+  cycleStartDate: string | null;
+  /** Unfinished issues move to the next cycle when one ends. */
+  cycleAutoRollover: boolean;
   archived: boolean;
   isDefault: boolean;
   order: number;
@@ -598,6 +625,86 @@ export interface TeamDto {
   publicToken: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** One auto-sprint of a team — mirrors the backend `CycleResponseDto`. Scope /
+ *  completed are live rollups while upcoming/active, frozen history once
+ *  completed. `status` is derived from the dates server-side, never stored. */
+export interface CycleDto {
+  id: string;
+  tenantId: string;
+  teamId: string;
+  /** Auto-incremented per team: Cycle 1, 2, 3… */
+  number: number;
+  /** ISO `YYYY-MM-DD`, inclusive — same date-only convention as issue start/end. */
+  startDate: string;
+  endDate: string;
+  status: CycleStatus;
+  /** Issues in the cycle. */
+  scopeCount: number;
+  /** Story points in the cycle (always 0 on bug teams — no estimates). */
+  scopePoints: number;
+  completedCount: number;
+  completedPoints: number;
+  /** Frozen at close: ids of the issues the boundary sweep moved away — the
+   *  "planned here but unfinished" list (they no longer point at this cycle).
+   *  `[]` while open, and `[]` forever on cycles closed before this existed
+   *  (only their counts survive). */
+  unfinishedIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One day of a cycle's burn-up — cumulative scope/started/completed, both units
+ *  present so the chart draws whichever the team estimates in. */
+export interface CycleBurndownPoint {
+  date: string;
+  scopeCount: number;
+  scopePoints: number;
+  startedCount: number;
+  startedPoints: number;
+  completedCount: number;
+  completedPoints: number;
+}
+
+/** A burn-up breakdown bucket (one assignee / label / project), a current
+ *  snapshot. `key` is '' for the "none" bucket; `label`/`color` are '' when the
+ *  client resolves them (projects → project title). */
+export interface CycleBurndownGroup {
+  key: string;
+  label: string;
+  color: string;
+  count: number;
+  points: number;
+  completedCount: number;
+  completedPoints: number;
+}
+
+/**
+ * A cycle's burn-up: the daily series plus current totals and breakdowns. The
+ * started/completed curves are reconstructed from issue `updatedAt` (there's no
+ * status history), so they're "best known", not an audited log. `startedColor`/
+ * `completedColor` mirror the team's own board columns.
+ */
+export interface CycleBurndownDto {
+  cycleId: string;
+  number: number;
+  startDate: string;
+  endDate: string;
+  status: CycleStatus;
+  unit: 'points' | 'count';
+  scopeCount: number;
+  scopePoints: number;
+  startedCount: number;
+  startedPoints: number;
+  completedCount: number;
+  completedPoints: number;
+  startedColor: string;
+  completedColor: string;
+  series: CycleBurndownPoint[];
+  assignees: CycleBurndownGroup[];
+  labels: CycleBurndownGroup[];
+  projects: CycleBurndownGroup[];
 }
 
 /**
