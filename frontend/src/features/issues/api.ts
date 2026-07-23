@@ -12,6 +12,10 @@ import type { BugSeverity, CustomFieldValue, IssueKind } from '@/types/enums';
 export interface IssueQuery {
   /** Restrict to `task` and/or `bug`; omit for both. */
   kind?: IssueKind[];
+  /** Fetch specific issues by id — e.g. a closed cycle's frozen `unfinishedIds`,
+   *  whose issues no longer point at that cycle. Never pass `[]` (that's "no
+   *  filter", i.e. everything). */
+  ids?: string[];
   /** Scope to one team's issue list. */
   teamId?: string;
   status?: string[];
@@ -26,6 +30,9 @@ export interface IssueQuery {
   roadmapItemId?: string | string[];
   roadmapId?: string[];
   projectId?: string[];
+  /** Team cycle: a cycle id, or `current` / `upcoming` / `none` — the sentinels
+   *  resolve server-side against `teamId`, so saved links never go stale. */
+  cycleId?: string;
   /** Bug → linked test case / report. */
   caseId?: string;
   reportId?: string;
@@ -55,6 +62,9 @@ export interface CreateIssueInput {
    * not the one you were looking at.
    */
   teamId?: string;
+  /** Create straight into a team cycle (a board filtered to a cycle creates
+   *  there). A concrete current/upcoming cycle id of the issue's team. */
+  cycleId?: string;
   projectId?: string;
   // ── task-only ──────────────────────────────────────────────────────────────
   /** @deprecated Legacy alias of `endDate`; prefer `endDate`. */
@@ -81,6 +91,9 @@ export interface UpdateIssueInput {
   title?: string;
   description?: string;
   projectId?: string;
+  /** Commit to a team cycle — one of the issue's team's current/upcoming cycle
+   *  ids ('' leaves the cycle; completed cycles are rejected server-side). */
+  cycleId?: string;
   /** Empty string unassigns. */
   assigneeId?: string;
   startDate?: string;

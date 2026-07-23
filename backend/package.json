@@ -17,6 +17,7 @@
     "migrate:issues:drop": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/drop-old-collections.ts",
     "migrate:issues:prod": "NODE_ENV=prod node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/migrate-issues.ts",
     "migrate:issues:apply:prod": "NODE_ENV=prod node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/migrate-issues.ts --apply",
+    "backfill:cycle-current": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/backfill-cycle-current.ts",
     "lint": "eslint \"{src,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch"

@@ -37,6 +37,11 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
       statuses?: TeamStatusConfig[];
       labels?: TaskLabelConfig[];
       customFields?: CustomFieldConfig[];
+      cyclesEnabled?: boolean;
+      cycleLengthWeeks?: number;
+      cycleCooldownWeeks?: number;
+      cycleStartDay?: number;
+      cycleAutoRollover?: boolean;
       archived?: boolean;
       order?: number;
       publicEnabled?: boolean;
@@ -75,6 +80,13 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
           labels: props.labels ?? [],
           // Custom fields, likewise — a team starts with none.
           customFields: props.customFields ?? [],
+          // Cycles are opt-in; the rhythm defaults (2 weeks, no cooldown, Monday,
+          // rollover on) apply the moment a team enables them.
+          cyclesEnabled: props.cyclesEnabled ?? false,
+          cycleLengthWeeks: props.cycleLengthWeeks ?? 2,
+          cycleCooldownWeeks: props.cycleCooldownWeeks ?? 0,
+          cycleStartDay: props.cycleStartDay ?? 1,
+          cycleAutoRollover: props.cycleAutoRollover ?? true,
           archived: props.archived ?? false,
           order: props.order ?? 0,
           publicEnabled: props.publicEnabled ?? false,
@@ -130,6 +142,21 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
   /** The team's custom fields — shared by every task/bug in it. Empty until defined. */
   get customFields(): CustomFieldConfig[] {
     return this.props.customFields ?? [];
+  }
+  get cyclesEnabled(): boolean {
+    return this.props.cyclesEnabled;
+  }
+  get cycleLengthWeeks(): number {
+    return this.props.cycleLengthWeeks;
+  }
+  get cycleCooldownWeeks(): number {
+    return this.props.cycleCooldownWeeks;
+  }
+  get cycleStartDay(): number {
+    return this.props.cycleStartDay;
+  }
+  get cycleAutoRollover(): boolean {
+    return this.props.cycleAutoRollover;
   }
   get archived(): boolean {
     return this.props.archived;
@@ -246,6 +273,37 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
     }
 
     this.props.customFields = cleaned;
+    this.touch();
+    return Result.ok();
+  }
+
+  /** Patch the automatic sprint rhythm; only provided fields change. The
+   *  scheduler consequences (seeding, deleting upcoming) live in the use-case. */
+  setCycleConfig(cfg: {
+    cyclesEnabled?: boolean;
+    cycleLengthWeeks?: number;
+    cycleCooldownWeeks?: number;
+    cycleStartDay?: number;
+    cycleAutoRollover?: boolean;
+  }): Result<void> {
+    if (cfg.cycleLengthWeeks !== undefined && (cfg.cycleLengthWeeks < 1 || cfg.cycleLengthWeeks > 4)) {
+      return Result.fail('Cycle length must be 1–4 weeks');
+    }
+    if (
+      cfg.cycleCooldownWeeks !== undefined &&
+      (cfg.cycleCooldownWeeks < 0 || cfg.cycleCooldownWeeks > 2)
+    ) {
+      return Result.fail('Cooldown must be 0–2 weeks');
+    }
+    if (cfg.cycleStartDay !== undefined && (cfg.cycleStartDay < 1 || cfg.cycleStartDay > 7)) {
+      return Result.fail('Start day must be 1 (Monday) – 7 (Sunday)');
+    }
+
+    if (cfg.cyclesEnabled !== undefined) this.props.cyclesEnabled = cfg.cyclesEnabled;
+    if (cfg.cycleLengthWeeks !== undefined) this.props.cycleLengthWeeks = cfg.cycleLengthWeeks;
+    if (cfg.cycleCooldownWeeks !== undefined) this.props.cycleCooldownWeeks = cfg.cycleCooldownWeeks;
+    if (cfg.cycleStartDay !== undefined) this.props.cycleStartDay = cfg.cycleStartDay;
+    if (cfg.cycleAutoRollover !== undefined) this.props.cycleAutoRollover = cfg.cycleAutoRollover;
     this.touch();
     return Result.ok();
   }

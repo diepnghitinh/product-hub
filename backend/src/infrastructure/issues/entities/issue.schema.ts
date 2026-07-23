@@ -25,6 +25,8 @@ export interface IssueDoc {
   roadmapItemId: string;
   roadmapItemLabel: string;
   projectId: string;
+  cycleId: string;
+  carryOverCount: number;
   assigneeId: string;
   assigneeName: string;
   createdBy: string;
@@ -73,6 +75,12 @@ export const IssueSchema = new Schema<IssueDoc>(
     roadmapItemId: { type: String, default: '', index: true },
     roadmapItemLabel: { type: String, default: '' },
     projectId: { type: String, default: '', index: true },
+    // The team cycle (auto-sprint) this issue is committed to; '' = none. An
+    // absent field on a pre-cycles row reads as '' — no migration needed.
+    cycleId: { type: String, default: '', index: true },
+    // Times auto-rollover carried this issue forward (unfinished at a cycle
+    // boundary). Absent on a pre-cycles row reads as 0 — no migration needed.
+    carryOverCount: { type: Number, default: 0 },
     assigneeId: { type: String, default: '', index: true },
     assigneeName: { type: String, default: '' },
     createdBy: { type: String, default: '' },

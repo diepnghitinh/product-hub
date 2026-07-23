@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "rev": 188,
+  "savedAt": "2026-07-23T08:50:57.573Z",
+  "id": "project-mrwvv6c7-1",
+  "name": "product-os",
+  "color": "#0a84ff",
+  "viewport": {
+    "x": 171.23126613822535,
+    "y": 2113.4135334415114,
+    "zoom": 0.8459459246031303
+  },
+  "nodes": [
+    {
+      "id": "term-mrx9qux9-7",
+      "kind": "terminal",
+      "position": {
+        "x": 64.9981930069955,
+        "y": -2153.332341209315
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Add burndown chart to cycles",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "cwd": ".",
+      "agentId": "claude"
+    }
+  ],
+  "bridges": [],
+  "ropes": [],
+  "kanban": {
+    "columns": [
+      {
+        "id": "kcol-si39u19f",
+        "title": "To Do",
+        "color": "#0a84ff"
+      },
+      {
+        "id": "kcol-tfyiu3dd",
+        "title": "In Progress",
+        "color": "#ffd60a"
+      },
+      {
+        "id": "kcol-cnsxx78c",
+        "title": "Done",
+        "color": "#32d74b"
+      }
+    ],
+    "assignments": [
+      {
+        "nodeId": "term-mrwvvcey-2",
+        "columnId": "kcol-si39u19f"
+      }
+    ]
+  }
+}

@@ -34,6 +34,21 @@ export interface TeamProps {
    * an empty list is a valid, expected state (a missing field reads back as `[]`).
    */
   customFields?: CustomFieldConfig[];
+  /**
+   * The team's automatic sprint rhythm (see features/cycles.md). Off by default —
+   * nothing changes for a team until it opts in. The rhythm fields keep their
+   * defaults meaningful even while disabled, so re-enabling picks up where the
+   * settings were left.
+   */
+  cyclesEnabled: boolean;
+  /** 1–4 weeks per cycle. */
+  cycleLengthWeeks: number;
+  /** 0–2 weeks between cycles — a gap with no current cycle at all. */
+  cycleCooldownWeeks: number;
+  /** Weekday a cycle starts on: 1 = Monday (default) … 7 = Sunday. */
+  cycleStartDay: number;
+  /** When a cycle ends, unfinished issues move to the next cycle (off: back to no-cycle). */
+  cycleAutoRollover: boolean;
   /** Archived teams stay (with their issues) but drop out of the nav. */
   archived: boolean;
   /** Display order in the nav. */

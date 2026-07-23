@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model } from 'mongoose';
 import { UniqueEntityID } from '@core/domain';
 import { BaseRepository } from '@core/infrastructure/database/mongoose/base';
 import { resolveAssignees } from '@module-shared/utils/query-array.util';
+import { CycleRollup } from '@application/cycles/domain/enums/cycle.enums';
+import { BurndownIssueRow } from '@application/cycles/domain/cycle-burndown';
 import {
   IssuePaginationResponse,
   IIssueRepository,
@@ -38,6 +40,8 @@ export class IssueRepository
         roadmapItemId: doc.roadmapItemId,
         roadmapItemLabel: doc.roadmapItemLabel,
         projectId: doc.projectId,
+        cycleId: doc.cycleId,
+        carryOverCount: doc.carryOverCount,
         assigneeId: doc.assigneeId,
         assigneeName: doc.assigneeName,
         createdBy: doc.createdBy,
@@ -82,6 +86,8 @@ export class IssueRepository
       roadmapItemId: issue.roadmapItemId,
       roadmapItemLabel: issue.roadmapItemLabel,
       projectId: issue.projectId,
+      cycleId: issue.cycleId,
+      carryOverCount: issue.carryOverCount,
       assigneeId: issue.assigneeId,
       assigneeName: issue.assigneeName,
       createdBy: issue.createdBy,
@@ -160,6 +166,9 @@ export class IssueRepository
     // Multi-value filters — a single value arrives as a 1-item array, so `$in`
     // is equivalent to the old equality match for existing callers.
     if (query.kind?.length) filter.kind = { $in: query.kind };
+    // Direct id fetch (still tenant- and privacy-scoped) — how a closed cycle's
+    // frozen `unfinishedIds` become visible issues again.
+    if (query.ids?.length) filter._id = { $in: query.ids };
     if (query.status?.length) filter.status = { $in: query.status };
     if (query.severity?.length) filter.severity = { $in: query.severity };
     if (query.assigneeId?.length) filter.assigneeId = { $in: resolveAssignees(query.assigneeId) };
@@ -168,6 +177,9 @@ export class IssueRepository
     if (query.roadmapId?.length) filter.roadmapId = { $in: query.roadmapId };
     if (query.projectId?.length) filter.projectId = { $in: query.projectId };
     if (query.teamId) filter.teamId = query.teamId;
+    // '' is meaningful here (issues in no cycle) — sentinels like `current` were
+    // already resolved to a real id (or a no-match id) by the use-case.
+    if (query.cycleId !== undefined) filter.cycleId = query.cycleId;
     if (query.caseId) filter.caseId = query.caseId;
     if (query.reportId) filter.reportId = query.reportId;
     // "Assigned to me": strictly the issues assigned to me — this wins over any
@@ -209,6 +221,141 @@ export class IssueRepository
 
   async countByStatus(tenantId: string, status: string): Promise<number> {
     return this.model.countDocuments({ tenantId, status }).exec();
+  }
+
+  async cycleRollups(
+    tenantId: string,
+    cycleIds: string[],
+    completedStatusKeys: string[],
+  ): Promise<Record<string, CycleRollup>> {
+    if (!cycleIds.length) return {};
+    const rows = await this.model
+      .aggregate<{ _id: string } & CycleRollup>([
+        { $match: { tenantId, cycleId: { $in: cycleIds } } },
+        {
+          $group: {
+            _id: '$cycleId',
+            scopeCount: { $sum: 1 },
+            scopePoints: { $sum: { $ifNull: ['$estimate', 0] } },
+            completedCount: {
+              $sum: { $cond: [{ $in: ['$status', completedStatusKeys] }, 1, 0] },
+            },
+            completedPoints: {
+              $sum: {
+                $cond: [{ $in: ['$status', completedStatusKeys] }, { $ifNull: ['$estimate', 0] }, 0],
+              },
+            },
+            // Who is NOT done — the ids the boundary sweep will move away.
+            // Same pass as the stats, so the frozen record can't disagree
+            // with them (completedCount + unfinishedIds.length === scopeCount).
+            unfinishedIds: {
+              $push: { $cond: [{ $in: ['$status', completedStatusKeys] }, null, '$_id'] },
+            },
+          },
+        },
+        // $push can't skip, so finished issues left null placeholders — drop them.
+        {
+          $addFields: {
+            unfinishedIds: {
+              $filter: { input: '$unfinishedIds', cond: { $ne: ['$$this', null] } },
+            },
+          },
+        },
+      ])
+      .exec();
+    return Object.fromEntries(
+      rows.map((r) => [
+        r._id,
+        {
+          scopeCount: r.scopeCount,
+          scopePoints: r.scopePoints,
+          completedCount: r.completedCount,
+          completedPoints: r.completedPoints,
+          unfinishedIds: r.unfinishedIds,
+        },
+      ]),
+    );
+  }
+
+  async issuesForBurndown(
+    tenantId: string,
+    cycleId: string,
+    extraIds: string[],
+  ): Promise<BurndownIssueRow[]> {
+    // Current members OR the completed cycle's swept-away ids (empty while open).
+    const or: FilterQuery<IssueDoc>[] = [{ cycleId }];
+    if (extraIds.length) or.push({ _id: { $in: extraIds } });
+    const docs = await this.model
+      .find(
+        { tenantId, $or: or },
+        {
+          createdAt: 1,
+          updatedAt: 1,
+          status: 1,
+          estimate: 1,
+          assigneeId: 1,
+          assigneeName: 1,
+          labelKeys: 1,
+          projectId: 1,
+        },
+      )
+      .lean<
+        Pick<
+          IssueDoc,
+          | 'createdAt'
+          | 'updatedAt'
+          | 'status'
+          | 'estimate'
+          | 'assigneeId'
+          | 'assigneeName'
+          | 'labelKeys'
+          | 'projectId'
+        >[]
+      >()
+      .exec();
+    return docs.map((d) => ({
+      createdAt: d.createdAt,
+      updatedAt: d.updatedAt,
+      status: d.status,
+      estimate: d.estimate ?? 0,
+      assigneeId: d.assigneeId ?? '',
+      assigneeName: d.assigneeName ?? '',
+      labelKeys: d.labelKeys ?? [],
+      projectId: d.projectId ?? '',
+    }));
+  }
+
+  async moveUnfinishedIssues(
+    tenantId: string,
+    fromCycleIds: string[],
+    toCycleId: string,
+    completedStatusKeys: string[],
+  ): Promise<number> {
+    if (!fromCycleIds.length) return 0;
+    // Rolling into a real next cycle bumps the carry counter (drives the
+    // "Carried over ×N" badge). Dropping to no-cycle (rollover off) clears it —
+    // a detached issue isn't "carried" anywhere.
+    const update = toCycleId
+      ? { $set: { cycleId: toCycleId }, $inc: { carryOverCount: 1 } }
+      : { $set: { cycleId: toCycleId, carryOverCount: 0 } };
+    const res = await this.model
+      .updateMany(
+        { tenantId, cycleId: { $in: fromCycleIds }, status: { $nin: completedStatusKeys } },
+        update,
+      )
+      .exec();
+    return res.modifiedCount ?? 0;
+  }
+
+  async clearCycleIds(tenantId: string, cycleIds: string[]): Promise<number> {
+    if (!cycleIds.length) return 0;
+    const res = await this.model
+      .updateMany(
+        { tenantId, cycleId: { $in: cycleIds } },
+        { $set: { cycleId: '', carryOverCount: 0 } },
+      )
+      .exec();
+    return res.modifiedCount ?? 0;
   }
 
   async save(issue: IssueEntity): Promise<void> {

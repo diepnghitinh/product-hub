@@ -20,6 +20,14 @@ import { useProjects } from '@/features/projects/api';
 import { useRoadmaps } from '@/features/roadmaps/api';
 import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
 import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
+import {
+  CarryOverBadge,
+  CycleBoardBanner,
+  CycleChip,
+  CycleFilterSelect,
+} from '@/features/cycles/CycleControls';
+import { useFocusedCycle, useResolvedCycleId } from '@/features/cycles/api';
+import { CycleInsightsButton } from '@/features/cycles/CycleInsights';
 import { TaskStatus, TeamIssueType, type TaskLabelConfig, type TeamStatusConfig } from '@/types/enums';
 import type { TaskDto, TeamDto } from '@/types/dto';
 import { useDeleteTask, useSetTaskStatus, useTasks } from './api';
@@ -47,12 +55,15 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
   // resolves against its own item's teamId (see BugsBoardPage for the same note).
   const labelsFor = useTeamLabelsLookup();
 
-  // Creating opens the full New task page — carrying the board's team, and the
-  // column when added from one, so the draft opens pre-set exactly there.
+  // Creating opens the full New task page — carrying the board's team, the
+  // column when added from one, and the board's cycle scope, so the draft opens
+  // pre-set exactly there (a cycle-filtered board creates INTO that cycle —
+  // otherwise the new card instantly vanishes from the filtered view).
   const newTaskHref = (status?: string) => {
     const params = new URLSearchParams();
     if (status) params.set('status', status);
     if (teamId) params.set('teamId', teamId);
+    if (resolvedCycleId) params.set('cycleId', resolvedCycleId);
     const qs = params.toString();
     return `/tasks/new${qs ? `?${qs}` : ''}`;
   };
@@ -82,6 +93,23 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
     setSearchParams(next, { replace: true });
   };
 
+  // Cycle scope rides in ?cycle= (an id or current/upcoming/none — the API
+  // resolves the sentinels against this team, so the sidebar's saved links stay
+  // valid as cycles roll). Only meaningful on a team board.
+  const cycleParam = searchParams.get('cycle') || '';
+  const setCycleParam = (v: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (v) next.set('cycle', v);
+    else next.delete('cycle');
+    setSearchParams(next, { replace: true });
+  };
+  // The concrete cycle id behind the filter (sentinels resolved) — what a create
+  // from this filtered board carries.
+  const resolvedCycleId = useResolvedCycleId(shareTeam, cycleParam);
+  // The scoped cycle as a DTO — drives the board's cycle banner; when it's set,
+  // the banner carries the rhythm, so the toolbar's ambient chip stands down.
+  const focusedCycle = useFocusedCycle(shareTeam, cycleParam);
+
   const [filters, setFilters] = useState<FilterSelections>({});
   const [search, setSearch] = useState('');
 
@@ -97,6 +125,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
     assigneeId: filters.assigneeId,
     roadmapItemId: filters.roadmapItemId,
     projectId: filters.projectId,
+    cycleId: teamId ? cycleParam || undefined : undefined,
   });
   const tasks = data?.items ?? [];
   // Offer the toggle only when there's something to hide; filter client-side (the
@@ -161,7 +190,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
       subtitle={teamName ? t('teams.issuesSubtitle') : t('tasks.mySubtitle')}
       search={{ value: search, onChange: setSearch, placeholder: t('tasks.search') }}
       filters={
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <FilterMenu size="default" categories={filterCategories} value={filters} onChange={setFilters} />
           {hasSubtasks && (
             <label className="flex cursor-pointer select-none items-center gap-2 text-sm text-muted-foreground">
@@ -175,6 +204,13 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
           )}
         </div>
       }
+      filtersEnd={
+        <>
+          {!focusedCycle && <CycleChip team={shareTeam} />}
+          <CycleFilterSelect team={shareTeam} value={cycleParam} onChange={setCycleParam} />
+        </>
+      }
+      banner={<CycleBoardBanner team={shareTeam} value={cycleParam} onChange={setCycleParam} />}
       view={{
         value: view,
         onChange: (v) => setView(v as 'board' | 'list' | 'timeline'),
@@ -185,12 +221,14 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
         ],
       }}
       actions={
-        (canWrite && !teamId) || (shareTeam && canManageDelivery) ? (
+        (canWrite && !teamId) || (shareTeam && canManageDelivery) || shareTeam?.cyclesEnabled ? (
           <div className="flex items-center gap-2">
+            {/* Read-only, so it rides in for anyone viewing a cycle team's board. */}
+            <CycleInsightsButton team={shareTeam} cycleParam={cycleParam} />
             {canWrite && !teamId && (
               <Button onClick={() => navigate(newTaskHref())}>+ {t('tasks.new')}</Button>
             )}
-            {shareTeam && <TeamShareMenu team={shareTeam} />}
+            {shareTeam && canManageDelivery && <TeamShareMenu team={shareTeam} />}
           </div>
         ) : undefined
       }
@@ -275,7 +313,12 @@ export function TaskCard({
           {task.assigneeName || t('tasks.unassigned')}
         </Badge>
       }
-      metaTrailing={<BoardCardAge createdAt={task.createdAt} />}
+      metaTrailing={
+        <>
+          <CarryOverBadge count={task.carryOverCount} />
+          <BoardCardAge createdAt={task.createdAt} />
+        </>
+      }
     />
   );
 }

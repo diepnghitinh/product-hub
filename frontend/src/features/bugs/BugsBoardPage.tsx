@@ -33,6 +33,14 @@ import { CreateBugDialog } from './components/CreateBugDialog';
 import { useBugs, useDeleteBug, useSetBugStatus } from './api';
 import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
 import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
+import {
+  CarryOverBadge,
+  CycleBoardBanner,
+  CycleChip,
+  CycleFilterSelect,
+} from '@/features/cycles/CycleControls';
+import { useFocusedCycle, useResolvedCycleId } from '@/features/cycles/api';
+import { CycleInsightsButton } from '@/features/cycles/CycleInsights';
 
 /** Severity → dot color (shadcn semantic tokens). */
 const SEVERITY_DOT: Record<BugSeverity, string> = {
@@ -66,7 +74,12 @@ export function BugCard({
           {bug.assigneeName || t('bugs.unassigned')}
         </Badge>
       }
-      metaTrailing={<BoardCardAge createdAt={bug.createdAt} />}
+      metaTrailing={
+        <>
+          <CarryOverBadge count={bug.carryOverCount} />
+          <BoardCardAge createdAt={bug.createdAt} />
+        </>
+      }
     />
   );
 }
@@ -108,6 +121,23 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   // The column '+ Add' was clicked in — the new bug opens there.
   const [createStatus, setCreateStatus] = useState<string | undefined>();
 
+  // Cycle scope rides in ?cycle= (an id or current/upcoming/none — the API
+  // resolves the sentinels against this team, so the sidebar's saved links stay
+  // valid as cycles roll). Only meaningful on a team board.
+  const cycleParam = params.get('cycle') || '';
+  const setCycleParam = (v: string) => {
+    const next = new URLSearchParams(params);
+    if (v) next.set('cycle', v);
+    else next.delete('cycle');
+    setParams(next, { replace: true });
+  };
+  // The concrete cycle id behind the filter (sentinels resolved) — what a create
+  // from this filtered board carries.
+  const resolvedCycleId = useResolvedCycleId(shareTeam, cycleParam);
+  // The scoped cycle as a DTO — drives the board's cycle banner; when it's set,
+  // the banner carries the rhythm, so the toolbar's ambient chip stands down.
+  const focusedCycle = useFocusedCycle(shareTeam, cycleParam);
+
   const setStatus = useSetBugStatus();
   const remove = useDeleteBug();
   // Columns belong to the team that owns this board (default bug team when standalone).
@@ -128,6 +158,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
     assigneeId: filters.assigneeId,
     // A ?projectId= in the URL scopes the whole board; the filter narrows within it.
     projectId: projectId ? [projectId] : filters.projectId,
+    cycleId: teamId ? cycleParam || undefined : undefined,
     caseId,
   });
 
@@ -204,8 +235,17 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
       subtitle={teamName ? t('teams.issuesSubtitle') : undefined}
       search={{ value: search, onChange: setSearch, placeholder: t('bugs.search') }}
       filters={
-        <FilterMenu size="default" categories={filterCategories} value={filters} onChange={setFilters} />
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <FilterMenu size="default" categories={filterCategories} value={filters} onChange={setFilters} />
+        </div>
       }
+      filtersEnd={
+        <>
+          {!focusedCycle && <CycleChip team={shareTeam} />}
+          <CycleFilterSelect team={shareTeam} value={cycleParam} onChange={setCycleParam} />
+        </>
+      }
+      banner={<CycleBoardBanner team={shareTeam} value={cycleParam} onChange={setCycleParam} />}
       view={{
         value: view,
         onChange: (v) => setView(v as 'board' | 'list' | 'timeline'),
@@ -216,10 +256,12 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
         ],
       }}
       actions={
-        (canWrite && !teamId) || (shareTeam && canManageDelivery) ? (
+        (canWrite && !teamId) || (shareTeam && canManageDelivery) || shareTeam?.cyclesEnabled ? (
           <div className="flex items-center gap-2">
+            {/* Read-only, so it rides in for anyone viewing a cycle team's board. */}
+            <CycleInsightsButton team={shareTeam} cycleParam={cycleParam} />
             {canWrite && !teamId && <Button onClick={() => setCreateOpen(true)}>+ {t('bugs.new')}</Button>}
-            {shareTeam && <TeamShareMenu team={shareTeam} />}
+            {shareTeam && canManageDelivery && <TeamShareMenu team={shareTeam} />}
           </div>
         ) : undefined
       }
@@ -298,6 +340,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           }}
           defaultStatus={createStatus}
           teamId={teamId}
+          defaultCycleId={resolvedCycleId}
           defaultProjectId={projectId}
           defaultCaseId={caseId}
           defaultCaseLabel={caseName}

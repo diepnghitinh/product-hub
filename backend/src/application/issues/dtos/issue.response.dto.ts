@@ -51,6 +51,14 @@ export class IssueResponseDto {
   @ApiProperty()
   projectId: string;
 
+  @ApiProperty({ description: "The team cycle this issue is committed to ('' = none)" })
+  cycleId: string;
+
+  @ApiProperty({
+    description: 'Times auto-rollover carried this issue into the next cycle (0 = none)',
+  })
+  carryOverCount: number;
+
   @ApiProperty()
   assigneeId: string;
 

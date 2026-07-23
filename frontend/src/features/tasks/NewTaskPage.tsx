@@ -45,6 +45,9 @@ export function NewTaskPage() {
   // Missing teamId is correct on the team-less /tasks route (default task team).
   const teamId = searchParams.get('teamId') || undefined;
   const presetStatus = searchParams.get('status') || undefined;
+  // A cycle-filtered board creates INTO its cycle (already resolved to a
+  // concrete id by the board) — otherwise the new card would vanish from it.
+  const presetCycleId = searchParams.get('cycleId') || undefined;
 
   const create = useCreateTask();
   const { data: usersData } = useUsers({ limit: 100 });
@@ -129,6 +132,7 @@ export function NewTaskPage() {
         status: effectiveStatus || undefined,
         // Sent so a team board's task lands in that team, not the workspace default.
         teamId,
+        cycleId: presetCycleId,
         assigneeId: assigneeId || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,

@@ -56,6 +56,18 @@ export class QueryIssueDto extends PaginationDto {
   @IsBoolean()
   personal?: boolean;
 
+  @ApiPropertyOptional({
+    description:
+      'Fetch specific issues by id — e.g. a closed cycle’s frozen "carried over" ' +
+      'list, whose issues no longer point at that cycle',
+    isArray: true,
+  })
+  @IsOptional()
+  @TransformQueryArray()
+  @IsArray()
+  @IsString({ each: true })
+  ids?: string[];
+
   @ApiPropertyOptional({ description: 'Filter by parent issue id(s) — an issue’s sub-tasks', isArray: true })
   @IsOptional()
   @TransformQueryArray()
@@ -83,6 +95,15 @@ export class QueryIssueDto extends PaginationDto {
   @IsArray()
   @IsString({ each: true })
   projectId?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      "Filter by team cycle: a cycle id, or the sentinels 'current' / 'upcoming' / 'none' " +
+      '(resolved server-side against the teamId filter, so saved links never go stale)',
+  })
+  @IsOptional()
+  @IsString()
+  cycleId?: string;
 
   @ApiPropertyOptional({ description: 'Filter by linked test case id (bug)' })
   @IsOptional()

@@ -130,9 +130,10 @@ function StatusGroup({
 }
 
 /** One person's workload — counts, a share-complete ring, the status bar, an
- *  effort block (story points), and their tasks grouped by status. Sized to fill
- *  its column so every card in the Box row is the same height; the status groups
- *  start collapsed (a compact index of statuses) and the list scrolls in-card. */
+ *  effort block (story points), and their tasks grouped by status. The card takes
+ *  its content's height and the PAGE scrolls (no nested list scrollbar); the
+ *  status groups start collapsed (a compact index of statuses), so expanding one
+ *  simply grows the card in place. */
 export function WorkloadCard({ person }: { person: PersonWorkload }) {
   const groups = person.byColumn.filter((b) => b.tasks.length > 0);
   // Issues start collapsed, per the reference — expand a status to reveal its tasks.
@@ -147,7 +148,7 @@ export function WorkloadCard({ person }: { person: PersonWorkload }) {
   const toggleAll = () => setExpanded(allExpanded ? new Set() : new Set(groups.map((g) => g.col.key)));
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-card p-4 text-card-foreground shadow-sm">
+    <div className="flex flex-col rounded-xl border bg-card p-4 text-card-foreground shadow-sm">
       {/* Header — who, with a collapse/expand-all toggle */}
       <div className="flex shrink-0 items-center gap-2.5">
         <PersonAvatar name={person.name} unassigned={person.isUnassigned} size={28} />
@@ -214,9 +215,9 @@ export function WorkloadCard({ person }: { person: PersonWorkload }) {
         </div>
       )}
 
-      {/* Grouped tasks — fill the rest of the column; scroll in-card when long */}
+      {/* Grouped tasks — full list, full card: the page scrolls, not this box */}
       {groups.length > 0 && (
-        <div className="mt-3 min-h-0 flex-1 overflow-y-auto border-t pt-1">
+        <div className="mt-3 border-t pt-1">
           <div className="flex flex-col divide-y">
             {groups.map((bucket) => (
               <StatusGroup

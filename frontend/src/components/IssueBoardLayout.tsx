@@ -27,8 +27,16 @@ interface IssueBoardLayoutProps {
     onChange: (value: string) => void;
     placeholder: string;
   };
-  /** The FilterMenu. */
+  /** The FilterMenu and any other left-aligned list-narrowing controls. */
   filters?: ReactNode;
+  /** List-narrowing controls pinned to the *right* end of the toolbar row (the
+   *  cycle filter lives here). Kept apart from `filters` so the cycle scope reads
+   *  as its own thing, opposite the search + Filter cluster. */
+  filtersEnd?: ReactNode;
+  /** Full-width context strip between the view tabs and the toolbar — board
+   *  chrome that isn't a list-narrowing control (e.g. the cycle banner). Owns
+   *  its own top gap; most boards pass nothing and look identical. */
+  banner?: ReactNode;
   /** Board/List switch — rendered by the layout so every board looks identical. */
   view?: {
     value: string;
@@ -90,6 +98,8 @@ export function IssueBoardLayout({
   backLink,
   search,
   filters,
+  filtersEnd,
+  banner,
   view,
   actions,
   onTitleChange,
@@ -100,7 +110,7 @@ export function IssueBoardLayout({
   // gets its own sub-header tab strip beneath it; the toolbar keeps only what
   // narrows the list. A board with nothing to narrow (the roadmap) has no
   // toolbar row at all.
-  const hasToolbar = !!(search || filters);
+  const hasToolbar = !!(search || filters || filtersEnd);
 
   return (
     // A board is a full-screen page: no page padding, so the columns run to the
@@ -126,6 +136,10 @@ export function IssueBoardLayout({
 
       {backLink && <div className={cn('shrink-0 pt-6', BOARD_GUTTER)}>{backLink}</div>}
 
+      {/* Context strip (e.g. the cycle banner) — sits above the toolbar and owns
+          its own top gap, so it slots in whether or not a toolbar follows. */}
+      {banner}
+
       {hasToolbar && (
         <div
           className={cn(
@@ -146,6 +160,11 @@ export function IssueBoardLayout({
             />
           )}
           {filters}
+          {/* Cycle scope pinned to the right end of the row (opposite search +
+              Filter). On mobile the toolbar stacks, so it just falls in line. */}
+          {filtersEnd && (
+            <div className="flex items-center gap-2 sm:ml-auto sm:gap-3">{filtersEnd}</div>
+          )}
         </div>
       )}
 

@@ -633,6 +633,38 @@ export const TEAM_ISSUE_TYPE_LABEL: Record<TeamIssueType, string> = {
   [TeamIssueType.TASK]: 'Tasks',
 };
 
+/** Where a team cycle sits in time — derived from its dates, never stored. */
+export enum CycleStatus {
+  UPCOMING = 'upcoming',
+  ACTIVE = 'active',
+  COMPLETED = 'completed',
+}
+
+/** `?cycle=` / cycleId filter sentinels the API resolves server-side, so saved
+ *  links (sidebar's Current/Upcoming) never go stale as cycles roll. */
+export const CYCLE_FILTER_CURRENT = 'current';
+export const CYCLE_FILTER_UPCOMING = 'upcoming';
+export const CYCLE_FILTER_NONE = 'none';
+
+/** `cycleStartDay` scale: 1 = Monday … 7 = Sunday (ISO weekday numbers). */
+export const CYCLE_START_DAYS: number[] = [1, 2, 3, 4, 5, 6, 7];
+
+/** Weekday label per `cycleStartDay` value (same label-map pattern as
+ *  `CUSTOM_FIELD_TYPE_LABEL`). */
+export const CYCLE_START_DAY_LABEL: Record<number, string> = {
+  1: 'Monday',
+  2: 'Tuesday',
+  3: 'Wednesday',
+  4: 'Thursday',
+  5: 'Friday',
+  6: 'Saturday',
+  7: 'Sunday',
+};
+
+/** Cycle rhythm bounds (mirror the backend guards). */
+export const CYCLE_LENGTH_WEEKS = [1, 2, 3, 4];
+export const CYCLE_COOLDOWN_WEEKS = [0, 1, 2];
+
 /** Tenant-configurable task board column (mirrors `BugStatusConfig`). */
 export interface TaskStatusConfig {
   /** Built-in `TaskStatus` or a custom column slug. */

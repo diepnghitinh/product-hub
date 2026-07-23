@@ -17,6 +17,7 @@ import { timeAgo } from '@/lib/format';
 import { useUsers } from '@/features/users/api';
 import { IssueDetail, PropField, PropSection, PropValue } from '@/features/issues/IssueDetail';
 import { useTeams, useTeamStatuses, useTeamLabels, useTeamCustomFields } from '@/features/teams/api';
+import { CyclePropField } from '@/features/cycles/CycleControls';
 import { LabelChips, resolveLabels } from '@/features/labels/LabelChips';
 import { CustomFields } from '@/features/custom-fields/CustomFields';
 import {
@@ -261,6 +262,17 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header' }: TaskDet
                 </PropValue>
               )}
             </PropField>
+
+            {/* Personal tasks never join a cycle (cycles are a team rhythm). */}
+            {!isPersonal && (
+              <CyclePropField
+                team={team}
+                value={task.cycleId}
+                canWrite={canWrite}
+                carryOverCount={task.carryOverCount}
+                onChange={(v) => save({ cycleId: v })}
+              />
+            )}
 
             <PropField bare label={t('tasks.estimate')}>
               {canWrite ? (

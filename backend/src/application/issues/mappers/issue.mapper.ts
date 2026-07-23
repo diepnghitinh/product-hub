@@ -18,6 +18,8 @@ export class IssueMapper {
       roadmapItemId: issue.roadmapItemId,
       roadmapItemLabel: issue.roadmapItemLabel,
       projectId: issue.projectId,
+      cycleId: issue.cycleId,
+      carryOverCount: issue.carryOverCount,
       assigneeId: issue.assigneeId,
       assigneeName: issue.assigneeName,
       createdBy: issue.createdBy,

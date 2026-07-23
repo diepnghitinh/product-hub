@@ -20,6 +20,9 @@ export interface BugQuery {
   severity?: BugSeverity[];
   assigneeId?: string[];
   projectId?: string[];
+  /** Team cycle: a cycle id, or `current` / `upcoming` / `none` — the sentinels
+   *  resolve server-side against `teamId`, so saved links never go stale. */
+  cycleId?: string;
   caseId?: string;
   reportId?: string;
   search?: string;
@@ -47,6 +50,9 @@ export interface CreateBugInput {
    * not the one you were looking at.
    */
   teamId?: string;
+  /** Create straight into a team cycle (a board filtered to a cycle creates
+   *  there). A concrete current/upcoming cycle id of the bug's team. */
+  cycleId?: string;
 }
 
 export interface UpdateBugInput {
@@ -59,6 +65,9 @@ export interface UpdateBugInput {
   caseLabel?: string;
   reportId?: string;
   assigneeId?: string;
+  /** Commit to a team cycle ('' leaves it; only the bug's own team's
+   *  current/upcoming cycles are accepted server-side). */
+  cycleId?: string;
   /** Start of the work window, ISO `YYYY-MM-DD` (empty string clears it). */
   startDate?: string;
   /** End / target date, ISO `YYYY-MM-DD` (empty string clears it). */

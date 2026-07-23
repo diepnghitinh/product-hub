@@ -16,6 +16,11 @@ export interface TeamDoc {
   statuses?: TeamStatusConfig[];
   labels?: TaskLabelConfig[];
   customFields?: CustomFieldConfig[];
+  cyclesEnabled?: boolean;
+  cycleLengthWeeks?: number;
+  cycleCooldownWeeks?: number;
+  cycleStartDay?: number;
+  cycleAutoRollover?: boolean;
   archived: boolean;
   order: number;
   publicEnabled: boolean;
@@ -52,6 +57,13 @@ export const TeamSchema = new Schema<TeamDoc>(
       type: [Schema.Types.Mixed],
       default: undefined,
     } as unknown as CustomFieldConfig[],
+    // Cycle rhythm (features/cycles.md). Optional: pre-cycles teams resolve the
+    // defaults in the entity, exactly like `icon`.
+    cyclesEnabled: { type: Boolean, default: false },
+    cycleLengthWeeks: { type: Number, default: 2 },
+    cycleCooldownWeeks: { type: Number, default: 0 },
+    cycleStartDay: { type: Number, default: 1 },
+    cycleAutoRollover: { type: Boolean, default: true },
     archived: { type: Boolean, default: false },
     order: { type: Number, default: 0 },
     publicEnabled: { type: Boolean, default: false },
