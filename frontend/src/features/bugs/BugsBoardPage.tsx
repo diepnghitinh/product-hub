@@ -216,9 +216,9 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
         ],
       }}
       actions={
-        canWrite || (shareTeam && canManageDelivery) ? (
+        (canWrite && !teamId) || (shareTeam && canManageDelivery) ? (
           <div className="flex items-center gap-2">
-            {canWrite && <Button onClick={() => setCreateOpen(true)}>+ {t('bugs.new')}</Button>}
+            {canWrite && !teamId && <Button onClick={() => setCreateOpen(true)}>+ {t('bugs.new')}</Button>}
             {shareTeam && <TeamShareMenu team={shareTeam} />}
           </div>
         ) : undefined
@@ -229,8 +229,13 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           <Spinner />
         </div>
       ) : bugs.length === 0 ? (
-        <div className={cn('mx-4 rounded-xl border border-dashed p-8 text-center text-muted-foreground md:mx-8')}>
-          {t('bugs.empty')}
+        <div className="mx-4 rounded-xl border border-dashed p-8 text-center md:mx-8">
+          <p className="text-muted-foreground">{t('bugs.empty')}</p>
+          {canWrite && (
+            <Button size="sm" className="mt-3" onClick={() => setCreateOpen(true)}>
+              {teamId ? t('issues.add') : t('bugs.new')}
+            </Button>
+          )}
         </div>
       ) : view === 'board' ? (
         <KanbanBoard
@@ -267,7 +272,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
                 }
               : undefined
           }
-          addLabel={t('bugs.addToColumn')}
+          addLabel={teamId ? t('issues.add') : t('bugs.addToColumn')}
         />
       ) : view === 'list' ? (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>
@@ -305,7 +310,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
 
 /** List view — grouped by status column, mirroring the tasks list so both
  * teams' list views read identically. */
-function BugList({
+export function BugList({
   bugs,
   columns,
   labelsFor,

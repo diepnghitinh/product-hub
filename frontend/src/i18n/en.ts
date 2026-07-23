@@ -384,6 +384,7 @@ export const en = {
   'subtasks.addPlaceholder': 'Add a sub-task and press Enter…',
   'subtasks.add': 'Add sub-task',
   'subtasks.titlePlaceholder': 'Sub-task title',
+  'issues.add': 'Add issue',
   'issues.mySubtitle': 'Everything assigned to you — tasks and bugs.',
   'issues.kindTasks': 'Tasks',
   'issues.kindBugs': 'Bugs',

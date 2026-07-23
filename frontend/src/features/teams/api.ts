@@ -9,11 +9,14 @@ import type {
   TeamStatusConfig,
 } from '@/types/enums';
 
-/** All teams incl. archived — the nav filters archived out; settings shows them. */
-export function useTeams() {
+/** All teams incl. archived — the nav filters archived out; settings shows them.
+ *  `enabled` lets an authenticated-only consumer (e.g. a lookup a public page
+ *  opts out of) skip the request rather than fire it and ignore a 401. */
+export function useTeams(enabled = true) {
   return useQuery({
     queryKey: ['teams'],
     queryFn: () => apiGet<TeamDto[]>('/teams'),
+    enabled,
   });
 }
 
@@ -100,12 +103,15 @@ export function useTeamStatuses(
 /**
  * Same resolution, as a function — for lists whose rows belong to different
  * teams (e.g. the tasks under a backlog item), where a hook per row isn't legal.
+ * `enabled=false` skips the `/teams` fetch entirely — for a caller (e.g. a
+ * public page) that already has its one team's statuses and supplies its own
+ * lookup instead.
  */
-export function useTeamStatusesLookup(): (
+export function useTeamStatusesLookup(enabled = true): (
   teamId: string | undefined,
   issueType: TeamIssueType,
 ) => TeamStatusConfig[] {
-  const { data: teams } = useTeams();
+  const { data: teams } = useTeams(enabled);
   return (teamId, issueType) => {
     const team = teamId
       ? teams?.find((t) => t.id === teamId)

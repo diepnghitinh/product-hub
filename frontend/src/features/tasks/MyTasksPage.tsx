@@ -185,9 +185,9 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
         ],
       }}
       actions={
-        canWrite || (shareTeam && canManageDelivery) ? (
+        (canWrite && !teamId) || (shareTeam && canManageDelivery) ? (
           <div className="flex items-center gap-2">
-            {canWrite && (
+            {canWrite && !teamId && (
               <Button onClick={() => navigate(newTaskHref())}>+ {t('tasks.new')}</Button>
             )}
             {shareTeam && <TeamShareMenu team={shareTeam} />}
@@ -204,7 +204,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
           <p className="text-muted-foreground">{t('tasks.none')}</p>
           {canWrite && (
             <Button size="sm" className="mt-3" onClick={() => navigate(newTaskHref())}>
-              {t('tasks.new')}
+              {teamId ? t('issues.add') : t('tasks.new')}
             </Button>
           )}
         </div>
@@ -236,7 +236,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
               : undefined
           }
           onColumnAdd={canWrite ? (col) => navigate(newTaskHref(col.key)) : undefined}
-          addLabel={t('tasks.addToColumn')}
+          addLabel={teamId ? t('issues.add') : t('tasks.addToColumn')}
         />
       ) : view === 'list' ? (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>
@@ -281,15 +281,19 @@ export function TaskCard({
 }
 
 /** The original queue view: grouped by status column, each row linking to its
- * backlog item's roadmap. */
-function TaskList({
+ * backlog item's roadmap. `onOpen` overrides the row's default `<Link>` with a
+ * callback (e.g. a public board opening a dialog instead of navigating to the
+ * protected `/tasks/:id` route). */
+export function TaskList({
   tasks,
   columns,
   labelsFor,
+  onOpen,
 }: {
   tasks: TaskDto[];
   columns: TeamStatusConfig[];
   labelsFor: (teamId: string | undefined) => TaskLabelConfig[];
+  onOpen?: (task: TaskDto) => void;
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -309,7 +313,7 @@ function TaskList({
             </div>
             <div className="rounded-xl border bg-card p-2 text-card-foreground shadow-sm">
               {list.map((task) => (
-                <TaskRow key={task.id} task={task} labels={labelsFor(task.teamId)} />
+                <TaskRow key={task.id} task={task} labels={labelsFor(task.teamId)} onOpen={onOpen} />
               ))}
             </div>
           </section>
@@ -321,12 +325,17 @@ function TaskList({
 
 /** Trailing metadata mirrors the bug list rows (id, then assignee) so both
  * teams' lists read as siblings. */
-function TaskRow({ task, labels }: { task: TaskDto; labels: TaskLabelConfig[] }) {
-  return (
-    <Link
-      to={`/tasks/${task.shortId || task.id}`}
-      className="flex items-center gap-3 rounded-md px-4 py-3 text-foreground transition-colors hover:bg-accent [&:not(:last-child)]:border-b"
-    >
+function TaskRow({
+  task,
+  labels,
+  onOpen,
+}: {
+  task: TaskDto;
+  labels: TaskLabelConfig[];
+  onOpen?: (task: TaskDto) => void;
+}) {
+  const content = (
+    <>
       <span
         className={cn(
           'min-w-0 flex-1 truncate text-sm',
@@ -347,6 +356,21 @@ function TaskRow({ task, labels }: { task: TaskDto; labels: TaskLabelConfig[] })
       <Badge variant="muted" className="max-w-[35%] shrink-0 truncate">
         {task.assigneeName || t('tasks.unassigned')}
       </Badge>
+    </>
+  );
+  const className =
+    'flex w-full items-center gap-3 rounded-md px-4 py-3 text-left text-foreground transition-colors hover:bg-accent [&:not(:last-child)]:border-b';
+
+  if (onOpen) {
+    return (
+      <button type="button" onClick={() => onOpen(task)} className={className}>
+        {content}
+      </button>
+    );
+  }
+  return (
+    <Link to={`/tasks/${task.shortId || task.id}`} className={className}>
+      {content}
     </Link>
   );
 }
