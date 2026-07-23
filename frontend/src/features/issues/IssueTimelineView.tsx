@@ -2,7 +2,7 @@ import { t } from '@/i18n';
 import { formatDate } from '@/lib/format';
 import { GanttChart, firstEpoch, isEpoch, toEpoch, type GanttRow } from '@/components/GanttChart';
 import { useTeamStatusesLookup } from '@/features/teams/api';
-import { TeamIssueType } from '@/types/enums';
+import { TeamIssueType, type TeamStatusConfig } from '@/types/enums';
 
 /**
  * The subset of a task/bug a timeline row needs. Both `TaskDto` and `BugDto`
@@ -26,6 +26,13 @@ interface IssueTimelineViewProps {
   /** Picks the status-colour source and the detail route (`/tasks` vs `/bugs`). */
   issueType: TeamIssueType;
   isLoading?: boolean;
+  /** Overrides the per-team status lookup, and skips its authenticated `/teams`
+   *  fetch — for a caller (e.g. a public board) that already has its one team's
+   *  statuses in hand. */
+  statusesFor?: (teamId: string | undefined, issueType: TeamIssueType) => TeamStatusConfig[];
+  /** Overrides a row's click target with a callback (e.g. open a dialog) instead
+   *  of linking to the protected `/tasks|bugs/:id` route — for a public board. */
+  onOpenItem?: (item: IssueTimelineItem) => void;
 }
 
 /** The date that anchors a row's position — its start, else its end. */
@@ -41,8 +48,17 @@ function anchor(i: IssueTimelineItem): number {
  * that date; an issue with neither is listed but not placed. A thin adapter over
  * the shared `<GanttChart>` — the same surface the roadmap timeline uses.
  */
-export function IssueTimelineView({ items, issueType, isLoading }: IssueTimelineViewProps) {
-  const statusesFor = useTeamStatusesLookup();
+export function IssueTimelineView({
+  items,
+  issueType,
+  isLoading,
+  statusesFor: statusesForOverride,
+  onOpenItem,
+}: IssueTimelineViewProps) {
+  // Same hook either way (rules of hooks) — `enabled` just skips its fetch
+  // when the caller supplies its own lookup.
+  const statusesForHook = useTeamStatusesLookup(!statusesForOverride);
+  const statusesFor = statusesForOverride ?? statusesForHook;
   const base = issueType === TeamIssueType.BUG ? 'bugs' : 'tasks';
 
   // Dated first (soonest at the top), undated last — a stable, useful order.
@@ -65,7 +81,7 @@ export function IssueTimelineView({ items, issueType, isLoading }: IssueTimeline
       label: issue.title,
       sublabel: issue.shortId ? `${issue.shortId} · ${statusLabel}` : statusLabel,
       dotColor: color,
-      href: `/${base}/${issue.shortId || issue.id}`,
+      ...(onOpenItem ? { onClick: () => onOpenItem(issue) } : { href: `/${base}/${issue.shortId || issue.id}` }),
     };
 
     if (isEpoch(start) && isEpoch(end)) {

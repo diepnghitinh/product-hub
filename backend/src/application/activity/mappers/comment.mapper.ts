@@ -6,6 +6,7 @@ export class CommentMapper {
     return {
       id: comment.id.toString(),
       bugId: comment.bugId,
+      parentId: comment.parentId,
       authorId: comment.authorId,
       authorName: comment.authorName,
       body: comment.body,

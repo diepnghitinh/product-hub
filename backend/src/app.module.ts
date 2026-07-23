@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 
+import { getEnvFilePath } from '@shared/utils/dotenv';
 import { LoggingInterceptor } from '@core/presentation/interceptors/logging.interceptor';
 import { TransformInterceptor } from '@core/presentation/interceptors/transform.interceptor';
 import { DomainExceptionsFilter } from '@core/presentation/filters/domain-exceptions.filter';
@@ -12,19 +13,21 @@ import { RolesGuard } from '@core/presentation/guards/roles.guard';
 import { MongooseInfrastructureModule } from '@infrastructure/database/mongoose/mongoose.module';
 import { PresentationModule } from '@presentation/presentation.module';
 import { SharedModule } from '@module-shared/shared.module';
-import { ShortIdBackfillModule } from '@module-shared/short-id-backfill.module';
-import { TeamsBackfillModule } from '@module-shared/teams-backfill.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    // Load the per-environment file from /config (chosen by NODE_ENV — see
+    // @shared/utils/dotenv). The legacy root `.env` is kept as a fallback during
+    // the transition; earlier entries win, so config/.env.<env> takes precedence.
+    // `expandVariables` enables `${VAR}` interpolation inside the env files.
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: [getEnvFilePath(process.env['NODE_ENV']), '.env'],
+      expandVariables: true,
+    }),
     SharedModule,
     MongooseInfrastructureModule,
     PresentationModule,
-    // Gives pre-shortId bugs/tasks a URL-facing reference. Idempotent.
-    ShortIdBackfillModule,
-    // Seeds QC/Engineering for pre-Teams workspaces + files their issues. Idempotent.
-    TeamsBackfillModule,
   ],
   providers: [
     // Global interceptors (order matters: log first, then wrap the response)

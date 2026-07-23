@@ -4,4 +4,10 @@
 *.log
 .env
 .env.local
+
+# Per-environment config lives in /config (secrets). Only the committed
+# example.* templates are tracked; the real .env.* files are ignored.
+/config/.env
+/config/.env.*
+
 .DS_Store

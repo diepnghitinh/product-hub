@@ -9,6 +9,12 @@ export interface CommentProps {
   taskId: string;
   /** The roadmap item this comment is on (empty for a bug/task comment). */
   roadmapItemId: string;
+  /**
+   * The top-level comment this one replies to (empty for a top-level comment).
+   * A thread is only ever one level deep: a reply always points at a root, never
+   * at another reply.
+   */
+  parentId: string;
   authorId: string;
   authorName: string;
   body: string;

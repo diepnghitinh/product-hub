@@ -51,9 +51,19 @@ export class CreateRoadmapItemCommentUseCase
     const item = roadmap.items.find((i) => i.id === itemId);
     if (!item) return Result.fail('Roadmap item not found');
 
+    // Resolve a reply to a top-level comment on this item; threads stay one level
+    // deep and an unknown/foreign parent degrades to a top-level comment.
+    let parentId = '';
+    if (dto.parentId) {
+      const parent = await this.comments.findById(tenantId, dto.parentId);
+      if (parent && parent.roadmapItemId === itemId)
+        parentId = parent.parentId || parent.id.toString();
+    }
+
     const created = CommentEntity.create({
       tenantId,
       roadmapItemId: itemId,
+      parentId,
       authorId,
       authorName,
       body: dto.body,

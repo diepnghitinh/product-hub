@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { InfrastructureActivityModule } from '@infrastructure/activity/activity.module';
-import { InfrastructureBugsModule } from '@infrastructure/bugs/bugs.module';
-import { InfrastructureTasksModule } from '@infrastructure/tasks/tasks.module';
+import { InfrastructureIssuesModule } from '@infrastructure/issues/issues.module';
 import { InfrastructureRoadmapsModule } from '@infrastructure/roadmaps/roadmaps.module';
 import { InfrastructureWebhooksModule } from '@infrastructure/webhooks/webhooks.module';
 import {
@@ -37,8 +36,7 @@ const useCases = [
 @Module({
   imports: [
     InfrastructureActivityModule,
-    InfrastructureBugsModule,
-    InfrastructureTasksModule,
+    InfrastructureIssuesModule,
     InfrastructureRoadmapsModule,
     InfrastructureWebhooksModule,
   ],

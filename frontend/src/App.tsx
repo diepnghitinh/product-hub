@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useSearchParams } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AppLayout } from '@/layouts';
 import { LoginPage } from '@/features/auth/LoginPage';
@@ -12,11 +12,12 @@ import { ReportView } from '@/features/reports/ReportView';
 import { BugsBoardPage } from '@/features/bugs/BugsBoardPage';
 import { BugDetailPage } from '@/features/bugs/BugDetailPage';
 import { InboxPage } from '@/features/inbox/InboxPage';
-import { MyTasksPage } from '@/features/tasks/MyTasksPage';
+import { MyIssuesPage } from '@/features/issues/MyIssuesPage';
 import { MyTaskListView } from '@/features/tasks/MyTaskListView';
 import { PersonalBoardPage } from '@/features/tasks/PersonalBoardPage';
 import { NewTaskPage } from '@/features/tasks/NewTaskPage';
 import { TaskDetailPage } from '@/features/tasks/TaskDetailPage';
+import { MyTeamPage } from '@/features/my-team/MyTeamPage';
 import { TeamBoardPage } from '@/features/teams/TeamBoardPage';
 import { RoadmapsPage } from '@/features/roadmaps/RoadmapsPage';
 import { RoadmapBoardPage } from '@/features/roadmaps/RoadmapBoardPage';
@@ -29,6 +30,15 @@ import { MyProfilePage } from '@/features/account/MyProfilePage';
 import { PublicProjectPage } from '@/features/public/PublicProjectPage';
 import { PublicRoadmapPage } from '@/features/public/PublicRoadmapPage';
 import { PublicTeamBoardPage } from '@/features/public/PublicTeamBoardPage';
+
+/** A bare `/bugs` is now the unified Issues board scoped to bugs. But a
+ * project/case/report-scoped `/bugs?projectId=…` is a real deep-link target (a
+ * test report's "view bugs"), so that keeps the standalone, scoped bug board. */
+function BugsRoute() {
+  const [params] = useSearchParams();
+  const scoped = params.has('projectId') || params.has('caseId') || params.has('reportId');
+  return scoped ? <BugsBoardPage /> : <Navigate to="/issues?kind=bug" replace />;
+}
 
 export default function App() {
   return (
@@ -52,14 +62,23 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/testing" element={<ProjectsPage />} />
-          <Route path="/bugs" element={<BugsBoardPage />} />
+          {/* A bare /bugs folds into the unified Issues board; a scoped /bugs
+              (project/case/report) stays the standalone bug list. */}
+          <Route path="/bugs" element={<BugsRoute />} />
           <Route path="/bugs/:bugId" element={<BugDetailPage />} />
           <Route path="/inbox" element={<InboxPage />} />
-          <Route path="/tasks" element={<MyTasksPage />} />
+          {/* The unified personal work area — tasks + bugs in one board. */}
+          <Route path="/issues" element={<MyIssuesPage />} />
+          <Route path="/issues/today" element={<MyTaskListView mode="today" />} />
+          <Route path="/issues/personal" element={<PersonalBoardPage />} />
+          {/* Old task routes fold into Issues; deep links + bookmarks still work.
+              /tasks/new and /tasks/:id keep their own pages (create + detail). */}
+          <Route path="/tasks" element={<Navigate to="/issues" replace />} />
           <Route path="/tasks/new" element={<NewTaskPage />} />
-          <Route path="/tasks/today" element={<MyTaskListView mode="today" />} />
-          <Route path="/tasks/personal" element={<PersonalBoardPage />} />
+          <Route path="/tasks/today" element={<Navigate to="/issues/today" replace />} />
+          <Route path="/tasks/personal" element={<Navigate to="/issues/personal" replace />} />
           <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
+          <Route path="/my-team" element={<MyTeamPage />} />
           {/* A team's own issue list — renders the bug or task board by issueType. */}
           <Route path="/teams/:teamId" element={<TeamBoardPage />} />
           <Route path="/roadmaps" element={<RoadmapsPage />} />

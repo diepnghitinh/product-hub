@@ -48,7 +48,7 @@ interface IssueBoardLayoutProps {
  *  view. Every board renders through this shell, so they all get the identical
  *  sub-header — the toolbar below stays for narrowing the list, not for choosing
  *  how to look at it. */
-function ViewTabs({ view }: { view: NonNullable<IssueBoardLayoutProps['view']> }) {
+export function ViewTabs({ view }: { view: NonNullable<IssueBoardLayoutProps['view']> }) {
   return (
     <div className={cn('flex shrink-0 items-center gap-1 border-b', BOARD_GUTTER)}>
       {view.options.map((o) => {

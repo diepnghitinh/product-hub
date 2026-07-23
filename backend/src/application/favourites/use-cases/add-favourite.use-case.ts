@@ -2,8 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { IUserRepository } from '@application/users/repositories/user.repository';
-import { IBugRepository } from '@application/bugs/repositories/bug.repository';
-import { ITaskRepository } from '@application/tasks/repositories/task.repository';
+import { IIssueRepository } from '@application/issues/repositories/issue.repository';
 import { IRoadmapRepository } from '@application/roadmaps/repositories/roadmap.repository';
 import { FavouriteKind } from '../domain/favourite-kind.enum';
 import { FavouriteRef } from '../domain/favourite.ref';
@@ -29,8 +28,8 @@ export class AddFavouriteUseCase
 {
   constructor(
     @Inject(IUserRepository) private readonly users: IUserRepository,
-    @Inject(IBugRepository) private readonly bugs: IBugRepository,
-    @Inject(ITaskRepository) private readonly tasks: ITaskRepository,
+    // One store for both kinds — a pinned task or bug lives in the unified issues collection.
+    @Inject(IIssueRepository) private readonly issues: IIssueRepository,
     @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
   ) {}
 
@@ -52,8 +51,8 @@ export class AddFavouriteUseCase
     const createdAt = new Date();
     switch (req.kind) {
       case FavouriteKind.Bug: {
-        const bug = await this.bugs.findByRef(req.tenantId, req.refId);
-        if (!bug) return Result.fail('Bug not found');
+        const bug = await this.issues.findByRef(req.tenantId, req.refId);
+        if (!bug || !bug.isBug) return Result.fail('Bug not found');
         return Result.ok({
           kind: FavouriteKind.Bug,
           refId: bug.id.toString(),
@@ -63,8 +62,8 @@ export class AddFavouriteUseCase
         });
       }
       case FavouriteKind.Task: {
-        const task = await this.tasks.findByRef(req.tenantId, req.refId);
-        if (!task) return Result.fail('Task not found');
+        const task = await this.issues.findByRef(req.tenantId, req.refId);
+        if (!task || !task.isTask) return Result.fail('Task not found');
         return Result.ok({
           kind: FavouriteKind.Task,
           refId: task.id.toString(),

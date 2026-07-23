@@ -32,15 +32,19 @@ export const NAV_GROUPS: NavGroup[] = [
       { path: '/', labelKey: 'nav.home', icon: 'home', end: true },
       {
         // Collapsible: the parent toggles open; the three children are the views.
-        path: '/tasks',
-        labelKey: 'nav.tasks',
+        // "Assigned to me" is now the unified Issues board (tasks + bugs); Today
+        // and Personal stay task-only views, nested under the same Issues area.
+        path: '/issues',
+        labelKey: 'nav.issues',
         icon: 'user-check',
         children: [
-          { path: '/tasks', labelKey: 'nav.assignedToMe', icon: 'tasks', avatar: true, end: true },
-          { path: '/tasks/today', labelKey: 'nav.today', icon: 'calendar' },
-          { path: '/tasks/personal', labelKey: 'nav.personalList', icon: 'list' },
+          { path: '/issues', labelKey: 'nav.assignedToMe', icon: 'tasks', avatar: true, end: true },
+          { path: '/issues/today', labelKey: 'nav.today', icon: 'calendar' },
+          { path: '/issues/personal', labelKey: 'nav.personalList', icon: 'list' },
         ],
       },
+      // Sits right under Issues: whose queue is what — mine, then my team's.
+      { path: '/my-team', labelKey: 'nav.myTeam', icon: 'people' },
       { path: '/inbox', labelKey: 'nav.inbox', icon: 'inbox', badge: 'inbox' },
     ],
   },

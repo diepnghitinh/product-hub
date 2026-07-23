@@ -6,6 +6,8 @@ export interface CreateCommentInput {
   body: string;
   mentions?: string[];
   images?: string[];
+  /** When set, post as a reply to this top-level comment. */
+  parentId?: string;
 }
 
 export interface UpdateCommentInput {

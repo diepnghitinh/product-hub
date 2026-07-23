@@ -7,6 +7,7 @@ export interface CommentDoc {
   bugId: string;
   taskId: string;
   roadmapItemId: string;
+  parentId: string;
   authorId: string;
   authorName: string;
   body: string;
@@ -24,6 +25,8 @@ export const CommentSchema = new Schema<CommentDoc>(
     bugId: { type: String, default: '', index: true },
     taskId: { type: String, default: '', index: true },
     roadmapItemId: { type: String, default: '', index: true },
+    // '' for a top-level comment; otherwise the id of the comment it replies to.
+    parentId: { type: String, default: '', index: true },
     authorId: { type: String, default: '' },
     authorName: { type: String, default: '' },
     body: { type: String, required: true },

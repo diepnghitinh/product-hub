@@ -294,6 +294,8 @@ export interface BugAttachment {
 export interface CommentDto {
   id: string;
   bugId: string;
+  /** Empty for a top-level comment; else the id of the comment it replies to. */
+  parentId: string;
   authorId: string;
   authorName: string;
   body: string;
@@ -424,6 +426,67 @@ export interface TaskDto {
   /** Points on the estimate scale (see `TASK_ESTIMATES`); `0` means unset. */
   estimate: number;
   /** Keys of the team labels on this task (resolved against its team's `labels`). */
+  labelKeys: string[];
+  /** Values for the team's custom fields, keyed by each field's stable `id`. */
+  customFields: Record<string, CustomFieldValue>;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Issues (unified task + bug) ───────────────────────────────────────────────
+/**
+ * Flat issue shape — the union of {@link TaskDto} and {@link BugDto} with a
+ * `kind` discriminator; mirrors the backend `IssueResponseDto` served by
+ * `/issues`. Kind-specific fields carry a neutral value on the other kind (a
+ * task's `severity` is `''`, a bug's `estimate` is `0`), so a mixed list reads
+ * without narrowing. It's a superset of `TaskDto`, so code written for a task
+ * reads an issue unchanged.
+ */
+export interface IssueDto {
+  kind: IssueKind;
+  id: string;
+  tenantId: string;
+  /** The team that owns this issue — drives which board columns apply. */
+  teamId: string;
+  /** Owner of a private personal task ('' for a team issue / any bug). */
+  ownerId: string;
+  /** Parent issue id when this is a sub-task ('' if top-level). */
+  parentId: string;
+  /** Human-friendly per-tenant reference used in URLs, e.g. `TSK-7` / `BUG-12`. */
+  shortId: string;
+  title: string;
+  description: string;
+  /** Status column key — built-in or a team's custom slug (spans both kinds). */
+  status: string;
+  roadmapId: string;
+  roadmapItemId: string;
+  roadmapItemLabel: string;
+  projectId: string;
+  assigneeId: string;
+  assigneeName: string;
+  createdBy: string;
+  createdByName: string;
+  /** Bug reporter ('' for a task). */
+  reporterId: string;
+  reporterName: string;
+  /** Optional start date, ISO `YYYY-MM-DD` ('' when unset). */
+  startDate: string;
+  /** Optional end / target date, ISO `YYYY-MM-DD` ('' when unset). */
+  endDate: string;
+  /** @deprecated Legacy alias of `endDate` (task); kept in sync server-side. */
+  dueDate: string;
+  /** Points on the estimate scale (task; `0` = unset, and always `0` for a bug). */
+  estimate: number;
+  /** Bug severity ('' for a task). */
+  severity: BugSeverity | '';
+  /** Bug type/category ('' for a task). */
+  type: string;
+  caseId: string;
+  caseLabel: string;
+  reportId: string;
+  attachments: BugAttachment[];
+  /** Keys of the team labels on this issue. */
   labelKeys: string[];
   /** Values for the team's custom fields, keyed by each field's stable `id`. */
   customFields: Record<string, CustomFieldValue>;

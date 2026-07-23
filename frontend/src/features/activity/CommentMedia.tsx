@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { ImagePlus, X } from 'lucide-react';
+import { Paperclip, X } from 'lucide-react';
 import { Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
@@ -112,7 +112,7 @@ export function AttachMediaButton({
         onClick={() => inputRef.current?.click()}
         className="grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
       >
-        <ImagePlus className="size-4" />
+        <Paperclip className="size-4" />
       </button>
     </>
   );

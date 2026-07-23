@@ -22,16 +22,98 @@
  * one place the app declares its indexes, as bugs/tasks do today) so the two
  * can't drift. Connects with MONGODB_URI (same default as the app).
  */
+// Load the per-environment config from /config so MONGODB_URI is read from
+// config/.env.<env> (same loader the app uses), not just the hardcoded default.
+import '@shared/utils/dotenv';
 import mongoose from 'mongoose';
 import type { Collection } from 'mongodb'; // what connection.db.collection() returns
-import type { TaskDoc } from '../src/infrastructure/tasks/entities/task.schema';
-import type { BugDoc } from '../src/infrastructure/bugs/entities/bug.schema';
 
-const MONGODB_URI =
-  process.env.MONGODB_URI ||
+// The old `tasks`/`bugs` collections are frozen legacy data this script reads raw
+// (via db.collection), so their doc shapes are inlined here rather than imported —
+// the infrastructure task/bug slices that defined them were removed once every
+// live reader had moved to `issues`. Kept loose (like IssueDoc below) on purpose.
+interface TaskDoc {
+  _id: string;
+  tenantId: string;
+  teamId: string;
+  ownerId: string;
+  parentId: string;
+  shortId: string;
+  title: string;
+  description: string;
+  status: string;
+  roadmapId: string;
+  roadmapItemId: string;
+  roadmapItemLabel: string;
+  projectId: string;
+  assigneeId: string;
+  assigneeName: string;
+  createdBy: string;
+  createdByName: string;
+  startDate: string;
+  endDate: string;
+  dueDate: string;
+  estimate: number;
+  labelKeys: string[];
+  customFields: Record<string, unknown>;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface BugDoc {
+  _id: string;
+  tenantId: string;
+  teamId: string;
+  shortId: string;
+  title: string;
+  description: string;
+  severity: string;
+  status: string;
+  type: string;
+  projectId: string;
+  caseId: string;
+  caseLabel: string;
+  reportId: string;
+  assigneeId: string;
+  assigneeName: string;
+  reporterId: string;
+  reporterName: string;
+  startDate: string;
+  endDate: string;
+  order: number;
+  attachments: unknown[];
+  labelKeys: string[];
+  customFields: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const NODE_ENV = process.env['NODE_ENV'] || 'local';
+const IS_PROD = NODE_ENV === 'prod' || NODE_ENV === 'production';
+
+const DEFAULT_MONGODB_URI =
   'mongodb://producthub:producthub@localhost:27017/producthub?authSource=admin';
+const MONGODB_URI = process.env.MONGODB_URI || DEFAULT_MONGODB_URI;
+
+// Safety net for the `:prod` scripts: a prod run MUST use an explicit prod
+// MONGODB_URI (loaded from config/.env.prod). If it isn't set we'd silently fall
+// back to the localhost default and "migrate prod" against the wrong database —
+// so refuse loudly instead.
+if (IS_PROD && !process.env.MONGODB_URI) {
+  console.error(
+    '✋ NODE_ENV=prod but MONGODB_URI is not set (would fall back to localhost).\n' +
+      '   Create backend/config/.env.prod with the production MONGODB_URI, then re-run.',
+  );
+  process.exit(1);
+}
 
 const APPLY = process.argv.includes('--apply');
+// Reconcile mode: after upserting, also DELETE issue twins whose source task/bug
+// no longer exists (rows deleted during the window before live dual-write existed).
+// Off by default — the plain backfill only ever adds — because a prune is the one
+// part of this script that removes from `issues`.
+const PRUNE = process.argv.includes('--prune');
 const BATCH = 500;
 
 type IssueKind = 'bug' | 'task';
@@ -182,6 +264,45 @@ async function upsertBatch(
   return { upserted: res.upsertedCount ?? 0, modified: res.modifiedCount ?? 0 };
 }
 
+/**
+ * Delete issue twins orphaned by a source delete — `issues` rows whose `_id` is
+ * no longer present in either `tasks` or `bugs`. Live dual-write removes a twin as
+ * its source is deleted, so this only catches deletes from *before* dual-write
+ * shipped; it makes `issues` an exact mirror so reads can safely move onto it.
+ */
+async function pruneOrphans(
+  tasks: Collection,
+  bugs: Collection,
+  issues: Collection<IssueDoc>,
+): Promise<number> {
+  // Every id that still has a live source. `distinct('_id')` is fine at this
+  // scale (one-off op); the Set makes the membership test O(1) per issue.
+  const [taskIds, bugIds] = await Promise.all([
+    tasks.distinct('_id'),
+    bugs.distinct('_id'),
+  ]);
+  const live = new Set<string>([...taskIds, ...bugIds].map(String));
+
+  const orphans: string[] = [];
+  const cursor = issues.find({}, { projection: { _id: 1 } });
+  for await (const doc of cursor) {
+    if (!live.has(String(doc._id))) orphans.push(doc._id);
+  }
+
+  console.log(`\nPRUNE: ${orphans.length} orphan twin(s) (source deleted)`);
+  if (!orphans.length) return 0;
+
+  if (APPLY) {
+    for (let i = 0; i < orphans.length; i += BATCH) {
+      await issues.deleteMany({ _id: { $in: orphans.slice(i, i + BATCH) } });
+    }
+    console.log(`  → deleted ${orphans.length}`);
+  } else {
+    console.log(`  → would delete ${orphans.length} (dry run)`);
+  }
+  return orphans.length;
+}
+
 /** Stream one source collection through its transform into `issues`. */
 async function migrateKind(
   source: Collection,
@@ -225,10 +346,11 @@ async function migrateKind(
 async function main(): Promise<void> {
   console.log(
     APPLY
-      ? '⚙️  APPLY — writing into the `issues` collection'
-      : '🔎 DRY RUN — no writes (pass --apply to migrate)',
+      ? `⚙️  APPLY — writing into the \`issues\` collection${PRUNE ? ' (+ prune orphans)' : ''}`
+      : `🔎 DRY RUN — no writes (pass --apply to migrate)${PRUNE ? ' [prune preview]' : ''}`,
   );
-  // Mask credentials in the printed URI.
+  // Show which environment/database we're about to touch (mask credentials).
+  console.log(`Env:   ${NODE_ENV}`);
   console.log(`Mongo: ${MONGODB_URI.replace(/\/\/[^@]*@/, '//***@')}`);
 
   await mongoose.connect(MONGODB_URI);
@@ -248,6 +370,7 @@ async function main(): Promise<void> {
 
   const t = await migrateKind(tasks, issues, 'task', taskToIssue);
   const b = await migrateKind(bugs, issues, 'bug', bugToIssue);
+  const pruned = PRUNE ? await pruneOrphans(tasks, bugs, issues) : 0;
 
   console.log('\n────────────────────────────────');
   console.log(`Tasks:  ${t.processed}`);
@@ -255,6 +378,7 @@ async function main(): Promise<void> {
   console.log(
     `Total:  ${t.processed + b.processed} issue(s) ${APPLY ? 'written' : 'to migrate'}`,
   );
+  if (PRUNE) console.log(`Pruned: ${pruned} orphan twin(s) ${APPLY ? 'deleted' : 'to delete'}`);
   if (APPLY) {
     console.log(`\`issues\` now holds ${await issues.countDocuments()} doc(s).`);
   } else {

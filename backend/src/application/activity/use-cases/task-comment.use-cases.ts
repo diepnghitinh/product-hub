@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute, Role } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
-import { ITaskRepository } from '@application/tasks/repositories/task.repository';
+import { IIssueRepository } from '@application/issues/repositories/issue.repository';
 import { INotifier } from '@application/webhooks/notifier.port';
 import { WebhookEvent } from '@application/app-settings/domain/webhook.types';
 import { CreateCommentDto } from '../dtos/create-comment.dto';
@@ -31,7 +31,9 @@ export class CreateTaskCommentUseCase
 {
   constructor(
     @Inject(ICommentRepository) private readonly comments: ICommentRepository,
-    @Inject(ITaskRepository) private readonly tasks: ITaskRepository,
+    // Validate the subject against the unified `issues` collection (the task's
+    // authoritative home); `taskId` is the issue's shared _id, kind = task.
+    @Inject(IIssueRepository) private readonly issues: IIssueRepository,
     @Inject(INotifier) private readonly notifier: INotifier,
   ) {}
 
@@ -42,12 +44,21 @@ export class CreateTaskCommentUseCase
     authorName,
     dto,
   }: CreateTaskCommentRequest): Promise<Result<CommentEntity>> {
-    const task = await this.tasks.findById(taskId);
+    const task = await this.issues.findById(taskId);
     if (!task || task.tenantId !== tenantId) return Result.fail('Task not found');
+
+    // Resolve a reply to a top-level comment on this task; threads stay one level
+    // deep and an unknown/foreign parent degrades to a top-level comment.
+    let parentId = '';
+    if (dto.parentId) {
+      const parent = await this.comments.findById(tenantId, dto.parentId);
+      if (parent && parent.taskId === taskId) parentId = parent.parentId || parent.id.toString();
+    }
 
     const created = CommentEntity.create({
       tenantId,
       taskId,
+      parentId,
       authorId,
       authorName,
       body: dto.body,

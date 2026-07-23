@@ -7,8 +7,7 @@ import { ProjectsPresentationModule } from './projects/projects.module';
 import { GroupsPresentationModule } from './groups/groups.module';
 import { ReportsPresentationModule } from './reports/reports.module';
 import { AuditLogPresentationModule } from './audit-log/audit-log.module';
-import { BugsPresentationModule } from './bugs/bugs.module';
-import { TasksPresentationModule } from './tasks/tasks.module';
+import { IssuesPresentationModule } from './issues/issues.module';
 import { TeamsPresentationModule } from './teams/teams.module';
 import { ActivityPresentationModule } from './activity/activity.module';
 import { InboxPresentationModule } from './inbox/inbox.module';
@@ -38,8 +37,7 @@ import { StoragePresentationModule } from './storage/storage.module';
     GroupsPresentationModule,
     ReportsPresentationModule,
     AuditLogPresentationModule,
-    BugsPresentationModule,
-    TasksPresentationModule,
+    IssuesPresentationModule,
     TeamsPresentationModule,
     ActivityPresentationModule,
     InboxPresentationModule,
@@ -60,8 +58,7 @@ import { StoragePresentationModule } from './storage/storage.module';
       { path: 'auth', module: AuthPresentationModule },
       { path: 'users', module: UsersPresentationModule },
       { path: 'projects', module: ProjectsPresentationModule },
-      { path: 'bugs', module: BugsPresentationModule },
-      { path: 'tasks', module: TasksPresentationModule },
+      { path: 'issues', module: IssuesPresentationModule },
       { path: 'teams', module: TeamsPresentationModule },
       { path: 'roadmaps', module: RoadmapsPresentationModule },
       { path: 'milestones', module: MilestonesPresentationModule },
