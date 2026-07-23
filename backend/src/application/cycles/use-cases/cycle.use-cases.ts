@@ -176,7 +176,12 @@ export class UpdateTeamCycleConfigUseCase
     if (!team) return Result.fail(TEAM_NOT_FOUND);
 
     const wasEnabled = team.cyclesEnabled;
-    const rhythmBefore = [team.cycleLengthWeeks, team.cycleCooldownWeeks, team.cycleStartDay].join();
+    const rhythmBefore = [
+      team.cycleLengthWeeks,
+      team.cycleCooldownWeeks,
+      team.cycleStartDay,
+      team.cycleStartDate ?? '',
+    ].join();
 
     const set = team.setCycleConfig(dto);
     if (set.isFailure) return Result.fail(set.error as string);
@@ -184,7 +189,12 @@ export class UpdateTeamCycleConfigUseCase
 
     const today = todayISO();
     const rhythmChanged =
-      [team.cycleLengthWeeks, team.cycleCooldownWeeks, team.cycleStartDay].join() !== rhythmBefore;
+      [
+        team.cycleLengthWeeks,
+        team.cycleCooldownWeeks,
+        team.cycleStartDay,
+        team.cycleStartDate ?? '',
+      ].join() !== rhythmBefore;
 
     // Turned off, or re-rhythmed while on: the not-yet-started cycles are stale.
     // Delete them and detach their issues; a rhythm change regenerates below.

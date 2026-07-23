@@ -1,28 +1,48 @@
 {
   "version": 1,
-  "rev": 188,
-  "savedAt": "2026-07-23T08:50:57.573Z",
+  "rev": 322,
+  "savedAt": "2026-07-23T16:57:24.280Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 171.23126613822535,
-    "y": 2113.4135334415114,
-    "zoom": 0.8459459246031303
+    "x": 857.857156435259,
+    "y": 1912.4481130223835,
+    "zoom": 0.7160792149072995
   },
   "nodes": [
     {
-      "id": "term-mrx9qux9-7",
+      "id": "term-mrxoj3ai-3",
       "kind": "terminal",
       "position": {
-        "x": 64.9981930069955,
-        "y": -2153.332341209315
+        "x": -97.07951843121623,
+        "y": -2498.0448367769354
       },
       "size": {
-        "width": 600,
-        "height": 400
+        "width": 701,
+        "height": 619
       },
-      "title": "Add burndown chart to cycles",
+      "title": "Cho phép chọn ngày bắt đầu loop",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-mrxqw7ys-2",
+      "kind": "terminal",
+      "position": {
+        "x": -945.4776231748465,
+        "y": -2501.1147172816786
+      },
+      "size": {
+        "width": 803,
+        "height": 854
+      },
+      "title": "Kiểm tra tự động tạo cycle",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,

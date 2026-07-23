@@ -48,3 +48,8 @@ export function startDayOnOrBefore(iso: string, startDay: number): string {
 export function inclusiveDays(startIso: string, endIso: string): number {
   return Math.round((parseISODate(endIso) - parseISODate(startIso)) / DAY_MS) + 1;
 }
+
+/** Signed whole days from `a` to `b` (`b − a`); negative when `b` precedes `a`. */
+export function daysBetween(a: string, b: string): number {
+  return Math.round((parseISODate(b) - parseISODate(a)) / DAY_MS);
+}

@@ -18,6 +18,7 @@ export class TeamMapper {
       cycleLengthWeeks: team.cycleLengthWeeks,
       cycleCooldownWeeks: team.cycleCooldownWeeks,
       cycleStartDay: team.cycleStartDay,
+      cycleStartDate: team.cycleStartDate,
       cycleAutoRollover: team.cycleAutoRollover,
       archived: team.archived,
       isDefault: team.isDefault,

@@ -1,5 +1,6 @@
 import {
   addDays,
+  daysBetween,
   inclusiveDays,
   isoWeekday,
   parseISODate,
@@ -45,6 +46,13 @@ describe('cycle-dates', () => {
   it('counts inclusive days (a 2-week cycle spans 14 days)', () => {
     expect(inclusiveDays('2026-07-20', '2026-07-20')).toBe(1);
     expect(inclusiveDays('2026-07-20', '2026-08-02')).toBe(14);
+  });
+
+  it('measures signed days between two dates', () => {
+    expect(daysBetween('2026-07-20', '2026-07-20')).toBe(0);
+    expect(daysBetween('2026-07-20', '2026-08-02')).toBe(13);
+    expect(daysBetween('2026-08-02', '2026-07-20')).toBe(-13); // signed
+    expect(daysBetween('2026-01-05', '2026-07-20')).toBe(196); // 28 whole weeks
   });
 
   it('formats today in local time', () => {

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { CalendarClock, ChevronLeft, ChevronRight, CornerDownRight, Repeat } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, CircleDot, CornerDownRight, Repeat } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -12,6 +12,7 @@ import {
 import { BOARD_GUTTER } from '@/components/IssueBoardLayout';
 import { useIssues } from '@/features/issues/api';
 import { PropField, PropValue } from '@/features/issues/IssueDetail';
+import { CycleIcon } from './CycleIcon';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import {
@@ -119,7 +120,7 @@ export function CycleBoardBanner({
             <ChevronLeft className="size-4" />
           </Button>
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-1">
-            <Repeat className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <CycleIcon className="text-muted-foreground" />
             <span className="text-sm font-semibold">
               {t('cycles.cycle')} {focused.number}
             </span>
@@ -358,7 +359,7 @@ export function CyclePropField({
           aria-label={t('cycles.cycle')}
         />
       ) : (
-        <PropValue icon={<Repeat />} muted={!picked}>
+        <PropValue icon={<CircleDot />} muted={!picked}>
           {picked ? cycleLabel(picked) : t('cycles.noCycle')}
         </PropValue>
       )}
@@ -399,7 +400,7 @@ export function CycleChip({ team }: { team: TeamDto | undefined }) {
       title={t('cycles.title')}
       className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
     >
-      <Repeat className="size-3.5" aria-hidden />
+      <CycleIcon />
       {label}
     </Link>
   );

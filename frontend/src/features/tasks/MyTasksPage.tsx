@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, LayoutGrid, List } from 'lucide-react';
-import { Badge, Button, Spinner, Switch } from '@/components/ui';
+import { Badge, Button, Checkbox, Spinner, Switch } from '@/components/ui';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
 import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
@@ -26,8 +26,14 @@ import {
   CycleChip,
   CycleFilterSelect,
 } from '@/features/cycles/CycleControls';
-import { useFocusedCycle, useResolvedCycleId } from '@/features/cycles/api';
+import { useCycles, useFocusedCycle, useResolvedCycleId } from '@/features/cycles/api';
 import { CycleInsightsButton } from '@/features/cycles/CycleInsights';
+import { useIssueSelection, type IssueSelection } from '@/features/issues/useIssueSelection';
+import {
+  BulkActionBar,
+  buildAssigneeOptions,
+  buildCycleOptions,
+} from '@/features/issues/BulkActionBar';
 import { TaskStatus, TeamIssueType, type TaskLabelConfig, type TeamStatusConfig } from '@/types/enums';
 import type { TaskDto, TeamDto } from '@/types/dto';
 import { useDeleteTask, useSetTaskStatus, useTasks } from './api';
@@ -140,6 +146,16 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
   const { data: usersData } = useUsers({ limit: 100 }, canManageDelivery);
   const { data: projectsData } = useProjects({ limit: 100 });
   const { data: roadmaps } = useRoadmaps();
+
+  // Bulk multi-select lives in the List view and only on a team board — a personal
+  // queue has no shared columns/cycle to move issues between. The selection stays
+  // inert (no checkboxes rendered) until `bulkEnabled`, so other boards are unchanged.
+  const selection = useIssueSelection();
+  const bulkEnabled = !!teamId && canWrite;
+  const cyclesEnabled = !!shareTeam?.cyclesEnabled;
+  const { data: cyclesData } = useCycles(cyclesEnabled ? teamId : undefined);
+  const assigneeOptions = buildAssigneeOptions(user, usersData?.items);
+  const cycleOptions = cyclesEnabled ? buildCycleOptions(cyclesData) : undefined;
 
   const filterCategories: FilterCategory[] = [
     {
@@ -277,13 +293,35 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
           addLabel={teamId ? t('issues.add') : t('tasks.addToColumn')}
         />
       ) : view === 'list' ? (
-        <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>
-          <TaskList tasks={visibleTasks} columns={columns} labelsFor={labelsFor} />
+        <div
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto',
+            BOARD_GUTTER,
+            // Leave room for the floating bar so it never hides the last rows.
+            bulkEnabled && selection.count > 0 ? 'pb-24' : 'pb-6',
+          )}
+        >
+          <TaskList
+            tasks={visibleTasks}
+            columns={columns}
+            labelsFor={labelsFor}
+            selection={bulkEnabled ? selection : undefined}
+          />
         </div>
       ) : (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6 pt-1', BOARD_GUTTER)}>
           <IssueTimelineView items={visibleTasks} issueType={TeamIssueType.TASK} />
         </div>
+      )}
+
+      {bulkEnabled && view === 'list' && (
+        <BulkActionBar
+          selection={selection}
+          visibleIds={visibleTasks.map((tk) => tk.id)}
+          columns={columns}
+          assignees={assigneeOptions}
+          cycles={cycleOptions}
+        />
       )}
     </IssueBoardLayout>
   );
@@ -332,20 +370,33 @@ export function TaskList({
   columns,
   labelsFor,
   onOpen,
+  selection,
 }: {
   tasks: TaskDto[];
   columns: TeamStatusConfig[];
   labelsFor: (teamId: string | undefined) => TaskLabelConfig[];
   onOpen?: (task: TaskDto) => void;
+  /** When present, each row gets a checkbox and each column a select-all. */
+  selection?: IssueSelection;
 }) {
   return (
     <div className="flex flex-col gap-6">
       {columns.map((col) => {
         const list = tasks.filter((tk) => tk.status === col.key);
         if (list.length === 0) return null;
+        const ids = list.map((tk) => tk.id);
+        const selected = selection ? ids.filter((id) => selection.isSelected(id)).length : 0;
+        const headState = selected === 0 ? false : selected === list.length ? true : 'indeterminate';
         return (
           <section key={col.key}>
             <div className="mb-2 flex items-center gap-2">
+              {selection && (
+                <Checkbox
+                  checked={headState}
+                  onCheckedChange={(v) => selection.setMany(ids, v === true)}
+                  aria-label={t('bulk.selectColumn')}
+                />
+              )}
               <span
                 className="size-2 rounded-full"
                 style={{ backgroundColor: col.color }}
@@ -356,7 +407,13 @@ export function TaskList({
             </div>
             <div className="rounded-xl border bg-card p-2 text-card-foreground shadow-sm">
               {list.map((task) => (
-                <TaskRow key={task.id} task={task} labels={labelsFor(task.teamId)} onOpen={onOpen} />
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  labels={labelsFor(task.teamId)}
+                  onOpen={onOpen}
+                  selection={selection}
+                />
               ))}
             </div>
           </section>
@@ -372,10 +429,12 @@ function TaskRow({
   task,
   labels,
   onOpen,
+  selection,
 }: {
   task: TaskDto;
   labels: TaskLabelConfig[];
   onOpen?: (task: TaskDto) => void;
+  selection?: IssueSelection;
 }) {
   const content = (
     <>
@@ -401,19 +460,35 @@ function TaskRow({
       </Badge>
     </>
   );
-  const className =
-    'flex w-full items-center gap-3 rounded-md px-4 py-3 text-left text-foreground transition-colors hover:bg-accent [&:not(:last-child)]:border-b';
-
-  if (onOpen) {
-    return (
-      <button type="button" onClick={() => onOpen(task)} className={className}>
-        {content}
-      </button>
-    );
-  }
-  return (
+  // The click target keeps its own rounding/hover; the separator + selected tint
+  // live on the wrapper so the checkbox sits outside the highlight and can't
+  // trigger navigation.
+  const className = cn(
+    'flex min-w-0 flex-1 items-center gap-3 rounded-md px-4 py-3 text-left text-foreground transition-colors hover:bg-accent',
+    selection?.isSelected(task.id) && 'bg-accent',
+  );
+  const clickable = onOpen ? (
+    <button type="button" onClick={() => onOpen(task)} className={className}>
+      {content}
+    </button>
+  ) : (
     <Link to={`/tasks/${task.shortId || task.id}`} className={className}>
       {content}
     </Link>
+  );
+
+  return (
+    <div className="flex items-center gap-1 [&:not(:last-child)]:border-b">
+      {selection && (
+        <span className="pl-2">
+          <Checkbox
+            checked={selection.isSelected(task.id)}
+            onCheckedChange={(v) => selection.set(task.id, v === true)}
+            aria-label={t('bulk.selectRow')}
+          />
+        </span>
+      )}
+      {clickable}
+    </div>
   );
 }

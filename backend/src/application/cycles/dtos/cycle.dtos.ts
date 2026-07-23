@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, Matches, Max, Min, ValidateIf } from 'class-validator';
 import {
   CYCLE_COOLDOWN_WEEKS_MAX,
   CYCLE_COOLDOWN_WEEKS_MIN,
@@ -45,6 +45,15 @@ export class UpdateTeamCycleConfigDto {
   @Min(1)
   @Max(7)
   cycleStartDay?: number;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Explicit loop anchor date (YYYY-MM-DD); null clears it back to the weekday',
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'cycleStartDate must be YYYY-MM-DD' })
+  cycleStartDate?: string | null;
 
   @ApiPropertyOptional({
     default: true,

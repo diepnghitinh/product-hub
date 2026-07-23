@@ -388,6 +388,20 @@ export const en = {
   'issues.mySubtitle': 'Everything assigned to you — tasks and bugs.',
   'issues.kindTasks': 'Tasks',
   'issues.kindBugs': 'Bugs',
+  // Bulk actions — the List-view multi-select toolbar. Count words compose with a
+  // number in code (`3 selected`, `2 updated`), so they carry no placeholder.
+  'bulk.selected': 'selected',
+  'bulk.moveToCycle': 'Move to cycle',
+  'bulk.status': 'Status',
+  'bulk.assignee': 'Assignee',
+  'bulk.updated': 'updated',
+  'bulk.deleted': 'deleted',
+  'bulk.failed': 'failed',
+  'bulk.error': 'Bulk action failed',
+  'bulk.clear': 'Clear selection',
+  'bulk.confirmDelete': 'Delete the selected issues? This can’t be undone.',
+  'bulk.selectRow': 'Select issue',
+  'bulk.selectColumn': 'Select all in column',
   'tasks.myTasks': 'My Tasks',
   'tasks.mySubtitle': 'Everything assigned to you, across every backlog item.',
   'tasks.assignedToMe': 'Assigned to me',
@@ -670,6 +684,10 @@ export const en = {
   'cycles.cooldown': 'Cooldown',
   'cycles.cooldownRowHint': 'A gap between cycles with no current cycle — a catch-up week.',
   'cycles.startDay': 'Start day',
+  'cycles.startDate': 'Start date',
+  'cycles.startDateHint':
+    'The date the cycle loop is anchored to. A future date starts cycles then; a near or past date lines the rhythm up with today. Leave empty for the weekly default.',
+  'cycles.startDatePlaceholder': 'Weekly default',
   'cycles.autoRollover': 'Auto-rollover',
   'cycles.autoRolloverHint':
     'When a cycle ends, unfinished issues move to the next cycle. Off: they drop back to no cycle.',

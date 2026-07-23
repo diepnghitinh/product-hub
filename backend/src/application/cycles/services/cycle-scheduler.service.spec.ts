@@ -206,6 +206,33 @@ describe('CycleSchedulerService', () => {
     expect(after.filter((c) => c.statusOn(muchLater) === CycleStatus.ACTIVE)).toHaveLength(1);
   });
 
+  it('a future start date opens cycle 1 on that date — nothing current until it arrives', async () => {
+    const team = makeTeam({ cycleStartDate: '2026-08-10' }); // ~3 weeks out
+
+    const all = await scheduler.ensureCyclesCurrent(team, today);
+    // The loop begins in the future: two upcoming cycles, none active yet.
+    expect(all.map((c) => c.number)).toEqual([1, 2]);
+    expect(all[0].startDate).toBe('2026-08-10');
+    expect(all.some((c) => c.statusOn(today) === CycleStatus.ACTIVE)).toBe(false);
+    expect(all.filter((c) => c.statusOn(today) === CycleStatus.UPCOMING)).toHaveLength(2);
+
+    // On the chosen date, cycle 1 is the active one.
+    const started = await scheduler.ensureCyclesCurrent(team, '2026-08-10');
+    const active = started.find((c) => c.statusOn('2026-08-10') === CycleStatus.ACTIVE);
+    expect(active?.number).toBe(1);
+  });
+
+  it('a past start date aligns the loop to today without minting the skipped cycles', async () => {
+    // 2026-01-05 is a Monday, exactly 28 weeks (14 two-week periods) before the
+    // Monday containing today — so the cadence lands back on 2026-07-20.
+    const team = makeTeam({ cycleStartDate: '2026-01-05' });
+
+    const all = await scheduler.ensureCyclesCurrent(team, today);
+    expect(all.map((c) => c.number)).toEqual([1, 2, 3]); // numbering still starts at 1
+    expect(all[0].startDate).toBe('2026-07-20'); // in phase with Jan 5, around today
+    expect(all[0].statusOn(today)).toBe(CycleStatus.ACTIVE);
+  });
+
   it('uses bug done-keys for bug teams', async () => {
     const team = makeTeam({ issueType: TeamIssueType.BUG, key: 'qc', name: 'QC' });
     await scheduler.ensureCyclesCurrent(team, today);

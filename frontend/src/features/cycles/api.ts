@@ -8,14 +8,16 @@ import {
 } from '@/types/enums';
 import type { CycleBurndownDto, CycleDto, TeamDto } from '@/types/dto';
 
-/** The five rhythm fields of `PATCH /teams/:id/cycle-config` — all optional,
- *  only provided ones change. Bounds are enforced server-side (length 1–4,
- *  cooldown 0–2, start day 1=Monday…7=Sunday). */
+/** The rhythm fields of `PATCH /teams/:id/cycle-config` — all optional, only
+ *  provided ones change. Bounds are enforced server-side (length 1–4, cooldown
+ *  0–2, start day 1=Monday…7=Sunday, start date an ISO `YYYY-MM-DD` or null). */
 export interface CycleConfigInput {
   cyclesEnabled?: boolean;
   cycleLengthWeeks?: number;
   cycleCooldownWeeks?: number;
   cycleStartDay?: number;
+  /** Explicit loop anchor (YYYY-MM-DD); null clears it back to the weekday. */
+  cycleStartDate?: string | null;
   cycleAutoRollover?: boolean;
 }
 

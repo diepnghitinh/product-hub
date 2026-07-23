@@ -611,8 +611,11 @@ export interface TeamDto {
   cycleLengthWeeks: number;
   /** Weeks between cycles with no current cycle at all (0–2). */
   cycleCooldownWeeks: number;
-  /** Weekday a cycle starts on: 1 = Monday … 7 = Sunday. */
+  /** Weekday a cycle starts on: 1 = Monday … 7 = Sunday. Fallback anchor, used
+   *  only when `cycleStartDate` is null. */
   cycleStartDay: number;
+  /** Explicit loop anchor date (YYYY-MM-DD); null = use the weekday in today's week. */
+  cycleStartDate: string | null;
   /** Unfinished issues move to the next cycle when one ends. */
   cycleAutoRollover: boolean;
   archived: boolean;

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChartLine, ChevronLeft, ChevronRight, Folder, Repeat } from 'lucide-react';
+import { ChartLine, ChevronLeft, ChevronRight, Folder } from 'lucide-react';
 import {
   Avatar,
   AvatarFallback,
@@ -24,6 +24,7 @@ import { useProjects } from '@/features/projects/api';
 import { useCycleBurndown, useCycles, useFocusedCycle } from './api';
 import { cycleStatusBadge, cycleTimeHint, shortDay } from './dates';
 import { CycleBurnupChart, StatSwatch } from './CycleBurnupChart';
+import { CycleIcon } from './CycleIcon';
 
 const SCOPE_INK = 'hsl(var(--muted-foreground))';
 
@@ -121,7 +122,7 @@ function CycleInsightsDrawer({
       title={t('cycles.insights.title')}
       headerActions={
         <div className="flex items-center gap-2 pl-1">
-          <Repeat className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <CycleIcon className="text-muted-foreground" />
           <span className="text-sm font-semibold">
             {t('cycles.cycle')} {current?.number ?? ''}
           </span>

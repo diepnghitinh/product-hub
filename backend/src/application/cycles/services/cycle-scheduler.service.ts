@@ -10,7 +10,7 @@ import {
   CycleStatus,
   completedStatusKeysFor,
 } from '../domain/enums/cycle.enums';
-import { addDays, startDayOnOrBefore, todayISO } from '../domain/cycle-dates';
+import { addDays, daysBetween, startDayOnOrBefore, todayISO } from '../domain/cycle-dates';
 import { ICycleRepository } from '../repositories/cycle.repository';
 
 /**
@@ -64,15 +64,16 @@ export class CycleSchedulerService {
     while (upcoming < 2) {
       let start: string;
       if (!last) {
-        // First cycle ever: start on the rhythm's day, containing today.
-        start = startDayOnOrBefore(today, team.cycleStartDay);
+        // First cycle ever: the loop's anchor — the chosen start date, or the
+        // rhythm weekday in today's week. A future anchor opens cycle 1 later.
+        start = this.firstStart(team, today);
       } else {
         start = addDays(last.endDate, gapDays);
         // Re-enabled after a long gap: chaining through the dead time would mint
         // phantom cycles nobody lived through. Jump straight to the on-rhythm
         // window around today (always after `last` — see the spec's date notes).
         if (addDays(start, lengthDays - 1) < today) {
-          start = startDayOnOrBefore(today, team.cycleStartDay);
+          start = this.firstStart(team, today);
         }
       }
 
@@ -96,6 +97,23 @@ export class CycleSchedulerService {
       if (cycle.startDate > today) upcoming += 1;
     }
     return inserted;
+  }
+
+  /**
+   * Where cycle 1 of the loop starts. Anchored to the team's explicit
+   * {@link TeamEntity.cycleStartDate} when set, else the rhythm weekday in
+   * today's week (the pre-`cycleStartDate` behaviour). A future anchor is
+   * returned as-is, so the loop opens on that date with nothing current until it
+   * arrives. A past anchor is rolled forward in whole `length + cooldown`
+   * periods to the window around today — so picking a date months back aligns
+   * the cadence to it WITHOUT minting the cycles nobody lived through.
+   */
+  private firstStart(team: TeamEntity, today: string): string {
+    const anchor = team.cycleStartDate ?? startDayOnOrBefore(today, team.cycleStartDay);
+    if (anchor >= today) return anchor;
+    const periodDays = (team.cycleLengthWeeks + team.cycleCooldownWeeks) * 7;
+    const periods = Math.floor(daysBetween(anchor, today) / periodDays);
+    return addDays(anchor, periods * periodDays);
   }
 
   /**

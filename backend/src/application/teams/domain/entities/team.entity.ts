@@ -41,6 +41,7 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
       cycleLengthWeeks?: number;
       cycleCooldownWeeks?: number;
       cycleStartDay?: number;
+      cycleStartDate?: string | null;
       cycleAutoRollover?: boolean;
       archived?: boolean;
       order?: number;
@@ -86,6 +87,7 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
           cycleLengthWeeks: props.cycleLengthWeeks ?? 2,
           cycleCooldownWeeks: props.cycleCooldownWeeks ?? 0,
           cycleStartDay: props.cycleStartDay ?? 1,
+          cycleStartDate: props.cycleStartDate ?? null,
           cycleAutoRollover: props.cycleAutoRollover ?? true,
           archived: props.archived ?? false,
           order: props.order ?? 0,
@@ -154,6 +156,9 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
   }
   get cycleStartDay(): number {
     return this.props.cycleStartDay;
+  }
+  get cycleStartDate(): string | null {
+    return this.props.cycleStartDate;
   }
   get cycleAutoRollover(): boolean {
     return this.props.cycleAutoRollover;
@@ -284,6 +289,7 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
     cycleLengthWeeks?: number;
     cycleCooldownWeeks?: number;
     cycleStartDay?: number;
+    cycleStartDate?: string | null;
     cycleAutoRollover?: boolean;
   }): Result<void> {
     if (cfg.cycleLengthWeeks !== undefined && (cfg.cycleLengthWeeks < 1 || cfg.cycleLengthWeeks > 4)) {
@@ -298,11 +304,19 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
     if (cfg.cycleStartDay !== undefined && (cfg.cycleStartDay < 1 || cfg.cycleStartDay > 7)) {
       return Result.fail('Start day must be 1 (Monday) – 7 (Sunday)');
     }
+    if (
+      cfg.cycleStartDate !== undefined &&
+      cfg.cycleStartDate !== null &&
+      !/^\d{4}-\d{2}-\d{2}$/.test(cfg.cycleStartDate)
+    ) {
+      return Result.fail('Start date must be an ISO date (YYYY-MM-DD)');
+    }
 
     if (cfg.cyclesEnabled !== undefined) this.props.cyclesEnabled = cfg.cyclesEnabled;
     if (cfg.cycleLengthWeeks !== undefined) this.props.cycleLengthWeeks = cfg.cycleLengthWeeks;
     if (cfg.cycleCooldownWeeks !== undefined) this.props.cycleCooldownWeeks = cfg.cycleCooldownWeeks;
     if (cfg.cycleStartDay !== undefined) this.props.cycleStartDay = cfg.cycleStartDay;
+    if (cfg.cycleStartDate !== undefined) this.props.cycleStartDate = cfg.cycleStartDate;
     if (cfg.cycleAutoRollover !== undefined) this.props.cycleAutoRollover = cfg.cycleAutoRollover;
     this.touch();
     return Result.ok();

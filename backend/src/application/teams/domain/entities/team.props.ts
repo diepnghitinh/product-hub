@@ -45,8 +45,17 @@ export interface TeamProps {
   cycleLengthWeeks: number;
   /** 0–2 weeks between cycles — a gap with no current cycle at all. */
   cycleCooldownWeeks: number;
-  /** Weekday a cycle starts on: 1 = Monday (default) … 7 = Sunday. */
+  /** Weekday a cycle starts on: 1 = Monday (default) … 7 = Sunday. Fallback
+   *  anchor, used only when {@link cycleStartDate} is null. */
   cycleStartDay: number;
+  /**
+   * Explicit date the cycle loop is anchored to (ISO `YYYY-MM-DD`), or null to
+   * fall back to {@link cycleStartDay} in today's week. When set, cycle 1 opens
+   * on this date: a future date starts the loop then (nothing current until it
+   * arrives); a past date rolls the rhythm forward in whole periods to today's
+   * window, never minting the cycles that were skipped.
+   */
+  cycleStartDate: string | null;
   /** When a cycle ends, unfinished issues move to the next cycle (off: back to no-cycle). */
   cycleAutoRollover: boolean;
   /** Archived teams stay (with their issues) but drop out of the nav. */

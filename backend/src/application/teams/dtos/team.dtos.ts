@@ -207,6 +207,12 @@ export class TeamResponseDto {
   @ApiProperty({ description: 'Weekday a cycle starts on: 1 = Monday … 7 = Sunday' })
   cycleStartDay: number;
 
+  @ApiProperty({
+    nullable: true,
+    description: "Explicit loop anchor date (YYYY-MM-DD); null = use the weekday in today's week",
+  })
+  cycleStartDate: string | null;
+
   @ApiProperty({ description: 'Unfinished issues move to the next cycle when one ends' })
   cycleAutoRollover: boolean;
 

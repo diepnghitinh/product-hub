@@ -23,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
+  DatePicker,
   Dialog,
   Input,
   SaveButton,
@@ -42,8 +43,6 @@ import {
   CustomFieldType,
   CYCLE_COOLDOWN_WEEKS,
   CYCLE_LENGTH_WEEKS,
-  CYCLE_START_DAY_LABEL,
-  CYCLE_START_DAYS,
   defaultStatusesFor,
   defaultTeamIcon,
   fieldTypeHasOptions,
@@ -393,7 +392,7 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
     cyclesEnabled: team.cyclesEnabled,
     cycleLengthWeeks: team.cycleLengthWeeks,
     cycleCooldownWeeks: team.cycleCooldownWeeks,
-    cycleStartDay: team.cycleStartDay,
+    cycleStartDate: team.cycleStartDate,
     cycleAutoRollover: team.cycleAutoRollover,
   });
   const [cfg, setCfg] = useState(seed);
@@ -406,7 +405,7 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
       team.cyclesEnabled,
       team.cycleLengthWeeks,
       team.cycleCooldownWeeks,
-      team.cycleStartDay,
+      team.cycleStartDate,
       team.cycleAutoRollover,
     ],
   );
@@ -471,17 +470,16 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
             />
           </div>
           <div className={rowCls}>
-            <p className="text-sm font-medium">{t('cycles.startDay')}</p>
-            <Select
-              className="w-40"
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{t('cycles.startDate')}</p>
+              <p className="text-xs text-muted-foreground">{t('cycles.startDateHint')}</p>
+            </div>
+            <DatePicker
+              className="w-44"
               disabled={off}
-              value={String(cfg.cycleStartDay)}
-              onValueChange={(v) => set({ cycleStartDay: Number(v) })}
-              options={CYCLE_START_DAYS.map((d) => ({
-                value: String(d),
-                label: CYCLE_START_DAY_LABEL[d],
-              }))}
-              aria-label={t('cycles.startDay')}
+              value={cfg.cycleStartDate ?? ''}
+              onChange={(v) => set({ cycleStartDate: v || null })}
+              placeholder={t('cycles.startDatePlaceholder')}
             />
           </div>
           <div className={rowCls}>
