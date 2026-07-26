@@ -58,9 +58,9 @@ export function IssuePeekDrawer({ peek, onClose }: { peek: IssuePeek | null; onC
         }
       >
         {isBug ? (
-          <BugDetail bugId={peek.id} onDeleted={onClose} menuTarget="header" />
+          <BugDetail bugId={peek.id} onDeleted={onClose} menuTarget="header" dense />
         ) : (
-          <TaskDetail taskId={peek.id} onDeleted={onClose} menuTarget="header" />
+          <TaskDetail taskId={peek.id} onDeleted={onClose} menuTarget="header" dense />
         )}
       </Suspense>
     </Drawer>

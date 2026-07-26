@@ -49,6 +49,10 @@ export interface IssueDetailMainProps {
   /** Optional content rendered between the description and the Activity timeline
    * — e.g. the task detail's Sub-tasks panel. Bugs pass nothing. */
   beforeActivity?: ReactNode;
+  /** The Properties block, rendered inline under the title (the single-column
+   * drawer layout) instead of in a right sidebar. Set only by the peek drawer;
+   * the full-page detail leaves it off and keeps Properties in the sidebar. */
+  propertiesInline?: ReactNode;
 }
 
 /**
@@ -84,6 +88,7 @@ export function IssueDetailMain({
   menuTarget = 'header',
   favourite,
   beforeActivity,
+  propertiesInline,
 }: IssueDetailMainProps) {
   // The rich editor emits HTML on every keystroke — debounce so we save once the
   // user pauses, not per character, and skip no-op round trips.
@@ -175,6 +180,12 @@ export function IssueDetailMain({
           crumbActionsSlot,
         )}
       {menuTarget === 'topbar' && overflow && crumbActionsSlot && createPortal(overflow, crumbActionsSlot)}
+
+      {/* Drawer (single-column) layout: Properties sit inline under the title, in a
+          self-contained band, rather than in a right-hand sidebar. */}
+      {propertiesInline && (
+        <div className="mt-4 flex flex-col gap-5 border-y py-5">{propertiesInline}</div>
+      )}
 
       <div className="mt-4">
         {canWrite ? (

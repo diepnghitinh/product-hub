@@ -7,6 +7,7 @@ import InlineCode from '@editorjs/inline-code';
 import Underline from '@editorjs/underline';
 import CodeTool from '@editorjs/code';
 import Table from '@editorjs/table';
+import Undo from 'editorjs-undo';
 import { blocksToHtml, htmlToBlocks, type HtmlEditorBlock } from '@/lib/editorjs';
 import { enhanceCodeBlocks } from '@/lib/enhanceCodeBlocks';
 import { ResizableImageTool } from '@/lib/editor/ResizableImageTool';
@@ -143,11 +144,12 @@ export function RichTextEditor({
       if (cancelled || !holderRef.current) return;
       while (holder.firstChild) holder.removeChild(holder.firstChild);
 
+      const initialBlocks = withFallbackBlocks(htmlToBlocks(initialValueRef.current));
       const instance = new EditorJS({
         holder,
         placeholder: placeholderRef.current,
         minHeight: minHeightRef.current ?? 40,
-        data: { blocks: withFallbackBlocks(htmlToBlocks(initialValueRef.current)) },
+        data: { blocks: initialBlocks },
         tools: {
           header: { class: Header, inlineToolbar: true },
           list: { class: List, inlineToolbar: true },
@@ -193,7 +195,17 @@ export function RichTextEditor({
       // Add a copy button to code blocks once rendered, and whenever blocks change.
       instance.isReady
         .then(() => {
-          if (!cancelled) enhanceCodeBlocks(holder);
+          if (cancelled) return;
+          enhanceCodeBlocks(holder);
+          // Undo/redo history (Ctrl/Cmd+Z undo, Ctrl/Cmd+Y redo). Seed the
+          // baseline with the initial blocks — without initialize() the first
+          // undo empties the editor. Progressive enhancement: never let a
+          // failure here take the editor down with it.
+          try {
+            new Undo({ editor: instance }).initialize({ blocks: initialBlocks });
+          } catch {
+            /* ignore: undo is optional */
+          }
         })
         .catch(() => {
           /* ignore init races */
