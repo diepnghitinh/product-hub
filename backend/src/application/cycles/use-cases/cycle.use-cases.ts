@@ -145,8 +145,10 @@ export class GetCycleBurndownUseCase
 /**
  * Patch the team's cycle rhythm. Enabling seeds the current + 2 upcoming
  * cycles; disabling deletes the upcoming ones and drops their issues back to
- * no-cycle (history stays). Changing the rhythm of an enabled team regenerates
- * the upcoming cycles on the new rhythm — the active cycle finishes as planned.
+ * no-cycle (history stays readable). Changing the length/cooldown/start-date of
+ * a team that stays enabled REBUILDS the whole cadence: every cycle — the active
+ * one and closed history included — is wiped and regenerated from the new anchor,
+ * renumbered from Cycle 1, and its issues fall back to no-cycle.
  */
 @Injectable()
 export class UpdateTeamCycleConfigUseCase
@@ -196,9 +198,15 @@ export class UpdateTeamCycleConfigUseCase
         team.cycleStartDate ?? '',
       ].join() !== rhythmBefore;
 
-    // Turned off, or re-rhythmed while on: the not-yet-started cycles are stale.
-    // Delete them and detach their issues; a rhythm change regenerates below.
-    if (wasEnabled && (!team.cyclesEnabled || rhythmChanged)) {
+    // A rhythm change on a team that stays enabled rebuilds the whole cadence:
+    // wipe every cycle (frozen history included) and regenerate from the new
+    // anchor below, renumbered from Cycle 1. Disabling is gentler — only the
+    // not-yet-started cycles go, so past cycles stay readable. Either way the
+    // detached issues fall back to no-cycle.
+    if (wasEnabled && team.cyclesEnabled && rhythmChanged) {
+      const deleted = await this.cycles.deleteAllForTeam(tenantId, teamId);
+      if (deleted.length) await this.issues.clearCycleIds(tenantId, deleted);
+    } else if (wasEnabled && !team.cyclesEnabled) {
       const deleted = await this.cycles.deleteUpcoming(tenantId, teamId, today);
       if (deleted.length) await this.issues.clearCycleIds(tenantId, deleted);
     }

@@ -103,4 +103,14 @@ export class CycleRepository implements ICycleRepository {
     if (ids.length) await this.model.deleteMany({ _id: { $in: ids }, tenantId }).exec();
     return ids;
   }
+
+  async deleteAllForTeam(tenantId: string, teamId: string): Promise<string[]> {
+    const docs = await this.model
+      .find({ tenantId, teamId }, { _id: 1 })
+      .lean<{ _id: string }[]>()
+      .exec();
+    const ids = docs.map((d) => d._id);
+    if (ids.length) await this.model.deleteMany({ tenantId, teamId }).exec();
+    return ids;
+  }
 }

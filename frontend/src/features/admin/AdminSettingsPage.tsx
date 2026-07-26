@@ -13,7 +13,7 @@ import {
   Webhook,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { cn } from '@/lib/utils';
+import { cn, deepEqual } from '@/lib/utils';
 import {
   Button,
   Card,
@@ -225,6 +225,8 @@ function StatusColumnsEditor({
 }) {
   const [rows, setRows] = useState<StatusColumn[]>([]);
   const loading = value === undefined;
+  // Save stays disabled until the columns differ from what's saved.
+  const dirty = !deepEqual(rows, value ?? []);
 
   useEffect(() => {
     if (value?.length) setRows(value);
@@ -337,7 +339,7 @@ function StatusColumnsEditor({
       <CardFooter className="justify-end">
         <SaveButton
           onSave={() => onSave(rows)}
-          disabled={rows.length === 0 || rows.some((r) => !r.label.trim())}
+          disabled={!dirty || rows.length === 0 || rows.some((r) => !r.label.trim())}
         >
           {saveLabel}
         </SaveButton>
@@ -411,6 +413,25 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
   );
 
   const set = (patch: Partial<ReturnType<typeof seed>>) => setCfg((c) => ({ ...c, ...patch }));
+  // Save stays disabled until the config actually changes — so re-saving an
+  // unchanged config can't touch the team's already-created cycles.
+  const base = seed();
+  const dirty = !deepEqual(cfg, base);
+  // A length / cooldown / start-date change on a team that was AND stays enabled
+  // triggers the server-side full rebuild — every cycle, frozen history included,
+  // is wiped and regenerated from the new schedule. Confirm first: it's irreversible.
+  const willRebuild =
+    team.cyclesEnabled &&
+    cfg.cyclesEnabled &&
+    (cfg.cycleLengthWeeks !== base.cycleLengthWeeks ||
+      cfg.cycleCooldownWeeks !== base.cycleCooldownWeeks ||
+      (cfg.cycleStartDate ?? null) !== (base.cycleStartDate ?? null));
+
+  async function onSave() {
+    // Reject on cancel — SaveButton's contract quietly reverts to idle, no toast.
+    if (willRebuild && !confirm(t('cycles.rebuildConfirm'))) throw new Error('cancelled');
+    return save.mutateAsync({ id: team.id, input: cfg });
+  }
   const off = !cfg.cyclesEnabled;
   // Dim + disable the rhythm rows while cycles are off — the values persist
   // server-side, so re-enabling picks the old rhythm back up.
@@ -498,7 +519,7 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
       </CardContent>
       <CardFooter className="justify-between gap-4">
         <p className="text-xs text-muted-foreground">{t('cycles.rhythmChangeNote')}</p>
-        <SaveButton onSave={() => save.mutateAsync({ id: team.id, input: cfg })}>
+        <SaveButton onSave={onSave} disabled={!dirty}>
           {t('cycles.save')}
         </SaveButton>
       </CardFooter>
@@ -515,6 +536,8 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
 function TeamLabelsEditor({ team }: { team: TeamDto }) {
   const save = useUpdateTeamLabels();
   const [rows, setRows] = useState<TaskLabelConfig[]>([]);
+  // Save stays disabled until the labels differ from what's saved.
+  const dirty = !deepEqual(rows, team.labels ?? []);
 
   // Re-seed from the server whenever the team's saved labels change (incl. after
   // a save round-trips). The team is already loaded here, so there's no spinner.
@@ -585,7 +608,7 @@ function TeamLabelsEditor({ team }: { team: TeamDto }) {
       <CardFooter className="justify-end">
         <SaveButton
           onSave={() => save.mutateAsync({ id: team.id, labels: rows })}
-          disabled={rows.some((r) => !r.name.trim())}
+          disabled={!dirty || rows.some((r) => !r.name.trim())}
         >
           {t('labels.save')}
         </SaveButton>
@@ -600,6 +623,8 @@ function TeamLabelsEditor({ team }: { team: TeamDto }) {
 function CustomFieldsEditor({ team }: { team: TeamDto }) {
   const save = useUpdateTeamCustomFields();
   const [rows, setRows] = useState<CustomFieldConfig[]>([]);
+  // Save stays disabled until the fields differ from what's saved.
+  const dirty = !deepEqual(rows, team.customFields ?? []);
 
   useEffect(() => {
     setRows(team.customFields ?? []);
@@ -703,7 +728,7 @@ function CustomFieldsEditor({ team }: { team: TeamDto }) {
       <CardFooter className="justify-end">
         <SaveButton
           onSave={() => save.mutateAsync({ id: team.id, customFields: rows })}
-          disabled={invalid}
+          disabled={!dirty || invalid}
         >
           {t('customFields.save')}
         </SaveButton>

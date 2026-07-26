@@ -16,7 +16,7 @@ import {
 } from '@/components/ui';
 import { t } from '@/i18n';
 import type { I18nKey } from '@/i18n/en';
-import { cn } from '@/lib/utils';
+import { cn, deepEqual } from '@/lib/utils';
 import {
   WEBHOOK_EVENTS,
   WEBHOOK_EVENT_LABEL,
@@ -109,9 +109,19 @@ export function WebhooksSection() {
   const { data: users } = useUsers({ limit: 100 }, isAdmin);
   const save = useUpdateWebhooks();
   const [byProvider, setByProvider] = useState<ByProvider>(() => seed([]));
+  // Snapshot of the last-saved state, captured at seed time. A fresh seed() can't
+  // serve as the baseline because emptyHook() mints a random id each call, which
+  // would always read as "changed"; comparing to this snapshot keeps Save
+  // disabled until the form genuinely differs from what's saved.
+  const [baseline, setBaseline] = useState<ByProvider>(byProvider);
+  const dirty = !deepEqual(byProvider, baseline);
 
   useEffect(() => {
-    if (data) setByProvider(seed(data.webhooks));
+    if (data) {
+      const next = seed(data.webhooks);
+      setByProvider(next);
+      setBaseline(next);
+    }
   }, [data]);
 
   const memberOptions = useMemo(
@@ -354,7 +364,7 @@ export function WebhooksSection() {
       )}
 
       <div className="flex justify-end">
-        <Button onClick={onSave} loading={save.isPending} disabled={isLoading}>
+        <Button onClick={onSave} loading={save.isPending} disabled={isLoading || !dirty}>
           {t('settings.saveWebhooks')}
         </Button>
       </div>

@@ -15,6 +15,7 @@ import {
   Spinner,
 } from '@/components/ui';
 import { t } from '@/i18n';
+import { deepEqual } from '@/lib/utils';
 import { STORAGE_PROVIDERS, STORAGE_PROVIDER_LABEL, StorageProvider } from '@/types/enums';
 import type { StorageSettings } from '@/types/dto';
 import {
@@ -57,6 +58,9 @@ export function CloudStorageSection() {
   }, [data]);
 
   const stored = data?.storage;
+  // Save stays disabled until the form differs from what's saved. Secrets come
+  // back blank (write-only), so typing one is itself a change worth saving.
+  const dirty = !deepEqual(form, stored ? toForm(stored) : { provider: StorageProvider.NONE });
   const set = (patch: Partial<UpdateStoragePayload>) => setForm((f) => ({ ...f, ...patch }));
   const isS3 = form.provider === StorageProvider.S3;
   const isAzure = form.provider === StorageProvider.AZURE;
@@ -226,7 +230,7 @@ export function CloudStorageSection() {
             {t('settings.storageTest')}
           </Button>
         )}
-        <Button onClick={onSave} loading={save.isPending} disabled={test.isPending}>
+        <Button onClick={onSave} loading={save.isPending} disabled={test.isPending || !dirty}>
           {t('common.save')}
         </Button>
       </CardFooter>
