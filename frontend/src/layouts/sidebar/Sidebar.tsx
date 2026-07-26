@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type DragEvent } from 'react';
+import { Fragment, useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   CalendarClock,
@@ -29,6 +29,12 @@ import type { FavouriteDto, TeamDto } from '@/types/dto';
 
 const COLLAPSE_KEY = 'ph_nav_collapsed';
 const EXPAND_KEY = 'ph_nav_expanded';
+/**
+ * Which whole *sections* (Favourites, a nav group, Teams) the user has collapsed,
+ * keyed by a stable section id. Local to this browser like the keys around it, and
+ * stores only the ones explicitly closed — so a fresh rail shows every section open.
+ */
+const SECTIONS_KEY = 'ph_nav_sections';
 /**
  * Personalisation: the order the teams sit in *this* rail, saved by id. Local to
  * the browser like the collapse/expand state above — so one member rearranging
@@ -101,6 +107,27 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const isOpen = (p: string) => openGroups[p] ?? isUnder(p);
   const toggleGroup = (p: string) =>
     setOpenGroups((g) => ({ ...g, [p]: !(g[p] ?? isUnder(p)) }));
+
+  // Which whole sections (Favourites, nav groups, Teams) are collapsed. Persisted
+  // like openGroups above; only the explicitly-closed ones are stored, so every
+  // section defaults open.
+  const [closedSections, setClosedSections] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(SECTIONS_KEY) || '{}');
+    } catch {
+      return {};
+    }
+  });
+  useEffect(() => {
+    localStorage.setItem(SECTIONS_KEY, JSON.stringify(closedSections));
+  }, [closedSections]);
+  // A section's caret reflects its stored open state; its *body*, though, also shows
+  // whenever the rail is collapsed to icons — there the headings (and their toggles)
+  // are hidden, so section-collapse would otherwise strand items with no way back.
+  const sectionOpen = (key: string) => !closedSections[key];
+  const sectionBodyOpen = (key: string) => collapsed || !closedSections[key];
+  const toggleSection = (key: string) =>
+    setClosedSections((s) => ({ ...s, [key]: !s[key] }));
 
   return (
     <aside
@@ -189,18 +216,22 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         {favourites && favourites.length > 0 && (
           <>
             <div className="flex flex-col gap-0.5">
-              <span className={cn(HEADING, collapsed && 'md:hidden')}>
-                <Star className="size-3.5" aria-hidden />
-                {t('nav.favourites')}
-              </span>
-              {favourites.map((fav) => (
-                <FavouriteNavItem
-                  key={`${fav.kind}:${fav.refId}`}
-                  fav={fav}
-                  collapsed={collapsed}
-                  onNavigate={onCloseMobile}
-                />
-              ))}
+              <NavHeading
+                label={t('nav.favourites')}
+                icon={<Star className="size-3.5" aria-hidden />}
+                open={sectionOpen('favourites')}
+                onToggle={() => toggleSection('favourites')}
+                className={cn(collapsed && 'md:hidden')}
+              />
+              {sectionBodyOpen('favourites') &&
+                favourites.map((fav) => (
+                  <FavouriteNavItem
+                    key={`${fav.kind}:${fav.refId}`}
+                    fav={fav}
+                    collapsed={collapsed}
+                    onNavigate={onCloseMobile}
+                  />
+                ))}
             </div>
             <div className={cn('mx-2 border-t border-sidebar-border', collapsed && 'md:mx-1')} />
           </>
@@ -215,27 +246,34 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
             <Fragment key={group.headingKey}>
               <div className="flex flex-col gap-0.5">
                 {!isPrimary && (
-                  <span className={cn(HEADING, collapsed && 'md:hidden')}>{t(group.headingKey)}</span>
+                  <NavHeading
+                    label={t(group.headingKey)}
+                    open={sectionOpen(group.headingKey)}
+                    onToggle={() => toggleSection(group.headingKey)}
+                    className={cn(collapsed && 'md:hidden')}
+                  />
                 )}
-                {items.map((item) =>
-                  item.children && !collapsed ? (
-                    <NavParentItem
-                      key={item.path}
-                      item={item}
-                      open={isOpen(item.path)}
-                      onToggle={() => toggleGroup(item.path)}
-                      onNavigate={onCloseMobile}
-                    />
-                  ) : (
-                    <NavLeafItem
-                      key={item.path}
-                      item={item}
-                      collapsed={collapsed}
-                      unseen={unseen}
-                      onNavigate={onCloseMobile}
-                    />
-                  ),
-                )}
+                {/* The headingless primary group has no toggle, so it always shows. */}
+                {(isPrimary || sectionBodyOpen(group.headingKey)) &&
+                  items.map((item) =>
+                    item.children && !collapsed ? (
+                      <NavParentItem
+                        key={item.path}
+                        item={item}
+                        open={isOpen(item.path)}
+                        onToggle={() => toggleGroup(item.path)}
+                        onNavigate={onCloseMobile}
+                      />
+                    ) : (
+                      <NavLeafItem
+                        key={item.path}
+                        item={item}
+                        collapsed={collapsed}
+                        unseen={unseen}
+                        onNavigate={onCloseMobile}
+                      />
+                    ),
+                  )}
               </div>
 
               {isPrimary && (
@@ -247,62 +285,69 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                   workspace's "spaces". */}
               {group.headingKey === 'navgroup.delivery' && activeTeams.length > 0 && (
                 <div className="flex flex-col gap-0.5">
-                  <span className={cn(HEADING, 'group/heading', collapsed && 'md:hidden')}>
-                    {t('navgroup.teams')}
-                    {/* The section's two actions. `⋯` opens the page that owns teams
-                        and is revealed only while the heading row itself is hovered —
-                        the group scope is this span, not the whole section, so hovering
-                        a team row below never surfaces it. `+` adds a team and stays
-                        visible always, since it's the primary action and needs no
-                        discovery. Both gated on `canManageDelivery`, matching each team
-                        row's own overflow below and the backend's @Roles(ADMIN, PRODUCT)
-                        on the team endpoints — the gates must agree or an affordance
-                        silently vanishes for Product. */}
-                    {canManageDelivery && (
-                      <span className="ml-auto flex items-center gap-0.5">
-                        <Link
-                          to="/admin/settings"
-                          onClick={onCloseMobile}
-                          title={t('navgroup.teamsSettings')}
-                          aria-label={t('navgroup.teamsSettings')}
-                          className={cn(ACTION, 'group-hover/heading:opacity-100')}
-                        >
-                          <MoreHorizontal className="size-3.5" aria-hidden />
-                        </Link>
+                  <NavHeading
+                    label={t('navgroup.teams')}
+                    open={sectionOpen('teams')}
+                    onToggle={() => toggleSection('teams')}
+                    className={cn(collapsed && 'md:hidden')}
+                    actions={
+                      // `⋯` opens the page that owns teams and is revealed only while
+                      // the heading row is hovered (the group/heading scope lives on
+                      // NavHeading's row, not the team rows below). `+` adds a team and
+                      // stays visible as the primary action. Both gated on
+                      // canManageDelivery, matching the team endpoints' @Roles(ADMIN,
+                      // PRODUCT) — the gates must agree or an affordance silently
+                      // vanishes for Product.
+                      canManageDelivery ? (
+                        <span className="flex items-center gap-0.5">
+                          <Link
+                            to="/admin/settings"
+                            onClick={onCloseMobile}
+                            title={t('navgroup.teamsSettings')}
+                            aria-label={t('navgroup.teamsSettings')}
+                            className={cn(ACTION, 'group-hover/heading:opacity-100')}
+                          >
+                            <MoreHorizontal className="size-3.5" aria-hidden />
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => setCreatingTeam(true)}
+                            title={t('teams.add')}
+                            aria-label={t('teams.add')}
+                            className={cn(ACTION, 'opacity-100')}
+                          >
+                            <Plus className="size-3.5" aria-hidden />
+                          </button>
+                        </span>
+                      ) : undefined
+                    }
+                  />
+                  {sectionBodyOpen('teams') && (
+                    <>
+                      <TeamNavList
+                        teams={activeTeams}
+                        collapsed={collapsed}
+                        pathname={pathname}
+                        onNavigate={onCloseMobile}
+                        isOpen={isOpen}
+                        onToggle={toggleGroup}
+                      />
+                      {/* A quiet "add another" foot to the list — the same create the
+                          heading's `+` runs, but where the eye lands after reading the
+                          spaces. Mirrors a workspace's "+ New Space". */}
+                      {canManageDelivery && !collapsed && (
                         <button
                           type="button"
                           onClick={() => setCreatingTeam(true)}
-                          title={t('teams.add')}
-                          aria-label={t('teams.add')}
-                          className={cn(ACTION, 'opacity-100')}
+                          className={cn(ROW, 'text-muted-foreground')}
                         >
-                          <Plus className="size-3.5" aria-hidden />
+                          <span className="grid size-5 shrink-0 place-items-center">
+                            <Plus className="size-4" />
+                          </span>
+                          <span className="truncate">{t('nav.newTeam')}</span>
                         </button>
-                      </span>
-                    )}
-                  </span>
-                  <TeamNavList
-                    teams={activeTeams}
-                    collapsed={collapsed}
-                    pathname={pathname}
-                    onNavigate={onCloseMobile}
-                    isOpen={isOpen}
-                    onToggle={toggleGroup}
-                  />
-                  {/* A quiet "add another" foot to the list — the same create the
-                      heading's `+` runs, but where the eye lands after reading the
-                      spaces. Mirrors a workspace's "+ New Space". */}
-                  {canManageDelivery && !collapsed && (
-                    <button
-                      type="button"
-                      onClick={() => setCreatingTeam(true)}
-                      className={cn(ROW, 'text-muted-foreground')}
-                    >
-                      <span className="grid size-5 shrink-0 place-items-center">
-                        <Plus className="size-4" />
-                      </span>
-                      <span className="truncate">{t('nav.newTeam')}</span>
-                    </button>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -325,6 +370,54 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         }}
       />
     </aside>
+  );
+}
+
+/**
+ * A collapsible **section** heading (Favourites, a nav group, Teams). The label and
+ * a rotating caret form one toggle button; optional `actions` (Teams' ⋯/+) ride at
+ * the far right *outside* that button so they stay independently clickable — a
+ * button can't nest a link. Mirrors {@link NavParentItem}'s caret one level up.
+ * `HEADING`'s `group/heading` scope stays on the outer row, so hover-revealed
+ * actions surface for the heading only, not the section's rows below. Rendered on
+ * the labelled rail; the icon rail hides it (and force-shows every section body).
+ */
+function NavHeading({
+  label,
+  icon,
+  open,
+  onToggle,
+  actions,
+  className,
+}: {
+  label: string;
+  icon?: ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  actions?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn(HEADING, 'group/heading', className)}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex min-w-0 flex-1 items-center gap-1 rounded text-left transition-colors hover:text-foreground"
+      >
+        <Icon
+          name="chevron-right"
+          size={12}
+          className={cn(
+            'shrink-0 text-muted-foreground/50 transition-transform',
+            open && 'rotate-90',
+          )}
+        />
+        {icon}
+        <span className="truncate">{label}</span>
+      </button>
+      {actions}
+    </div>
   );
 }
 

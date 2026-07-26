@@ -1,12 +1,31 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui';
 import { IssueDetailMain, type IssueDetailMainProps } from './IssueDetailMain';
+
+/**
+ * Wraps a Properties row whose label isn't drawn — a {@link PropField bare} row, or
+ * an icon-only inline row — so hovering the row reveals the property name. It's the
+ * visible counterpart to the row's `sr-only` label: same text, surfaced for the
+ * pointer instead of only the screen reader. Radix's Root/Trigger add no DOM of
+ * their own (the trigger merges onto the row via `asChild`, the content is
+ * portalled), so the row's own layout and position are untouched.
+ */
+function LabelTooltip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="left">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 /**
  * One row in the Properties sidebar, Linear-style: a leading **icon** in the left
  * gutter and the value/control on the right of the same row — the label itself is
- * not drawn, it rides along as the icon's tooltip + screen-reader text (so the row
- * reads "icon + value", denser and less repetitive than "icon + label + value").
+ * not drawn, it rides along as a hover tooltip on the row + screen-reader text (so
+ * the row reads "icon + value", denser and less repetitive than "icon + label +
+ * value"); hovering the row surfaces the name for anyone unsure what the icon means.
  * A row with no icon falls back to showing the label text, so it never goes blank.
  * Fields whose value needs the full width (a slider, a stack of selects, chips)
  * pass `align="stack"` to drop the control below the head — and there the label
@@ -29,25 +48,27 @@ export function PropField({
    * The field supplies its *own* leading icon inside its control (a Select's
    * colour dot, a Combobox/Input/date-picker's inset glyph, or a {@link PropValue}
    * for read-only rows). Renders edge-to-edge with no icon/label gutter — the
-   * label rides along as screen-reader text only. Used by the issue (task/bug)
-   * sidebars; other sidebars keep the icon-gutter row above.
+   * label rides along as a hover tooltip on the row + screen-reader text. Used by
+   * the issue (task/bug) sidebars; other sidebars keep the icon-gutter row above.
    */
   bare?: boolean;
   children: ReactNode;
 }) {
   if (bare) {
     return (
-      <div className={cn(align === 'stack' ? 'py-1' : 'py-0.5')}>
-        <span className="sr-only">{label}</span>
-        {children}
-      </div>
+      <LabelTooltip label={label}>
+        <div className={cn(align === 'stack' ? 'py-1' : 'py-0.5')}>
+          <span className="sr-only">{label}</span>
+          {children}
+        </div>
+      </LabelTooltip>
     );
   }
 
   const head = (
     <span
-      // The label is the icon's accessible name/tooltip; it isn't shown.
-      title={label}
+      // The label isn't drawn here — it's the icon's screen-reader name, and (for
+      // icon-only rows) the whole-row hover tooltip added below.
       className={cn(
         'flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted-foreground',
         // Inline: an icon-only gutter hugs the icon (leaving the value more room);
@@ -86,12 +107,15 @@ export function PropField({
       </div>
     );
   }
-  return (
+  const row = (
     <div className="flex min-h-8 items-start gap-2 py-0.5">
       {head}
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
+  // An icon-only inline row hides its label (it rides as the icon's a11y text), so
+  // reveal it on hover like a bare row. A label-visible row (no icon) needs none.
+  return icon ? <LabelTooltip label={label}>{row}</LabelTooltip> : row;
 }
 
 /**
@@ -128,8 +152,22 @@ export function PropValue({
 }
 
 /** A titled group of Properties rows (e.g. "Properties", "Labels") — a small
- *  muted heading above its rows. Omit `label` to group without a heading. */
-export function PropSection({ label, children }: { label?: string; children: ReactNode }) {
+ *  muted heading above its rows. Omit `label` to group without a heading.
+ *
+ *  `grid` lays the rows out **two per row** instead of stacked — each cell is
+ *  forced `min-w-0` so its `w-full` control truncates inside the half-width cell
+ *  rather than overflowing, and rows top-align so a taller cell (a wrapped value,
+ *  a validation note) doesn't stretch its neighbour. Used by the dense issue
+ *  Properties block; other sidebars keep the default one-per-row stack. */
+export function PropSection({
+  label,
+  grid = false,
+  children,
+}: {
+  label?: string;
+  grid?: boolean;
+  children: ReactNode;
+}) {
   return (
     <div className="flex flex-col">
       {label && (
@@ -137,22 +175,26 @@ export function PropSection({ label, children }: { label?: string; children: Rea
           {label}
         </span>
       )}
-      <div className="flex flex-col">{children}</div>
+      <div
+        className={cn(
+          grid ? 'grid grid-cols-2 items-start gap-x-2.5 gap-y-1 [&>*]:min-w-0' : 'flex flex-col',
+        )}
+      >
+        {children}
+      </div>
     </div>
   );
 }
 
 /**
  * The two-column detail frame shared by every item detail — task, bug, and the
- * backlog (roadmap) item: a fluid main column beside a fixed 260px sidebar that
- * sticks on scroll. Drop the page's own main content as the first child and a
+ * backlog (roadmap) item: a fluid main column beside a fixed sidebar that sticks
+ * on scroll. Drop the page's own main content as the first child and a
  * {@link PropSidebar} as the second, so the frame lives in one place while each
  * page keeps its own main (issue body, or the roadmap item's RICE/timing).
  */
 export function DetailGrid({ children }: { children: ReactNode }) {
-  return (
-    <div className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_260px]">{children}</div>
-  );
+  return <div className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_260px]">{children}</div>;
 }
 
 /**
@@ -169,6 +211,10 @@ interface IssueDetailProps extends IssueDetailMainProps {
   /** The Properties rows + delete action — the one part that differs between a
    *  task and a bug. Build them from <PropField> / <PropSection>. */
   sidebar: ReactNode;
+  /** Drawer (peek) layout — collapses the two-column frame into one column, the
+   *  Properties flowing inline under the title instead of in a right sidebar. The
+   *  full-page detail leaves this off and keeps the main-beside-sidebar split. */
+  dense?: boolean;
 }
 
 /**
@@ -181,7 +227,9 @@ interface IssueDetailProps extends IssueDetailMainProps {
  * — the uncontrolled title / description / type inputs seed from their initial
  * value once, which matters where the component is reused in place (the inbox).
  */
-export function IssueDetail({ sidebar, ...main }: IssueDetailProps) {
+export function IssueDetail({ sidebar, dense = false, ...main }: IssueDetailProps) {
+  // Drawer: one column — Properties inline under the title, no right sidebar.
+  if (dense) return <IssueDetailMain {...main} propertiesInline={sidebar} />;
   return (
     <DetailGrid>
       <IssueDetailMain {...main} />

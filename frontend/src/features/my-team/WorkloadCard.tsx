@@ -1,10 +1,8 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
-import { IssueKind } from '@/types/enums';
 import type { IssueDto } from '@/types/dto';
 import { ProgressRing } from './ProgressRing';
 import { initialsOf, type ColumnBucket, type PersonWorkload } from './workload';
@@ -60,21 +58,13 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
+/** One issue in a drilled-in status list — title + optional estimate. Read-only:
+ *  the drill-in is a focused list, not a launcher, so Back (inside the card) is the
+ *  only way out. */
 function TaskRow({ issue, done }: { issue: IssueDto; done: boolean }) {
-  // Route to the right detail page by kind — a bug row must not open /tasks/…
-  const ref = issue.shortId || issue.id;
-  const to = issue.kind === IssueKind.BUG ? `/bugs/${ref}` : `/tasks/${ref}`;
   return (
-    <Link
-      to={to}
-      className="flex items-center gap-2 rounded-md py-1.5 pl-6 pr-1.5 transition-colors hover:bg-accent"
-    >
-      <span
-        className={cn(
-          'min-w-0 flex-1 truncate text-sm',
-          done && 'text-muted-foreground line-through',
-        )}
-      >
+    <div className="flex items-center gap-2 py-1.5 pl-1 pr-1.5">
+      <span className={cn('min-w-0 flex-1 truncate text-sm', done && 'text-muted-foreground line-through')}>
         {issue.title || t('roadmaps.untitled')}
       </span>
       {issue.estimate > 0 && (
@@ -82,34 +72,32 @@ function TaskRow({ issue, done }: { issue: IssueDto; done: boolean }) {
           {issue.estimate} {t('myteam.points')}
         </Badge>
       )}
-    </Link>
+    </div>
   );
 }
 
-/** A collapsible status section inside a person's card (To do, In progress, …). */
-function StatusGroup({
+/** The card's drilled-in view: a Back control *inside the card*, the status label,
+ *  then that status's issues — this replaces the card's summary until Back is hit. */
+function FocusedStatus({
   bucket,
   doneKey,
-  open,
-  onToggle,
+  onBack,
 }: {
   bucket: ColumnBucket;
   doneKey: string;
-  open: boolean;
-  onToggle: () => void;
+  onBack: () => void;
 }) {
   return (
-    <div className="py-1">
+    <div className="mt-3">
       <button
         type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:bg-accent"
+        onClick={onBack}
+        className="inline-flex items-center gap-1.5 rounded-md py-1 pr-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ChevronRight
-          className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')}
-          aria-hidden
-        />
+        <ChevronLeft className="size-4" aria-hidden />
+        {t('myteam.back')}
+      </button>
+      <div className="mb-1 mt-2 flex items-center gap-2 border-t pt-2.5">
         <span
           className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide"
           style={{ color: bucket.col.color }}
@@ -117,119 +105,119 @@ function StatusGroup({
           {bucket.col.label}
         </span>
         <span className="shrink-0 text-xs tabular-nums text-muted-foreground">({bucket.tasks.length})</span>
-      </button>
-      {open && (
-        <div className="mt-0.5 flex flex-col">
-          {bucket.tasks.map((issue) => (
-            <TaskRow key={issue.id} issue={issue} done={bucket.col.key === doneKey} />
-          ))}
-        </div>
-      )}
+      </div>
+      <div className="flex flex-col divide-y">
+        {bucket.tasks.map((issue) => (
+          <TaskRow key={issue.id} issue={issue} done={bucket.col.key === doneKey} />
+        ))}
+      </div>
     </div>
   );
 }
 
-/** One person's workload — counts, a share-complete ring, the status bar, an
- *  effort block (story points), and their tasks grouped by status. The card takes
- *  its content's height and the PAGE scrolls (no nested list scrollbar); the
- *  status groups start collapsed (a compact index of statuses), so expanding one
- *  simply grows the card in place. */
+/** One person's workload. Its summary shows counts, a share-complete ring, the status
+ *  bar, an effort block (story points), and a compact index of statuses. Clicking a
+ *  status heading drills *in place* into that status's item list (see FocusedStatus) —
+ *  a Back button inside the card returns to this summary. The card takes its content's
+ *  height and the PAGE scrolls (no nested list scrollbar). */
 export function WorkloadCard({ person }: { person: PersonWorkload }) {
   const groups = person.byColumn.filter((b) => b.tasks.length > 0);
-  // Issues start collapsed, per the reference — expand a status to reveal its tasks.
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const toggle = (key: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-  const allExpanded = groups.length > 0 && groups.every((g) => expanded.has(g.col.key));
-  const toggleAll = () => setExpanded(allExpanded ? new Set() : new Set(groups.map((g) => g.col.key)));
+  // The status drilled into, or null for the summary. Clicking a status heading
+  // sets it; Back clears it — all within this one card.
+  const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const focused = focusedKey ? groups.find((g) => g.col.key === focusedKey) ?? null : null;
 
   return (
     <div className="flex flex-col rounded-xl border bg-card p-4 text-card-foreground shadow-sm">
-      {/* Header — who, with a collapse/expand-all toggle */}
+      {/* Header — who (kept in both views, so a drilled-in list still says whose it is) */}
       <div className="flex shrink-0 items-center gap-2.5">
         <PersonAvatar name={person.name} unassigned={person.isUnassigned} size={28} />
         <div className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground" title={person.name}>
           {person.name}
         </div>
-        {groups.length > 0 && (
-          <button
-            type="button"
-            onClick={toggleAll}
-            aria-label={allExpanded ? t('myteam.collapseAll') : t('myteam.expandAll')}
-            className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            {allExpanded ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
-          </button>
-        )}
       </div>
 
-      {/* Counts + share complete */}
-      <div className="mt-4 flex shrink-0 items-center gap-5">
-        <Stat value={person.notDoneCount} label={t('myteam.notDone')} />
-        <Stat value={person.doneCount} label={t('myteam.done')} />
-        <div className="ml-auto">
-          <ProgressRing value={person.progressPct} />
-        </div>
-      </div>
-
-      {/* Status distribution */}
-      <div className="mt-3.5 shrink-0">
-        <StatusBar buckets={person.byColumn} />
-      </div>
-
-      {/* Effort — story points, laid out like the reference's estimate block:
-          points still to do / done, with a ring of the number of points left. */}
-      {(person.totalPoints > 0 || person.noEstimateCount > 0) && (
-        <div className="mt-4 shrink-0">
-          <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            {t('myteam.storyPoints')}
+      {focused ? (
+        <FocusedStatus bucket={focused} doneKey={person.doneKey} onBack={() => setFocusedKey(null)} />
+      ) : (
+        <>
+          {/* Counts + share complete */}
+          <div className="mt-4 flex shrink-0 items-center gap-5">
+            <Stat value={person.notDoneCount} label={t('myteam.notDone')} />
+            <Stat value={person.doneCount} label={t('myteam.done')} />
+            <div className="ml-auto">
+              <ProgressRing value={person.progressPct} />
+            </div>
           </div>
-          {person.totalPoints > 0 && (
-            <div className="mt-2 flex items-center gap-5">
-              <Stat value={person.remainingPoints} label={t('myteam.notDone')} />
-              <Stat value={person.donePoints} label={t('myteam.done')} />
-              <div className="ml-auto">
-                <ProgressRing value={(person.donePoints / person.totalPoints) * 100} size={44}>
-                  {person.remainingPoints}
-                </ProgressRing>
+
+          {/* Status distribution */}
+          <div className="mt-3.5 shrink-0">
+            <StatusBar buckets={person.byColumn} />
+          </div>
+
+          {/* Effort — story points, laid out like the reference's estimate block:
+              points still to do / done, with a ring of the number of points left. */}
+          {(person.totalPoints > 0 || person.noEstimateCount > 0) && (
+            <div className="mt-4 shrink-0">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                {t('myteam.storyPoints')}
+              </div>
+              {person.totalPoints > 0 && (
+                <div className="mt-2 flex items-center gap-5">
+                  <Stat value={person.remainingPoints} label={t('myteam.notDone')} />
+                  <Stat value={person.donePoints} label={t('myteam.done')} />
+                  <div className="ml-auto">
+                    <ProgressRing value={(person.donePoints / person.totalPoints) * 100} size={44}>
+                      {person.remainingPoints}
+                    </ProgressRing>
+                  </div>
+                </div>
+              )}
+              {person.noEstimateCount > 0 && (
+                <div
+                  className={cn('flex items-center gap-1.5 text-xs', person.totalPoints > 0 ? 'mt-2' : 'mt-1')}
+                  style={{ color: 'hsl(var(--warning))' }}
+                >
+                  <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+                  <span className="tabular-nums">
+                    {person.noEstimateCount === 1
+                      ? t('myteam.taskWithoutEstimateOne')
+                      : t('myteam.tasksWithoutEstimate').replace('{count}', String(person.noEstimateCount))}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Status index — a heading per non-empty status; click one to drill into
+              its item list in place. Colour comes from the column (never hardcoded). */}
+          {groups.length > 0 && (
+            <div className="mt-3 border-t pt-1">
+              <div className="flex flex-col divide-y">
+                {groups.map((bucket) => (
+                  <button
+                    key={bucket.col.key}
+                    type="button"
+                    onClick={() => setFocusedKey(bucket.col.key)}
+                    aria-label={bucket.col.label}
+                    className="flex w-full items-center gap-2 rounded-md px-1 py-2 text-left transition-colors hover:bg-accent"
+                  >
+                    <span
+                      className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide"
+                      style={{ color: bucket.col.color }}
+                    >
+                      {bucket.col.label}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                      ({bucket.tasks.length})
+                    </span>
+                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
+                  </button>
+                ))}
               </div>
             </div>
           )}
-          {person.noEstimateCount > 0 && (
-            <div
-              className={cn('flex items-center gap-1.5 text-xs', person.totalPoints > 0 ? 'mt-2' : 'mt-1')}
-              style={{ color: 'hsl(var(--warning))' }}
-            >
-              <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-              <span className="tabular-nums">
-                {person.noEstimateCount === 1
-                  ? t('myteam.taskWithoutEstimateOne')
-                  : t('myteam.tasksWithoutEstimate').replace('{count}', String(person.noEstimateCount))}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Grouped tasks — full list, full card: the page scrolls, not this box */}
-      {groups.length > 0 && (
-        <div className="mt-3 border-t pt-1">
-          <div className="flex flex-col divide-y">
-            {groups.map((bucket) => (
-              <StatusGroup
-                key={bucket.col.key}
-                bucket={bucket}
-                doneKey={person.doneKey}
-                open={expanded.has(bucket.col.key)}
-                onToggle={() => toggle(bucket.col.key)}
-              />
-            ))}
-          </div>
-        </div>
+        </>
       )}
     </div>
   );

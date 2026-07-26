@@ -54,6 +54,9 @@ interface TaskDetailProps {
   /** 'topbar' on the standalone route (⋯ in the app header); 'header' (default)
    * when embedded (a peek drawer), which has no topbar of its own. */
   menuTarget?: 'header' | 'topbar';
+  /** Drawer (peek) layout — lays the Properties out two-per-row in a wider
+   * sidebar. Off on the full-page route, which keeps its one-column detail. */
+  dense?: boolean;
 }
 
 /**
@@ -63,7 +66,7 @@ interface TaskDetailProps {
  * be embedded — the route page wraps this with the breadcrumb + Esc handling,
  * and a sub-task peek renders it inside a drawer.
  */
-export function TaskDetail({ taskId, onDeleted, menuTarget = 'header' }: TaskDetailProps) {
+export function TaskDetail({ taskId, onDeleted, menuTarget = 'header', dense = false }: TaskDetailProps) {
   const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
 
   const { data: task, isLoading } = useTask(taskId);
@@ -132,6 +135,7 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header' }: TaskDet
   return (
     <IssueDetail
       key={task.id}
+      dense={dense}
       subject="task"
       issueId={task.id}
       favourite={{ kind: FavouriteKind.TASK, refId: task.id }}
@@ -195,7 +199,7 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header' }: TaskDet
       }
       sidebar={
         <>
-          <PropSection label={t('tasks.properties')}>
+          <PropSection grid={dense} label={t('tasks.properties')}>
             <PropField bare label={t('tasks.status')}>
               {canWrite ? (
                 <Select

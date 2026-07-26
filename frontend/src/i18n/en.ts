@@ -482,6 +482,7 @@ export const en = {
   'myteam.everyone': 'Everyone',
   'myteam.collapseAll': 'Collapse all',
   'myteam.expandAll': 'Expand all',
+  'myteam.back': 'Back',
 
   'milestones.title': 'OKRs',
   'milestones.new': 'New OKR',

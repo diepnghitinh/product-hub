@@ -6,8 +6,9 @@
 // persist and render everywhere the description HTML is shown.
 //
 // Kept from the stock tool: upload to the workspace's storage (with a base64
-// data-URL fallback when none is configured), image paste / file-drop, and an
-// optional caption. Added: the resize handle and an "Add border" tune.
+// data-URL fallback when none is configured) and image paste / file-drop.
+// Added: the resize handle and an "Add border" tune. Caption editing was
+// removed from the UI — any caption already stored is preserved on save.
 import type { API, BlockAPI } from '@editorjs/editorjs';
 import { uploadMedia } from '@/features/uploads/api';
 import { compressImageFile } from '@/lib/compressImage';
@@ -132,7 +133,7 @@ export class ResizableImageTool {
     this.block?.dispatchChange?.();
   }
 
-  // ── Filled state: image + resize handle + caption ──────────────────────────
+  // ── Filled state: image + resize handle ────────────────────────────────────
   private renderImage() {
     this.wrapper.innerHTML = '';
 
@@ -165,13 +166,7 @@ export class ResizableImageTool {
       frame.append(handle, label);
     }
 
-    const caption = document.createElement('div');
-    caption.className = 'rte-image__caption';
-    caption.dataset.placeholder = 'Caption (optional)';
-    caption.contentEditable = String(!this.readOnly);
-    caption.innerHTML = this.data.caption ?? '';
-
-    this.wrapper.append(frame, caption);
+    this.wrapper.append(frame);
   }
 
   /** Live width as a % of the block's content column. */
@@ -258,13 +253,12 @@ export class ResizableImageTool {
   }
 
   save(): ResizableImageData {
-    const caption =
-      (this.wrapper.querySelector('.rte-image__caption') as HTMLElement | null)?.innerHTML.trim() ??
-      '';
     const width = this.data.file.width;
     return {
       file: { url: this.data.file.url, ...(width ? { width } : {}) },
-      caption,
+      // Caption editing was removed from the UI; carry through any caption the
+      // block was loaded with so existing ones round-trip instead of being lost.
+      ...(this.data.caption ? { caption: this.data.caption } : {}),
       ...(this.data.withBorder ? { withBorder: true } : {}),
     };
   }

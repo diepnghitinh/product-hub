@@ -50,6 +50,9 @@ interface BugDetailProps {
   /** 'topbar' on the standalone route (⋯ in the app header); 'header' (default)
    * in the inbox pane, which has no topbar of its own. */
   menuTarget?: 'header' | 'topbar';
+  /** Drawer (peek) layout — lays the Properties out two-per-row in a wider
+   * sidebar. Off on the full-page route and the inbox pane, which stay one-column. */
+  dense?: boolean;
 }
 
 /**
@@ -58,7 +61,7 @@ interface BugDetailProps {
  * Extracted from the route page so the inbox can render it inline in its detail
  * pane; the route page wraps this with the breadcrumb + Esc handling.
  */
-export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetailProps) {
+export function BugDetail({ bugId, onDeleted, menuTarget = 'header', dense = false }: BugDetailProps) {
   const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
 
   const { data: bug, isLoading } = useBug(bugId);
@@ -105,6 +108,7 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
   return (
     <IssueDetail
       key={bug.id}
+      dense={dense}
       subject="bug"
       issueId={bug.id}
       favourite={{ kind: FavouriteKind.BUG, refId: bug.id }}
@@ -142,7 +146,7 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header' }: BugDetail
       ]}
       sidebar={
         <>
-          <PropSection label={t('tasks.properties')}>
+          <PropSection grid={dense} label={t('tasks.properties')}>
             <PropField bare label={t('bugs.status')}>
               {canWrite ? (
                 <Select
