@@ -698,7 +698,10 @@ export const en = {
   'cycles.weeks2': '2 weeks',
   'cycles.weeks3': '3 weeks',
   'cycles.weeks4': '4 weeks',
-  'cycles.rhythmChangeNote': 'Rhythm changes regenerate the upcoming cycles; the current one finishes as planned.',
+  'cycles.rhythmChangeNote':
+    'Changing the length, cooldown or start date rebuilds every cycle from the new schedule — past cycles and their saved stats are discarded.',
+  'cycles.rebuildConfirm':
+    'Changing the schedule rebuilds every cycle for this team from the new settings and renumbers them from Cycle 1. Past cycles and their saved stats will be discarded, and any issues currently in a cycle will be moved out. Continue?',
   // Cycle states + board/picker copy
   'cycles.cycle': 'Cycle',
   'cycles.current': 'Current',

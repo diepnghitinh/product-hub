@@ -19,6 +19,10 @@ export abstract class ICycleRepository {
    */
   closeCycle: (tenantId: string, id: string, rollup: CycleRollup, at: Date) => Promise<boolean>;
   /** Delete a team's not-yet-started cycles (start > today); returns their ids
-   *  so the caller can detach issues. Used when cycles are disabled/re-rhythmed. */
+   *  so the caller can detach issues. Used when cycles are turned off. */
   deleteUpcoming: (tenantId: string, teamId: string, today: string) => Promise<string[]>;
+  /** Delete ALL of a team's cycles — active and frozen history included — and
+   *  return their ids so the caller can detach issues. Used when a rhythm change
+   *  rebuilds the cadence from scratch. */
+  deleteAllForTeam: (tenantId: string, teamId: string) => Promise<string[]>;
 }

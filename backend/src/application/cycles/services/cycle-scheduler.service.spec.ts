@@ -38,6 +38,12 @@ class FakeCycleRepo implements ICycleRepository {
     this.rows = this.rows.filter((c) => !gone.includes(c));
     return gone.map((c) => c.id.toString());
   };
+
+  deleteAllForTeam = async (tenantId: string, teamId: string) => {
+    const gone = this.rows.filter((c) => c.tenantId === tenantId && c.teamId === teamId);
+    this.rows = this.rows.filter((c) => !gone.includes(c));
+    return gone.map((c) => c.id.toString());
+  };
 }
 
 const makeTeam = (over: Partial<Parameters<typeof TeamEntity.create>[0]> = {}) => {
