@@ -529,6 +529,17 @@ export const taskStatusLabel = (key: string): string =>
 export const taskStatusColor = (key: string): string =>
   TASK_STATUS_COLOR[key as TaskStatus] ?? 'hsl(var(--muted-foreground))';
 
+/**
+ * Is this issue finished? The terminal column differs by kind — a task ends at
+ * `done`, a bug at `resolved`/`closed` — so any rollup over a mixed list (a
+ * backlog item's linked work) has to ask per issue, not compare to `DONE`.
+ * A team's *custom* column matches neither and counts as unfinished.
+ */
+export const isIssueDone = (kind: IssueKind, status: string): boolean =>
+  kind === IssueKind.BUG
+    ? status === BugStatus.RESOLVED || status === BugStatus.CLOSED
+    : status === TaskStatus.DONE;
+
 /** Points scale for a task's size estimate (mirrors the backend
  * `TASK_ESTIMATE_VALUES`). `0` means unset ("No estimate"). */
 export const TASK_ESTIMATES = [1, 2, 3, 5, 8, 13, 21] as const;

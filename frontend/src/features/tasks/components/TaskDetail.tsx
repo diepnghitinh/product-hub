@@ -157,7 +157,21 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header', dense = f
             <SubtaskSection
               query={{ parentId: task.id }}
               createLink={{ parentId: task.id, teamId: task.teamId }}
-              composerTeams={team ? [{ id: team.id, name: team.name }] : []}
+              composerTeams={
+                // A sub-task belongs to its parent's team, which is always a task
+                // team — no picker, so no bug option here.
+                team
+                  ? [
+                      {
+                        id: team.id,
+                        name: team.name,
+                        issueType: team.issueType,
+                        icon: team.icon,
+                        color: team.color,
+                      },
+                    ]
+                  : []
+              }
               defaultTeamId={task.teamId}
               onLinkExisting={() => setPickOpen(true)}
             />

@@ -17,19 +17,37 @@ interface TaskPanelProps {
  * A backlog item's (roadmap item's) linked issues — the shared
  * {@link SubtaskSection} wired for the roadmap: children fetch by `roadmapItemId`
  * across **both kinds** (so a linked bug shows beside the tasks), new ones are
- * filed as tasks in any task team (the composer's picker) and linked back to this
- * item, and the link-existing icon opens the cross-team, cross-kind picker — a
- * bug that blocks the item can be linked just like a task that delivers it.
+ * created in any team — task *or* bug — and linked back to this item, and the
+ * link-existing icon opens the cross-team, cross-kind picker. Whichever route
+ * you take, a bug that blocks the item sits beside the tasks that deliver it.
  */
 export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanelProps) {
   const [pickOpen, setPickOpen] = useState(false);
 
-  // Which teams a new task may land in — every non-archived task team.
+  // Every non-archived team, both kinds — the composer's picker files the child
+  // in the one you choose, so a backlog item's work can be "fix this bug" as
+  // easily as "build this". Tasks first, bugs after, each group in team order.
   const { data: teams } = useTeams();
-  const taskTeams = (teams ?? []).filter(
-    (tm) => tm.issueType === TeamIssueType.TASK && !tm.archived,
-  );
-  const defaultTeamId = taskTeams.find((tm) => tm.isDefault)?.id ?? taskTeams[0]?.id ?? '';
+  const composerTeams = (teams ?? [])
+    .filter((tm) => !tm.archived)
+    .sort(
+      (a, b) =>
+        Number(a.issueType === TeamIssueType.BUG) - Number(b.issueType === TeamIssueType.BUG),
+    )
+    .map((tm) => ({
+      id: tm.id,
+      name: tm.name,
+      issueType: tm.issueType,
+      icon: tm.icon,
+      color: tm.color,
+    }));
+  // A new child still defaults to a task — you opt into a bug by picking its team.
+  const taskTeams = composerTeams.filter((tm) => tm.issueType === TeamIssueType.TASK);
+  const defaultTeamId =
+    (teams ?? []).find((tm) => tm.issueType === TeamIssueType.TASK && !tm.archived && tm.isDefault)
+      ?.id ??
+    taskTeams[0]?.id ??
+    '';
 
   return (
     <>
@@ -37,7 +55,7 @@ export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanel
         className="mt-5"
         query={{ roadmapItemId: itemId }}
         createLink={{ roadmapId, roadmapItemId: itemId, roadmapItemLabel: itemLabel, projectId }}
-        composerTeams={taskTeams.map((tm) => ({ id: tm.id, name: tm.name }))}
+        composerTeams={composerTeams}
         defaultTeamId={defaultTeamId}
         crossTeam
         onLinkExisting={() => setPickOpen(true)}
