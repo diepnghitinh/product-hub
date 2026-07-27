@@ -3,11 +3,19 @@ import { UniqueEntityID } from '@core/domain';
 export interface CommentProps {
   id: UniqueEntityID;
   tenantId: string;
-  /** The bug this comment is on (empty for a task/roadmap-item comment). */
+  /**
+   * The issue (bug or task) this comment is on — the canonical subject id, equal
+   * to the issue's shared `_id`. Empty for a roadmap-item comment.
+   */
+  issueId: string;
+  /**
+   * Legacy mirror of `issueId`, set only when the issue is a bug. Kept because the
+   * inbox still resolves mentions by `bugId` and to keep the migration reversible.
+   */
   bugId: string;
-  /** The task this comment is on (empty for a bug/roadmap-item comment). */
+  /** Legacy mirror of `issueId`, set only when the issue is a task (reversibility). */
   taskId: string;
-  /** The roadmap item this comment is on (empty for a bug/task comment). */
+  /** The roadmap item this comment is on (empty for an issue comment). */
   roadmapItemId: string;
   /**
    * The top-level comment this one replies to (empty for a top-level comment).

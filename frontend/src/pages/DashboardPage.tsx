@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import { Spinner } from '@/components/ui';
+import { CardGridSkeleton } from '@/components/Skeletons';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { Icon, type IconName } from '@/components/Icon';
 import { t } from '@/i18n';
@@ -93,9 +93,7 @@ export function DashboardPage() {
           </Link>
         </div>
         {isLoading ? (
-          <div className="grid place-items-center rounded-xl border border-dashed p-8">
-            <Spinner />
-          </div>
+          <CardGridSkeleton cards={3} />
         ) : recent.length === 0 ? (
           <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
             {t('home.noProjects')}

@@ -89,17 +89,17 @@ export enum InboxKind {
   ASSIGNED_BUG = 'assigned-bug',
 }
 
-/** Kinds of entity a user can pin to their sidebar (mirrors the backend). */
+/** Kinds of entity a user can pin to their sidebar (mirrors the backend). A bug
+ *  and a task are both `ISSUE`; the concrete kind rides along in `issueKind`. */
 export enum FavouriteKind {
   ROADMAP_ITEM = 'roadmap-item',
-  BUG = 'bug',
-  TASK = 'task',
+  ISSUE = 'issue',
 }
 
-/** Entities that can carry reactions (mirrors the backend). */
+/** Entities that can carry reactions (mirrors the backend). Bugs and tasks are
+ *  both `ISSUE` — reactions key off the issue's shared id, not its kind. */
 export enum ReactionTargetType {
-  BUG = 'bug',
-  TASK = 'task',
+  ISSUE = 'issue',
   ROADMAP_ITEM = 'roadmap-item',
 }
 
@@ -355,8 +355,7 @@ export const INBOX_KIND_LABEL: Record<InboxKind, string> = {
 
 export const FAVOURITE_KIND_LABEL: Record<FavouriteKind, string> = {
   [FavouriteKind.ROADMAP_ITEM]: 'Roadmap item',
-  [FavouriteKind.BUG]: 'Bug',
-  [FavouriteKind.TASK]: 'Task',
+  [FavouriteKind.ISSUE]: 'Issue',
 };
 
 export const ROADMAP_PHASES: RoadmapPhase[] = [

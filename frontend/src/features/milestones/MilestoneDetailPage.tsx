@@ -1,7 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FileText, Lock, Plus, Trash2, Unlock } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Button, Input, ProgressBar, Select, Spinner } from '@/components/ui';
+import { Button, Input, ProgressBar, Select, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
@@ -97,9 +97,20 @@ export function MilestoneDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="grid place-items-center rounded-xl border border-dashed p-8">
-        <Spinner />
-      </div>
+      <CenteredPageLayout>
+        <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-8 w-2/3" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+          <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-2.5 w-full rounded-full" />
+          </div>
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+        </div>
+      </CenteredPageLayout>
     );
   }
   if (!milestone) {

@@ -21,6 +21,7 @@ export class CycleEntity extends AggregateRoot<CycleProps> {
       number: number;
       startDate: string;
       endDate: string;
+      description?: string | null;
       scopeCount?: number;
       scopePoints?: number;
       completedCount?: number;
@@ -52,6 +53,7 @@ export class CycleEntity extends AggregateRoot<CycleProps> {
           number: props.number,
           startDate: props.startDate,
           endDate: props.endDate,
+          description: props.description ?? null,
           scopeCount: props.scopeCount ?? 0,
           scopePoints: props.scopePoints ?? 0,
           completedCount: props.completedCount ?? 0,
@@ -83,6 +85,9 @@ export class CycleEntity extends AggregateRoot<CycleProps> {
   }
   get endDate(): string {
     return this.props.endDate;
+  }
+  get description(): string | null {
+    return this.props.description;
   }
   get scopeCount(): number {
     return this.props.scopeCount;
@@ -121,6 +126,14 @@ export class CycleEntity extends AggregateRoot<CycleProps> {
   /** Frozen stats are written exactly once, at boundary processing. */
   get isClosed(): boolean {
     return this.props.closedAt !== null;
+  }
+
+  /** Set (or clear) the cycle's goal/notes. Trims; an empty string clears it to
+   *  `null`, so "" and whitespace never persist as a non-empty description. */
+  setDescription(text: string | null): void {
+    const trimmed = (text ?? '').trim();
+    this.props.description = trimmed.length ? trimmed : null;
+    this.props.updatedAt = new Date();
   }
 
   /** Freeze the stats AND who was unfinished — the record of "planned here but

@@ -3,7 +3,7 @@ import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
 import { CommentProps } from './comment.props';
 
-/** A comment in a bug's activity thread. */
+/** A comment in an issue's (or roadmap item's) activity thread. */
 export class CommentEntity extends AggregateRoot<CommentProps> {
   private constructor(props: CommentProps, id?: UniqueEntityID) {
     super(props, id);
@@ -12,6 +12,7 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
   static create(
     props: {
       tenantId: string;
+      issueId?: string;
       bugId?: string;
       taskId?: string;
       roadmapItemId?: string;
@@ -31,9 +32,12 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
       { argument: props.authorId, argumentName: 'authorId' },
     ]);
     if (!guard.succeeded) return Result.fail(guard.message);
-    // A comment belongs to exactly one subject — a bug or a task.
-    if (!props.bugId && !props.taskId && !props.roadmapItemId)
-      return Result.fail('bugId, taskId or roadmapItemId is required');
+    // A comment belongs to exactly one subject — an issue or a roadmap item.
+    // `issueId` is canonical; a caller passing only the legacy `bugId`/`taskId`
+    // (e.g. rehydrating an un-backfilled doc) still resolves to an issue below.
+    const issueId = props.issueId || props.bugId || props.taskId || '';
+    if (!issueId && !props.roadmapItemId)
+      return Result.fail('issueId or roadmapItemId is required');
     // A comment needs *something*: text or at least one attachment. A dropped
     // screenshot or short clip can stand on its own, so an empty body is fine
     // as long as there's media.
@@ -47,6 +51,7 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
         {
           id: id || new UniqueEntityID(),
           tenantId: props.tenantId,
+          issueId,
           bugId: props.bugId || '',
           taskId: props.taskId || '',
           roadmapItemId: props.roadmapItemId || '',
@@ -69,6 +74,9 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
   }
   get tenantId(): string {
     return this.props.tenantId;
+  }
+  get issueId(): string {
+    return this.props.issueId;
   }
   get bugId(): string {
     return this.props.bugId;

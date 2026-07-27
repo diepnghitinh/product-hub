@@ -7,7 +7,7 @@ export class AddFavouriteDto {
   @IsEnum(FavouriteKind)
   kind: FavouriteKind;
 
-  @ApiProperty({ description: 'Id of the entity to pin (bug/task id, or roadmap item id)' })
+  @ApiProperty({ description: 'Id of the entity to pin (issue id, or roadmap item id)' })
   @IsString()
   @MinLength(1)
   refId: string;

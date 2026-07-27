@@ -10,7 +10,6 @@ import {
   Input,
   Menu,
   Select,
-  Spinner,
   Table,
   TableBody,
   TableCell,
@@ -18,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui';
+import { TableSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { ROLE_LABEL, Role } from '@/types/enums';
@@ -78,9 +78,7 @@ export function AdminPeoplePage() {
       />
 
       {isLoading ? (
-        <div className="grid place-items-center rounded-xl border border-dashed p-8">
-          <Spinner />
-        </div>
+        <TableSkeleton rows={6} cols={3} />
       ) : (
         <div className="overflow-hidden rounded-xl border">
           <Table>

@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, LayoutGrid, List } from 'lucide-react';
-import { Badge, Button, Checkbox, Spinner, Switch } from '@/components/ui';
+import { Badge, Button, Checkbox, Switch } from '@/components/ui';
+import { BoardSkeleton, ListSkeleton, TimelineSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
 import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
@@ -222,7 +223,15 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
       }
       filtersEnd={
         <>
-          {!focusedCycle && <CycleChip team={shareTeam} />}
+          {/* Insights lives in the cycle bar; that bar only exists when the board
+              is scoped to one cycle, so it falls back to the toolbar here — one
+              button on screen, never two. */}
+          {!focusedCycle && (
+            <>
+              <CycleChip team={shareTeam} />
+              <CycleInsightsButton team={shareTeam} cycleParam={cycleParam} />
+            </>
+          )}
           <CycleFilterSelect team={shareTeam} value={cycleParam} onChange={setCycleParam} />
         </>
       }
@@ -237,10 +246,8 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
         ],
       }}
       actions={
-        (canWrite && !teamId) || (shareTeam && canManageDelivery) || shareTeam?.cyclesEnabled ? (
+        (canWrite && !teamId) || (shareTeam && canManageDelivery) ? (
           <div className="flex items-center gap-2">
-            {/* Read-only, so it rides in for anyone viewing a cycle team's board. */}
-            <CycleInsightsButton team={shareTeam} cycleParam={cycleParam} />
             {canWrite && !teamId && (
               <Button onClick={() => navigate(newTaskHref())}>+ {t('tasks.new')}</Button>
             )}
@@ -250,9 +257,13 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
       }
     >
       {isLoading ? (
-        <div className={cn('grid place-items-center rounded-xl border border-dashed p-8', BOARD_GUTTER)}>
-          <Spinner />
-        </div>
+        view === 'list' ? (
+          <ListSkeleton inset />
+        ) : view === 'timeline' ? (
+          <TimelineSkeleton />
+        ) : (
+          <BoardSkeleton columns={columns.length || 4} />
+        )
       ) : visibleTasks.length === 0 ? (
         <div className="mx-4 rounded-xl border border-dashed p-8 text-center md:mx-8">
           <p className="text-muted-foreground">{t('tasks.none')}</p>

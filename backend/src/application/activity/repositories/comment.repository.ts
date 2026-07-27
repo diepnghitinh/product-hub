@@ -1,9 +1,9 @@
 import { CommentEntity } from '../domain/entities/comment.entity';
 
-/** Port for bug comments. */
+/** Port for issue + roadmap-item comments. */
 export abstract class ICommentRepository {
-  findByBug: (tenantId: string, bugId: string) => Promise<CommentEntity[]>;
-  findByTask: (tenantId: string, taskId: string) => Promise<CommentEntity[]>;
+  /** Comments on an issue (bug or task), by the issue's shared id. */
+  findByIssue: (tenantId: string, issueId: string) => Promise<CommentEntity[]>;
   findByRoadmapItem: (tenantId: string, roadmapItemId: string) => Promise<CommentEntity[]>;
   findById: (tenantId: string, id: string) => Promise<CommentEntity | null>;
   /** Recent comments that mention the given user (for the inbox). */

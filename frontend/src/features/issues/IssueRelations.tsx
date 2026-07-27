@@ -7,18 +7,18 @@ import { useDeleteIssueRelation, useIssueRelations } from './relations.api';
 /**
  * The linked-issues list in a task/bug detail sidebar. Grouped by relation type
  * ("Blocked by", "Related to"…), each row links to the issue and — for editors —
- * offers an × to unlink. Renders nothing when the issue has no relations.
+ * offers an × to unlink. Rows can be either kind (a task may be blocked by a bug),
+ * so each routes by the linked issue's own `targetKind`. Renders nothing when the
+ * issue has no relations.
  */
 export function IssueRelations({
-  subject,
   issueId,
   canWrite,
 }: {
-  subject: IssueKind;
   issueId: string;
   canWrite: boolean;
 }) {
-  const { data: relations } = useIssueRelations(subject, issueId);
+  const { data: relations } = useIssueRelations(issueId);
   const del = useDeleteIssueRelation();
 
   if (!relations?.length) return null;
@@ -44,7 +44,7 @@ export function IssueRelations({
               className="group flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5"
             >
               <Link
-                to={`/${r.issueType === IssueKind.BUG ? 'bugs' : 'tasks'}/${r.targetShortId || r.targetId}`}
+                to={`/${r.targetKind === IssueKind.BUG ? 'bugs' : 'tasks'}/${r.targetShortId || r.targetId}`}
                 className="flex min-w-0 flex-1 items-center gap-2 text-sm"
                 title={r.targetTitle}
               >
@@ -56,7 +56,7 @@ export function IssueRelations({
               {canWrite && (
                 <button
                   type="button"
-                  onClick={() => del.mutate({ id: r.id, issueType: subject, issueId })}
+                  onClick={() => del.mutate({ id: r.id, issueId })}
                   className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition hover:bg-muted hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100 max-md:opacity-100"
                   aria-label={t('relations.remove')}
                 >

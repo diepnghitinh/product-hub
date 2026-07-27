@@ -8,6 +8,7 @@ export interface CycleDoc {
   number: number;
   startDate: string;
   endDate: string;
+  description: string | null;
   scopeCount: number;
   scopePoints: number;
   completedCount: number;
@@ -27,6 +28,8 @@ export const CycleSchema = new Schema<CycleDoc>(
     // ISO YYYY-MM-DD, inclusive — the issue date convention, sortable as strings.
     startDate: { type: String, required: true },
     endDate: { type: String, required: true },
+    // The cycle's goal / notes (Scrum sprint goal). Plain text, null when unset.
+    description: { type: String, default: null },
     // Frozen at boundary processing; 0 until then (live rollups are read-side).
     scopeCount: { type: Number, default: 0 },
     scopePoints: { type: Number, default: 0 },

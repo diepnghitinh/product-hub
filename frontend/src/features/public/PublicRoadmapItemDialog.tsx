@@ -1,5 +1,5 @@
 import { Target } from 'lucide-react';
-import { Dialog, DotLabel, ProgressBar } from '@/components/ui';
+import { Dialog, DotLabel, ProgressBar, RichText } from '@/components/ui';
 import type { RoadmapColumn, RoadmapItem } from '@/types/dto';
 import { ROADMAP_ITEM_STATUS_COLOR, ROADMAP_ITEM_STATUS_LABEL } from '@/types/enums';
 
@@ -37,10 +37,7 @@ export function PublicRoadmapItemDialog({
         <ProgressBar value={item.progress} />
       </div>
       {item.description ? (
-        <div
-          className="mt-4 text-sm text-muted-foreground [&_a]:text-primary [&_a]:underline [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md"
-          dangerouslySetInnerHTML={{ __html: item.description }}
-        />
+        <RichText className="mt-4 text-sm text-muted-foreground" html={item.description} />
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">—</p>
       )}

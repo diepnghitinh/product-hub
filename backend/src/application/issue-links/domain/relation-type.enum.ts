@@ -24,9 +24,9 @@ export const INVERSE_RELATION: Record<RelationType, RelationType> = {
 };
 
 /**
- * The kind of issue a link connects. Same-type only for now (both ends are this
- * kind); a `targetType` can be added later for cross-type links. Mirrors the
- * frontend `IssueKind`.
+ * A kind of issue. Stored on a link as `issueType` = the *source* end's kind; the
+ * two ends may differ (a bug can block a task), so the other end's kind is resolved
+ * on read and returned as `targetKind`. Mirrors the frontend `IssueKind`.
  */
 export enum IssueKind {
   Task = 'task',

@@ -11,6 +11,14 @@ export interface CycleProps {
   startDate: string;
   endDate: string;
   /**
+   * A free-text goal / notes for this cycle — the Scrum "sprint goal". Plain
+   * text, `null` when unset. Author-editable; carried on the cycle's stable id,
+   * so it survives a close (frozen stats leave it alone) but is **lost on a
+   * rhythm rebuild**, when every cycle is wiped and renumbered from 1 — the same
+   * fate as the frozen stats, and by design (see cycle.use-cases).
+   */
+  description: string | null;
+  /**
    * Rollup numbers frozen when the cycle's end passed and the boundary was
    * processed (auto-rollover moves unfinished issues away, so without the
    * freeze every past cycle would read "100% done, tiny scope"). All 0 until

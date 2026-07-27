@@ -9,6 +9,7 @@ export class UserMapper {
       email: user.email,
       name: user.name,
       role: user.role,
+      avatarUrl: user.avatarUrl ?? null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

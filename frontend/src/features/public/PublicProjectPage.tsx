@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { Badge, Spinner, type BadgeProps } from '@/components/ui';
+import { Badge, Skeleton, type BadgeProps } from '@/components/ui';
 import { t } from '@/i18n';
 import {
   FEATURE_STATUS_LABEL,
@@ -27,8 +27,15 @@ export function PublicProjectPage() {
 
   if (isLoading) {
     return (
-      <div className="grid min-h-[100dvh] place-items-center bg-background p-6">
-        <Spinner />
+      <div className="min-h-[100dvh] bg-background">
+        <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-8 w-1/2" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+          <Skeleton className="h-56 w-full rounded-xl" />
+          <Skeleton className="h-56 w-full rounded-xl" />
+        </div>
       </div>
     );
   }

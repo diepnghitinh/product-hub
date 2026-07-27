@@ -50,25 +50,17 @@ export class AddFavouriteUseCase
   private async resolveRef(req: AddFavouriteRequest): Promise<Result<FavouriteRef>> {
     const createdAt = new Date();
     switch (req.kind) {
-      case FavouriteKind.Bug: {
-        const bug = await this.issues.findByRef(req.tenantId, req.refId);
-        if (!bug || !bug.isBug) return Result.fail('Bug not found');
+      case FavouriteKind.Issue: {
+        // A bug or task — one store, one lookup. The concrete kind is snapshotted
+        // as `issueKind` so the sidebar can route + pick its icon.
+        const issue = await this.issues.findByRef(req.tenantId, req.refId);
+        if (!issue) return Result.fail('Issue not found');
         return Result.ok({
-          kind: FavouriteKind.Bug,
-          refId: bug.id.toString(),
-          title: bug.title,
-          teamId: bug.teamId,
-          createdAt,
-        });
-      }
-      case FavouriteKind.Task: {
-        const task = await this.issues.findByRef(req.tenantId, req.refId);
-        if (!task || !task.isTask) return Result.fail('Task not found');
-        return Result.ok({
-          kind: FavouriteKind.Task,
-          refId: task.id.toString(),
-          title: task.title,
-          teamId: task.teamId,
+          kind: FavouriteKind.Issue,
+          refId: issue.id.toString(),
+          title: issue.title,
+          teamId: issue.teamId,
+          issueKind: issue.isBug ? 'bug' : 'task',
           createdAt,
         });
       }

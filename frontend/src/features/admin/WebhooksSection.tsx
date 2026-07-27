@@ -11,7 +11,7 @@ import {
   Combobox,
   Field,
   Input,
-  Spinner,
+  Skeleton,
   Switch,
 } from '@/components/ui';
 import { t } from '@/i18n';
@@ -194,8 +194,19 @@ export function WebhooksSection() {
       </div>
 
       {isLoading ? (
-        <div className="grid place-items-center rounded-xl border border-dashed p-10">
-          <Spinner />
+        <div className="space-y-4">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-start justify-between gap-4 rounded-xl border bg-card p-6"
+            >
+              <div className="flex flex-1 flex-col gap-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-3/4" />
+              </div>
+              <Skeleton className="h-6 w-11 shrink-0 rounded-full" />
+            </div>
+          ))}
         </div>
       ) : (
         WEBHOOK_PROVIDERS.map((provider) => {

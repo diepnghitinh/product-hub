@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { BarChart3, Gauge, LayoutGrid, Table2 } from 'lucide-react';
-import { Spinner } from '@/components/ui';
+import { BarChart3, CalendarDays, Gauge, LayoutGrid, Table2 } from 'lucide-react';
+import { BoardSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { BOARD_GUTTER, ViewTabs } from '@/components/IssueBoardLayout';
@@ -10,6 +10,7 @@ import { RoadmapCard } from '@/features/roadmaps/RoadmapBoardPage';
 import { RoadmapRiceChart } from '@/features/roadmaps/components/RoadmapRiceChart';
 import { RoadmapRiceTable } from '@/features/roadmaps/components/RoadmapRiceTable';
 import { RoadmapWorkflowView } from '@/features/roadmaps/components/RoadmapWorkflowView';
+import { RoadmapGantt } from '@/features/roadmaps/components/RoadmapGanttView';
 import { DEFAULT_ROADMAP_COLUMNS } from '@/types/enums';
 import type { RoadmapItem } from '@/types/dto';
 import { usePublicRoadmap } from './api';
@@ -18,13 +19,14 @@ import { PublicRoadmapItemDialog } from './PublicRoadmapItemDialog';
 
 const noop = () => {};
 
-type RoadmapView = 'board' | 'chart' | 'table' | 'workflow';
+type RoadmapView = 'board' | 'chart' | 'table' | 'workflow' | 'gantt';
 
 /**
  * A roadmap board shared read-only. Reuses the app's `KanbanBoard` + card, plus
  * the same chart/table/workflow views the authenticated board offers — just
- * without drag / add / edit affordances. Gantt is left out: it also needs the
- * roadmap's linked tasks, which the public payload doesn't carry.
+ * without drag / add / edit affordances. The Timeline is item-level only — it
+ * charts each committed ("Now") item as a bar; the internal timeline's per-task
+ * markers need the roadmap's linked tasks, which the public payload doesn't carry.
  */
 export function PublicRoadmapPage() {
   const { token } = useParams<{ token: string }>();
@@ -42,7 +44,9 @@ export function PublicRoadmapPage() {
         ? 'table'
         : viewParam === 'workflow'
           ? 'workflow'
-          : 'board';
+          : viewParam === 'gantt'
+            ? 'gantt'
+            : 'board';
   const setView = (v: RoadmapView) => {
     const next = new URLSearchParams(searchParams);
     if (v === 'board') next.delete('view');
@@ -53,9 +57,7 @@ export function PublicRoadmapPage() {
   if (isLoading) {
     return (
       <PublicShell>
-        <div className="grid flex-1 place-items-center">
-          <Spinner />
-        </div>
+        <BoardSkeleton />
       </PublicShell>
     );
   }
@@ -89,6 +91,7 @@ export function PublicRoadmapPage() {
             { value: 'chart', label: t('roadmaps.viewChart'), icon: <BarChart3 /> },
             { value: 'table', label: t('roadmaps.viewTable'), icon: <Table2 /> },
             { value: 'workflow', label: t('roadmaps.viewWorkflow'), icon: <Gauge /> },
+            { value: 'gantt', label: t('roadmaps.viewGantt'), icon: <CalendarDays /> },
           ],
         }}
       />
@@ -113,6 +116,12 @@ export function PublicRoadmapPage() {
             </div>
           ) : view === 'workflow' ? (
             <RoadmapWorkflowView items={items} />
+          ) : view === 'gantt' ? (
+            <RoadmapGantt
+              items={items}
+              columns={columns}
+              onOpenItem={(id) => setOpenItem(items.find((i) => i.id === id) ?? null)}
+            />
           ) : (
             <RoadmapRiceTable items={items} columns={columns} onOpen={(item) => setOpenItem(item)} />
           )}

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button, Select, Spinner } from '@/components/ui';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Button, Select } from '@/components/ui';
+import { CardGridSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { useIssues } from '@/features/issues/api';
 import { useTeams, useTeamStatuses } from '@/features/teams/api';
@@ -29,8 +30,7 @@ const ALL_TEAMS = 'all';
  * to merge — so bug teams are viewed one at a time.
  */
 export function MyTeamPage() {
-  const { canEditDelivery: canWrite, canManageDelivery } = useAuth();
-  const navigate = useNavigate();
+  const { canManageDelivery } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const { data: teams, isLoading: teamsLoading } = useTeams();
@@ -54,9 +54,6 @@ export function MyTeamPage() {
   // ALL_TEAMS has no single kind — it aggregates task teams, so read task columns.
   const activeIssueType = activeTeam?.issueType ?? TeamIssueType.TASK;
   const activeKind = activeIssueType === TeamIssueType.BUG ? IssueKind.BUG : IssueKind.TASK;
-  // A task is only meaningful on a task board (bugs are added on their own board);
-  // "All teams" is a task aggregate, so it can create too.
-  const canCreateHere = isAllTeams || activeTeam?.issueType === TeamIssueType.TASK;
 
   const setTeam = (value: string) => {
     const next = new URLSearchParams(searchParams);
@@ -76,15 +73,6 @@ export function MyTeamPage() {
     () => groupByPerson(issues, columns, t('myteam.unassigned')),
     [issues, columns],
   );
-
-  // Always carry the board's teamId so the draft opens in *this* team — the API
-  // otherwise files it under the default team.
-  const newTaskHref = () => {
-    const params = new URLSearchParams();
-    if (teamId) params.set('teamId', teamId);
-    const qs = params.toString();
-    return `/tasks/new${qs ? `?${qs}` : ''}`;
-  };
 
   // No teams at all — nothing to show a workload for.
   if (!teamsLoading && workloadTeams.length === 0) {
@@ -122,24 +110,14 @@ export function MyTeamPage() {
           </div>
         ) : undefined
       }
-      actions={
-        canWrite && canCreateHere ? (
-          <Button onClick={() => navigate(newTaskHref())}>+ {t('tasks.new')}</Button>
-        ) : undefined
-      }
     >
       {isLoading || teamsLoading ? (
-        <div className={cn('grid place-items-center rounded-xl border border-dashed p-8', BOARD_GUTTER)}>
-          <Spinner />
+        <div className={cn('pb-4 pt-1', BOARD_GUTTER)}>
+          <CardGridSkeleton />
         </div>
       ) : people.length === 0 ? (
         <div className="mx-4 rounded-xl border border-dashed p-8 text-center md:mx-8">
           <p className="text-muted-foreground">{t('myteam.noPeople')}</p>
-          {canWrite && canCreateHere && (
-            <Button size="sm" className="mt-3" onClick={() => navigate(newTaskHref())}>
-              {t('tasks.new')}
-            </Button>
-          )}
         </div>
       ) : (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-4 pt-1', BOARD_GUTTER)}>

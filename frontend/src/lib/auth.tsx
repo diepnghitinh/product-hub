@@ -31,6 +31,9 @@ interface AuthState {
     password: string,
   ) => Promise<void>;
   logout: () => void;
+  /** Replace the cached signed-in user — e.g. after a self-service change like a
+   *  new avatar — so the sidebar and profile reflect it without a reload. */
+  updateUser: (user: UserDto) => void;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -107,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        updateUser: setUser,
       }}
     >
       {children}

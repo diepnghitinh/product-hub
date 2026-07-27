@@ -1,18 +1,21 @@
 import { useRef } from 'react';
 import { Paperclip, X } from 'lucide-react';
-import { Spinner } from '@/components/ui';
+import { Spinner, useLightbox } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { isVideoUrl } from '@/features/uploads/useMediaAttachments';
 import type { UploadedMedia } from '@/features/uploads/api';
 
 /**
- * The media a posted comment carries — read-only. Images open full-size in a new
- * tab; short videos play inline. Type is inferred from the stored URL. Renders
- * nothing when the comment has no attachments.
+ * The media a posted comment carries — read-only. Images open in a lightbox
+ * (click one, then arrow through the rest); short videos play inline. Type is
+ * inferred from the stored URL. Renders nothing when the comment has no attachments.
  */
 export function CommentMedia({ urls, className }: { urls: string[]; className?: string }) {
+  const lightbox = useLightbox();
   if (!urls || urls.length === 0) return null;
+  // The gallery the lightbox arrows through — the comment's images, in order.
+  const gallery = urls.filter((u) => !isVideoUrl(u)).map((src) => ({ src }));
   return (
     <div className={cn('mt-2 flex flex-wrap gap-2', className)}>
       {urls.map((url, i) =>
@@ -24,16 +27,23 @@ export function CommentMedia({ urls, className }: { urls: string[]; className?: 
             className="max-h-56 w-auto max-w-full rounded-md border sm:max-w-[280px]"
           />
         ) : (
-          <a key={i} href={url} target="_blank" rel="noreferrer" className="block">
+          <button
+            key={i}
+            type="button"
+            aria-label={t('lightbox.title')}
+            onClick={() => lightbox.open(gallery, gallery.findIndex((g) => g.src === url))}
+            className="block rounded-md transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
             <img
               src={url}
               alt=""
               loading="lazy"
-              className="max-h-56 w-auto max-w-full rounded-md border object-cover sm:max-w-[280px]"
+              className="max-h-56 w-auto max-w-full cursor-zoom-in rounded-md border object-cover sm:max-w-[280px]"
             />
-          </a>
+          </button>
         ),
       )}
+      {lightbox.node}
     </div>
   );
 }

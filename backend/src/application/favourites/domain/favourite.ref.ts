@@ -9,18 +9,23 @@ import { FavouriteKind } from './favourite-kind.enum';
  *
  * Location fields say where the entity lives so the sidebar can build a link:
  * - `roadmapId` — set for `roadmap-item` (its board route + `?item=` deep-link).
- * - `teamId`    — set for a `bug`/`task` that lives on a team board.
+ * - `teamId`    — set for an `issue` that lives on a team board.
+ * - `issueKind` — set for an `issue`; says whether it's a bug or task so the
+ *   sidebar can route (/bugs vs /tasks) and pick the right icon. A denormalized
+ *   routing hint, in the same spirit as `teamId`/`roadmapId`.
  */
 export interface FavouriteRef {
   kind: FavouriteKind;
-  /** Id of the referenced entity (bug id, task id, or roadmap item id). */
+  /** Id of the referenced entity (issue id, or roadmap item id). */
   refId: string;
   /** Snapshot of the entity's title at pin time. */
   title: string;
   /** Owning roadmap id — set for roadmap items. */
   roadmapId?: string;
-  /** Owning team id — set for team-scoped bugs/tasks. */
+  /** Owning team id — set for team-scoped issues. */
   teamId?: string;
+  /** Concrete issue kind (bug/task) — set for `issue` favourites only. */
+  issueKind?: 'bug' | 'task';
   /** When the user pinned it. */
   createdAt: Date;
 }

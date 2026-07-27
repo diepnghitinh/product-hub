@@ -112,17 +112,17 @@ export class UpdateIssueDto {
   @IsString()
   parentId?: string;
 
-  @ApiPropertyOptional({ description: 'Linked roadmap (backlog) id (task)' })
+  @ApiPropertyOptional({ description: 'Linked roadmap (backlog) id (task or bug)' })
   @IsOptional()
   @IsString()
   roadmapId?: string;
 
-  @ApiPropertyOptional({ description: 'The linked backlog item id, empty string to unlink (task)' })
+  @ApiPropertyOptional({ description: 'The linked backlog item id, empty string to unlink (task or bug)' })
   @IsOptional()
   @IsString()
   roadmapItemId?: string;
 
-  @ApiPropertyOptional({ description: 'Human-readable label of the linked backlog item (task)' })
+  @ApiPropertyOptional({ description: 'Human-readable label of the linked backlog item (task or bug)' })
   @IsOptional()
   @IsString()
   roadmapItemLabel?: string;

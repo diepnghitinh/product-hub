@@ -5,8 +5,8 @@ export class CommentResponseDto {
   @ApiProperty()
   id: string;
 
-  @ApiProperty()
-  bugId: string;
+  @ApiProperty({ description: 'The issue (bug or task) this comment is on; empty for a roadmap-item comment' })
+  issueId: string;
 
   @ApiProperty({ description: 'Empty for a top-level comment; else the id of the comment it replies to' })
   parentId: string;

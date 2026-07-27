@@ -8,25 +8,30 @@ import { useUsers } from '@/features/users/api';
 import { useTeams, useTeamStatusesLookup } from '@/features/teams/api';
 import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
 import { IssuePeekDrawer, type IssuePeek } from '@/features/issues/IssuePeekDrawer';
-import { TaskStatus, TeamIssueType, taskStatusColor } from '@/types/enums';
+import { IssueKind, TaskStatus, TeamIssueType, taskStatusColor } from '@/types/enums';
 import {
-  useCreateTask,
-  useDeleteTask,
-  useSetTaskStatus,
-  useTasks,
-  useUpdateTask,
-  type CreateTaskInput,
-  type TaskQuery,
-} from '../api';
+  useCreateIssue,
+  useDeleteIssue,
+  useIssues,
+  useSetIssueStatus,
+  useUpdateIssue,
+  type CreateIssueInput,
+  type IssueQuery,
+} from '@/features/issues/api';
 import { TaskComposerCard } from './TaskComposerCard';
 
 export interface SubtaskSectionProps {
-  /** How to fetch the children — `{ roadmapItemId }` (a backlog item's tasks) or
-   *  `{ parentId }` (a task's sub-tasks). */
-  query: TaskQuery;
+  /** How to fetch the children — `{ roadmapItemId }` (a backlog item's linked
+   *  issues) or `{ parentId }` (a task's sub-tasks). Reads the unified `/issues`
+   *  collection, so a backlog item shows the **tasks and bugs** linked to it; the
+   *  sub-task query only ever matches tasks (bugs carry no `parentId`). */
+  query: IssueQuery;
   /** Fields merged into every created child — the link (and, for a backlog item,
    *  the project scope + denormalized label). */
-  createLink: Partial<CreateTaskInput>;
+  createLink: Partial<CreateIssueInput>;
+  /** The kind the composer creates (linked bugs still *show*, but new children
+   *  default to a task — a backlog item's deliverables, a task's sub-tasks). */
+  kind?: IssueKind;
   /** Teams offered in the composer; more than one grows a picker that also drives
    *  the status columns. */
   composerTeams: { id: string; name: string }[];
@@ -54,6 +59,7 @@ export interface SubtaskSectionProps {
 export function SubtaskSection({
   query,
   createLink,
+  kind = IssueKind.TASK,
   composerTeams,
   defaultTeamId,
   titlePlaceholder = t('subtasks.titlePlaceholder'),
@@ -66,8 +72,9 @@ export function SubtaskSection({
   const { data: usersData } = useUsers({ limit: 100 });
   const users = usersData?.items ?? [];
 
-  const { data, isLoading } = useTasks(query);
-  const tasks = data?.items ?? [];
+  // Spans both kinds: a backlog item lists its linked tasks *and* bugs.
+  const { data, isLoading } = useIssues(query);
+  const issues = data?.items ?? [];
 
   // Columns are per-team, and these children can span teams — resolve per row.
   const statusesFor = useTeamStatusesLookup();
@@ -75,17 +82,19 @@ export function SubtaskSection({
   const { data: teams } = useTeams();
   const teamById = new Map((teams ?? []).map((tm) => [tm.id, tm]));
 
-  const create = useCreateTask();
-  const update = useUpdateTask();
-  const setStatus = useSetTaskStatus();
-  const remove = useDeleteTask();
+  const create = useCreateIssue();
+  const update = useUpdateIssue();
+  const setStatus = useSetIssueStatus();
+  const remove = useDeleteIssue();
 
   const [adding, setAdding] = useState(false);
   // The child previewed in the right-side drawer (click a row to peek).
   const [peek, setPeek] = useState<IssuePeek | null>(null);
 
-  const done = tasks.filter((tk) => tk.status === TaskStatus.DONE).length;
-  const total = tasks.length;
+  // Rollup is task-centric (`TaskStatus.DONE`); a linked bug's own terminal
+  // status won't match, so it counts as not-done — acceptable for the nicety.
+  const done = issues.filter((tk) => tk.status === TaskStatus.DONE).length;
+  const total = issues.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
   return (
@@ -136,10 +145,10 @@ export function SubtaskSection({
           <div className="flex justify-center py-3">
             <Spinner />
           </div>
-        ) : tasks.length === 0 && !adding ? (
+        ) : issues.length === 0 && !adding ? (
           <p className="py-2 text-sm text-muted-foreground">{t('subtasks.empty')}</p>
         ) : (
-          tasks.map((tk) => {
+          issues.map((tk) => {
             const mine = !!user && tk.assigneeId === user.id;
             const team = teamById.get(tk.teamId);
             // A linked child is a bug or a task depending on its team; its title
@@ -278,7 +287,8 @@ export function SubtaskSection({
           onCancel={() => setAdding(false)}
           onCreate={(input, finish) =>
             create.mutate(
-              { ...input, ...createLink },
+              // `kind` last so `createLink` can't blank it (new children default to a task).
+              { ...input, ...createLink, kind },
               // Keep the card open with its property picks so you can batch several.
               { onSuccess: () => finish() },
             )

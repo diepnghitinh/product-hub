@@ -3,13 +3,15 @@ import { apiDelete, apiGet, apiPost } from '@/lib/api';
 import type { IssueRelationDto } from '@/types/dto';
 import type { IssueKind, RelationType } from '@/types/enums';
 
-const key = (issueType: IssueKind, issueId: string) => ['issue-links', issueType, issueId];
+// Keyed by issue id alone — an issue's relations span both kinds (a task can be
+// blocked by a bug), so the list is not scoped to a kind. Ids are globally unique.
+const key = (issueId: string) => ['issue-links', issueId];
 
-/** An issue's relations, resolved to the linked issue (title/shortId/status). */
-export function useIssueRelations(issueType: IssueKind, issueId: string | undefined) {
+/** An issue's relations, resolved to the linked issue (kind/title/shortId/status). */
+export function useIssueRelations(issueId: string | undefined) {
   return useQuery({
-    queryKey: key(issueType, issueId ?? ''),
-    queryFn: () => apiGet<IssueRelationDto[]>('/issue-links', { issueType, issueId }),
+    queryKey: key(issueId ?? ''),
+    queryFn: () => apiGet<IssueRelationDto[]>('/issue-links', { issueId }),
     enabled: !!issueId,
   });
 }
@@ -17,21 +19,23 @@ export function useIssueRelations(issueType: IssueKind, issueId: string | undefi
 export function useCreateIssueRelation() {
   const qc = useQueryClient();
   return useMutation({
+    // `issueType` is the source end's kind — stored on the link; the target may be
+    // a different kind. The picker chooses the target freely across kinds.
     mutationFn: (input: {
       issueType: IssueKind;
       sourceId: string;
       targetId: string;
       relationType: RelationType;
     }) => apiPost<IssueRelationDto[]>('/issue-links', input),
-    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: key(vars.issueType, vars.sourceId) }),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: key(vars.sourceId) }),
   });
 }
 
 export function useDeleteIssueRelation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (args: { id: string; issueType: IssueKind; issueId: string }) =>
+    mutationFn: (args: { id: string; issueId: string }) =>
       apiDelete<void>(`/issue-links/${args.id}`),
-    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: key(vars.issueType, vars.issueId) }),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: key(vars.issueId) }),
   });
 }

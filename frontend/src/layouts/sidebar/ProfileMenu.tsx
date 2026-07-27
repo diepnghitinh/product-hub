@@ -5,8 +5,8 @@ import { LogOut, Moon, Settings, Sun, User, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useTheme, type Theme } from '@/lib/theme';
 import { Separator } from '@/components/ui';
+import { UserAvatar } from '@/components/UserAvatar';
 import { cn } from '@/lib/utils';
-import { initials } from '@/lib/format';
 import { ROLE_LABEL } from '@/types/enums';
 import { t } from '@/i18n';
 
@@ -70,12 +70,13 @@ export function ProfileMenu({
               collapsed && 'md:justify-center',
             )}
           >
-            <span
-              className="grid size-7 shrink-0 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground"
-              aria-hidden
-            >
-              {initials(user.name, user.email)}
-            </span>
+            <UserAvatar
+              name={user.name}
+              email={user.email}
+              src={user.avatarUrl}
+              className="size-7"
+              fallbackClassName="text-[10px]"
+            />
             <span className={cn('flex min-w-0 flex-col leading-tight', collapsed && 'md:hidden')}>
               <span className="truncate text-[13px] font-medium text-foreground">{user.name}</span>
               <span className="truncate text-[11px] text-muted-foreground">
@@ -94,12 +95,13 @@ export function ProfileMenu({
           >
             {/* Identity — avatar + name + role, echoing the trigger. */}
             <div className="flex items-center gap-3 p-3">
-              <span
-                className="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-                aria-hidden
-              >
-                {initials(user.name, user.email)}
-              </span>
+              <UserAvatar
+                name={user.name}
+                email={user.email}
+                src={user.avatarUrl}
+                className="size-9"
+                fallbackClassName="text-xs"
+              />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>
                 <p className="truncate text-xs text-muted-foreground">{ROLE_LABEL[user.role]}</p>

@@ -8,7 +8,6 @@ import { IssueLinkResponseDto } from '../dtos/issue-link.response.dto';
 
 export interface GetIssueLinksRequest {
   tenantId: string;
-  issueType: IssueKind;
   issueId: string;
 }
 
@@ -30,7 +29,7 @@ export class GetIssueLinksUseCase
   ) {}
 
   async execute(req: GetIssueLinksRequest): Promise<Result<IssueLinkResponseDto[]>> {
-    const rows = await this.links.findForIssue(req.tenantId, req.issueType, req.issueId);
+    const rows = await this.links.findForIssue(req.tenantId, req.issueId);
     const out: IssueLinkResponseDto[] = [];
     for (const row of rows) {
       const outgoing = row.sourceId === req.issueId;
@@ -41,7 +40,7 @@ export class GetIssueLinksUseCase
       out.push({
         id: row.id,
         relationType,
-        issueType: req.issueType,
+        targetKind: issue.kind, // the other end's real kind — may differ from the caller's
         targetId: otherId,
         targetShortId: issue.shortId,
         targetTitle: issue.title,
@@ -53,8 +52,14 @@ export class GetIssueLinksUseCase
 
   private async resolve(
     id: string,
-  ): Promise<{ shortId: string; title: string; status: string } | null> {
+  ): Promise<{ kind: IssueKind; shortId: string; title: string; status: string } | null> {
     const issue = await this.issues.findById(id);
-    return issue ? { shortId: issue.shortId, title: issue.title, status: issue.status } : null;
+    if (!issue) return null;
+    return {
+      kind: issue.isBug ? IssueKind.Bug : IssueKind.Task,
+      shortId: issue.shortId,
+      title: issue.title,
+      status: issue.status,
+    };
   }
 }

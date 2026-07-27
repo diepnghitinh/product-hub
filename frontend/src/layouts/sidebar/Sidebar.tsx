@@ -824,20 +824,19 @@ function TeamNavItem({
   );
 }
 
-/** Icon per favourite kind — reuses the same glyphs as the nav/boards. */
-const FAV_ICON: Record<FavouriteKind, IconName> = {
-  [FavouriteKind.BUG]: 'bug',
-  [FavouriteKind.TASK]: 'tasks',
-  [FavouriteKind.ROADMAP_ITEM]: 'roadmap',
-};
+/** Icon for a pinned entity — reuses the same glyphs as the nav/boards. An issue
+ *  shows its concrete kind (bug vs task) via `issueKind`. */
+function favouriteIcon(fav: FavouriteDto): IconName {
+  if (fav.kind === FavouriteKind.ROADMAP_ITEM) return 'roadmap';
+  return fav.issueKind === 'bug' ? 'bug' : 'tasks';
+}
 
-/** Where a pinned entity opens. A roadmap item deep-links to its board + dialog. */
+/** Where a pinned entity opens. A roadmap item deep-links to its board + dialog;
+ *  an issue routes to its bug/task detail per the snapshotted `issueKind`. */
 function favouriteHref(fav: FavouriteDto): string {
   switch (fav.kind) {
-    case FavouriteKind.BUG:
-      return `/bugs/${fav.refId}`;
-    case FavouriteKind.TASK:
-      return `/tasks/${fav.refId}`;
+    case FavouriteKind.ISSUE:
+      return fav.issueKind === 'bug' ? `/bugs/${fav.refId}` : `/tasks/${fav.refId}`;
     case FavouriteKind.ROADMAP_ITEM:
       return fav.roadmapId ? `/roadmaps/${fav.roadmapId}/items/${fav.refId}` : '/roadmaps';
     default:
@@ -878,7 +877,7 @@ function FavouriteNavItem({
         }
       >
         <span className="grid size-5 shrink-0 place-items-center text-muted-foreground">
-          <Icon name={FAV_ICON[fav.kind]} size={18} />
+          <Icon name={favouriteIcon(fav)} size={18} />
         </span>
       </NavLink>
     );
@@ -887,7 +886,7 @@ function FavouriteNavItem({
   return (
     <div className={cn(ROW, 'group/fav')}>
       <span className="grid size-5 shrink-0 place-items-center text-muted-foreground transition-colors group-hover/fav:text-sidebar-accent-foreground">
-        <Icon name={FAV_ICON[fav.kind]} size={18} />
+        <Icon name={favouriteIcon(fav)} size={18} />
       </span>
       <Link to={to} onClick={onNavigate} className="min-w-0 flex-1 truncate" title={label}>
         {label}

@@ -66,6 +66,10 @@ export interface CreateIssueInput {
    *  there). A concrete current/upcoming cycle id of the issue's team. */
   cycleId?: string;
   projectId?: string;
+  // ── roadmap link (either kind — a task delivers an item, a bug blocks it) ────
+  roadmapId?: string;
+  roadmapItemId?: string;
+  roadmapItemLabel?: string;
   // ── task-only ──────────────────────────────────────────────────────────────
   /** @deprecated Legacy alias of `endDate`; prefer `endDate`. */
   dueDate?: string;
@@ -73,9 +77,6 @@ export interface CreateIssueInput {
   estimate?: number;
   /** Set to create this task as a sub-task of the given parent. */
   parentId?: string;
-  roadmapId?: string;
-  roadmapItemId?: string;
-  roadmapItemLabel?: string;
   /** Create on the caller's *private personal board* (owned by them, in no team). */
   personal?: boolean;
   // ── bug-only ───────────────────────────────────────────────────────────────
@@ -102,15 +103,16 @@ export interface UpdateIssueInput {
   labelKeys?: string[];
   /** Replace the issue's custom-field values, keyed by field id. */
   customFields?: Record<string, CustomFieldValue>;
+  // ── roadmap link (either kind) ───────────────────────────────────────────────
+  roadmapId?: string;
+  roadmapItemId?: string;
+  roadmapItemLabel?: string;
   // ── task-only ──────────────────────────────────────────────────────────────
   /** @deprecated Legacy alias of `endDate`; prefer `endDate`. */
   dueDate?: string;
   estimate?: number;
   /** Set/clear the parent task (empty string detaches this sub-task). */
   parentId?: string;
-  roadmapId?: string;
-  roadmapItemId?: string;
-  roadmapItemLabel?: string;
   // ── bug-only ───────────────────────────────────────────────────────────────
   severity?: BugSeverity;
   type?: string;

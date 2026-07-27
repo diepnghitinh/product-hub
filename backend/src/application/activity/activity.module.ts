@@ -4,14 +4,10 @@ import { InfrastructureIssuesModule } from '@infrastructure/issues/issues.module
 import { InfrastructureRoadmapsModule } from '@infrastructure/roadmaps/roadmaps.module';
 import { InfrastructureWebhooksModule } from '@infrastructure/webhooks/webhooks.module';
 import {
-  GetCommentsUseCase,
-  CreateCommentUseCase,
-  UpdateCommentUseCase,
-  DeleteCommentUseCase,
-  GetTaskCommentsUseCase,
-  CreateTaskCommentUseCase,
-  UpdateTaskCommentUseCase,
-  DeleteTaskCommentUseCase,
+  GetIssueCommentsUseCase,
+  CreateIssueCommentUseCase,
+  UpdateIssueCommentUseCase,
+  DeleteIssueCommentUseCase,
   GetRoadmapItemCommentsUseCase,
   CreateRoadmapItemCommentUseCase,
   UpdateRoadmapItemCommentUseCase,
@@ -19,14 +15,10 @@ import {
 } from './use-cases';
 
 const useCases = [
-  GetCommentsUseCase,
-  CreateCommentUseCase,
-  UpdateCommentUseCase,
-  DeleteCommentUseCase,
-  GetTaskCommentsUseCase,
-  CreateTaskCommentUseCase,
-  UpdateTaskCommentUseCase,
-  DeleteTaskCommentUseCase,
+  GetIssueCommentsUseCase,
+  CreateIssueCommentUseCase,
+  UpdateIssueCommentUseCase,
+  DeleteIssueCommentUseCase,
   GetRoadmapItemCommentsUseCase,
   CreateRoadmapItemCommentUseCase,
   UpdateRoadmapItemCommentUseCase,

@@ -11,8 +11,8 @@ import {
   SymbolPicker,
   Input,
   Select,
-  Spinner,
 } from '@/components/ui';
+import { RowsSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import {
@@ -137,9 +137,7 @@ export function TeamsSection() {
           </div>
         )}
         {isLoading ? (
-          <div className="grid place-items-center rounded-xl border border-dashed p-8">
-            <Spinner />
-          </div>
+          <RowsSkeleton />
         ) : (
           <div className="divide-y rounded-xl border">
             {(teams ?? []).map((team) => (

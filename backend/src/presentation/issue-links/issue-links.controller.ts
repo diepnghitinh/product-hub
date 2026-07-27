@@ -30,14 +30,13 @@ export class IssueLinksController {
   ): Promise<IssueLinkResponseDto[]> {
     const result = await this.getLinks.execute({
       tenantId: auth.tenantId,
-      issueType: query.issueType,
       issueId: query.issueId,
     });
     return result.getValue();
   }
 
   @Post()
-  @ApiOperation({ summary: "Link two same-type issues; returns the source issue's relations" })
+  @ApiOperation({ summary: "Link two issues (task↔bug allowed); returns the source issue's relations" })
   async create(
     @AuthUser() auth: JwtPayload,
     @Body() dto: CreateIssueLinkDto,
@@ -53,7 +52,6 @@ export class IssueLinksController {
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     const list = await this.getLinks.execute({
       tenantId: auth.tenantId,
-      issueType: dto.issueType,
       issueId: dto.sourceId,
     });
     return list.getValue();

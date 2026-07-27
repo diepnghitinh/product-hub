@@ -2,23 +2,26 @@ import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { Button, Dialog, Input, Spinner } from '@/components/ui';
 import { t } from '@/i18n';
-import { taskStatusColor, taskStatusLabel } from '@/types/enums';
-import { useTasks, useUpdateTask } from '../api';
+import { IssueKind, taskStatusColor, taskStatusLabel } from '@/types/enums';
+import { useIssues, useUpdateIssue } from '@/features/issues/api';
 
 interface PickTaskDialogProps {
   open: boolean;
   onClose: () => void;
-  /** The backlog item (roadmap item) the picked task gets linked to. */
+  /** The backlog item (roadmap item) the picked issue gets linked to. */
   roadmapId: string;
   projectId: string;
   itemId: string;
-  /** Denormalized label stored on the task, e.g. "Now · Passkey login". */
+  /** Denormalized label stored on the issue, e.g. "Now · Passkey login". */
   itemLabel: string;
 }
 
 /**
- * Pick an existing task and link it to a backlog item. Search runs server-side
- * across task name and task id, so a pasted id resolves straight to its task.
+ * Pick an existing **task or bug** and link it to a backlog item. Reads the
+ * unified `/issues` collection, so both kinds are candidates (a bug can block a
+ * roadmap item just as a task delivers it). Search runs server-side across name
+ * and id, so a pasted TSK-5 / BUG-12 resolves straight to it; bug rows get a
+ * badge so the two kinds read apart.
  */
 export function PickTaskDialog({
   open,
@@ -37,12 +40,12 @@ export function PickTaskDialog({
     return () => clearTimeout(id);
   }, [query]);
 
-  const { data, isLoading } = useTasks(search ? { search } : undefined);
-  const link = useUpdateTask();
+  const { data, isLoading } = useIssues(search ? { search } : undefined);
+  const link = useUpdateIssue();
 
-  // Tasks already sitting on this item aren't pickable.
-  const tasks = useMemo(
-    () => (data?.items ?? []).filter((tk) => tk.roadmapItemId !== itemId),
+  // Issues already sitting on this item aren't pickable.
+  const issues = useMemo(
+    () => (data?.items ?? []).filter((iss) => iss.roadmapItemId !== itemId),
     [data, itemId],
   );
 
@@ -87,41 +90,48 @@ export function PickTaskDialog({
             <div className="flex justify-center py-8">
               <Spinner />
             </div>
-          ) : tasks.length === 0 ? (
+          ) : issues.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               {search ? t('tasks.pickEmpty') : t('tasks.pickNone')}
             </p>
           ) : (
             <ul className="flex flex-col gap-1.5">
-              {tasks.map((tk) => (
-                <li key={tk.id}>
+              {issues.map((iss) => (
+                <li key={iss.id}>
                   <button
                     type="button"
-                    onClick={() => pick(tk.id)}
+                    onClick={() => pick(iss.id)}
                     disabled={link.isPending}
                     className="flex w-full items-center gap-2.5 rounded-md border border-border bg-background px-2.5 py-2 text-left transition-colors hover:border-primary hover:bg-accent disabled:opacity-50"
                   >
                     <span
                       className="size-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: taskStatusColor(tk.status) }}
+                      style={{ backgroundColor: taskStatusColor(iss.status) }}
                       aria-hidden
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm">{tk.title}</span>
+                      <span className="flex items-center gap-1.5">
+                        {iss.kind === IssueKind.BUG && (
+                          <span className="shrink-0 rounded border border-border bg-muted/50 px-1 py-px text-[10px] font-medium uppercase leading-none tracking-wide text-muted-foreground">
+                            {t('tasks.pickKindBug')}
+                          </span>
+                        )}
+                        <span className="min-w-0 truncate text-sm">{iss.title}</span>
+                      </span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {tk.roadmapItemLabel
-                          ? t('tasks.pickLinkedTo').replace('{item}', tk.roadmapItemLabel)
+                        {iss.roadmapItemLabel
+                          ? t('tasks.pickLinkedTo').replace('{item}', iss.roadmapItemLabel)
                           : t('tasks.pickUnlinked')}
                       </span>
                     </span>
                     <span
                       className="shrink-0 font-mono text-[11px] text-muted-foreground"
-                      title={tk.id}
+                      title={iss.shortId || iss.id}
                     >
-                      {tk.id.slice(0, 8)}
+                      {iss.shortId || iss.id.slice(0, 8)}
                     </span>
                     <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
-                      {taskStatusLabel(tk.status)}
+                      {taskStatusLabel(iss.status)}
                     </span>
                   </button>
                 </li>

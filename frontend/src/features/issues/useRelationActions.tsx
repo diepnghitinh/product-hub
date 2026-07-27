@@ -18,7 +18,8 @@ const ICON: Record<RelationType, typeof Flag> = {
 /**
  * The "Mark as ▸" submenu item + its issue picker, for a task/bug detail page.
  * Returns a `MenuItem` to drop into the ⋯ menu and the picker node to render.
- * Linking is same-type — a task links tasks, a bug links bugs.
+ * Cross-type: the picker spans both kinds (a bug can block a task), so `subject`
+ * is only the *source* end's kind, stored on the link — not a filter on the target.
  */
 export function useRelationActions(subject: IssueKind, issueId: string) {
   const [type, setType] = useState<RelationType | null>(null);
@@ -40,7 +41,6 @@ export function useRelationActions(subject: IssueKind, issueId: string) {
   const picker: ReactNode = (
     <PickIssueDialog
       open={type !== null}
-      subject={subject}
       excludeIds={[issueId]}
       title={type ? RELATION_TYPE_LABEL[type] : ''}
       pending={create.isPending}

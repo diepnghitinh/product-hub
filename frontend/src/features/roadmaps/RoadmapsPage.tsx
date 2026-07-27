@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Pencil } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Button, Dialog, Field, Input, Spinner, Textarea } from '@/components/ui';
+import { Button, Dialog, Field, Input, Textarea } from '@/components/ui';
+import { CardGridSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { BackLink } from '@/components/BackLink';
@@ -82,9 +83,7 @@ export function RoadmapsPage() {
       />
 
       {isLoading ? (
-        <div className="grid place-items-center rounded-xl border border-dashed p-8">
-          <Spinner />
-        </div>
+        <CardGridSkeleton />
       ) : roadmaps.length === 0 ? (
         <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
           {t('roadmaps.empty')}

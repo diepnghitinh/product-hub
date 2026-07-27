@@ -20,6 +20,7 @@ export class CommentRepository
     const result = CommentEntity.create(
       {
         tenantId: doc.tenantId,
+        issueId: doc.issueId,
         bugId: doc.bugId,
         taskId: doc.taskId,
         roadmapItemId: doc.roadmapItemId,
@@ -42,6 +43,7 @@ export class CommentRepository
     return {
       _id: comment.id.toString(),
       tenantId: comment.tenantId,
+      issueId: comment.issueId,
       bugId: comment.bugId,
       taskId: comment.taskId,
       roadmapItemId: comment.roadmapItemId,
@@ -56,18 +58,9 @@ export class CommentRepository
     };
   }
 
-  async findByBug(tenantId: string, bugId: string): Promise<CommentEntity[]> {
+  async findByIssue(tenantId: string, issueId: string): Promise<CommentEntity[]> {
     const docs = await this.model
-      .find({ tenantId, bugId })
-      .sort({ createdAt: 1 })
-      .lean<CommentDoc[]>()
-      .exec();
-    return docs.map((d) => this.toDomain(d));
-  }
-
-  async findByTask(tenantId: string, taskId: string): Promise<CommentEntity[]> {
-    const docs = await this.model
-      .find({ tenantId, taskId })
+      .find({ tenantId, issueId })
       .sort({ createdAt: 1 })
       .lean<CommentDoc[]>()
       .exec();

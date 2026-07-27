@@ -69,3 +69,15 @@ export function useChangeMyPassword() {
       apiPut<{ ok: true }>('/users/me/password', input),
   });
 }
+
+/**
+ * The current user sets or clears their own avatar. Pass a URL (from `uploadMedia`)
+ * to set it, or `null` to remove it. Returns the updated user so the caller can
+ * push it into the auth context (`updateUser`) — the sidebar + profile update at once.
+ */
+export function useUpdateMyAvatar() {
+  return useMutation({
+    mutationFn: (avatarUrl: string | null) =>
+      apiPut<UserDto>('/users/me/avatar', { avatarUrl }),
+  });
+}

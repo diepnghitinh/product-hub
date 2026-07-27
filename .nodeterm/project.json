@@ -1,33 +1,32 @@
 {
   "version": 1,
-  "rev": 334,
-  "savedAt": "2026-07-26T16:39:33.326Z",
+  "rev": 371,
+  "savedAt": "2026-07-27T12:51:18.474Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 575.5664461958986,
-    "y": 2592.0602048716005,
-    "zoom": 1.15
+    "x": 97.57936934903569,
+    "y": 3454.2175798674903,
+    "zoom": 1.4470585144658468
   },
   "nodes": [
     {
-      "id": "term-mrxoj3ai-3",
+      "id": "term-ms3827z0-1",
       "kind": "terminal",
       "position": {
-        "x": -131.86212712686842,
-        "y": -2359.7839672117184
+        "x": 174.02273817806753,
+        "y": -2315.385796586398
       },
       "size": {
-        "width": 701,
-        "height": 619
+        "width": 600,
+        "height": 400
       },
-      "title": "Add property tooltip on hover",
+      "title": "Thêm goal description cho cycle",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,
       "tags": [],
-      "collapsed": false,
       "cwd": ".",
       "agentId": "claude"
     }

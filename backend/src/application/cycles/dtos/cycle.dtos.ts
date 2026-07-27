@@ -1,9 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, Matches, Max, Min, ValidateIf } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 import {
   CYCLE_COOLDOWN_WEEKS_MAX,
   CYCLE_COOLDOWN_WEEKS_MIN,
+  CYCLE_DESCRIPTION_MAX,
   CYCLE_LENGTH_WEEKS_MAX,
   CYCLE_LENGTH_WEEKS_MIN,
   CycleStatus,
@@ -64,6 +75,22 @@ export class UpdateTeamCycleConfigDto {
   cycleAutoRollover?: boolean;
 }
 
+/**
+ * Edit a single cycle's goal/notes. `description` must be present (so intent is
+ * always explicit) — a string sets it, `null` clears it. Plain text only.
+ */
+export class UpdateCycleDto {
+  @ApiProperty({
+    nullable: true,
+    maxLength: CYCLE_DESCRIPTION_MAX,
+    description: "The cycle's goal / notes (plain text); null or empty clears it",
+  })
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(CYCLE_DESCRIPTION_MAX)
+  description!: string | null;
+}
+
 /** Flat cycle shape. Scope/completed are live rollups while upcoming/active and
  *  the frozen history once completed. */
 export class CycleResponseDto {
@@ -84,6 +111,12 @@ export class CycleResponseDto {
 
   @ApiProperty({ description: 'ISO YYYY-MM-DD, inclusive' })
   endDate: string;
+
+  @ApiProperty({
+    nullable: true,
+    description: "The cycle's goal / notes (plain text); null when unset. Lost on a rhythm rebuild.",
+  })
+  description: string | null;
 
   @ApiProperty({ enum: CycleStatus, description: 'Derived from the dates on read' })
   status: CycleStatus;

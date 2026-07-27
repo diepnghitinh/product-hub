@@ -6,12 +6,15 @@ import { useFavouriteToggle } from './api';
 
 interface FavouriteButtonProps {
   kind: FavouriteKind;
-  /** Canonical id of the entity (bug/task uuid, or roadmap item id). */
+  /** Canonical id of the entity (issue uuid, or roadmap item id). */
   refId: string;
   /** Entity title — seeds the optimistic sidebar row. */
   title: string;
   /** Required for roadmap items (which board the item lives in). */
   roadmapId?: string;
+  /** Concrete issue kind (bug/task) — for `issue` favourites; keeps the optimistic
+   *  sidebar icon/link correct before the server echoes. */
+  issueKind?: 'bug' | 'task';
   /** Star glyph size in px. */
   size?: number;
   /** Extra classes on the button box (e.g. to match a neighbouring control). */
@@ -29,10 +32,15 @@ export function FavouriteButton({
   refId,
   title,
   roadmapId,
+  issueKind,
   size = 18,
   className,
 }: FavouriteButtonProps) {
-  const { active, toggle, isPending } = useFavouriteToggle(kind, refId, { roadmapId, title });
+  const { active, toggle, isPending } = useFavouriteToggle(kind, refId, {
+    roadmapId,
+    issueKind,
+    title,
+  });
   const label = active ? t('fav.remove') : t('fav.add');
   return (
     <button

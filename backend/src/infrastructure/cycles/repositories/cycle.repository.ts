@@ -19,6 +19,7 @@ export class CycleRepository implements ICycleRepository {
         number: doc.number,
         startDate: doc.startDate,
         endDate: doc.endDate,
+        description: doc.description ?? null,
         scopeCount: doc.scopeCount,
         scopePoints: doc.scopePoints,
         completedCount: doc.completedCount,
@@ -57,6 +58,7 @@ export class CycleRepository implements ICycleRepository {
         number: cycle.number,
         startDate: cycle.startDate,
         endDate: cycle.endDate,
+        description: cycle.description,
         scopeCount: cycle.scopeCount,
         scopePoints: cycle.scopePoints,
         completedCount: cycle.completedCount,
@@ -92,6 +94,15 @@ export class CycleRepository implements ICycleRepository {
       )
       .exec();
     return (res.modifiedCount ?? 0) > 0;
+  }
+
+  async setDescription(tenantId: string, id: string, description: string | null): Promise<boolean> {
+    // A plain field write — no first-writer race like closeCycle, so it just
+    // matches on (id, tenant). `updatedAt` rides the schema's timestamps.
+    const res = await this.model
+      .updateOne({ _id: id, tenantId }, { $set: { description } })
+      .exec();
+    return (res.matchedCount ?? 0) > 0;
   }
 
   async deleteUpcoming(tenantId: string, teamId: string, today: string): Promise<string[]> {

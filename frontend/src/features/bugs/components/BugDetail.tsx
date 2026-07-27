@@ -17,9 +17,9 @@ import {
   Input,
   MultiSelect,
   Select,
-  Spinner,
   formatDateRange,
 } from '@/components/ui';
+import { DetailSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import {
   BUG_SEVERITIES,
@@ -84,11 +84,7 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header', dense = fal
   const team = teams?.find((tm) => tm.id === bug?.teamId);
 
   if (isLoading) {
-    return (
-      <div className="grid place-items-center rounded-xl border border-dashed p-8">
-        <Spinner />
-      </div>
-    );
+    return <DetailSkeleton />;
   }
   if (!bug) {
     return (
@@ -111,7 +107,7 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header', dense = fal
       dense={dense}
       subject="bug"
       issueId={bug.id}
-      favourite={{ kind: FavouriteKind.BUG, refId: bug.id }}
+      favourite={{ kind: FavouriteKind.ISSUE, refId: bug.id }}
       shortId={bug.shortId}
       title={bug.title}
       titlePlaceholder={t('bugs.title2')}
@@ -297,7 +293,7 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header', dense = fal
             )}
           </PropSection>
 
-          <IssueRelations subject={IssueKind.BUG} issueId={bug.id} canWrite={canWrite} />
+          <IssueRelations issueId={bug.id} canWrite={canWrite} />
           {picker}
         </>
       }

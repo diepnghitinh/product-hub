@@ -26,13 +26,9 @@ export class IssueLinkRepository implements IIssueLinkRepository {
     };
   }
 
-  async findForIssue(
-    tenantId: string,
-    issueType: IssueKind,
-    issueId: string,
-  ): Promise<IssueLinkRecord[]> {
+  async findForIssue(tenantId: string, issueId: string): Promise<IssueLinkRecord[]> {
     const docs = await this.model
-      .find({ tenantId, issueType, $or: [{ sourceId: issueId }, { targetId: issueId }] })
+      .find({ tenantId, $or: [{ sourceId: issueId }, { targetId: issueId }] })
       .sort({ createdAt: 1 })
       .lean<IssueLinkDoc[]>()
       .exec();

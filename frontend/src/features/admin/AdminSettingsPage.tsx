@@ -28,10 +28,10 @@ import {
   Input,
   SaveButton,
   Select,
-  Spinner,
   Switch,
   TagInput,
 } from '@/components/ui';
+import { RowsSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { timeAgo } from '@/lib/format';
@@ -270,9 +270,7 @@ function StatusColumnsEditor({
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="grid place-items-center rounded-xl border border-dashed p-8">
-            <Spinner />
-          </div>
+          <RowsSkeleton />
         ) : (
           <div className="divide-y rounded-xl border">
             {rows.map((r, i) => (
@@ -796,9 +794,7 @@ function ApiKeysSection() {
         </div>
 
         {isLoading ? (
-          <div className="grid place-items-center rounded-xl border border-dashed p-8">
-            <Spinner />
-          </div>
+          <RowsSkeleton />
         ) : keys.length === 0 ? (
           <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
             {t('settings.noKeys')}

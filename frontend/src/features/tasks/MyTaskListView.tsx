@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Checkbox, Spinner } from '@/components/ui';
+import { Badge, Checkbox } from '@/components/ui';
+import { ListSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -66,9 +67,7 @@ export function MyTaskListView({ mode }: { mode: 'today' | 'personal' }) {
     >
       <div className={cn('min-h-0 flex-1 overflow-y-auto py-4 md:py-6', BOARD_GUTTER)}>
         {isLoading ? (
-          <div className="grid place-items-center rounded-xl border border-dashed p-8">
-            <Spinner />
-          </div>
+          <ListSkeleton />
         ) : empty ? (
           <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
             {isToday ? t('tasks.noneToday') : t('tasks.none')}

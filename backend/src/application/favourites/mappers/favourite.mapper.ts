@@ -9,6 +9,7 @@ export class FavouriteMapper {
       title: ref.title,
       roadmapId: ref.roadmapId,
       teamId: ref.teamId,
+      issueKind: ref.issueKind,
       createdAt: ref.createdAt,
     };
   }

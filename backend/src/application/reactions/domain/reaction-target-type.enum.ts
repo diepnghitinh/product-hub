@@ -3,7 +3,7 @@
  * stored/serialized form and are mirrored by the frontend `ReactionTargetType`.
  */
 export enum ReactionTargetType {
-  Bug = 'bug',
-  Task = 'task',
+  /** A bug or task — both are issues, keyed by the issue's shared id. */
+  Issue = 'issue',
   RoadmapItem = 'roadmap-item',
 }

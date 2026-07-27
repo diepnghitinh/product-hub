@@ -4,6 +4,7 @@
  */
 export enum FavouriteKind {
   RoadmapItem = 'roadmap-item',
-  Bug = 'bug',
-  Task = 'task',
+  /** A bug or task — both are issues. The concrete kind (bug/task) is kept in
+   *  `FavouriteRef.issueKind` for routing + the sidebar icon. */
+  Issue = 'issue',
 }

@@ -20,6 +20,7 @@ import {
   GetUsersUseCase,
   GetUserUseCase,
   UpdateUserUseCase,
+  UpdateMyAvatarUseCase,
   DeleteUserUseCase,
   ChangePasswordUseCase,
   ResetUserPasswordUseCase,
@@ -31,6 +32,7 @@ import { UpdateUserDto } from '@application/users/dtos/update-user.dto';
 import { QueryUserDto } from '@application/users/dtos/query-user.dto';
 import { ChangePasswordDto } from '@application/users/dtos/change-password.dto';
 import { ResetPasswordDto } from '@application/users/dtos/reset-password.dto';
+import { UpdateAvatarDto } from '@application/users/dtos/update-avatar.dto';
 import { ReplacePersonalStatusesDto } from '@application/users/dtos/personal-statuses.dto';
 import { UserResponseDto } from '@application/users/dtos/user.response.dto';
 import { TaskStatusConfig } from '@application/tasks/domain/enums/task.enums';
@@ -45,6 +47,7 @@ export class UsersController {
     private readonly getUsers: GetUsersUseCase,
     private readonly getUser: GetUserUseCase,
     private readonly updateUser: UpdateUserUseCase,
+    private readonly updateMyAvatar: UpdateMyAvatarUseCase,
     private readonly deleteUser: DeleteUserUseCase,
     private readonly changePassword: ChangePasswordUseCase,
     private readonly resetUserPassword: ResetUserPasswordUseCase,
@@ -62,6 +65,23 @@ export class UsersController {
     const result = await this.changePassword.execute({ userId: auth.userId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return { ok: true };
+  }
+
+  // Self-service avatar. The image is compressed + uploaded to cloud storage on
+  // the client first (`/uploads`); this only stores the resulting URL. Reads the
+  // owner from the token, so a user can only change their own.
+  @Put('me/avatar')
+  @ApiOperation({ summary: 'Set or remove your avatar' })
+  async putMyAvatar(
+    @AuthUser() auth: JwtPayload,
+    @Body() dto: UpdateAvatarDto,
+  ): Promise<UserResponseDto> {
+    const result = await this.updateMyAvatar.execute({
+      userId: auth.userId,
+      avatarUrl: dto.avatarUrl,
+    });
+    if (result.isFailure) throw new EntityNotFoundException(result.error as string);
+    return UserMapper.toResponseDto(result.getValue());
   }
 
   // Personal-board columns are private to each user. Both routes read the owner

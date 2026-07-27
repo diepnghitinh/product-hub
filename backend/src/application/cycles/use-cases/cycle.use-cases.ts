@@ -8,6 +8,7 @@ import { IIssueRepository } from '@application/issues/repositories/issue.reposit
 import {
   CycleBurndownResponseDto,
   CycleResponseDto,
+  UpdateCycleDto,
   UpdateTeamCycleConfigDto,
 } from '../dtos/cycle.dtos';
 import { CycleMapper } from '../mappers/cycle.mapper';
@@ -139,6 +140,59 @@ export class GetCycleBurndownUseCase
       labels: result.labels,
       projects: result.projects,
     });
+  }
+}
+
+/**
+ * Set (or clear) a single cycle's goal/notes — the Scrum "sprint goal". Any
+ * cycle can be annotated (upcoming, active, or closed history alike); it's a
+ * note, not a stat, so closed cycles aren't frozen against it. The reply carries
+ * live rollups for a still-open cycle, exactly like the list read, so the client
+ * can drop the fresh DTO straight into its cache.
+ */
+@Injectable()
+export class UpdateCycleUseCase
+  implements
+    IUsecaseExecute<
+      { tenantId: string; teamId: string; cycleId: string; dto: UpdateCycleDto },
+      Result<CycleResponseDto>
+    >
+{
+  constructor(
+    @Inject(ITeamRepository) private readonly teams: ITeamRepository,
+    @Inject(ICycleRepository) private readonly cycles: ICycleRepository,
+    @Inject(IIssueRepository) private readonly issues: IIssueRepository,
+  ) {}
+
+  async execute({
+    tenantId,
+    teamId,
+    cycleId,
+    dto,
+  }: {
+    tenantId: string;
+    teamId: string;
+    cycleId: string;
+    dto: UpdateCycleDto;
+  }): Promise<Result<CycleResponseDto>> {
+    const team = await this.teams.findById(tenantId, teamId);
+    if (!team) return Result.fail(TEAM_NOT_FOUND);
+
+    const cycle = await this.cycles.findById(tenantId, cycleId);
+    if (!cycle || cycle.teamId !== teamId) return Result.fail(CYCLE_NOT_FOUND);
+
+    cycle.setDescription(dto.description);
+    await this.cycles.setDescription(tenantId, cycleId, cycle.description);
+
+    const today = todayISO();
+    // Mirror the list read: an open cycle shows live rollups, a closed one its
+    // frozen history — so the returned DTO matches what a re-list would show.
+    const live = cycle.isClosed
+      ? undefined
+      : (await this.issues.cycleRollups(tenantId, [cycleId], completedStatusKeysFor(team.issueType)))[
+          cycleId
+        ];
+    return Result.ok(CycleMapper.toResponseDto(cycle, today, live));
   }
 }
 

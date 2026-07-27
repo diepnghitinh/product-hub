@@ -9,9 +9,9 @@ import {
   DotLabel,
   MultiSelect,
   Select,
-  Spinner,
   formatDateRange,
 } from '@/components/ui';
+import { DetailSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
 import { useUsers } from '@/features/users/api';
@@ -103,11 +103,7 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header', dense = f
     task && update.mutate({ id: task.id, input });
 
   if (isLoading) {
-    return (
-      <div className="grid place-items-center rounded-xl border border-dashed p-8">
-        <Spinner />
-      </div>
-    );
+    return <DetailSkeleton />;
   }
   if (!task) {
     return (
@@ -138,7 +134,7 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header', dense = f
       dense={dense}
       subject="task"
       issueId={task.id}
-      favourite={{ kind: FavouriteKind.TASK, refId: task.id }}
+      favourite={{ kind: FavouriteKind.ISSUE, refId: task.id }}
       shortId={task.shortId}
       title={task.title}
       titlePlaceholder={t('tasks.titleLabel')}
@@ -169,7 +165,7 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header', dense = f
               <PickIssueDialog
                 open={pickOpen}
                 onClose={() => setPickOpen(false)}
-                subject={IssueKind.TASK}
+                kind={IssueKind.TASK}
                 excludeIds={[task.id, ...childIds]}
                 title={t('subtasks.linkTitle')}
                 onPick={linkExisting}
@@ -369,7 +365,7 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header', dense = f
             </PropSection>
           )}
 
-          <IssueRelations subject={IssueKind.TASK} issueId={task.id} canWrite={canWrite} />
+          <IssueRelations issueId={task.id} canWrite={canWrite} />
           {picker}
         </>
       }

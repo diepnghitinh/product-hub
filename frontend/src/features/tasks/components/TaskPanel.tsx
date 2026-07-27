@@ -14,10 +14,12 @@ interface TaskPanelProps {
 }
 
 /**
- * A backlog item's (roadmap item's) sub-tasks — the shared {@link SubtaskSection}
- * wired for the roadmap: children fetch by `roadmapItemId`, new ones are filed in
- * any task team (the composer's picker) and linked back to this item, and the
- * link-existing icon opens the cross-team picker.
+ * A backlog item's (roadmap item's) linked issues — the shared
+ * {@link SubtaskSection} wired for the roadmap: children fetch by `roadmapItemId`
+ * across **both kinds** (so a linked bug shows beside the tasks), new ones are
+ * filed as tasks in any task team (the composer's picker) and linked back to this
+ * item, and the link-existing icon opens the cross-team, cross-kind picker — a
+ * bug that blocks the item can be linked just like a task that delivers it.
  */
 export function TaskPanel({ roadmapId, projectId, itemId, itemLabel }: TaskPanelProps) {
   const [pickOpen, setPickOpen] = useState(false);

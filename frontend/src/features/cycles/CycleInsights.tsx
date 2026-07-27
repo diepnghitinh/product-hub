@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChartLine, ChevronLeft, ChevronRight, Folder } from 'lucide-react';
+import { ChartLine, ChevronLeft, ChevronRight, Folder, Target } from 'lucide-react';
 import {
   Avatar,
   AvatarFallback,
@@ -7,21 +7,24 @@ import {
   Button,
   Drawer,
   ProgressBar,
+  SaveButton,
   Spinner,
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
+  Textarea,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/auth';
 import { CycleStatus } from '@/types/enums';
 import type { CycleBurndownDto, CycleBurndownGroup, CycleDto, TeamDto } from '@/types/dto';
 import { useProjects } from '@/features/projects/api';
-import { useCycleBurndown, useCycles, useFocusedCycle } from './api';
+import { useCycleBurndown, useCycles, useFocusedCycle, useUpdateCycle } from './api';
 import { cycleStatusBadge, cycleTimeHint, shortDay } from './dates';
 import { CycleBurnupChart, StatSwatch } from './CycleBurnupChart';
 import { CycleIcon } from './CycleIcon';
@@ -29,10 +32,13 @@ import { CycleIcon } from './CycleIcon';
 const SCOPE_INK = 'hsl(var(--muted-foreground))';
 
 /**
- * The team board's "cycle insights" toggle — a header button (in the board's
- * `actions` cluster) that opens the burn-up drawer. Renders nothing unless the
- * team runs cycles and has at least one, so non-cycle boards are untouched.
- * Dropped into both the task and bug boards so they move together.
+ * The team board's "cycle insights" toggle — the button that opens the burn-up
+ * drawer. Its home is the **cycle bar** (`CycleBoardBanner`), immediately left of
+ * that bar's "All cycles" chip, so insights sits with the cycle it reports on.
+ * The bar only exists when the board is scoped to one cycle, so the boards also
+ * render this in the toolbar's `filtersEnd` cluster when there's no bar —
+ * exactly one is on screen at a time. Renders nothing unless the team runs
+ * cycles and has at least one, so non-cycle boards are untouched.
  *
  * The drawer opens on the board's currently-focused cycle (the `?cycle=` scope),
  * falling back to the active one; from there its own `‹ ›` steps through history.
@@ -40,9 +46,12 @@ const SCOPE_INK = 'hsl(var(--muted-foreground))';
 export function CycleInsightsButton({
   team,
   cycleParam = '',
+  className,
 }: {
   team: TeamDto | undefined;
   cycleParam?: string;
+  /** Sizing for the surface it sits on (the cycle bar matches its chips). */
+  className?: string;
 }) {
   const enabled = !!team?.cyclesEnabled;
   const { data: cycles } = useCycles(enabled ? team?.id : undefined);
@@ -66,9 +75,13 @@ export function CycleInsightsButton({
     <>
       <Tooltip>
         <TooltipTrigger asChild>
+          {/* Outline + shrink-0: it always sits beside the bordered "All cycles"
+              control, so it has to keep that weight and its full hit area when
+              the row gets tight. */}
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
+            className={cn('shrink-0', className)}
             aria-label={t('cycles.insights.open')}
             onClick={openDrawer}
           >
@@ -89,7 +102,12 @@ export function CycleInsightsButton({
   );
 }
 
-function CycleInsightsDrawer({
+/**
+ * The drawer itself — the burn-up plus the cycle's goal editor. Exported because
+ * the cycles page opens it too (a row's goal strip), so the goal has exactly one
+ * editor no matter where you reach it from.
+ */
+export function CycleInsightsDrawer({
   open,
   onClose,
   team,
@@ -166,6 +184,11 @@ function CycleInsightsDrawer({
         </div>
       </div>
 
+      {/* The cycle's goal (sprint goal) — a plain-text note, independent of the
+          burn-up below, so it shows even for an empty or still-loading cycle.
+          Keyed by cycle id so switching cycles reseeds the draft from that one. */}
+      {current && <CycleGoal key={current.id} team={team} cycle={current} />}
+
       {isLoading ? (
         <div className="grid place-items-center rounded-xl border border-dashed p-10">
           <Spinner />
@@ -190,6 +213,72 @@ function CycleInsightsDrawer({
         </>
       )}
     </Drawer>
+  );
+}
+
+/**
+ * A cycle's goal / notes — the Scrum "sprint goal". Plain text, saved on its own
+ * (independent of the rhythm config) via `PATCH /teams/:id/cycles/:id`. Delivery
+ * managers (Admin & Product) get an inline editor with the shared SaveButton;
+ * everyone else sees the text read-only. Mounted keyed by cycle id, so the draft
+ * always seeds from the cycle in view. The goal is lost on a rhythm rebuild —
+ * called out in the hint so it's an expectation, not a surprise.
+ */
+function CycleGoal({ team, cycle }: { team: TeamDto; cycle: CycleDto }) {
+  const { canManageDelivery } = useAuth();
+  const update = useUpdateCycle();
+  const saved = cycle.description ?? '';
+  const [draft, setDraft] = useState(saved);
+  const dirty = draft.trim() !== saved;
+
+  const heading = (
+    <div className="mb-2 flex items-center gap-1.5">
+      <Target className="size-4 text-muted-foreground" aria-hidden />
+      <h3 className="text-sm font-medium">{t('cycles.goal.title')}</h3>
+    </div>
+  );
+
+  if (!canManageDelivery) {
+    return (
+      <section className="mb-5">
+        {heading}
+        {saved ? (
+          <p className="whitespace-pre-wrap text-sm">{saved}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t('cycles.goal.empty')}</p>
+        )}
+      </section>
+    );
+  }
+
+  return (
+    <section className="mb-5">
+      {heading}
+      <Textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder={t('cycles.goal.placeholder')}
+        maxLength={2000}
+        rows={2}
+        className="resize-y"
+      />
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <span className="text-xs text-muted-foreground">{t('cycles.goal.hint')}</span>
+        <SaveButton
+          size="sm"
+          disabled={!dirty}
+          onSave={() =>
+            update.mutateAsync({
+              teamId: team.id,
+              cycleId: cycle.id,
+              description: draft.trim() || null,
+            })
+          }
+        >
+          {t('cycles.goal.save')}
+        </SaveButton>
+      </div>
+    </section>
   );
 }
 

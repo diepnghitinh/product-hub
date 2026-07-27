@@ -1,13 +1,18 @@
-import { useState } from 'react';
-import { KeyRound } from 'lucide-react';
+import { useRef, useState, type ChangeEvent } from 'react';
+import { toast } from 'sonner';
+import { Camera, KeyRound, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Badge, Button, Separator } from '@/components/ui';
+import { Badge, Button, Separator, Spinner } from '@/components/ui';
+import { UserAvatar } from '@/components/UserAvatar';
 import { CenteredPageLayout } from '@/layouts/shared';
 import { PageHeader } from '@/layouts/headers/PageHeader';
-import { initials } from '@/lib/format';
+import { cn } from '@/lib/utils';
+import { uploadMedia } from '@/features/uploads/api';
+import { useUpdateMyAvatar } from '@/features/users/api';
 import { ROLE_LABEL } from '@/types/enums';
 import { t } from '@/i18n';
 import { ChangePasswordDialog } from '@/features/account/ChangePasswordDialog';
+import { AvatarCropDialog } from '@/features/account/AvatarCropDialog';
 
 /** A read-only field in the identity grid. */
 function DetailField({ label, value }: { label: string; value: string }) {
@@ -25,10 +30,55 @@ function DetailField({ label, value }: { label: string; value: string }) {
  * one self-service account action the app has today.
  */
 export function MyProfilePage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const updateAvatar = useUpdateMyAvatar();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
   const [changing, setChanging] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   if (!user) return null;
+
+  // Pick → open the circular cropper. Clearing the input value lets the same
+  // file be re-picked (selecting it again would otherwise not fire change).
+  function onPickFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error(t('profile.photoInvalid'));
+      return;
+    }
+    setCropFile(file);
+  }
+
+  // The cropper hands back a small (~256px) WebP already framed to the circle,
+  // so we never ship the original megabytes. Upload it, save the URL, close.
+  async function onCropConfirm(cropped: File) {
+    setBusy(true);
+    try {
+      const { url } = await uploadMedia(cropped);
+      updateUser(await updateAvatar.mutateAsync(url));
+      toast.success(t('profile.photoUpdated'));
+      setCropFile(null);
+    } catch (err) {
+      toast.error((err as Error).message || t('profile.photoFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onRemovePhoto() {
+    setBusy(true);
+    try {
+      updateUser(await updateAvatar.mutateAsync(null));
+      toast.success(t('profile.photoRemoved'));
+    } catch (err) {
+      toast.error((err as Error).message || t('profile.photoFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <CenteredPageLayout>
@@ -38,12 +88,31 @@ export function MyProfilePage() {
         {/* Identity */}
         <section className="rounded-xl border p-6">
           <div className="flex items-center gap-4">
-            <span
-              className="grid size-16 shrink-0 place-items-center rounded-full bg-primary text-xl font-semibold text-primary-foreground"
-              aria-hidden
+            {/* The avatar itself is the primary control — click to change, with a
+                hover scrim hinting it's editable and doubling as the busy state. */}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+              aria-label={user.avatarUrl ? t('profile.changePhoto') : t('profile.addPhoto')}
+              className="group relative shrink-0 rounded-full outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
             >
-              {initials(user.name, user.email)}
-            </span>
+              <UserAvatar
+                name={user.name}
+                email={user.email}
+                src={user.avatarUrl}
+                className="size-16"
+                fallbackClassName="text-xl"
+              />
+              <span
+                className={cn(
+                  'absolute inset-0 grid place-items-center rounded-full bg-black/45 text-white transition-opacity',
+                  busy ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+                )}
+              >
+                {busy ? <Spinner className="size-5 text-white" /> : <Camera className="size-5" />}
+              </span>
+            </button>
             <div className="min-w-0">
               <h2 className="truncate text-lg font-semibold text-foreground">{user.name}</h2>
               <p className="truncate text-sm text-muted-foreground">{user.email}</p>
@@ -51,6 +120,34 @@ export function MyProfilePage() {
                 {ROLE_LABEL[user.role]}
               </Badge>
             </div>
+          </div>
+
+          {/* Explicit controls + the hidden picker both the disc and this row open. */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={onPickFile}
+            />
+            <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} loading={busy}>
+              <Camera className="size-4" />
+              {user.avatarUrl ? t('profile.changePhoto') : t('profile.addPhoto')}
+            </Button>
+            {user.avatarUrl && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRemovePhoto}
+                disabled={busy}
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Trash2 className="size-4" />
+                {t('profile.removePhoto')}
+              </Button>
+            )}
+            <span className="text-xs text-muted-foreground">{t('profile.photoHint')}</span>
           </div>
 
           <Separator className="my-6" />
@@ -76,6 +173,13 @@ export function MyProfilePage() {
       </div>
 
       <ChangePasswordDialog open={changing} onClose={() => setChanging(false)} />
+      <AvatarCropDialog
+        open={!!cropFile}
+        file={cropFile}
+        saving={busy}
+        onCancel={() => !busy && setCropFile(null)}
+        onConfirm={onCropConfirm}
+      />
     </CenteredPageLayout>
   );
 }

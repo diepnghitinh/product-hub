@@ -9,8 +9,11 @@ import { IssueKind } from '@/types/enums';
 interface PickIssueDialogProps {
   open: boolean;
   onClose: () => void;
-  /** Which collection to search — tasks or bugs (same-type links). */
-  subject: IssueKind;
+  /**
+   * Scope the search to one kind (e.g. sub-tasks are tasks only). Omit to search
+   * **both** kinds — a cross-type relation can link a task to a bug and back.
+   */
+  kind?: IssueKind;
   /** Ids to hide (at least the source issue itself). */
   excludeIds: string[];
   /** Dialog title — the relation label, e.g. "Blocked by". */
@@ -21,19 +24,22 @@ interface PickIssueDialogProps {
 
 interface PickerIssue {
   id: string;
+  kind: IssueKind;
   shortId: string;
   title: string;
 }
 
 /**
- * Pick an existing same-type issue to link. Search runs server-side over title,
- * description and shortId, so pasting a TSK-5 / BUG-12 resolves straight to it.
- * The PickTaskDialog shape, but generic over task vs bug.
+ * Pick an existing issue to link. Search runs server-side over title, description
+ * and shortId, so pasting a TSK-5 / BUG-12 resolves straight to it. With no `kind`
+ * the search spans both collections (cross-type links), and bug rows get a badge so
+ * the two kinds read apart; pass `kind` to scope it (sub-tasks are tasks only). The
+ * old per-kind `/tasks`|`/bugs` list endpoints were removed in the issues migration.
  */
 export function PickIssueDialog({
   open,
   onClose,
-  subject,
+  kind,
   excludeIds,
   title,
   onPick,
@@ -52,11 +58,14 @@ export function PickIssueDialog({
     return () => clearTimeout(id);
   }, [query]);
 
-  const path = subject === IssueKind.TASK ? '/tasks' : '/bugs';
   const { data, isLoading } = useQuery({
-    queryKey: ['issue-picker', subject, search],
+    queryKey: ['issue-picker', kind ?? 'all', search],
     queryFn: () =>
-      apiGet<{ items: PickerIssue[] }>(path, { limit: 20, ...(search ? { search } : {}) }),
+      apiGet<{ items: PickerIssue[] }>('/issues', {
+        ...(kind ? { kind } : {}),
+        limit: 20,
+        ...(search ? { search } : {}),
+      }),
     enabled: open,
   });
 
@@ -110,7 +119,14 @@ export function PickIssueDialog({
                     disabled={pending}
                     className="flex w-full items-center gap-2.5 rounded-md border border-border bg-background px-2.5 py-2 text-left transition-colors hover:border-primary hover:bg-accent disabled:opacity-50"
                   >
-                    <span className="min-w-0 flex-1 truncate text-sm">{it.title}</span>
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                      {it.kind === IssueKind.BUG && (
+                        <span className="shrink-0 rounded border border-border bg-muted/50 px-1 py-px text-[10px] font-medium uppercase leading-none tracking-wide text-muted-foreground">
+                          {t('relations.kindBug')}
+                        </span>
+                      )}
+                      <span className="min-w-0 truncate text-sm">{it.title}</span>
+                    </span>
                     <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
                       {it.shortId}
                     </span>

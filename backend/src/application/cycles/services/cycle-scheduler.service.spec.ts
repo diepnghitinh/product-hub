@@ -31,6 +31,13 @@ class FakeCycleRepo implements ICycleRepository {
     return true;
   };
 
+  setDescription = async (tenantId: string, id: string, description: string | null) => {
+    const cycle = await this.findById(tenantId, id);
+    if (!cycle) return false;
+    cycle.setDescription(description);
+    return true;
+  };
+
   deleteUpcoming = async (tenantId: string, teamId: string, today: string) => {
     const gone = this.rows.filter(
       (c) => c.tenantId === tenantId && c.teamId === teamId && c.startDate > today,
