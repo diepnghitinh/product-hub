@@ -241,3 +241,107 @@
   content: attr(data-placeholder);
   color: hsl(var(--muted-foreground) / 0.6);
 }
+
+/* Docs workspace: a doc page *is* the document, so the editor drops its frame,
+   focus ring and inner padding, and reads at body size rather than form size.
+   Applied via `<RichTextEditor className="doc-page" />`. */
+.rich-text-editor.doc-page {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 1rem;
+}
+.rich-text-editor.doc-page:focus-within {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* ── Mermaid diagrams ──────────────────────────────────────────────────────
+   Two faces of one block. In the editor (`.mermaid-tool`) the source textarea
+   and the drawn SVG take turns: you see the picture, click it, and the source
+   appears in its place. In stored HTML (`figure.mermaid-block`) the source is
+   kept in the DOM — it's the payload that round-trips back into Editor.js —
+   but only the SVG is ever shown. */
+
+.mermaid-tool {
+  margin: 0.6em 0;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  transition: border-color 0.12s ease;
+}
+.mermaid-tool:hover {
+  border-color: hsl(var(--border));
+}
+.mermaid-tool.is-editing {
+  border-color: hsl(var(--border));
+}
+
+.mermaid-tool-source {
+  display: none;
+  width: 100%;
+  padding: 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: hsl(var(--muted) / 0.4);
+  color: hsl(var(--foreground));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+}
+.mermaid-tool.is-editing .mermaid-tool-source {
+  display: block;
+}
+
+.mermaid-tool-preview {
+  display: grid;
+  place-items: center;
+  min-height: 3rem;
+  padding: 0.75rem;
+  cursor: pointer;
+}
+.mermaid-tool.is-editing .mermaid-tool-preview {
+  display: none;
+}
+
+/* A diagram that doesn't parse shows mermaid's own message rather than a blank
+   box — it's nearly always a typo the author can fix on the spot. */
+.mermaid-tool.has-error .mermaid-tool-preview {
+  justify-items: start;
+  color: hsl(var(--destructive));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+}
+
+/* Read-only rendering (RichText, the public doc view). */
+figure.mermaid-block {
+  margin: 0.8em 0;
+  text-align: center;
+}
+figure.mermaid-block > .mermaid-source,
+figure.mermaid-block > .code-copy-wrap {
+  display: none;
+}
+figure.mermaid-block[data-mermaid-error='true'] > .mermaid-source {
+  display: block;
+  text-align: left;
+}
+.mermaid-render {
+  display: inline-block;
+  max-width: 100%;
+}
+.mermaid-render svg {
+  max-width: 100%;
+  height: auto;
+}
+figure.mermaid-block[data-mermaid-error='true'] .mermaid-render {
+  display: block;
+  color: hsl(var(--destructive));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  text-align: left;
+  white-space: pre-wrap;
+}

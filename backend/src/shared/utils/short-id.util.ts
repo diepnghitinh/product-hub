@@ -25,6 +25,27 @@ export function randomRef(prefix: string): string {
   return `${prefix}-${nano()}`;
 }
 
+// A share link is pasted into chat, read off a screen and typed by hand, so it
+// uses the same unambiguous alphabet rather than a 36-character UUID. Longer
+// than a ref because the token *is* the access control: 31^14 ≈ 7.6 × 10^20
+// keeps it unguessable while still fitting in a glance.
+const SHARE_LEN = 14;
+const nanoShare = customAlphabet(REF_ALPHABET, SHARE_LEN);
+
+/** A fresh public-share token, e.g. `K7M4PQ2XR9TVBD`. */
+export function shareToken(): string {
+  return nanoShare();
+}
+
+/**
+ * The token to (re)enable a share link with: whatever it already had, so links
+ * handed out earlier keep working — unless that's a legacy UUID, which is
+ * upgraded to a short one. The hyphen is the tell; the short alphabet has none.
+ */
+export function keepOrUpgradeShareToken(current: string | null | undefined): string {
+  return current && !current.includes('-') ? current : shareToken();
+}
+
 /**
  * A `randomRef` proven free for this caller (per tenant, via `exists`). A
  * collision is astronomically unlikely and the DB has a unique index as the

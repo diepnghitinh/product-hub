@@ -2,6 +2,10 @@ import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { enhanceCodeBlocks } from '@/lib/enhanceCodeBlocks';
+import { renderMermaidBlocks } from '@/lib/mermaid';
+// The read-only view paints editor output — code-copy buttons and mermaid
+// diagrams both need these rules, on pages that never mount the editor itself.
+import '@/styles/rich-text-editor.css';
 import { Button } from './Button';
 import { Dialog } from './Dialog';
 import { useLightbox, type LightboxImage } from './Lightbox';
@@ -54,6 +58,9 @@ export function RichText({ html, className }: RichTextProps) {
     const root = ref.current;
     if (!root) return;
     enhanceCodeBlocks(root);
+    // Diagrams are stored as source, so the picture only exists once it's drawn.
+    // Fire-and-forget: mermaid loads lazily and a failure prints in its own box.
+    void renderMermaidBlocks(root);
     root.querySelectorAll('a[href]').forEach((a) => {
       if (isWebLink(resolve(a.getAttribute('href') || ''))) {
         a.setAttribute('target', '_blank');

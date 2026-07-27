@@ -11,6 +11,7 @@ import Undo from 'editorjs-undo';
 import { blocksToHtml, htmlToBlocks, type HtmlEditorBlock } from '@/lib/editorjs';
 import { enhanceCodeBlocks } from '@/lib/enhanceCodeBlocks';
 import { ResizableImageTool } from '@/lib/editor/ResizableImageTool';
+import { MermaidTool } from '@/lib/editor/MermaidTool';
 import { uploadMedia } from '@/features/uploads/api';
 import '@/styles/rich-text-editor.css';
 
@@ -26,6 +27,12 @@ export interface RichTextEditorProps {
    * to an inline base64 data URL. Off by default to keep plain descriptions light.
    */
   images?: boolean;
+  /**
+   * Enable the Mermaid diagram block. The mermaid library is ~500KB and only
+   * loads once a diagram is actually drawn, but the tool still adds an entry to
+   * every block menu — so it's opt-in, for long-form surfaces like a doc page.
+   */
+  diagrams?: boolean;
   className?: string;
 }
 
@@ -115,6 +122,7 @@ export function RichTextEditor({
   placeholder,
   minHeight,
   images = false,
+  diagrams = false,
   className,
 }: RichTextEditorProps) {
   const holderRef = useRef<HTMLDivElement | null>(null);
@@ -125,6 +133,7 @@ export function RichTextEditor({
   const placeholderRef = useRef(placeholder);
   const minHeightRef = useRef(minHeight);
   const imagesRef = useRef(images);
+  const diagramsRef = useRef(diagrams);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -169,6 +178,8 @@ export function RichTextEditor({
           // Drag-to-resize image tool (upload to storage, base64 fallback,
           // paste/drop, caption) + a minimal video block.
           ...(imagesRef.current ? { image: ResizableImageTool, video: VideoTool } : {}),
+          // Mermaid diagrams, stored as source and drawn on render.
+          ...(diagramsRef.current ? { mermaid: MermaidTool } : {}),
         },
         onChange: () => {
           void emitHtml();

@@ -40,6 +40,7 @@ import { issueRefsInText, useLinkIssuesByRef } from '@/features/tasks/api';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { ReactionBar } from '@/features/reactions/ReactionBar';
 import { ActivityHeader, CommentThread } from '@/features/activity/CommentThread';
+import { LinkedDocsSection } from '@/features/docs/components/LinkedDocsSection';
 import {
   DEFAULT_ROADMAP_COLUMNS,
   FavouriteKind,
@@ -351,6 +352,10 @@ export function RoadmapItemDetailPage() {
             itemId={item.id}
             itemLabel={`${columns.find((c) => c.key === item.phase)?.label ?? item.phase} · ${item.title}`}
           />
+
+          {/* Doc pages written about this item — the other end of a page's
+              "Link Task or Doc". Renders nothing when there are none. */}
+          <LinkedDocsSection refId={item.id} className="mt-8" />
 
           {/* ── Activity ─────────────────────────────────────────────────────── */}
           <section className="mt-10 border-t pt-6">

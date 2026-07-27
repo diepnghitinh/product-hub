@@ -3,6 +3,7 @@ import { ApplicationApiKeysModule } from '@application/api-keys/api-keys.module'
 import { ApplicationReportsModule } from '@application/reports/reports.module';
 import { ApplicationProjectsModule } from '@application/projects/projects.module';
 import { ApplicationRoadmapsModule } from '@application/roadmaps/roadmaps.module';
+import { ApplicationDocsModule } from '@application/docs/docs.module';
 import { ApplicationTeamsModule } from '@application/teams/teams.module';
 import { ApplicationIssuesModule } from '@application/issues/issues.module';
 import { ApplicationActivityModule } from '@application/activity/activity.module';
@@ -11,6 +12,7 @@ import { PublicTestcasesController } from './public-testcases.controller';
 import { PublicProjectsController } from './public-projects.controller';
 import { PublicRoadmapsController } from './public-roadmaps.controller';
 import { PublicTeamsController } from './public-teams.controller';
+import { PublicDocsController } from './public-docs.controller';
 
 @Module({
   imports: [
@@ -18,6 +20,7 @@ import { PublicTeamsController } from './public-teams.controller';
     ApplicationReportsModule,
     ApplicationProjectsModule,
     ApplicationRoadmapsModule,
+    ApplicationDocsModule,
     ApplicationTeamsModule,
     ApplicationIssuesModule,
     ApplicationActivityModule,
@@ -27,6 +30,7 @@ import { PublicTeamsController } from './public-teams.controller';
     PublicProjectsController,
     PublicRoadmapsController,
     PublicTeamsController,
+    PublicDocsController,
   ],
   providers: [ApiKeyGuard],
 })

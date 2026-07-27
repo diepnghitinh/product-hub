@@ -103,6 +103,13 @@ export enum ReactionTargetType {
   ROADMAP_ITEM = 'roadmap-item',
 }
 
+/** What a doc page can be attached to (mirrors the backend `DocLinkKind`). Same
+ *  values as `FavouriteKind`/`ReactionTargetType`; each domain names its own. */
+export enum DocLinkKind {
+  ISSUE = 'issue',
+  ROADMAP_ITEM = 'roadmap-item',
+}
+
 /** The fixed quick-reaction palette — mirrors the backend allow-list + order. */
 export const REACTION_EMOJIS = ['👍', '❤️', '🎉', '😄', '🚀', '👀'] as const;
 export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];

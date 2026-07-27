@@ -27,6 +27,21 @@ export function formatDate(input: string | Date): string {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/**
+ * Date *and* time — for lists where several entries can share a day and the date
+ * alone would make them look identical (a page's saved versions, say).
+ */
+export function formatDateTime(input: string | Date): string {
+  const date = typeof input === 'string' ? new Date(input) : input;
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 /** Compact "updated 3d ago" style relative time. */
 export function timeAgo(input: string | Date): string {
   const date = typeof input === 'string' ? new Date(input) : input;

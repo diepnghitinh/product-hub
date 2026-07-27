@@ -58,10 +58,12 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M12 6v12M6 11H3M6 15H3M18 11h3M18 15h3M7 8L4 6M17 8l3-2M7 17l-3 2M17 17l3 2" />
     </>
   ),
+  /* A route: start marker → winding path → destination marker. */
   roadmap: (
     <>
-      <path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z" />
-      <path d="M8 2v16M16 6v16" />
+      <circle cx="6" cy="19" r="3" />
+      <circle cx="18" cy="5" r="3" />
+      <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" />
     </>
   ),
   milestone: (

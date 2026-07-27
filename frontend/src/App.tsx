@@ -23,6 +23,8 @@ import { TeamCyclesPage } from '@/features/cycles/TeamCyclesPage';
 import { RoadmapsPage } from '@/features/roadmaps/RoadmapsPage';
 import { RoadmapBoardPage } from '@/features/roadmaps/RoadmapBoardPage';
 import { RoadmapItemDetailPage } from '@/features/roadmaps/RoadmapItemDetailPage';
+import { DocsHubPage } from '@/features/docs/DocsHubPage';
+import { DocWorkspacePage } from '@/features/docs/DocWorkspacePage';
 import { MilestonesPage } from '@/features/milestones/MilestonesPage';
 import { MilestoneDetailPage } from '@/features/milestones/MilestoneDetailPage';
 import { AdminPeoplePage } from '@/features/admin/AdminPeoplePage';
@@ -30,6 +32,7 @@ import { AdminSettingsPage } from '@/features/admin/AdminSettingsPage';
 import { MyProfilePage } from '@/features/account/MyProfilePage';
 import { PublicProjectPage } from '@/features/public/PublicProjectPage';
 import { PublicRoadmapPage } from '@/features/public/PublicRoadmapPage';
+import { PublicDocPage } from '@/features/public/PublicDocPage';
 import { PublicTeamBoardPage } from '@/features/public/PublicTeamBoardPage';
 
 /** A bare `/bugs` is now the unified Issues board scoped to bugs. But a
@@ -49,6 +52,7 @@ export default function App() {
       {/* Public read-only — no auth, outside the app shell */}
       <Route path="/public/projects/:token" element={<PublicProjectPage />} />
       <Route path="/public/roadmaps/:token" element={<PublicRoadmapPage />} />
+      <Route path="/public/docs/:token" element={<PublicDocPage />} />
       <Route path="/public/teams/:token" element={<PublicTeamBoardPage />} />
 
       <Route element={<ProtectedRoute />}>
@@ -86,6 +90,10 @@ export default function App() {
           <Route path="/roadmaps" element={<RoadmapsPage />} />
           <Route path="/roadmaps/:roadmapId" element={<RoadmapBoardPage />} />
           <Route path="/roadmaps/:roadmapId/items/:itemId" element={<RoadmapItemDetailPage />} />
+          {/* A doc's pages are deep-linkable: /docs/:docId/:pageId. */}
+          <Route path="/docs" element={<DocsHubPage />} />
+          <Route path="/docs/:docId" element={<DocWorkspacePage />} />
+          <Route path="/docs/:docId/:pageId" element={<DocWorkspacePage />} />
           <Route path="/okrs" element={<MilestonesPage />} />
           <Route path="/okrs/:milestoneId" element={<MilestoneDetailPage />} />
           <Route path="/admin/people" element={<AdminPeoplePage />} />
