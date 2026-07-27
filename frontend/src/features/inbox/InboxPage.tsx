@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Inbox as InboxIcon } from 'lucide-react';
-import { Badge, Button, Spinner } from '@/components/ui';
+import { Badge, Button } from '@/components/ui';
+import { DetailSkeleton, ListSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { timeAgo } from '@/lib/format';
@@ -55,8 +56,13 @@ export function InboxPage() {
       />
 
       {isLoading ? (
-        <div className="grid place-items-center rounded-xl border border-dashed p-8">
-          <Spinner />
+        <div className="flex min-h-0 flex-1 gap-4 sm:overflow-hidden">
+          <div className="w-full md:w-[360px] md:shrink-0">
+            <ListSkeleton rows={6} />
+          </div>
+          <div className="hidden min-w-0 flex-1 md:block">
+            <DetailSkeleton />
+          </div>
         </div>
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">

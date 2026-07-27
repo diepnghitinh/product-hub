@@ -23,6 +23,7 @@ export class UserEntity extends AggregateRoot<UserProps> {
       name: string;
       passwordHash: string;
       role?: Role;
+      avatarUrl?: string | null;
       inboxSeenAt?: Date | null;
       favourites?: FavouriteRef[];
       personalStatuses?: TaskStatusConfig[];
@@ -54,6 +55,7 @@ export class UserEntity extends AggregateRoot<UserProps> {
           name: props.name.trim(),
           passwordHash: props.passwordHash,
           role: props.role || Role.TESTER,
+          avatarUrl: props.avatarUrl ?? null,
           inboxSeenAt: props.inboxSeenAt ?? null,
           favourites: props.favourites ?? [],
           // Seed personal-board columns from the shipped defaults so every user
@@ -89,6 +91,9 @@ export class UserEntity extends AggregateRoot<UserProps> {
   get role(): Role {
     return this.props.role;
   }
+  get avatarUrl(): string | null | undefined {
+    return this.props.avatarUrl;
+  }
   get inboxSeenAt(): Date | null | undefined {
     return this.props.inboxSeenAt;
   }
@@ -118,6 +123,17 @@ export class UserEntity extends AggregateRoot<UserProps> {
 
   updateRole(role: Role): void {
     this.props.role = role;
+    this.touch();
+  }
+
+  /**
+   * Set or clear the avatar. The URL comes from an upload to cloud storage; an
+   * empty/blank string clears it back to the initials fallback (stored as null
+   * so "no avatar" is one value, not two).
+   */
+  setAvatar(url: string | null): void {
+    const next = url?.trim();
+    this.props.avatarUrl = next ? next : null;
     this.touch();
   }
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { Button, Spinner } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { CardGridSkeleton } from '@/components/Skeletons';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { t } from '@/i18n';import { ProjectCard } from '@/features/projects/components/ProjectCard';
 import {
@@ -48,9 +49,7 @@ export function ProjectsPage() {
       />
 
       {isLoading ? (
-        <div className="grid place-items-center rounded-xl border border-dashed p-8">
-          <Spinner />
-        </div>
+        <CardGridSkeleton />
       ) : isError ? (
         <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
           {t('common.error')}{' '}

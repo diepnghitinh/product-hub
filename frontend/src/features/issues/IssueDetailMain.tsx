@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
-import { Menu, RichTextEditor, type MenuItem } from '@/components/ui';
+import { Menu, RichText, RichTextEditor, type MenuItem } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
@@ -156,6 +156,7 @@ export function IssueDetailMain({
             kind={favourite.kind}
             refId={favourite.refId}
             roadmapId={favourite.roadmapId}
+            issueKind={subject}
             title={title}
           />
         )}
@@ -173,6 +174,7 @@ export function IssueDetailMain({
             kind={favourite.kind}
             refId={favourite.refId}
             roadmapId={favourite.roadmapId}
+            issueKind={subject}
             title={title}
             size={16}
             className="size-7"
@@ -198,10 +200,7 @@ export function IssueDetailMain({
             className="border-0"
           />
         ) : description ? (
-          <div
-            className="text-sm text-muted-foreground [&_a]:text-primary [&_a]:underline [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md"
-            dangerouslySetInnerHTML={{ __html: description }}
-          />
+          <RichText className="text-sm text-muted-foreground" html={description} />
         ) : (
           <p className="text-sm text-muted-foreground">{descriptionPlaceholder}</p>
         )}
@@ -210,7 +209,7 @@ export function IssueDetailMain({
       {/* Reactions — social-style quick reactions, directly under the description. */}
       {currentUserId && (
         <ReactionBar
-          targetType={subject === 'bug' ? ReactionTargetType.BUG : ReactionTargetType.TASK}
+          targetType={ReactionTargetType.ISSUE}
           targetId={issueId}
           className="mt-3"
         />

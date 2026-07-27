@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Role } from '@core/interfaces';
 
 /** Public user shape — never includes the password hash. Flat by convention. */
@@ -17,6 +17,9 @@ export class UserResponseDto {
 
   @ApiProperty({ enum: Role })
   role: Role;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Avatar image URL, or null for the initials fallback.' })
+  avatarUrl?: string | null;
 
   @ApiProperty()
   createdAt: Date;

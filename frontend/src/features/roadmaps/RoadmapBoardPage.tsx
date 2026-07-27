@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { BarChart3, CalendarDays, Gauge, LayoutGrid, MoreHorizontal, Table2, Target } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Badge, Button, Menu, Spinner } from '@/components/ui';
+import { Badge, Button, Menu } from '@/components/ui';
+import { BoardSkeleton } from '@/components/Skeletons';
 import { cn } from '@/lib/utils';
 import { firstImageUrl } from '@/lib/editorjs';
 import { t } from '@/i18n';
@@ -150,11 +151,7 @@ export function RoadmapBoardPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="grid place-items-center rounded-xl border border-dashed p-8">
-        <Spinner />
-      </div>
-    );
+    return <BoardSkeleton />;
   }
   if (!roadmap) {
     return (

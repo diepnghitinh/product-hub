@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { LayoutGrid, List, Lock, MoreHorizontal } from 'lucide-react';
-import { Badge, Button, Dialog, DotLabel, Input, Menu, Select, Spinner } from '@/components/ui';
+import { Badge, Button, Dialog, DotLabel, Input, Menu, Select } from '@/components/ui';
+import { BoardSkeleton, ListSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
 import { PersonalColumnsDialog } from './components/PersonalColumnsDialog';
@@ -92,9 +93,11 @@ export function PersonalBoardPage() {
       }
     >
       {loading ? (
-        <div className={cn('grid place-items-center rounded-xl border border-dashed p-8', BOARD_GUTTER)}>
-          <Spinner />
-        </div>
+        view === 'list' ? (
+          <ListSkeleton inset />
+        ) : (
+          <BoardSkeleton columns={columns.length || 4} />
+        )
       ) : view === 'board' ? (
         // Render the board even when empty, so the columns and their hover "+ Add"
         // are there to start from — a fresh personal board should feel usable, not blank.

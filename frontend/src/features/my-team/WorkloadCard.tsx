@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
+import { IssueKind } from '@/types/enums';
 import type { IssueDto } from '@/types/dto';
 import { ProgressRing } from './ProgressRing';
 import { initialsOf, type ColumnBucket, type PersonWorkload } from './workload';
@@ -58,12 +60,20 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
-/** One issue in a drilled-in status list — title + optional estimate. Read-only:
- *  the drill-in is a focused list, not a launcher, so Back (inside the card) is the
- *  only way out. */
+/** One issue in a drilled-in status list — title + optional estimate. Clicking it
+ *  opens that issue's detail in a **new tab** (a bug → /bugs/:ref, a task →
+ *  /tasks/:ref, by ref so the URL is human-friendly), keeping the focused list in
+ *  place. The external-link glyph fades in on hover to signal it's a launcher. */
 function TaskRow({ issue, done }: { issue: IssueDto; done: boolean }) {
+  const href = `/${issue.kind === IssueKind.BUG ? 'bugs' : 'tasks'}/${issue.shortId || issue.id}`;
   return (
-    <div className="flex items-center gap-2 py-1.5 pl-1 pr-1.5">
+    <Link
+      to={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={t('myteam.openInNewTab')}
+      className="group flex items-center gap-2 rounded-md py-1.5 pl-1 pr-1.5 transition-colors hover:bg-accent"
+    >
       <span className={cn('min-w-0 flex-1 truncate text-sm', done && 'text-muted-foreground line-through')}>
         {issue.title || t('roadmaps.untitled')}
       </span>
@@ -72,7 +82,11 @@ function TaskRow({ issue, done }: { issue: IssueDto; done: boolean }) {
           {issue.estimate} {t('myteam.points')}
         </Badge>
       )}
-    </div>
+      <ExternalLink
+        className="size-3.5 shrink-0 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground/70"
+        aria-hidden
+      />
+    </Link>
   );
 }
 

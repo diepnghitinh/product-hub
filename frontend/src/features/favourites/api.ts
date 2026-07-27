@@ -30,6 +30,9 @@ interface AddVars {
   refId: string;
   /** Required for roadmap items (which board the item lives in). */
   roadmapId?: string;
+  /** Concrete issue kind (bug/task) — for the optimistic sidebar icon/link.
+   *  Not sent; the server derives it authoritatively. */
+  issueKind?: 'bug' | 'task';
   /** Optimistic-only: shown until the server echoes the real title. Not sent. */
   title?: string;
 }
@@ -55,6 +58,7 @@ export function useAddFavourite() {
           refId: vars.refId,
           title: vars.title ?? '…',
           roadmapId: vars.roadmapId,
+          issueKind: vars.issueKind,
           createdAt: new Date().toISOString(),
         };
         return [optimistic, ...list];
@@ -98,7 +102,7 @@ export function useRemoveFavourite() {
 export function useFavouriteToggle(
   kind: FavouriteKind,
   refId: string,
-  opts?: { roadmapId?: string; title?: string },
+  opts?: { roadmapId?: string; issueKind?: 'bug' | 'task'; title?: string },
 ) {
   const { data } = useFavourites();
   const add = useAddFavourite();
@@ -106,7 +110,14 @@ export function useFavouriteToggle(
   const active = isFavourited(data, kind, refId);
   const toggle = () => {
     if (active) remove.mutate({ kind, refId });
-    else add.mutate({ kind, refId, roadmapId: opts?.roadmapId, title: opts?.title });
+    else
+      add.mutate({
+        kind,
+        refId,
+        roadmapId: opts?.roadmapId,
+        issueKind: opts?.issueKind,
+        title: opts?.title,
+      });
   };
   return { active, toggle, isPending: add.isPending || remove.isPending };
 }

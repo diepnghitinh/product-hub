@@ -13,6 +13,7 @@ import { BOARD_GUTTER } from '@/components/IssueBoardLayout';
 import { useIssues } from '@/features/issues/api';
 import { PropField, PropValue } from '@/features/issues/IssueDetail';
 import { CycleIcon } from './CycleIcon';
+import { CycleInsightsButton } from './CycleInsights';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import {
@@ -55,8 +56,12 @@ export function CycleFilterSelect({
   ];
 
   return (
+    // `w-auto` overrides the trigger's base `w-full`: in the toolbar's flex
+    // cluster a full-width trigger claims the whole row and squeezes its
+    // neighbours (the insights button) down to nothing. Sized to its label,
+    // capped so a long cycle name still ellipsizes instead of pushing them out.
     <Select
-      className="min-w-[10rem]"
+      className="w-auto min-w-[10rem] max-w-[18rem]"
       value={value}
       onValueChange={onChange}
       options={options}
@@ -159,14 +164,20 @@ export function CycleBoardBanner({
               </span>
             )}
           </span>
-          <Link
-            to={`/teams/${team!.id}/cycles`}
-            title={t('cycles.title')}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <CalendarClock className="size-3.5" aria-hidden />
-            {t('cycles.viewAll')}
-          </Link>
+          {/* The bar's two ways out, kept as one pair: insights reports on *this*
+              cycle, so it belongs here rather than in the toolbar. The button is
+              sized to the chip beside it (text-xs + py-1.5 + border = 30px). */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <CycleInsightsButton team={team} cycleParam={value} className="size-[30px]" />
+            <Link
+              to={`/teams/${team!.id}/cycles`}
+              title={t('cycles.title')}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <CalendarClock className="size-3.5" aria-hidden />
+              {t('cycles.viewAll')}
+            </Link>
+          </div>
         </div>
 
         {/* A closed cycle grows a second row: who was unfinished when it closed.

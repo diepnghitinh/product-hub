@@ -7,13 +7,16 @@ import { TEAM_NOT_FOUND } from '@application/teams/use-cases/team.use-cases';
 import { TeamResponseDto } from '@application/teams/dtos/team.dtos';
 import { TeamMapper } from '@application/teams/mappers/team.mapper';
 import {
+  CYCLE_NOT_FOUND,
   GetCycleBurndownUseCase,
   GetTeamCyclesUseCase,
+  UpdateCycleUseCase,
   UpdateTeamCycleConfigUseCase,
 } from '@application/cycles/use-cases/cycle.use-cases';
 import {
   CycleBurndownResponseDto,
   CycleResponseDto,
+  UpdateCycleDto,
   UpdateTeamCycleConfigDto,
 } from '@application/cycles/dtos/cycle.dtos';
 
@@ -25,6 +28,7 @@ export class TeamCyclesController {
   constructor(
     private readonly getCycles: GetTeamCyclesUseCase,
     private readonly getBurndown: GetCycleBurndownUseCase,
+    private readonly updateCycle: UpdateCycleUseCase,
     private readonly updateConfig: UpdateTeamCycleConfigUseCase,
   ) {}
 
@@ -52,6 +56,24 @@ export class TeamCyclesController {
   ): Promise<CycleBurndownResponseDto> {
     const result = await this.getBurndown.execute({ tenantId: auth.tenantId, teamId, cycleId });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
+    return result.getValue();
+  }
+
+  @Patch(':teamId/cycles/:cycleId')
+  @Roles(Role.ADMIN, Role.PRODUCT)
+  @ApiOperation({ summary: "Set (or clear) a cycle's goal / notes (the sprint goal)" })
+  async update(
+    @AuthUser() auth: JwtPayload,
+    @Param('teamId') teamId: string,
+    @Param('cycleId') cycleId: string,
+    @Body() dto: UpdateCycleDto,
+  ): Promise<CycleResponseDto> {
+    const result = await this.updateCycle.execute({ tenantId: auth.tenantId, teamId, cycleId, dto });
+    if (result.isFailure) {
+      const msg = result.error as string;
+      if (msg === TEAM_NOT_FOUND || msg === CYCLE_NOT_FOUND) throw new EntityNotFoundException(msg);
+      throw new BadRequestException(msg);
+    }
     return result.getValue();
   }
 

@@ -17,6 +17,8 @@ export {
   type DateRangePickerProps,
 } from './DateRangePicker';
 export { RichTextEditor, type RichTextEditorProps } from './RichTextEditor';
+export { RichText, type RichTextProps } from './RichText';
+export { useLightbox, type LightboxImage } from './Lightbox';
 export { MultiSelect, type MultiSelectOption, type MultiSelectProps } from './MultiSelect';
 export { MentionTextarea, type MentionOption } from './MentionTextarea';
 export { TagInput, type TagInputProps } from './TagInput';

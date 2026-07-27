@@ -21,6 +21,7 @@ export class CycleMapper {
       number: cycle.number,
       startDate: cycle.startDate,
       endDate: cycle.endDate,
+      description: cycle.description,
       status: cycle.statusOn(today),
       scopeCount: stats.scopeCount,
       scopePoints: stats.scopePoints,

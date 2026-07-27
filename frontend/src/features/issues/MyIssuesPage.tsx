@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, LayoutGrid, List } from 'lucide-react';
-import { Badge, Button, Spinner } from '@/components/ui';
+import { Badge, Button } from '@/components/ui';
+import { BoardSkeleton, ListSkeleton, TimelineSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
 import { Icon } from '@/components/Icon';
@@ -227,9 +228,13 @@ export function MyIssuesPage() {
       }
     >
       {isLoading ? (
-        <div className={cn('grid place-items-center rounded-xl border border-dashed p-8', BOARD_GUTTER)}>
-          <Spinner />
-        </div>
+        view === 'list' ? (
+          <ListSkeleton inset />
+        ) : view === 'timeline' ? (
+          <TimelineSkeleton />
+        ) : (
+          <BoardSkeleton columns={columns.length || 4} />
+        )
       ) : items.length === 0 ? (
         <div className="mx-4 rounded-xl border border-dashed p-8 text-center md:mx-8">
           <p className="text-muted-foreground">{isBug ? t('bugs.empty') : t('tasks.none')}</p>

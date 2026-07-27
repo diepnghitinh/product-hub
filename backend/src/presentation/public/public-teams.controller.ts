@@ -12,8 +12,7 @@ import { IssueMapper } from '@application/issues/mappers/issue.mapper';
 import { IssueResponseDto } from '@application/issues/dtos/issue.response.dto';
 import { QueryIssueDto } from '@application/issues/dtos/query-issue.dto';
 import { IssueKind } from '@application/issues/domain/enums/issue.enums';
-import { GetCommentsUseCase } from '@application/activity/use-cases/get-comments.use-case';
-import { GetTaskCommentsUseCase } from '@application/activity/use-cases/task-comment.use-cases';
+import { GetIssueCommentsUseCase } from '@application/activity/use-cases';
 import { CommentMapper } from '@application/activity/mappers/comment.mapper';
 import { CommentResponseDto } from '@application/activity/dtos/comment.response.dto';
 
@@ -39,8 +38,7 @@ export class PublicTeamsController {
     private readonly getPublicTeam: GetPublicTeamUseCase,
     private readonly getIssues: GetIssuesUseCase,
     private readonly getIssue: GetIssueUseCase,
-    private readonly getBugComments: GetCommentsUseCase,
-    private readonly getTaskComments: GetTaskCommentsUseCase,
+    private readonly getIssueComments: GetIssueCommentsUseCase,
   ) {}
 
   @Get(':token')
@@ -84,12 +82,8 @@ export class PublicTeamsController {
     const issue = await this.getIssue.execute({ id: itemId, tenantId, requesterId: '', isAdmin: false });
     if (issue.isFailure || IssueMapper.toResponseDto(issue.getValue()).teamId !== teamId) throw gone();
 
-    // Comments are still stored per kind; a team is a single kind, so branch the fetch.
-    if (team.issueType === TeamIssueType.BUG) {
-      const comments = await this.getBugComments.execute({ tenantId, bugId: itemId });
-      return CommentMapper.toResponseDtoArray(comments.getValue());
-    }
-    const comments = await this.getTaskComments.execute({ tenantId, taskId: itemId });
+    // Bugs and tasks share one comment thread keyed by the issue id.
+    const comments = await this.getIssueComments.execute({ tenantId, issueId: itemId });
     return CommentMapper.toResponseDtoArray(comments.getValue());
   }
 }

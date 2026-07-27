@@ -31,6 +31,10 @@ export function completedStatusKeysFor(issueType: TeamIssueType): string[] {
     : [TaskStatus.DONE];
 }
 
+/** Max length of a cycle's free-text goal/notes (plain text). Generous for a
+ *  sprint goal + a few notes, short enough to keep it a note, not a document. */
+export const CYCLE_DESCRIPTION_MAX = 2000;
+
 /** Config bounds (shared by the DTO and the entity guard). */
 export const CYCLE_LENGTH_WEEKS_MIN = 1;
 export const CYCLE_LENGTH_WEEKS_MAX = 4;

@@ -10,6 +10,9 @@ export interface UserProps {
   name: string;
   passwordHash: string;
   role: Role;
+  /** Public URL of the user's avatar (stored in cloud storage), or null for the
+   *  initials fallback. Set self-service via `PUT users/me/avatar`. */
+  avatarUrl?: string | null;
   inboxSeenAt?: Date | null;
   /** Entities this user has pinned to their sidebar (newest first). */
   favourites: FavouriteRef[];

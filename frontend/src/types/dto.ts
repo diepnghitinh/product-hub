@@ -48,7 +48,8 @@ export interface ListResponse<T> {
 export interface IssueRelationDto {
   id: string;
   relationType: RelationType;
-  issueType: IssueKind;
+  /** The linked issue's kind — may differ from the issue you asked about (a bug can block a task). */
+  targetKind: IssueKind;
   targetId: string;
   targetShortId: string;
   targetTitle: string;
@@ -61,6 +62,8 @@ export interface UserDto {
   email: string;
   name: string;
   role: Role;
+  /** Avatar image URL, or null/absent for the initials fallback. */
+  avatarUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -234,8 +237,11 @@ export interface FavouriteDto {
   title: string;
   /** Set for roadmap items — the board the item lives in. */
   roadmapId?: string;
-  /** Set for team-scoped bugs/tasks. */
+  /** Set for team-scoped issues. */
   teamId?: string;
+  /** Concrete issue kind (bug/task) — set for `issue` favourites; drives the
+   *  sidebar link (/bugs vs /tasks) + icon. */
+  issueKind?: 'bug' | 'task';
   createdAt: string;
 }
 
@@ -298,7 +304,8 @@ export interface BugAttachment {
 
 export interface CommentDto {
   id: string;
-  bugId: string;
+  /** The issue (bug or task) this comment is on; empty for a roadmap-item comment. */
+  issueId: string;
   /** Empty for a top-level comment; else the id of the comment it replies to. */
   parentId: string;
   authorId: string;
@@ -639,6 +646,9 @@ export interface CycleDto {
   /** ISO `YYYY-MM-DD`, inclusive — same date-only convention as issue start/end. */
   startDate: string;
   endDate: string;
+  /** The cycle's goal / notes (Scrum sprint goal). Plain text; `null` when unset.
+   *  Survives a close, but is lost on a rhythm rebuild (all cycles renumber from 1). */
+  description: string | null;
   status: CycleStatus;
   /** Issues in the cycle. */
   scopeCount: number;

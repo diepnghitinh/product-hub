@@ -8,13 +8,12 @@ import { CreateCommentDto } from '../dtos/create-comment.dto';
 import { UpdateCommentDto } from '../dtos/update-comment.dto';
 import { CommentEntity } from '../domain/entities/comment.entity';
 import { ICommentRepository } from '../repositories/comment.repository';
-import { COMMENT_FORBIDDEN } from './update-comment.use-case';
-import { COMMENT_DELETE_FORBIDDEN } from './delete-comment.use-case';
+import { COMMENT_FORBIDDEN, COMMENT_DELETE_FORBIDDEN } from './issue-comment.use-cases';
 
 /**
- * Roadmap-item comment thread — the roadmap-side twin of the bug/task comment
- * use-cases. Shares the `Comment` collection (a comment carries a `bugId` OR a
- * `taskId` OR a `roadmapItemId`). A roadmap item lives inside its roadmap's
+ * Roadmap-item comment thread — the roadmap-side twin of the issue comment
+ * use-cases. Shares the `Comment` collection (a comment carries an `issueId` OR a
+ * `roadmapItemId`). A roadmap item lives inside its roadmap's
  * `items[]`, so create loads the roadmap to validate the item and title the
  * @mention ping; the other operations key straight off the item id.
  */

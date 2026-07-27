@@ -8,30 +8,34 @@ import { useUsers } from '@/features/users/api';
 import { useTeams, useTeamStatusesLookup } from '@/features/teams/api';
 import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
 import { IssuePeekDrawer, type IssuePeek } from '@/features/issues/IssuePeekDrawer';
-import { TaskStatus, TeamIssueType, taskStatusColor } from '@/types/enums';
+import { TeamIssueType, isIssueDone, taskStatusColor } from '@/types/enums';
 import {
-  useCreateTask,
-  useDeleteTask,
-  useSetTaskStatus,
-  useTasks,
-  useUpdateTask,
-  type CreateTaskInput,
-  type TaskQuery,
-} from '../api';
-import { TaskComposerCard } from './TaskComposerCard';
+  useCreateIssue,
+  useDeleteIssue,
+  useIssues,
+  useSetIssueStatus,
+  useUpdateIssue,
+  type CreateIssueInput,
+  type IssueQuery,
+} from '@/features/issues/api';
+import { TaskComposerCard, type TeamOption } from './TaskComposerCard';
 
 export interface SubtaskSectionProps {
-  /** How to fetch the children — `{ roadmapItemId }` (a backlog item's tasks) or
-   *  `{ parentId }` (a task's sub-tasks). */
-  query: TaskQuery;
+  /** How to fetch the children — `{ roadmapItemId }` (a backlog item's linked
+   *  issues) or `{ parentId }` (a task's sub-tasks). Reads the unified `/issues`
+   *  collection, so a backlog item shows the **tasks and bugs** linked to it; the
+   *  sub-task query only ever matches tasks (bugs carry no `parentId`). */
+  query: IssueQuery;
   /** Fields merged into every created child — the link (and, for a backlog item,
    *  the project scope + denormalized label). */
-  createLink: Partial<CreateTaskInput>;
+  createLink: Partial<CreateIssueInput>;
   /** Teams offered in the composer; more than one grows a picker that also drives
-   *  the status columns. */
-  composerTeams: { id: string; name: string }[];
+   *  the status columns. **The picked team decides the kind** — offer a bug team
+   *  and the child is created as a bug (a backlog item can take "fix this bug"
+   *  as work); offer only task teams and nothing changes. */
+  composerTeams: TeamOption[];
   /** The team a new child lands in by default (the only team, or the workspace
-   *  default task team). */
+   *  default task team — so a new child is a task unless you pick otherwise). */
   defaultTeamId: string;
   titlePlaceholder?: string;
   /** Children can span teams (a backlog item's do) — shows a per-row team badge. */
@@ -50,6 +54,10 @@ export interface SubtaskSectionProps {
  * bar, then rows whose title opens that child's own detail (a task or a bug, by
  * its team). Adding one merges `createLink` so the child is filed and linked in
  * one write; completed children drive the rollup.
+ *
+ * Both kinds are first-class here: which team you pick in the composer decides
+ * whether the child is a task or a bug, matching what the section already
+ * *shows* (a linked bug has always rendered beside the tasks).
  */
 export function SubtaskSection({
   query,
@@ -66,8 +74,9 @@ export function SubtaskSection({
   const { data: usersData } = useUsers({ limit: 100 });
   const users = usersData?.items ?? [];
 
-  const { data, isLoading } = useTasks(query);
-  const tasks = data?.items ?? [];
+  // Spans both kinds: a backlog item lists its linked tasks *and* bugs.
+  const { data, isLoading } = useIssues(query);
+  const issues = data?.items ?? [];
 
   // Columns are per-team, and these children can span teams — resolve per row.
   const statusesFor = useTeamStatusesLookup();
@@ -75,17 +84,19 @@ export function SubtaskSection({
   const { data: teams } = useTeams();
   const teamById = new Map((teams ?? []).map((tm) => [tm.id, tm]));
 
-  const create = useCreateTask();
-  const update = useUpdateTask();
-  const setStatus = useSetTaskStatus();
-  const remove = useDeleteTask();
+  const create = useCreateIssue();
+  const update = useUpdateIssue();
+  const setStatus = useSetIssueStatus();
+  const remove = useDeleteIssue();
 
   const [adding, setAdding] = useState(false);
   // The child previewed in the right-side drawer (click a row to peek).
   const [peek, setPeek] = useState<IssuePeek | null>(null);
 
-  const done = tasks.filter((tk) => tk.status === TaskStatus.DONE).length;
-  const total = tasks.length;
+  // Rollup spans both kinds, so "done" is read per issue — a bug is finished at
+  // resolved/closed, a task at done.
+  const done = issues.filter((tk) => isIssueDone(tk.kind, tk.status)).length;
+  const total = issues.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
   return (
@@ -136,15 +147,20 @@ export function SubtaskSection({
           <div className="flex justify-center py-3">
             <Spinner />
           </div>
-        ) : tasks.length === 0 && !adding ? (
+        ) : issues.length === 0 && !adding ? (
           <p className="py-2 text-sm text-muted-foreground">{t('subtasks.empty')}</p>
         ) : (
-          tasks.map((tk) => {
+          issues.map((tk) => {
             const mine = !!user && tk.assigneeId === user.id;
             const team = teamById.get(tk.teamId);
             // A linked child is a bug or a task depending on its team; its title
             // links to the matching detail page.
             const detailBase = team?.issueType === TeamIssueType.BUG ? '/bugs' : '/tasks';
+            // This child's own columns — a bug team's `open`/`resolved` are as
+            // real here as a task's `todo`, so the dot reads its colour from the
+            // resolved column, not the task palette.
+            const columns = statusesFor(tk.teamId, team?.issueType ?? TeamIssueType.TASK);
+            const column = columns.find((c) => c.key === tk.status);
             return (
               <div
                 key={tk.id}
@@ -160,7 +176,7 @@ export function SubtaskSection({
                 <div className="flex min-w-0 items-center gap-2">
                   <span
                     className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: taskStatusColor(tk.status) }}
+                    style={{ backgroundColor: column?.color ?? taskStatusColor(tk.status) }}
                     aria-hidden
                   />
                   <button
@@ -174,7 +190,7 @@ export function SubtaskSection({
                     }
                     className={cn(
                       'min-w-0 flex-1 truncate text-left text-sm underline-offset-4 hover:underline',
-                      tk.status === TaskStatus.DONE && 'text-muted-foreground line-through',
+                      isIssueDone(tk.kind, tk.status) && 'text-muted-foreground line-through',
                     )}
                     title={tk.title}
                   >
@@ -197,18 +213,13 @@ export function SubtaskSection({
                   <Select
                     value={tk.status}
                     onValueChange={(v) => setStatus.mutate({ id: tk.id, status: v })}
-                    options={statusesFor(tk.teamId, team?.issueType ?? TeamIssueType.TASK).map((c) => ({
-                      value: c.key,
-                      label: c.label,
-                    }))}
+                    options={columns.map((c) => ({ value: c.key, label: c.label }))}
                     className="h-7 w-full"
                     aria-label={t('roadmaps.status')}
                   />
                 ) : (
                   <span className="truncate text-xs text-muted-foreground">
-                    {statusesFor(tk.teamId, team?.issueType ?? TeamIssueType.TASK).find(
-                      (c) => c.key === tk.status,
-                    )?.label ?? tk.status}
+                    {column?.label ?? tk.status}
                   </span>
                 )}
 
@@ -278,7 +289,9 @@ export function SubtaskSection({
           onCancel={() => setAdding(false)}
           onCreate={(input, finish) =>
             create.mutate(
-              { ...input, ...createLink },
+              // `createLink` owns the link fields; `kind` stays the composer's —
+              // it follows the team picked there, so a bug team files a bug.
+              { ...input, ...createLink, kind: input.kind },
               // Keep the card open with its property picks so you can batch several.
               { onSuccess: () => finish() },
             )

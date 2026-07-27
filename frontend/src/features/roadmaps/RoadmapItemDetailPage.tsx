@@ -21,10 +21,11 @@ import {
   DotLabel,
   Input,
   Menu,
+  RichText,
   RichTextEditor,
   Select,
-  Spinner,
 } from '@/components/ui';
+import { DetailSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { usePageChrome } from '@/layouts/headers/PageChrome';
@@ -35,7 +36,7 @@ import { useUsers } from '@/features/users/api';
 import { useMilestones } from '@/features/milestones/api';
 import { DetailGrid, PropField, PropSection, PropSidebar, PropValue } from '@/features/issues/IssueDetail';
 import { TaskPanel } from '@/features/tasks/components/TaskPanel';
-import { taskRefsInText, useLinkTasksByRef } from '@/features/tasks/api';
+import { issueRefsInText, useLinkIssuesByRef } from '@/features/tasks/api';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { ReactionBar } from '@/features/reactions/ReactionBar';
 import { ActivityHeader, CommentThread } from '@/features/activity/CommentThread';
@@ -88,7 +89,7 @@ export function RoadmapItemDetailPage() {
 
   const { data: roadmap, isLoading } = useRoadmap(roadmapId);
   const replaceItems = useReplaceRoadmapItems();
-  const linkTasks = useLinkTasksByRef();
+  const linkIssues = useLinkIssuesByRef();
   // People list feeds both the assignee picker and comment @-mentions, so fetch
   // it for anyone who can write here (not just those who can manage assignees).
   const { data: usersData } = useUsers({ limit: 100 }, canWrite);
@@ -121,9 +122,9 @@ export function RoadmapItemDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="grid place-items-center rounded-xl border border-dashed p-8">
-        <Spinner />
-      </div>
+      <CenteredPageLayout>
+        <DetailSkeleton />
+      </CenteredPageLayout>
     );
   }
   if (!roadmap || !item) {
@@ -178,12 +179,13 @@ export function RoadmapItemDetailPage() {
     if (descTimer.current) clearTimeout(descTimer.current);
     descTimer.current = setTimeout(() => {
       save({ description: html });
-      // A pasted task link (/tasks/TSK-5) links that task to this item. Add-only:
-      // unresolved refs are ignored and deleting the text later won't unlink.
-      const refs = taskRefsInText(html);
+      // A pasted task or bug link (/tasks/TSK-5, /bugs/BUG-12) links it to this
+      // item. Add-only: unresolved refs are ignored and deleting the text later
+      // won't unlink.
+      const refs = issueRefsInText(html);
       if (refs.length) {
         const label = `${columns.find((c) => c.key === item.phase)?.label ?? item.phase} · ${item.title}`;
-        linkTasks.mutate({
+        linkIssues.mutate({
           refs,
           roadmapId: roadmap.id,
           roadmapItemId: item.id,
@@ -246,11 +248,6 @@ export function RoadmapItemDetailPage() {
       <PageHeader
         title={item.title || t('roadmaps.untitled')}
         parent={{ to: `/roadmaps/${roadmap.id}`, label: roadmap.title }}
-        leading={
-          <span className="flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground">
-            <Icon name="roadmap" size={16} />
-          </span>
-        }
         actions={
           canWrite ? (
             <Menu
@@ -334,10 +331,7 @@ export function RoadmapItemDetailPage() {
                 />
               </>
             ) : item.description ? (
-              <div
-                className="text-sm text-muted-foreground [&_a]:text-primary [&_a]:underline [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-md"
-                dangerouslySetInnerHTML={{ __html: item.description }}
-              />
+              <RichText className="text-sm text-muted-foreground" html={item.description} />
             ) : (
               <p className="text-sm text-muted-foreground">{t('roadmaps.description')}</p>
             )}

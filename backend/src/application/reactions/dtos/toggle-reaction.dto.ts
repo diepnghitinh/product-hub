@@ -7,7 +7,7 @@ export class ToggleReactionDto {
   @IsEnum(ReactionTargetType)
   targetType: ReactionTargetType;
 
-  @ApiProperty({ description: 'Id of the bug/task/roadmap item' })
+  @ApiProperty({ description: 'Id of the issue or roadmap item' })
   @IsString()
   @MinLength(1)
   targetId: string;

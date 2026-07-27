@@ -10,8 +10,19 @@ import {
   Textarea,
 } from '@/components/ui';
 import { t } from '@/i18n';
+import { TeamSymbol } from '@/components/TeamSymbol';
 import { useTeamStatuses } from '@/features/teams/api';
-import { TASK_ESTIMATES, TeamIssueType, taskEstimateLabel } from '@/types/enums';
+import {
+  BUG_SEVERITIES,
+  BUG_SEVERITY_COLOR,
+  BUG_SEVERITY_LABEL,
+  BugSeverity,
+  IssueKind,
+  TASK_ESTIMATES,
+  TeamIssueType,
+  defaultTeamIcon,
+  taskEstimateLabel,
+} from '@/types/enums';
 
 export interface TaskDraft {
   title: string;
@@ -23,11 +34,20 @@ export interface TaskDraft {
   estimate?: number;
   /** The team the composer resolved to — its picker's choice, or the default. */
   teamId?: string;
+  /** What the picked team files — a bug team creates a bug, not a task. */
+  kind: IssueKind;
+  /** Bug-only, and only set when the picked team is a bug team. */
+  severity?: BugSeverity;
 }
 
-interface TeamOption {
+export interface TeamOption {
   id: string;
   name: string;
+  /** Decides the kind created, which status columns show, and estimate ⇄ severity. */
+  issueType: TeamIssueType;
+  /** The team's own nav symbol + accent, so the two kinds read apart in the picker. */
+  icon?: string;
+  color?: string | null;
 }
 
 /**
@@ -40,7 +60,10 @@ interface TeamOption {
  * property picks kept) so several siblings can be added fast.
  *
  * Give it a `teams` list with more than one entry and it grows a team picker
- * that both files the task and drives which status columns appear.
+ * that both files the task and drives which status columns appear. Offer a **bug
+ * team** in that list and the card composes a bug instead — same card, but the
+ * bug team's columns and a severity in place of the estimate — so a backlog item
+ * can take "fix this bug" as a child without a second composer.
  */
 export function TaskComposerCard({
   teams,
@@ -52,8 +75,9 @@ export function TaskComposerCard({
   titlePlaceholder = t('tasks.titlePlaceholder'),
   extraActions,
 }: {
-  /** Task teams the new task may land in. >1 shows a picker that also switches
-   *  the status columns; 0/1 hides it and the card uses `defaultTeamId`. */
+  /** Teams the new issue may land in — task teams, bug teams, or both. >1 shows
+   *  a picker that also switches the kind and the status columns; 0/1 hides it
+   *  and the card uses `defaultTeamId`. */
   teams?: TeamOption[];
   /** The team selected initially — the only team, or the workspace default. */
   defaultTeamId: string;
@@ -68,7 +92,12 @@ export function TaskComposerCard({
   // Team is owned here so the picker can re-resolve the status columns live.
   const [teamId, setTeamId] = useState('');
   const effectiveTeamId = teamId || defaultTeamId;
-  const columns = useTeamStatuses(effectiveTeamId, TeamIssueType.TASK);
+  // The team decides the kind: a bug team files a bug, with its own columns and
+  // a severity. Unknown team (none offered) ⇒ a task, as before.
+  const issueType =
+    teams?.find((tm) => tm.id === effectiveTeamId)?.issueType ?? TeamIssueType.TASK;
+  const isBug = issueType === TeamIssueType.BUG;
+  const columns = useTeamStatuses(effectiveTeamId, issueType);
   const showTeamPicker = (teams?.length ?? 0) > 1;
 
   const [title, setTitle] = useState('');
@@ -78,6 +107,7 @@ export function TaskComposerCard({
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [estimate, setEstimate] = useState(0);
+  const [severity, setSeverity] = useState<BugSeverity>(BugSeverity.MEDIUM);
 
   const effectiveStatus = status ?? columns[0]?.key;
 
@@ -91,8 +121,12 @@ export function TaskComposerCard({
         assigneeId: assigneeId || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
-        estimate: estimate || undefined,
+        // Each kind sends only its own field, so switching teams mid-compose
+        // can't smuggle an estimate onto a bug (or a severity onto a task).
+        estimate: isBug ? undefined : estimate || undefined,
+        severity: isBug ? severity : undefined,
         teamId: effectiveTeamId || undefined,
+        kind: isBug ? IssueKind.BUG : IssueKind.TASK,
       },
       () => {
         // Clear the text but keep property picks for the next sibling.
@@ -139,8 +173,20 @@ export function TaskComposerCard({
               // that team's first column.
               setStatus(undefined);
             }}
-            options={teams!.map((tm) => ({ value: tm.id, label: tm.name }))}
-            className="h-8 w-[150px]"
+            options={teams!.map((tm) => ({
+              value: tm.id,
+              label: (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <TeamSymbol
+                    name={tm.icon || defaultTeamIcon(tm.issueType)}
+                    size={14}
+                    color={tm.color ?? undefined}
+                  />
+                  <span className="truncate">{tm.name}</span>
+                </span>
+              ),
+            }))}
+            className="h-8 w-[170px]"
             aria-label={t('tasks.team')}
           />
         )}
@@ -174,24 +220,38 @@ export function TaskComposerCard({
           placeholder={t('tasks.dates')}
           className="h-8 w-[180px]"
         />
-        <Combobox
-          value={String(estimate || 0)}
-          onChange={(v) => setEstimate(Number(v))}
-          placeholder={t('tasks.estimate')}
-          className="h-8 w-[130px]"
-          options={[
-            {
-              value: '0',
-              label: t('tasks.noEstimate'),
-              icon: <Circle className="size-3.5 text-muted-foreground" />,
-            },
-            ...TASK_ESTIMATES.map((v) => ({
-              value: String(v),
-              label: taskEstimateLabel(v),
-              icon: <Triangle className="size-3 fill-current text-muted-foreground" />,
-            })),
-          ]}
-        />
+        {/* Kind-specific slot: a bug is sized by severity, a task by points. */}
+        {isBug ? (
+          <Select
+            value={severity}
+            onValueChange={(v) => setSeverity(v as BugSeverity)}
+            options={BUG_SEVERITIES.map((s) => ({
+              value: s,
+              label: <DotLabel color={BUG_SEVERITY_COLOR[s]}>{BUG_SEVERITY_LABEL[s]}</DotLabel>,
+            }))}
+            className="h-8 w-[130px]"
+            aria-label={t('bugs.severity')}
+          />
+        ) : (
+          <Combobox
+            value={String(estimate || 0)}
+            onChange={(v) => setEstimate(Number(v))}
+            placeholder={t('tasks.estimate')}
+            className="h-8 w-[130px]"
+            options={[
+              {
+                value: '0',
+                label: t('tasks.noEstimate'),
+                icon: <Circle className="size-3.5 text-muted-foreground" />,
+              },
+              ...TASK_ESTIMATES.map((v) => ({
+                value: String(v),
+                label: taskEstimateLabel(v),
+                icon: <Triangle className="size-3 fill-current text-muted-foreground" />,
+              })),
+            ]}
+          />
+        )}
 
         <div className="ml-auto flex items-center gap-2">
           {extraActions}

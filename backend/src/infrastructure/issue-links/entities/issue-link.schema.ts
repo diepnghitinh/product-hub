@@ -4,7 +4,8 @@ import { v4 as uuid } from 'uuid';
 export interface IssueLinkDoc {
   _id: string;
   tenantId: string;
-  /** 'task' | 'bug' — same kind on both ends (same-type only for now). */
+  /** 'task' | 'bug' — the *source* end's kind. The target end may differ
+   *  (cross-type links); its kind is resolved on read, not stored here. */
   issueType: string;
   sourceId: string;
   targetId: string;
@@ -31,6 +32,8 @@ IssueLinkSchema.index(
   { tenantId: 1, issueType: 1, sourceId: 1, targetId: 1, relationType: 1 },
   { unique: true },
 );
-// The two directions an issue's relations are gathered from.
-IssueLinkSchema.index({ tenantId: 1, issueType: 1, sourceId: 1 });
-IssueLinkSchema.index({ tenantId: 1, issueType: 1, targetId: 1 });
+// The two directions an issue's relations are gathered from. Kind-agnostic: an
+// issue's list spans both ends regardless of the other end's kind, so these are
+// keyed by id alone (no issueType) to serve the cross-type read.
+IssueLinkSchema.index({ tenantId: 1, sourceId: 1 });
+IssueLinkSchema.index({ tenantId: 1, targetId: 1 });

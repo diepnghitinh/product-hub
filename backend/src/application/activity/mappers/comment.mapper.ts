@@ -5,7 +5,7 @@ export class CommentMapper {
   static toResponseDto(comment: CommentEntity): CommentResponseDto {
     return {
       id: comment.id.toString(),
-      bugId: comment.bugId,
+      issueId: comment.issueId,
       parentId: comment.parentId,
       authorId: comment.authorId,
       authorName: comment.authorName,

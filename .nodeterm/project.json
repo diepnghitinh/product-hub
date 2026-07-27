@@ -1,33 +1,51 @@
 {
   "version": 1,
-  "rev": 334,
-  "savedAt": "2026-07-26T16:39:33.326Z",
+  "rev": 379,
+  "savedAt": "2026-07-27T13:47:49.911Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 575.5664461958986,
-    "y": 2592.0602048716005,
-    "zoom": 1.15
+    "x": 590.3750525846206,
+    "y": 2530.88288764656,
+    "zoom": 1.0253051820319332
   },
   "nodes": [
     {
-      "id": "term-mrxoj3ai-3",
+      "id": "term-ms3827z0-1",
       "kind": "terminal",
       "position": {
-        "x": -131.86212712686842,
-        "y": -2359.7839672117184
+        "x": 467.0309308402083,
+        "y": -2311.930511295571
       },
       "size": {
-        "width": 701,
-        "height": 619
+        "width": 600,
+        "height": 400
       },
-      "title": "Add property tooltip on hover",
+      "title": "Thêm goal description cho cycle",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,
       "tags": [],
-      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-ms3a3yyd-2",
+      "kind": "terminal",
+      "position": {
+        "x": -199.50604678578358,
+        "y": -2311.329672798521
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Tạo sub-task roadmap với chọn team bugs",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
       "cwd": ".",
       "agentId": "claude"
     }

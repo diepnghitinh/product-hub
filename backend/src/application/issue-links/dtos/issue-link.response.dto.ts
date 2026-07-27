@@ -13,8 +13,11 @@ export class IssueLinkResponseDto {
   @ApiProperty({ enum: RelationType })
   relationType: RelationType;
 
-  @ApiProperty({ enum: IssueKind })
-  issueType: IssueKind;
+  @ApiProperty({
+    enum: IssueKind,
+    description: "The linked issue's kind — may differ from the issue you asked about (a bug can block a task)",
+  })
+  targetKind: IssueKind;
 
   @ApiProperty({ description: 'The other issue in the relation' })
   targetId: string;

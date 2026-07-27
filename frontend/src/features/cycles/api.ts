@@ -102,6 +102,30 @@ export function useResolvedCycleId(
   return param;
 }
 
+/**
+ * Set (or clear) a single cycle's goal/notes (the sprint goal). `description` is
+ * always sent — a string sets it, `null` clears it. Invalidates the team's cycle
+ * list so the insights drawer (which reads the cycle from that list) re-renders
+ * with the saved text; the burn-up isn't affected, so it's left alone.
+ */
+export function useUpdateCycle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      teamId,
+      cycleId,
+      description,
+    }: {
+      teamId: string;
+      cycleId: string;
+      description: string | null;
+    }) => apiPatch<CycleDto>(`/teams/${teamId}/cycles/${cycleId}`, { description }),
+    onSuccess: (_cycle, { teamId }) => {
+      qc.invalidateQueries({ queryKey: ['cycles', teamId] });
+    },
+  });
+}
+
 /** Patch a team's cycle rhythm. Enabling seeds current + 2 upcoming cycles;
  *  disabling deletes the upcoming ones (their issues drop back to no-cycle);
  *  re-rhythming an enabled team regenerates the upcoming ones. Invalidates

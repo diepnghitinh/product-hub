@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import { Badge, Button, Dialog, Field, Input, ProgressBar, Spinner } from '@/components/ui';
+import { Badge, Button, Dialog, Field, Input, ProgressBar } from '@/components/ui';
+import { CardGridSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { MILESTONE_STATUS_LABEL } from '@/types/enums';
@@ -48,9 +49,7 @@ export function MilestonesPage() {
       />
 
       {isLoading ? (
-        <div className="grid place-items-center rounded-xl border border-dashed p-8">
-          <Spinner />
-        </div>
+        <CardGridSkeleton />
       ) : milestones.length === 0 ? (
         <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
           {t('milestones.empty')}

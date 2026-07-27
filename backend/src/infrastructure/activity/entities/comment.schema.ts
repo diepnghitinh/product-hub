@@ -4,6 +4,7 @@ import { v4 as uuid } from 'uuid';
 export interface CommentDoc {
   _id: string;
   tenantId: string;
+  issueId: string;
   bugId: string;
   taskId: string;
   roadmapItemId: string;
@@ -21,7 +22,10 @@ export const CommentSchema = new Schema<CommentDoc>(
   {
     _id: { type: String, default: () => uuid() },
     tenantId: { type: String, required: true, index: true },
-    // A comment is on a bug OR a task OR a roadmap item — one is set, the rest ''.
+    // A comment is on an issue OR a roadmap item. `issueId` is the canonical
+    // subject id (the issue's shared _id); `bugId`/`taskId` are legacy mirrors
+    // kept for the inbox + reversibility (one is set to issueId, the other '').
+    issueId: { type: String, default: '', index: true },
     bugId: { type: String, default: '', index: true },
     taskId: { type: String, default: '', index: true },
     roadmapItemId: { type: String, default: '', index: true },

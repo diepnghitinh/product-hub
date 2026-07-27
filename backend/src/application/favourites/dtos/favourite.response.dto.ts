@@ -15,8 +15,11 @@ export class FavouriteResponseDto {
   @ApiPropertyOptional({ description: 'Owning roadmap id (roadmap items only)' })
   roadmapId?: string;
 
-  @ApiPropertyOptional({ description: 'Owning team id (team-scoped bugs/tasks)' })
+  @ApiPropertyOptional({ description: 'Owning team id (team-scoped issues)' })
   teamId?: string;
+
+  @ApiPropertyOptional({ description: 'Concrete issue kind (bug/task) — issue favourites only' })
+  issueKind?: 'bug' | 'task';
 
   @ApiProperty()
   createdAt: Date;

@@ -161,9 +161,13 @@ export function IssueBoardLayout({
           )}
           {filters}
           {/* Cycle scope pinned to the right end of the row (opposite search +
-              Filter). On mobile the toolbar stacks, so it just falls in line. */}
+              Filter). On mobile the toolbar stacks, so it just falls in line —
+              and the cluster wraps rather than pushing its last control off the
+              screen edge (chip + filter + insights don't fit 390px in one line). */}
           {filtersEnd && (
-            <div className="flex items-center gap-2 sm:ml-auto sm:gap-3">{filtersEnd}</div>
+            <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:gap-3">
+              {filtersEnd}
+            </div>
           )}
         </div>
       )}

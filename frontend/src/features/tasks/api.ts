@@ -117,29 +117,33 @@ export const useCreateTask = hooks.useCreate;
 export const useUpdateTask = hooks.useUpdate;
 
 /**
- * Pull task refs out of free text (a roadmap item's description), matching a
- * task link `/tasks/TSK-5` — bare, or inside a full URL/anchor. Returns the
- * unique shortId refs, upper-cased. A ref is `<CODE>-<id>`: the id is a random
- * suffix (`TSK-6HCUHKX`) or, for older rows, digits (`TSK-5`), so it catches
- * `TSK-`/`BUG-` and team-derived codes like `ENG-` alike.
+ * Pull issue refs out of free text (a roadmap item's description), matching a
+ * task **or bug** link — `/tasks/TSK-5` or `/bugs/BUG-12` — bare, or inside a
+ * full URL/anchor. Returns the unique shortId refs, upper-cased. A ref is
+ * `<CODE>-<id>`: the id is a random suffix (`TSK-6HCUHKX`) or, for older rows,
+ * digits (`TSK-5`), so it catches `TSK-`/`BUG-` and team-derived codes like
+ * `ENG-` alike.
  */
-export function taskRefsInText(text: string): string[] {
+export function issueRefsInText(text: string): string[] {
   const refs = new Set<string>();
-  const re = /\/tasks\/([A-Za-z]{2,}-[A-Za-z0-9]+)/g;
+  const re = /\/(?:tasks|bugs)\/([A-Za-z]{2,}-[A-Za-z0-9]+)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) refs.add(m[1].toUpperCase());
   return [...refs];
 }
 
 /**
- * Resolve `/tasks/…` refs found in an item's description and link each to that
- * item — the same write `PickTaskDialog` does. A ref that doesn't resolve (a
- * typo, or a task from another workspace) is skipped silently; a task already on
- * this item is left alone. Resolves via `GET /tasks/<ref>` (the API's `findByRef`
- * accepts a shortId). Returns the shortIds actually linked.
+ * Resolve `/tasks/…` or `/bugs/…` refs found in an item's description and link
+ * each to that item — the same write `PickTaskDialog` does, for either kind. A
+ * ref that doesn't resolve (a typo, or an issue from another workspace) is
+ * skipped silently; an issue already on this item is left alone. Resolves via
+ * `GET /issues/<ref>` (the API's `findByRef` accepts a shortId of either kind).
+ * Returns the shortIds actually linked. Invalidates the unified issue list (what
+ * the roadmap panel reads) plus both boards, so a freshly-linked bug or task
+ * shows without a refresh.
  */
-export function useLinkTasksByRef() {
-  const invalidate = hooks.useInvalidate();
+export function useLinkIssuesByRef() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async (args: {
       refs: string[];
@@ -151,22 +155,26 @@ export function useLinkTasksByRef() {
       const linked: string[] = [];
       for (const ref of args.refs) {
         try {
-          const task = await apiGet<TaskDto>(`/issues/${ref}`);
-          if (!task || task.roadmapItemId === args.roadmapItemId) continue;
-          await apiPatch<TaskDto>(`/issues/${task.id}`, {
+          const issue = await apiGet<TaskDto>(`/issues/${ref}`);
+          if (!issue || issue.roadmapItemId === args.roadmapItemId) continue;
+          await apiPatch<TaskDto>(`/issues/${issue.id}`, {
             roadmapId: args.roadmapId,
             roadmapItemId: args.roadmapItemId,
             roadmapItemLabel: args.roadmapItemLabel,
             projectId: args.projectId,
           });
-          linked.push(task.shortId || task.id);
+          linked.push(issue.shortId || issue.id);
         } catch {
           // Unresolved or foreign ref — ignore, per the add-only behaviour.
         }
       }
       return linked;
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      for (const key of ['issues', 'tasks', 'bugs']) {
+        qc.invalidateQueries({ queryKey: [key] });
+      }
+    },
   });
 }
 

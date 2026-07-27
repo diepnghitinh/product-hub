@@ -12,6 +12,7 @@ export interface UserDoc {
   name: string;
   passwordHash: string;
   role: Role;
+  avatarUrl: string | null;
   inboxSeenAt: Date | null;
   favourites: FavouriteRef[];
   personalStatuses: TaskStatusConfig[];
@@ -59,6 +60,8 @@ export const UserSchema = new Schema<UserDoc>(
     name: { type: String, required: true, maxlength: 120 },
     passwordHash: { type: String, required: true },
     role: { type: String, enum: Object.values(Role), default: Role.TESTER },
+    // Avatar image URL from cloud storage; null (the default) shows initials.
+    avatarUrl: { type: String, default: null },
     inboxSeenAt: { type: Date, default: null },
     favourites: { type: [FavouriteRefSchema], default: [] },
     // Empty by default; the entity fills in DEFAULT_TASK_STATUSES on read so an

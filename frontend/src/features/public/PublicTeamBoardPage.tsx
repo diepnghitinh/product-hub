@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { CalendarRange, LayoutGrid, List } from 'lucide-react';
-import { Spinner } from '@/components/ui';
+import { BoardSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { BOARD_GUTTER, ViewTabs } from '@/components/IssueBoardLayout';
@@ -46,9 +46,7 @@ export function PublicTeamBoardPage() {
   if (isLoading) {
     return (
       <PublicShell>
-        <div className="grid flex-1 place-items-center">
-          <Spinner />
-        </div>
+        <BoardSkeleton />
       </PublicShell>
     );
   }

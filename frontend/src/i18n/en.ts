@@ -297,12 +297,16 @@ export const en = {
   'roadmaps.ganttEmpty': 'No items in the Now column yet.',
   'roadmaps.ganttEmptyHint': 'Add an item to the Now column to see it on the timeline.',
   'roadmaps.ganttToday': 'Today',
-  'roadmaps.ganttNoDue': 'No due date',
+  'roadmaps.ganttNoDates': 'No dates',
   'roadmaps.ganttNoTasks': 'No linked tasks',
   'roadmaps.ganttTasks': '{count} tasks',
   'roadmaps.ganttDue': 'Due {date}',
-  'roadmaps.ganttLegendBar': 'Bar = item (start → last task due), filled by progress',
-  'roadmaps.ganttLegendMarker': 'Diamond = a task’s due date',
+  'roadmaps.ganttStarts': 'Starts {date}',
+  'roadmaps.ganttLegendBar': 'Bar = item (start → last task end), filled by progress',
+  'roadmaps.ganttLegendTaskBar': 'Solid bar = a task’s start → end',
+  'roadmaps.ganttDragHint': 'Drag a task bar to move it, or an edge to change that date',
+  'roadmaps.ganttSaveFailed': 'Couldn’t change those dates — put them back.',
+  'roadmaps.ganttLegendMarker': 'Diamond = a task with only one date',
   'roadmaps.newColumn': 'New column',
   'roadmaps.columnName': 'Column name',
   'roadmaps.columnColor': 'Column color',
@@ -373,6 +377,7 @@ export const en = {
   'relations.empty': 'No matching issues.',
   'relations.none': 'Search an issue to link.',
   'relations.remove': 'Remove relation',
+  'relations.kindBug': 'Bug',
   'tasks.assign': 'Assign',
   'tasks.unassigned': 'Unassigned',
   'tasks.assignMe': 'Assign to me',
@@ -448,15 +453,16 @@ export const en = {
   'tasks.created': 'Created',
   'tasks.createdThis': 'created this task',
   'tasks.someone': 'Someone',
-  // Task picker — link an existing task to a backlog item
+  // Issue picker — link an existing task or bug to a backlog item
   'tasks.pick': 'Link existing',
-  'tasks.pickTitle': 'Link an existing task',
-  'tasks.pickSearch': 'Search by task name or ID…',
-  'tasks.pickEmpty': 'No tasks match that name or ID.',
-  'tasks.pickNone': 'No other tasks to link yet.',
+  'tasks.pickTitle': 'Link an existing task or bug',
+  'tasks.pickSearch': 'Search by name or ID…',
+  'tasks.pickEmpty': 'Nothing matches that name or ID.',
+  'tasks.pickNone': 'Nothing else to link yet.',
   'tasks.pickLinkedTo': 'Linked to {item}',
   'tasks.pickUnlinked': 'Not linked to a backlog item',
-  'tasks.pickMoveHint': 'Linking moves the task here from its current backlog item.',
+  'tasks.pickMoveHint': 'Linking moves the item here from its current backlog item.',
+  'tasks.pickKindBug': 'Bug',
   'tasks.pickAction': 'Link',
 
   // My Team — the per-person workload board (Box view) + its List/Board tabs.
@@ -483,6 +489,7 @@ export const en = {
   'myteam.collapseAll': 'Collapse all',
   'myteam.expandAll': 'Expand all',
   'myteam.back': 'Back',
+  'myteam.openInNewTab': 'Open in a new tab',
 
   'milestones.title': 'OKRs',
   'milestones.new': 'New OKR',
@@ -556,6 +563,19 @@ export const en = {
   'profile.appearance': 'Appearance',
   'profile.logout': 'Log out',
   'profile.passwordHint': 'Update the password you use to sign in.',
+  // Avatar — pick/change/remove your photo (compressed in-browser before upload)
+  'profile.addPhoto': 'Add photo',
+  'profile.changePhoto': 'Change photo',
+  'profile.removePhoto': 'Remove photo',
+  'profile.photoHint': 'JPG, PNG or WebP — we’ll optimize it for you.',
+  'profile.photoUpdated': 'Your photo has been updated.',
+  'profile.photoRemoved': 'Your photo has been removed.',
+  'profile.photoInvalid': 'Please choose an image file.',
+  'profile.photoFailed': 'Couldn’t update your photo. Please try again.',
+  // Avatar — circular crop before upload (drag to reposition, slider/wheel to zoom)
+  'profile.cropTitle': 'Adjust your photo',
+  'profile.cropHint': 'Drag to reposition. Scroll or use the slider to zoom.',
+  'profile.zoom': 'Zoom',
 
   'settings.title': 'Settings',
   'settings.subtitle': 'Configure your workspace, integrations and notifications.',
@@ -754,6 +774,13 @@ export const en = {
   'cycles.insights.noAssignee': 'Unassigned',
   'cycles.insights.noLabel': 'No label',
   'cycles.insights.noProject': 'No project',
+  'cycles.goal.title': 'Goal',
+  'cycles.goal.placeholder': 'What is this cycle aiming to achieve?',
+  'cycles.goal.empty': 'No goal set for this cycle yet.',
+  'cycles.goal.save': 'Save goal',
+  'cycles.goal.hint': 'Cleared if the team’s cycle rhythm changes.',
+  'cycles.goal.add': 'Add a goal for this cycle',
+  'cycles.goal.edit': 'Edit this cycle’s goal',
 
   // Teams — each team is an area with its own issue list
   'teams.title': 'Teams',
@@ -878,6 +905,17 @@ export const en = {
   'personal.moveTasksTrail': 'Where should they go before it’s removed?',
   'personal.moveTasksTo': 'Move remaining tasks to',
   'personal.moveAndRemove': 'Move & remove',
+
+  // Rich-text read view — off-domain link guard.
+  'richText.externalTitle': 'Open external link?',
+  'richText.externalBody': 'This link leads to a site outside this workspace. Open it in a new tab?',
+  'richText.externalOpen': 'Open link',
+
+  // Image lightbox.
+  'lightbox.title': 'Image',
+  'lightbox.close': 'Close',
+  'lightbox.prev': 'Previous image',
+  'lightbox.next': 'Next image',
 } as const;
 
 export type I18nKey = keyof typeof en;

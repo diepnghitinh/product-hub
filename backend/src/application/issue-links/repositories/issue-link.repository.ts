@@ -23,12 +23,9 @@ export interface CreateIssueLinkData {
 
 /** Port for issue-link persistence. All reads are tenant-scoped. */
 export abstract class IIssueLinkRepository {
-  /** Every link touching an issue, from either end, oldest first. */
-  findForIssue: (
-    tenantId: string,
-    issueType: IssueKind,
-    issueId: string,
-  ) => Promise<IssueLinkRecord[]>;
+  /** Every link touching an issue, from either end, oldest first. Kind-agnostic:
+   *  the other end may be a different kind (a bug linked to a task). */
+  findForIssue: (tenantId: string, issueId: string) => Promise<IssueLinkRecord[]>;
   /** Idempotent: a repeat (source, target, type) returns the existing row. */
   create: (data: CreateIssueLinkData) => Promise<IssueLinkRecord>;
   /** Delete one link by id, tenant-scoped. Returns whether a row was removed. */

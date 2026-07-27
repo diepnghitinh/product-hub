@@ -18,6 +18,10 @@ export abstract class ICycleRepository {
    * write so frozen history is written exactly once.
    */
   closeCycle: (tenantId: string, id: string, rollup: CycleRollup, at: Date) => Promise<boolean>;
+  /** Persist a cycle's goal/notes (`null` clears it). Returns false when no such
+   *  cycle exists for the tenant. A plain field write — unlike `closeCycle` there
+   *  is no write-once claim to win. */
+  setDescription: (tenantId: string, id: string, description: string | null) => Promise<boolean>;
   /** Delete a team's not-yet-started cycles (start > today); returns their ids
    *  so the caller can detach issues. Used when cycles are turned off. */
   deleteUpcoming: (tenantId: string, teamId: string, today: string) => Promise<string[]>;

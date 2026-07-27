@@ -20,12 +20,13 @@ export interface UpdateCommentInput {
 export type IssueSubject = 'task' | 'bug';
 
 /**
- * A comment lives on a bug, a task, OR a roadmap item — one shared collection +
- * shape, but different routes, cache keys, and side effects (bug mentions feed
- * the inbox; the others don't in v1). A `CommentSource` names which thread, so
- * the shared comment thread can talk to any of them without branching at the
- * call site. `id` is the subject id; a roadmap item also needs its `roadmapId`
- * because items live inside their roadmap.
+ * A comment lives on an issue (bug or task) OR a roadmap item — one shared
+ * collection + shape. Bugs and tasks now share the `issues/:id/comments` route
+ * (same collection, same id); a roadmap item has its own nested route. They still
+ * differ in side effects (bug mentions feed the inbox; the others don't in v1). A
+ * `CommentSource` names which thread so the shared comment view can talk to any of
+ * them without branching at the call site. `id` is the subject id; a roadmap item
+ * also needs its `roadmapId` because items live inside their roadmap.
  */
 export type CommentSource =
   | { kind: 'bug'; id: string }
@@ -43,17 +44,19 @@ interface SourceConfig {
 
 function sourceConfig(source: CommentSource): SourceConfig {
   switch (source.kind) {
-    case 'task':
-      return { base: `tasks/${source.id}`, listKey: 'task-comments', touchesInbox: false };
     case 'roadmapItem':
       return {
         base: `roadmaps/${source.roadmapId}/items/${source.id}`,
         listKey: 'roadmap-item-comments',
         touchesInbox: false,
       };
+    // Bugs and tasks are the same issue under the hood — one route, keyed by id.
+    // Only bug mentions surface in the inbox, so only they invalidate it.
+    case 'task':
+      return { base: `issues/${source.id}`, listKey: 'issue-comments', touchesInbox: false };
     case 'bug':
     default:
-      return { base: `bugs/${source.id}`, listKey: 'comments', touchesInbox: true };
+      return { base: `issues/${source.id}`, listKey: 'issue-comments', touchesInbox: true };
   }
 }
 

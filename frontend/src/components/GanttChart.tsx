@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -92,6 +92,17 @@ export interface GanttRow {
   marker?: GanttMarker;
   /** Shown in the track when the row has neither a bar nor a marker. */
   emptyText?: string;
+  /**
+   * Makes this row's bar **draggable** (whole bar → shifts both dates) and
+   * **resizable** (either edge → moves that date). Called once on release with
+   * the new window, day-aligned; omit and the bar is read-only.
+   *
+   * The caller must reflect the change immediately (optimistically) — the bar
+   * returns to its `bar` prop the moment the drag ends, so a slow round-trip
+   * would look like a snap-back. Drag is pointer-only; the row's label still
+   * links to the detail, which is the keyboard/screen-reader path to the dates.
+   */
+  onBarChange?: (next: { start: number; end: number }) => void;
 }
 
 export interface GanttChartProps {
@@ -112,6 +123,9 @@ export interface GanttChartProps {
  * plain listing when it has no dates. Callers own how rows are derived and
  * coloured (see `RoadmapGanttView` and `IssueTimelineView`); this component owns
  * only the axis, the window maths, and the row chrome.
+ *
+ * A row that supplies `onBarChange` is also **editable**: its bar drags to a new
+ * window and its edges resize, snapped to whole days.
  */
 export function GanttChart({ rows, labelHeader, legend, isLoading, empty }: GanttChartProps) {
   if (isLoading) {
@@ -193,7 +207,7 @@ export function GanttChart({ rows, labelHeader, legend, isLoading, empty }: Gant
 
             <div className="relative z-10">
               {rows.map((row) => (
-                <GanttRowView key={row.id} row={row} pct={pct} />
+                <GanttRowView key={row.id} row={row} pct={pct} spanMs={maxMs - minMs} />
               ))}
             </div>
           </div>
@@ -203,7 +217,15 @@ export function GanttChart({ rows, labelHeader, legend, isLoading, empty }: Gant
   );
 }
 
-function GanttRowView({ row, pct }: { row: GanttRow; pct: (v: number) => number }) {
+function GanttRowView({
+  row,
+  pct,
+  spanMs,
+}: {
+  row: GanttRow;
+  pct: (v: number) => number;
+  spanMs: number;
+}) {
   const child = (row.depth ?? 0) > 0;
 
   // The interactive label text — a link, a button, or (when neither) plain text.
@@ -249,10 +271,11 @@ function GanttRowView({ row, pct }: { row: GanttRow; pct: (v: number) => number 
         )}
       </div>
 
-      {/* Timeline track */}
-      <div className={cn('relative', row.bar ? 'h-10' : 'h-8')}>
+      {/* Timeline track — the drag maths measures this element to turn pixels
+          into days, so a bar must stay a direct child of it. */}
+      <div data-gantt-track className={cn('relative', row.bar ? 'h-10' : 'h-8')}>
         {row.bar ? (
-          <GanttBarView bar={row.bar} pct={pct} />
+          <GanttBarView bar={row.bar} pct={pct} spanMs={spanMs} onChange={row.onBarChange} />
         ) : row.marker && isEpoch(row.marker.at) ? (
           <span
             className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[2px] ring-2 ring-card"
@@ -269,40 +292,164 @@ function GanttRowView({ row, pct }: { row: GanttRow; pct: (v: number) => number 
   );
 }
 
-function GanttBarView({ bar, pct }: { bar: GanttBar; pct: (v: number) => number }) {
-  const left = pct(bar.start);
-  const width = Math.max(1.5, pct(bar.end) - left);
-  const label = `${formatDate(new Date(bar.start))} – ${formatDate(new Date(bar.end))}`;
+/** What a pointer is currently doing to a bar, captured at pointer-down. */
+interface BarDrag {
+  /** Whole bar (both dates shift) vs one edge (that date moves). */
+  mode: 'move' | 'start' | 'end';
+  x0: number;
+  start0: number;
+  end0: number;
+  /** Track scale — set once from the measured track, so the maths is stable. */
+  msPerPx: number;
+}
+
+/**
+ * One bar, optionally draggable. With `onChange` the body drags the whole window
+ * and each edge resizes it; movement snaps to whole days (the dates behind a bar
+ * are day-granular) and a floating label shows the dates as they change. The
+ * preview lives here and clears on release — see `GanttRow.onBarChange`.
+ */
+function GanttBarView({
+  bar,
+  pct,
+  spanMs,
+  onChange,
+}: {
+  bar: GanttBar;
+  pct: (v: number) => number;
+  spanMs: number;
+  onChange?: (next: { start: number; end: number }) => void;
+}) {
+  const wrap = useRef<HTMLDivElement>(null);
+  const drag = useRef<BarDrag | null>(null);
+  const latest = useRef<{ start: number; end: number } | null>(null);
+  const [preview, setPreview] = useState<{ start: number; end: number } | null>(null);
+  const editable = !!onChange;
+
+  const view = preview ?? bar;
+  const left = pct(view.start);
+  const width = Math.max(1.5, pct(view.end) - left);
+  const label = `${formatDate(new Date(view.start))} – ${formatDate(new Date(view.end))}`;
+
+  const begin = (mode: BarDrag['mode']) => (e: ReactPointerEvent<HTMLElement>) => {
+    const el = wrap.current;
+    // Measure the track, not the bar: its width is the whole visible window.
+    const w = el?.parentElement?.getBoundingClientRect().width ?? 0;
+    // Pointer-drag is for a mouse/pen. On touch the chart scrolls sideways, and
+    // claiming the gesture would trap a swipe that started on a bar — day-precise
+    // dragging on a phone isn't worth losing the scroll.
+    if (!onChange || !el || !w || e.button !== 0 || e.pointerType === 'touch') return;
+    e.preventDefault();
+    e.stopPropagation();
+    drag.current = { mode, x0: e.clientX, start0: bar.start, end0: bar.end, msPerPx: spanMs / w };
+    latest.current = { start: bar.start, end: bar.end };
+    el.setPointerCapture(e.pointerId); // keep receiving moves outside the bar
+    setPreview(latest.current);
+  };
+
+  const onMove = (e: ReactPointerEvent<HTMLElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    const shift = Math.round(((e.clientX - d.x0) * d.msPerPx) / GANTT_DAY) * GANTT_DAY;
+    // An edge never crosses the other one — a window can shrink to a single day.
+    const next =
+      d.mode === 'move'
+        ? { start: d.start0 + shift, end: d.end0 + shift }
+        : d.mode === 'start'
+          ? { start: Math.min(d.start0 + shift, d.end0), end: d.end0 }
+          : { start: d.start0, end: Math.max(d.end0 + shift, d.start0) };
+    latest.current = next;
+    setPreview(next);
+  };
+
+  const finish = () => {
+    const d = drag.current;
+    const next = latest.current;
+    drag.current = null;
+    latest.current = null;
+    setPreview(null);
+    // A click that moved nothing is not an edit.
+    if (d && next && (next.start !== d.start0 || next.end !== d.end0)) onChange?.(next);
+  };
+
   // With a progress value: a translucent track + solid fill + trailing % (roadmap
   // look). Without: a single solid block (plain schedule look).
-  if (bar.progress == null) {
-    return (
-      <div
-        className="absolute top-1/2 h-4 -translate-y-1/2 rounded-md"
-        style={{ left: `${left}%`, width: `${width}%`, backgroundColor: bar.color }}
-        title={bar.tooltip ?? label}
-      />
-    );
-  }
-  return (
-    <>
-      <div
-        className="absolute top-1/2 h-4 -translate-y-1/2 rounded-md"
-        style={{ left: `${left}%`, width: `${width}%`, backgroundColor: bar.color, opacity: 0.18 }}
-        title={bar.tooltip ?? label}
-      />
-      <div
-        className="absolute top-1/2 h-4 -translate-y-1/2 rounded-md"
-        style={{ left: `${left}%`, width: `${(width * bar.progress) / 100}%`, backgroundColor: bar.color }}
-      />
-      {width > 12 && (
+  const fill =
+    bar.progress == null ? (
+      <span className="absolute inset-0 rounded-md" style={{ backgroundColor: bar.color }} />
+    ) : (
+      <>
         <span
-          className="absolute top-1/2 -translate-x-full -translate-y-1/2 pr-1.5 text-[10px] font-medium tabular-nums text-foreground/70"
-          style={{ left: `${left + width}%` }}
-        >
-          {bar.progress}%
+          className="absolute inset-0 rounded-md"
+          style={{ backgroundColor: bar.color, opacity: 0.18 }}
+        />
+        <span
+          className="absolute inset-y-0 left-0 rounded-md"
+          style={{ width: `${bar.progress}%`, backgroundColor: bar.color }}
+        />
+        {width > 12 && (
+          <span className="absolute right-0 top-1/2 -translate-y-1/2 pr-1.5 text-[10px] font-medium tabular-nums text-foreground/70">
+            {bar.progress}%
+          </span>
+        )}
+      </>
+    );
+
+  // Edge handles need room to leave a draggable middle — a sliver of a bar stays
+  // move-only rather than becoming two handles with nothing between them.
+  const roomy = width >= 4;
+
+  return (
+    <div
+      ref={wrap}
+      className={cn(
+        'group absolute top-1/2 h-4 -translate-y-1/2',
+        editable && 'cursor-grab active:cursor-grabbing',
+      )}
+      style={{ left: `${left}%`, width: `${width}%` }}
+      title={bar.tooltip ?? label}
+      onPointerDown={editable ? begin('move') : undefined}
+      onPointerMove={editable ? onMove : undefined}
+      onPointerUp={editable ? finish : undefined}
+      onPointerCancel={editable ? finish : undefined}
+    >
+      {fill}
+      {editable && roomy && (
+        <>
+          <BarHandle side="start" onPointerDown={begin('start')} />
+          <BarHandle side="end" onPointerDown={begin('end')} />
+        </>
+      )}
+      {preview && (
+        <span className="absolute bottom-full left-1/2 z-20 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-background shadow">
+          {label}
         </span>
       )}
-    </>
+    </div>
+  );
+}
+
+/** A resize grip at one end of a bar — an 8px hit zone showing a grab line on
+ *  hover, so a read-only bar and an editable one look the same until pointed at. */
+function BarHandle({
+  side,
+  onPointerDown,
+}: {
+  side: 'start' | 'end';
+  onPointerDown: (e: ReactPointerEvent<HTMLElement>) => void;
+}) {
+  return (
+    <span
+      onPointerDown={onPointerDown}
+      className={cn(
+        'absolute inset-y-0 z-10 w-2 cursor-ew-resize',
+        side === 'start' ? 'left-0' : 'right-0',
+      )}
+    >
+      <span
+        className="absolute inset-y-1 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-background/90 opacity-0 transition-opacity group-hover:opacity-100"
+        aria-hidden
+      />
+    </span>
   );
 }

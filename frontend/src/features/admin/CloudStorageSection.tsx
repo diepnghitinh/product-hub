@@ -12,7 +12,7 @@ import {
   Input,
   PasswordInput,
   Select,
-  Spinner,
+  Skeleton,
 } from '@/components/ui';
 import { t } from '@/i18n';
 import { deepEqual } from '@/lib/utils';
@@ -87,8 +87,19 @@ export function CloudStorageSection() {
       </CardHeader>
       <CardContent className="space-y-5">
         {isLoading ? (
-          <div className="grid place-items-center rounded-xl border border-dashed p-8">
-            <Spinner />
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <Skeleton className="h-3.5 w-28" />
+              <Skeleton className="h-9 w-full rounded-md" />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <Skeleton className="h-3.5 w-28" />
+                  <Skeleton className="h-9 w-full rounded-md" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <>

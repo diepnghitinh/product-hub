@@ -6,6 +6,7 @@ import { CycleSchedulerService } from './services/cycle-scheduler.service';
 import {
   GetCycleBurndownUseCase,
   GetTeamCyclesUseCase,
+  UpdateCycleUseCase,
   UpdateTeamCycleConfigUseCase,
 } from './use-cases/cycle.use-cases';
 
@@ -18,12 +19,14 @@ import {
     CycleSchedulerService,
     GetTeamCyclesUseCase,
     GetCycleBurndownUseCase,
+    UpdateCycleUseCase,
     UpdateTeamCycleConfigUseCase,
   ],
   exports: [
     CycleSchedulerService,
     GetTeamCyclesUseCase,
     GetCycleBurndownUseCase,
+    UpdateCycleUseCase,
     UpdateTeamCycleConfigUseCase,
     InfrastructureCyclesModule,
   ],
