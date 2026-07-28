@@ -140,7 +140,7 @@ function TaskChecklistRow({
         aria-label={done ? t('tasks.markTodo') : t('tasks.markDone')}
       />
       <Link
-        to={`/tasks/${task.shortId || task.id}`}
+        to={`/issues/${task.shortId || task.id}`}
         className="flex min-w-0 flex-1 items-center gap-3 text-foreground"
       >
         <span className={cn('min-w-0 flex-1 truncate text-sm', done && 'text-muted-foreground line-through')}>

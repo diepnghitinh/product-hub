@@ -7,10 +7,12 @@ import {
   CustomFieldConfig,
   CustomFieldValue,
   CycleStatus,
+  DocLinkKind,
   FavouriteKind,
   FeatureStatus,
   InboxKind,
   IssueKind,
+  McpEntity,
   MilestoneStatus,
   ProjectEnvironment,
   RelationType,
@@ -568,6 +570,32 @@ export interface CreatedApiKeyDto extends ApiKeyDto {
   key: string;
 }
 
+/**
+ * One thing an MCP client created. Append-only, and denormalized on purpose:
+ * the key can be revoked and the item deleted while the row stays readable.
+ */
+export interface McpEventDto {
+  id: string;
+  keyId: string;
+  keyName: string;
+  userId: string;
+  userName: string;
+  /** Which assistant made the call, e.g. `claude-code/2.1.0`. */
+  clientName: string;
+  /** The MCP tool that ran — `create_issue`, `create_backlog_item`. */
+  tool: string;
+  entity: McpEntity;
+  entityId: string;
+  /** `TSK-6HCUHKX` for an issue, empty for a backlog item. */
+  entityRef: string;
+  entityTitle: string;
+  /** The team's name, or the roadmap's title. */
+  contextLabel: string;
+  /** In-app path to the created item. */
+  link: string;
+  createdAt: string;
+}
+
 /** Maps a workspace member to their chat-platform id, so they can be @mentioned. */
 export interface WebhookMemberMapping {
   userId: string;
@@ -744,6 +772,106 @@ export interface AppSettingsDto {
   storage: StorageSettings;
 }
 
+// ── Docs ─────────────────────────────────────────────────────────────────────
+/** A record a doc page points at — a denormalized snapshot, so the chip renders
+ *  without a second fetch (same shape as a favourite's ref). */
+export interface DocLink {
+  kind: DocLinkKind;
+  /** Id of the issue / roadmap item. */
+  refId: string;
+  title: string;
+  /** Roadmap that owns the item — routing hint, '' for an issue. */
+  roadmapId: string;
+  /** 'bug' | 'task' for an issue, '' otherwise — drives the detail route. */
+  issueKind: string;
+}
+
+/** A page in the left rail: everything the tree needs, minus the body. */
+export interface DocPageSummary {
+  id: string;
+  docId: string;
+  /** '' = a top-level page; otherwise the parent page's id. */
+  parentId: string;
+  title: string;
+  icon: string;
+  /** Accent the symbol is drawn in (a `TEAM_COLORS` value); null = inherit. */
+  color: string | null;
+  order: number;
+  linkCount: number;
+  updatedByName: string;
+  updatedAt: string;
+}
+
+/** One page with its body — what the editor loads. */
+export interface DocPageDto extends DocPageSummary {
+  tenantId: string;
+  coverUrl: string;
+  /** Body as HTML (Editor.js blocks are converted on the way in/out). */
+  content: string;
+  links: DocLink[];
+  createdBy: string;
+  updatedBy: string;
+  createdAt: string;
+}
+
+export interface DocDto {
+  id: string;
+  tenantId: string;
+  title: string;
+  icon: string;
+  /** Accent the symbol is drawn in (a `TEAM_COLORS` value); null = inherit. */
+  color: string | null;
+  coverUrl: string;
+  /** Free-text labels — what the hub's tag filter narrows on. */
+  tags: string[];
+  createdBy: string;
+  createdByName: string;
+  publicEnabled: boolean;
+  publicToken: string | null;
+  pageCount: number;
+  /** The page tree, flat — assembled client-side from `parentId` + `order`. */
+  pages: DocPageSummary[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * A point a page was saved at, as the history list shows it — no body, so
+ * opening the panel costs one small response however long the page is.
+ */
+export interface DocPageVersionSummary {
+  id: string;
+  docId: string;
+  pageId: string;
+  /** The page's title when the snapshot was taken. */
+  title: string;
+  /** What the author called this save ('' = show the timestamp instead). */
+  label: string;
+  /** Characters of HTML — a rough sense of how much was there. */
+  contentLength: number;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+}
+
+/** One version with its body — what previewing an old version reads. */
+export interface DocPageVersion extends DocPageVersionSummary {
+  /** The page body as it stood, as HTML. */
+  content: string;
+}
+
+/** A doc page attached to an issue / roadmap item, as that record sees it. */
+export interface LinkedDocPage {
+  docId: string;
+  docTitle: string;
+  pageId: string;
+  pageTitle: string;
+  pageIcon: string;
+  pageColor: string | null;
+  updatedByName: string;
+  updatedAt: string;
+}
+
 export interface PublicProjectView {
   project: ProjectDto;
   reports: ReportDto[];
@@ -751,6 +879,12 @@ export interface PublicProjectView {
 
 export interface PublicRoadmapView {
   roadmap: RoadmapDto;
+}
+
+/** A shared doc arrives whole — every page *with* its body, read in one go. */
+export interface PublicDocView {
+  doc: DocDto;
+  pages: DocPageDto[];
 }
 
 export interface PublicTeamBoardView {

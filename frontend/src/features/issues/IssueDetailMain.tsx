@@ -9,6 +9,7 @@ import { usePageChrome } from '@/layouts/headers/PageChrome';
 import { FavouriteKind, ReactionTargetType } from '@/types/enums';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { ReactionBar } from '@/features/reactions/ReactionBar';
+import { LinkedDocsSection } from '@/features/docs/components/LinkedDocsSection';
 import type { CommentDto } from '@/types/dto';
 import { type IssueSubject } from '@/features/activity/api';
 import { ActivityHeader, CommentThread, Avatar, type Person } from '@/features/activity/CommentThread';
@@ -217,6 +218,10 @@ export function IssueDetailMain({
 
       {/* Optional inset (task detail's Sub-tasks) between description and Activity. */}
       {beforeActivity}
+
+      {/* Doc pages written about this issue — the other end of a page's
+          "Link Task or Doc". Renders nothing when there are none. */}
+      <LinkedDocsSection refId={issueId} className="mt-8" />
 
       {/* ── Activity ──────────────────────────────────────────────────────── */}
       <section className="mt-10 border-t pt-6">

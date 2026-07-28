@@ -98,6 +98,9 @@ export function enhanceCodeBlocks(root: ParentNode | null | undefined): void {
   // in a non-scrolling container and stay put when the code scrolls sideways.
   root.querySelectorAll<HTMLElement>('pre').forEach((pre) => {
     if (pre.dataset.copyReady || pre.closest('.ce-code')) return;
+    // A mermaid block's source is a <pre> too, but it's the diagram's storage
+    // rather than something to read — and it's hidden once the SVG is drawn.
+    if (pre.classList.contains('mermaid-source')) return;
     const parent = pre.parentNode;
     if (!parent) return;
     pre.dataset.copyReady = '1';

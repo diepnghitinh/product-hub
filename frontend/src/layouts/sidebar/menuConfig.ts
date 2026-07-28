@@ -53,6 +53,7 @@ export const NAV_GROUPS: NavGroup[] = [
     headingKey: 'navgroup.discovery',
     items: [
       { path: '/roadmaps', labelKey: 'nav.roadmaps', icon: 'roadmap' },
+      { path: '/docs', labelKey: 'nav.docs', icon: 'book' },
       { path: '/okrs', labelKey: 'nav.milestones', icon: 'milestone' },
     ],
   },

@@ -117,23 +117,24 @@ export const useCreateTask = hooks.useCreate;
 export const useUpdateTask = hooks.useUpdate;
 
 /**
- * Pull issue refs out of free text (a roadmap item's description), matching a
- * task **or bug** link — `/tasks/TSK-5` or `/bugs/BUG-12` — bare, or inside a
- * full URL/anchor. Returns the unique shortId refs, upper-cased. A ref is
- * `<CODE>-<id>`: the id is a random suffix (`TSK-6HCUHKX`) or, for older rows,
- * digits (`TSK-5`), so it catches `TSK-`/`BUG-` and team-derived codes like
- * `ENG-` alike.
+ * Pull issue refs out of free text (a roadmap item's description), matching an
+ * issue link — `/issues/TSK-5`, plus the retired per-kind `/tasks/…` and
+ * `/bugs/…` forms, which are still pasted from older docs and bookmarks — bare,
+ * or inside a full URL/anchor. Returns the unique shortId refs, upper-cased. A
+ * ref is `<CODE>-<id>`: the id is a random suffix (`TSK-6HCUHKX`) or, for older
+ * rows, digits (`TSK-5`), so it catches `TSK-`/`BUG-` and team-derived codes
+ * like `ENG-` alike.
  */
 export function issueRefsInText(text: string): string[] {
   const refs = new Set<string>();
-  const re = /\/(?:tasks|bugs)\/([A-Za-z]{2,}-[A-Za-z0-9]+)/g;
+  const re = /\/(?:issues|tasks|bugs)\/([A-Za-z]{2,}-[A-Za-z0-9]+)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) refs.add(m[1].toUpperCase());
   return [...refs];
 }
 
 /**
- * Resolve `/tasks/…` or `/bugs/…` refs found in an item's description and link
+ * Resolve `/issues/…` refs found in an item's description and link
  * each to that item — the same write `PickTaskDialog` does, for either kind. A
  * ref that doesn't resolve (a typo, or an issue from another workspace) is
  * skipped silently; an issue already on this item is left alone. Resolves via

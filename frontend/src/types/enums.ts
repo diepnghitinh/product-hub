@@ -103,6 +103,13 @@ export enum ReactionTargetType {
   ROADMAP_ITEM = 'roadmap-item',
 }
 
+/** What a doc page can be attached to (mirrors the backend `DocLinkKind`). Same
+ *  values as `FavouriteKind`/`ReactionTargetType`; each domain names its own. */
+export enum DocLinkKind {
+  ISSUE = 'issue',
+  ROADMAP_ITEM = 'roadmap-item',
+}
+
 /** The fixed quick-reaction palette — mirrors the backend allow-list + order. */
 export const REACTION_EMOJIS = ['👍', '❤️', '🎉', '😄', '🚀', '👀'] as const;
 export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
@@ -121,6 +128,16 @@ export enum RelationType {
 export enum IssueKind {
   TASK = 'task',
   BUG = 'bug',
+}
+
+/**
+ * What an MCP client created. The two issue values are the same strings as
+ * `IssueKind` on purpose, so the history row picks its icon from one field.
+ */
+export enum McpEntity {
+  TASK = 'task',
+  BUG = 'bug',
+  BACKLOG_ITEM = 'backlog-item',
 }
 
 /** The six relation options in "Mark as" menu order (matches the mockup). */

@@ -9,7 +9,11 @@ import {
   UpdateRoadmapDto,
 } from '../dtos/roadmap.dtos';
 import { RoadmapEntity } from '../domain/entities/roadmap.entity';
-import { RoadmapItemStatus } from '../domain/enums/roadmap.enums';
+import { RoadmapDifficulty, RoadmapItemStatus } from '../domain/enums/roadmap.enums';
+import {
+  DEFAULT_ROADMAP_COLUMNS,
+  RoadmapItemData,
+} from '../domain/types/roadmap-item.type';
 import { IRoadmapRepository } from '../repositories/roadmap.repository';
 
 @Injectable()
@@ -133,6 +137,76 @@ export class ReplaceRoadmapItemsUseCase
     roadmap.replaceItems(items);
     await this.roadmaps.update(roadmap);
     return Result.ok(roadmap);
+  }
+}
+
+export interface AddRoadmapItemRequest {
+  id: string;
+  tenantId: string;
+  item: Partial<Omit<RoadmapItemData, 'id'>> & { title: string };
+}
+
+/**
+ * Appends one item. The board edits by replacing the whole array (it holds the
+ * current list in memory), but a caller that only knows "add this" — MCP — must
+ * not have to read, splice and write back: two of those racing would drop an
+ * item. This appends server-side instead, so concurrent adds both survive.
+ */
+@Injectable()
+export class AddRoadmapItemUseCase
+  implements
+    IUsecaseExecute<AddRoadmapItemRequest, Result<{ roadmap: RoadmapEntity; item: RoadmapItemData }>>
+{
+  constructor(@Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository) {}
+  async execute({
+    id,
+    tenantId,
+    item,
+  }: AddRoadmapItemRequest): Promise<Result<{ roadmap: RoadmapEntity; item: RoadmapItemData }>> {
+    const roadmap = await this.roadmaps.findById(id);
+    if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
+
+    const columns = roadmap.columns.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS;
+    const phase = item.phase || columns[0].key;
+    if (!columns.some((c) => c.key === phase)) {
+      return Result.fail(
+        `Unknown column "${phase}". This roadmap has: ${columns.map((c) => c.key).join(', ')}`,
+      );
+    }
+
+    const status = item.status ?? RoadmapItemStatus.IDEA;
+    const isStarted =
+      status === RoadmapItemStatus.IN_PROGRESS || status === RoadmapItemStatus.DONE;
+    const now = new Date().toISOString();
+    // Same RICE defaults the board's own "+ Add" uses (3s → a score of 9), so an
+    // item added here sorts alongside hand-made ones instead of at zero.
+    const created: RoadmapItemData = {
+      id: uuid(),
+      title: item.title,
+      description: item.description ?? '',
+      phase,
+      status,
+      difficulty: item.difficulty ?? RoadmapDifficulty.MEDIUM,
+      reach: item.reach ?? 3,
+      impact: item.impact ?? 3,
+      confidence: item.confidence ?? 3,
+      effort: item.effort ?? 3,
+      progress: item.progress ?? 0,
+      imageUrl: item.imageUrl ?? '',
+      startDate: item.startDate ?? '',
+      assignees: item.assignees ?? [],
+      createdAt: now,
+      startedAt: isStarted ? now : undefined,
+      completedAt: status === RoadmapItemStatus.DONE ? now : undefined,
+      milestoneId: item.milestoneId ?? '',
+      objectiveId: item.objectiveId ?? '',
+      keyResultId: item.keyResultId ?? '',
+      okrLabel: item.okrLabel ?? '',
+    };
+
+    roadmap.replaceItems([...roadmap.items, created]);
+    await this.roadmaps.update(roadmap);
+    return Result.ok({ roadmap, item: created });
   }
 }
 

@@ -52,7 +52,14 @@ async function bootstrap() {
       'Authorization',
       'Accept-Language',
       'X-Api-Key',
+      // Streamable HTTP MCP (/v1/mcp): the session id is sent back on every
+      // call after `initialize`, and browser-hosted clients can only read it
+      // off the response if it's exposed.
+      'Mcp-Session-Id',
+      'Mcp-Protocol-Version',
+      'X-Mcp-Client',
     ],
+    exposedHeaders: ['Mcp-Session-Id'],
   });
 
   // URI versioning → every route is served under /v1 by default.

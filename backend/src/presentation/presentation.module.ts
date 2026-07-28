@@ -15,8 +15,10 @@ import { FavouritesPresentationModule } from './favourites/favourites.module';
 import { ReactionsPresentationModule } from './reactions/reactions.module';
 import { IssueLinksPresentationModule } from './issue-links/issue-links.module';
 import { RoadmapsPresentationModule } from './roadmaps/roadmaps.module';
+import { DocsPresentationModule } from './docs/docs.module';
 import { MilestonesPresentationModule } from './milestones/milestones.module';
 import { ApiKeysPresentationModule } from './api-keys/api-keys.module';
+import { McpPresentationModule } from './mcp/mcp.module';
 import { PublicPresentationModule } from './public/public.module';
 import { AppSettingsPresentationModule } from './app-settings/app-settings.module';
 import { StoragePresentationModule } from './storage/storage.module';
@@ -46,8 +48,11 @@ import { StoragePresentationModule } from './storage/storage.module';
     // Controller is @Controller('issue-links') → /v1/issue-links, so no RouterModule prefix.
     IssueLinksPresentationModule,
     RoadmapsPresentationModule,
+    DocsPresentationModule,
     MilestonesPresentationModule,
     ApiKeysPresentationModule,
+    // Controller is @Controller('mcp') → /v1/mcp, so no RouterModule prefix.
+    McpPresentationModule,
     PublicPresentationModule,
     AppSettingsPresentationModule,
     // Controller is @Controller('uploads') → /v1/uploads, so it's imported like
@@ -61,6 +66,7 @@ import { StoragePresentationModule } from './storage/storage.module';
       { path: 'issues', module: IssuesPresentationModule },
       { path: 'teams', module: TeamsPresentationModule },
       { path: 'roadmaps', module: RoadmapsPresentationModule },
+      { path: 'docs', module: DocsPresentationModule },
       { path: 'milestones', module: MilestonesPresentationModule },
     ]),
   ],

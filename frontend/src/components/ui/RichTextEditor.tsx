@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, type MouseEvent } from 'react';
 import EditorJS from '@editorjs/editorjs';
 import Header from '@editorjs/header';
 import List from '@editorjs/list';
@@ -11,8 +11,10 @@ import Undo from 'editorjs-undo';
 import { blocksToHtml, htmlToBlocks, type HtmlEditorBlock } from '@/lib/editorjs';
 import { enhanceCodeBlocks } from '@/lib/enhanceCodeBlocks';
 import { ResizableImageTool } from '@/lib/editor/ResizableImageTool';
+import { MermaidTool } from '@/lib/editor/MermaidTool';
 import { uploadMedia } from '@/features/uploads/api';
 import '@/styles/rich-text-editor.css';
+import { useExternalLink } from './ExternalLink';
 
 export interface RichTextEditorProps {
   /** Stored value as HTML (converted to/from Editor.js blocks internally). */
@@ -26,6 +28,12 @@ export interface RichTextEditorProps {
    * to an inline base64 data URL. Off by default to keep plain descriptions light.
    */
   images?: boolean;
+  /**
+   * Enable the Mermaid diagram block. The mermaid library is ~500KB and only
+   * loads once a diagram is actually drawn, but the tool still adds an entry to
+   * every block menu — so it's opt-in, for long-form surfaces like a doc page.
+   */
+  diagrams?: boolean;
   className?: string;
 }
 
@@ -108,6 +116,11 @@ function withFallbackBlocks(blocks: HtmlEditorBlock[]): HtmlEditorBlock[] {
  * a string — existing plain-text values round-trip as a single paragraph. Tools:
  * header / list / marker / inline-code / underline / code / table, plus an
  * optional compressing image tool (`images` prop).
+ *
+ * Links inside the text are clickable while writing, on the same terms as the
+ * read view (`useExternalLink`): new tab, and an off-domain address has to be
+ * confirmed first. **Alt-click puts the caret in the link instead** — that's how
+ * you edit the words of a link you can otherwise only follow.
  */
 export function RichTextEditor({
   value,
@@ -115,6 +128,7 @@ export function RichTextEditor({
   placeholder,
   minHeight,
   images = false,
+  diagrams = false,
   className,
 }: RichTextEditorProps) {
   const holderRef = useRef<HTMLDivElement | null>(null);
@@ -125,10 +139,37 @@ export function RichTextEditor({
   const placeholderRef = useRef(placeholder);
   const minHeightRef = useRef(minHeight);
   const imagesRef = useRef(images);
+  const diagramsRef = useRef(diagrams);
+  const links = useExternalLink();
 
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+
+  /**
+   * Follow a link that was clicked in the text. Editor.js content is a
+   * contenteditable, where a plain click only moves the caret — so the click has
+   * to be taken here, but only when it's unambiguously a click and not the start
+   * of an edit:
+   *  · a modifier is held (Alt to edit the link's words, ⌘/Ctrl for the browser's
+   *    own new-tab), so the caret lands and nothing opens;
+   *  · text got selected by the drag, i.e. the user is selecting, not clicking;
+   *  · the anchor belongs to the editor's own chrome rather than to a block.
+   *
+   * Nothing is written to the DOM here on purpose: an attribute added to an
+   * anchor would be saved back into the block's HTML and dirty the document.
+   */
+  const onLinkClick = useCallback(
+    (e: MouseEvent<HTMLDivElement>) => {
+      if (e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      const anchor = (e.target as HTMLElement).closest?.('a[href]');
+      if (!anchor || !holderRef.current?.contains(anchor) || !anchor.closest('.ce-block')) return;
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed) return;
+      if (links.open(anchor.getAttribute('href') || '')) e.preventDefault();
+    },
+    [links],
+  );
 
   // Init once — the editor owns its state after mount; `onChange` emits HTML up.
   useEffect(() => {
@@ -169,6 +210,8 @@ export function RichTextEditor({
           // Drag-to-resize image tool (upload to storage, base64 fallback,
           // paste/drop, caption) + a minimal video block.
           ...(imagesRef.current ? { image: ResizableImageTool, video: VideoTool } : {}),
+          // Mermaid diagrams, stored as source and drawn on render.
+          ...(diagramsRef.current ? { mermaid: MermaidTool } : {}),
         },
         onChange: () => {
           void emitHtml();
@@ -242,6 +285,13 @@ export function RichTextEditor({
   }, []);
 
   return (
-    <div ref={holderRef} className={`rich-text-editor${className ? ` ${className}` : ''}`} />
+    <>
+      <div
+        ref={holderRef}
+        onClick={onLinkClick}
+        className={`rich-text-editor${className ? ` ${className}` : ''}`}
+      />
+      {links.node}
+    </>
   );
 }

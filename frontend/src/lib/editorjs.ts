@@ -19,6 +19,12 @@ export type HtmlEditorBlock =
     }
   | { type: 'code'; data: { code: string } }
   | {
+      // A Mermaid diagram. Only the source is stored — the picture is drawn at
+      // render time, so a diagram stays editable text rather than a flat image.
+      type: 'mermaid';
+      data: { code: string };
+    }
+  | {
       type: 'table';
       data: { withHeadings: boolean; content: string[][] };
     }
@@ -67,6 +73,10 @@ function parseImageWidth(el: Element): string {
   const w = (el as HTMLElement).style?.width?.trim() ?? '';
   return /^\d+(\.\d+)?(px|%)$/.test(w) ? w : '';
 }
+
+/** Marker classes that make a mermaid diagram recognisable in stored HTML. */
+export const MERMAID_BLOCK_CLASS = 'mermaid-block';
+export const MERMAID_SOURCE_CLASS = 'mermaid-source';
 
 const HEADER_TAG = /^h([1-6])$/;
 const INLINE_TAGS = new Set([
@@ -193,7 +203,10 @@ export function htmlToBlocks(html: string): HtmlEditorBlock[] {
     }
     if (tag === 'pre') {
       flush();
-      blocks.push({ type: 'code', data: { code: el.textContent ?? '' } });
+      // A mermaid block is a <pre> too — tell them apart by the marker class,
+      // or the diagram comes back as a plain code block that never draws.
+      const type = el.classList.contains(MERMAID_SOURCE_CLASS) ? 'mermaid' : 'code';
+      blocks.push({ type, data: { code: el.textContent ?? '' } } as HtmlEditorBlock);
       continue;
     }
     if (tag === 'table') {
@@ -231,6 +244,13 @@ export function htmlToBlocks(html: string): HtmlEditorBlock[] {
       }
     }
     if (tag === 'figure') {
+      // Checked before the image case: a diagram's <figure> holds no <img>, so
+      // it would otherwise fall through and be flattened into a paragraph.
+      if (el.classList.contains(MERMAID_BLOCK_CLASS)) {
+        flush();
+        blocks.push({ type: 'mermaid', data: { code: el.textContent ?? '' } });
+        continue;
+      }
       const img = el.querySelector('img');
       const src = img?.getAttribute('src') ?? '';
       if (img && src) {
@@ -294,6 +314,13 @@ function renderBlock(b: HtmlEditorBlock): string {
   }
   if (b.type === 'code') {
     return `<pre><code>${escapeHtml(b.data.code ?? '')}</code></pre>`;
+  }
+  if (b.type === 'mermaid') {
+    const code = (b.data.code ?? '').trim();
+    if (!code) return '';
+    // The source is the whole payload; the SVG is drawn from it wherever this
+    // HTML is displayed, so the stored value stays small and stays editable.
+    return `<figure class="${MERMAID_BLOCK_CLASS}"><pre class="${MERMAID_SOURCE_CLASS}"><code>${escapeHtml(code)}</code></pre></figure>`;
   }
   if (b.type === 'table') {
     const rows = b.data.content ?? [];

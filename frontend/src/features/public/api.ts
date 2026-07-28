@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/lib/api';
 import type {
   CommentDto,
+  PublicDocView,
   PublicProjectView,
   PublicRoadmapView,
   PublicTeamBoardView,
@@ -26,6 +27,15 @@ export function usePublicRoadmap(token: string | undefined) {
   return useQuery({
     queryKey: ['public-roadmap', token],
     queryFn: () => apiGet<PublicRoadmapView>(`/public/roadmaps/${token}`),
+    enabled: !!token,
+    retry: false,
+  });
+}
+
+export function usePublicDoc(token: string | undefined) {
+  return useQuery({
+    queryKey: ['public-doc', token],
+    queryFn: () => apiGet<PublicDocView>(`/public/docs/${token}`),
     enabled: !!token,
     retry: false,
   });

@@ -6,6 +6,7 @@ import {
   Cloud,
   Copy,
   KeyRound,
+  Plug,
   Plus,
   RotateCcw,
   Trash2,
@@ -62,6 +63,7 @@ import { useUpdateCycleConfig } from '@/features/cycles/api';
 import type { TeamDto } from '@/types/dto';
 import type { CustomFieldConfig, TaskLabelConfig } from '@/types/enums';
 import { CloudStorageSection } from './CloudStorageSection';
+import { McpSection } from './McpSection';
 import { WebhooksSection } from './WebhooksSection';
 import { CenteredPageLayout } from '@/layouts/shared';
 
@@ -82,6 +84,9 @@ const TABS: {
 }[] = [
   { key: 'teams', labelKey: 'teams.title', icon: Users, Section: TeamsSection },
   { key: 'api-keys', labelKey: 'settings.apiKeys', icon: KeyRound, Section: ApiKeysSection, adminOnly: true },
+  // Admin-only because connecting an assistant means generating a key, and keys
+  // are `@Roles(ADMIN)` — the tab would render a Generate button that 403s.
+  { key: 'mcp', labelKey: 'settings.mcp', icon: Plug, Section: McpSection, adminOnly: true },
   { key: 'webhooks', labelKey: 'settings.webhooks', icon: Webhook, Section: WebhooksSection, adminOnly: true },
   { key: 'storage', labelKey: 'settings.storage', icon: Cloud, Section: CloudStorageSection, adminOnly: true },
 ];

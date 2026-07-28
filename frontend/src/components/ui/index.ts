@@ -19,6 +19,7 @@ export {
 export { RichTextEditor, type RichTextEditorProps } from './RichTextEditor';
 export { RichText, type RichTextProps } from './RichText';
 export { useLightbox, type LightboxImage } from './Lightbox';
+export { useExternalLink, type ExternalLinkGuard } from './ExternalLink';
 export { MultiSelect, type MultiSelectOption, type MultiSelectProps } from './MultiSelect';
 export { MentionTextarea, type MentionOption } from './MentionTextarea';
 export { TagInput, type TagInputProps } from './TagInput';

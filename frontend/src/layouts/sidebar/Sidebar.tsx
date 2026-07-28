@@ -832,11 +832,11 @@ function favouriteIcon(fav: FavouriteDto): IconName {
 }
 
 /** Where a pinned entity opens. A roadmap item deep-links to its board + dialog;
- *  an issue routes to its bug/task detail per the snapshotted `issueKind`. */
+ *  an issue opens at `/issues/<ref>`, whichever kind it is. */
 function favouriteHref(fav: FavouriteDto): string {
   switch (fav.kind) {
     case FavouriteKind.ISSUE:
-      return fav.issueKind === 'bug' ? `/bugs/${fav.refId}` : `/tasks/${fav.refId}`;
+      return `/issues/${fav.refId}`;
     case FavouriteKind.ROADMAP_ITEM:
       return fav.roadmapId ? `/roadmaps/${fav.roadmapId}/items/${fav.refId}` : '/roadmaps';
     default:

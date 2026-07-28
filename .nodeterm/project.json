@@ -1,21 +1,21 @@
 {
   "version": 1,
-  "rev": 379,
-  "savedAt": "2026-07-27T13:47:49.911Z",
+  "rev": 407,
+  "savedAt": "2026-07-28T04:14:59.470Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 590.3750525846206,
-    "y": 2530.88288764656,
-    "zoom": 1.0253051820319332
+    "x": 605.4319538036511,
+    "y": 2680.529123718299,
+    "zoom": 1.15
   },
   "nodes": [
     {
       "id": "term-ms3827z0-1",
       "kind": "terminal",
       "position": {
-        "x": 467.0309308402083,
+        "x": 466.0556114743019,
         "y": -2311.930511295571
       },
       "size": {
@@ -27,6 +27,7 @@
       "color": "#d97757",
       "group": null,
       "tags": [],
+      "collapsed": false,
       "cwd": ".",
       "agentId": "claude"
     },
@@ -46,6 +47,27 @@
       "color": "#d97757",
       "group": null,
       "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-ms3je8ts-3",
+      "kind": "terminal",
+      "position": {
+        "x": -200.88322072655407,
+        "y": -1861.8300966158629
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Đổi icon khác ở side menu",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
       "cwd": ".",
       "agentId": "claude"
     }

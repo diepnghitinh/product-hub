@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Lock } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useEscapeBack } from '@/lib/useEscapeBack';
@@ -13,11 +13,11 @@ import { useTask } from './api';
 import { TaskDetail } from './components/TaskDetail';
 import { CenteredPageLayout } from '@/layouts/shared';
 
-/** One task's detail route: the breadcrumb chrome around the shared, embeddable
+/** One task's detail: the breadcrumb chrome around the shared, embeddable
  * <TaskDetail> (which also renders inside a sub-task peek drawer). Mirrors
- * BugDetailPage → BugDetail. */
-export function TaskDetailPage() {
-  const { taskId } = useParams<{ taskId: string }>();
+ * BugDetailPage → BugDetail. Reached at `/issues/<ref>` — `IssueDetailPage`
+ * resolves the kind and hands the ref down, so this isn't a route on its own. */
+export function TaskDetailPage({ issueRef: taskId }: { issueRef: string }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   useEscapeBack();
