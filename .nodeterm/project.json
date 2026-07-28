@@ -1,36 +1,16 @@
 {
   "version": 1,
-  "rev": 421,
-  "savedAt": "2026-07-28T07:26:42.454Z",
+  "rev": 427,
+  "savedAt": "2026-07-28T08:54:29.663Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 591.0360468045528,
-    "y": 2745.803584083656,
+    "x": 629.0360468045528,
+    "y": 2761.303584083656,
     "zoom": 1.15
   },
   "nodes": [
-    {
-      "id": "term-ms3827z0-1",
-      "kind": "terminal",
-      "position": {
-        "x": 466.0556114743019,
-        "y": -2311.930511295571
-      },
-      "size": {
-        "width": 600,
-        "height": 400
-      },
-      "title": "Thêm goal description cho cycle",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
-      "collapsed": false,
-      "cwd": ".",
-      "agentId": "claude"
-    },
     {
       "id": "term-ms3a3yyd-2",
       "kind": "terminal",
@@ -42,7 +22,7 @@
         "width": 600,
         "height": 400
       },
-      "title": "Tạo sub-task roadmap với chọn team bugs",
+      "title": "Change layout to cards design",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,

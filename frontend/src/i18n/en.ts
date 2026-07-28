@@ -668,7 +668,9 @@ export const en = {
   'myteam.everyone': 'Everyone',
   'myteam.collapseAll': 'Collapse all',
   'myteam.expandAll': 'Expand all',
-  'myteam.back': 'Back',
+  'myteam.collapse': 'Collapse',
+  'myteam.expand': 'Expand',
+  'myteam.pointsColumn': 'Pts',
   'myteam.openInNewTab': 'Open in a new tab',
 
   'milestones.title': 'OKRs',

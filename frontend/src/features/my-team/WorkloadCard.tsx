@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
-import { Badge } from '@/components/ui';
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  ExternalLink,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import type { IssueDto } from '@/types/dto';
@@ -59,11 +64,20 @@ function Stat({ value, label }: { value: number; label: string }) {
   );
 }
 
-/** One issue in a drilled-in status list — title + optional estimate. Clicking it
- *  opens that issue's detail in a **new tab** (`/issues/:ref`, by ref so the URL
- *  is human-friendly), keeping the focused list in place. The external-link glyph
- *  fades in on hover to signal it's a launcher. */
-function TaskRow({ issue, done }: { issue: IssueDto; done: boolean }) {
+/** One issue inside an expanded status — its title, and its story points under the
+ *  group's `Pts` column. Clicking it opens that issue's detail in a **new tab**
+ *  (`/issues/:ref`, by ref so the URL is human-friendly), so the card you were
+ *  reading stays put. The launcher glyph is always in the DOM (transparent until
+ *  hover), so revealing it never nudges the row. */
+function TaskRow({
+  issue,
+  done,
+  showPoints,
+}: {
+  issue: IssueDto;
+  done: boolean;
+  showPoints: boolean;
+}) {
   const href = `/issues/${issue.shortId || issue.id}`;
   return (
     <Link
@@ -73,13 +87,15 @@ function TaskRow({ issue, done }: { issue: IssueDto; done: boolean }) {
       title={t('myteam.openInNewTab')}
       className="group flex items-center gap-2 rounded-md py-1.5 pl-1 pr-1.5 transition-colors hover:bg-accent"
     >
-      <span className={cn('min-w-0 flex-1 truncate text-sm', done && 'text-muted-foreground line-through')}>
+      <span
+        className={cn('min-w-0 flex-1 truncate text-sm', done && 'text-muted-foreground line-through')}
+      >
         {issue.title || t('roadmaps.untitled')}
       </span>
-      {issue.estimate > 0 && (
-        <Badge variant="muted" className="shrink-0 font-mono text-[10px]">
-          {issue.estimate} {t('myteam.points')}
-        </Badge>
+      {showPoints && (
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          {issue.estimate > 0 ? issue.estimate : '—'}
+        </span>
       )}
       <ExternalLink
         className="size-3.5 shrink-0 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground/70"
@@ -89,70 +105,99 @@ function TaskRow({ issue, done }: { issue: IssueDto; done: boolean }) {
   );
 }
 
-/** The card's drilled-in view: a Back control *inside the card*, the status label,
- *  then that status's issues — this replaces the card's summary until Back is hit. */
-function FocusedStatus({
-  bucket,
-  doneKey,
-  onBack,
-}: {
-  bucket: ColumnBucket;
-  doneKey: string;
-  onBack: () => void;
-}) {
+/** One status on a card. Its heading expands **in place** into that status's
+ *  issues, so the person's summary above stays on screen — the reference's
+ *  accordion. Colour (label + chevron) comes from the column, never hardcoded. */
+function StatusGroup({ bucket, doneKey }: { bucket: ColumnBucket; doneKey: string }) {
+  const [open, setOpen] = useState(false);
+  // A points column only earns its place when something in the group is sized —
+  // bugs carry no estimate, so a QC board gets the plain list instead.
+  const showPoints = bucket.tasks.some((x) => x.estimate > 0);
   return (
-    <div className="mt-3">
+    <div className="py-0.5">
       <button
         type="button"
-        onClick={onBack}
-        className="inline-flex items-center gap-1.5 rounded-md py-1 pr-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-1.5 rounded-md px-1 py-2 text-left transition-colors hover:bg-accent"
       >
-        <ChevronLeft className="size-4" aria-hidden />
-        {t('myteam.back')}
-      </button>
-      <div className="mb-1 mt-2 flex items-center gap-2 border-t pt-2.5">
+        <ChevronDown
+          className={cn('size-3.5 shrink-0 transition-transform duration-200', open && 'rotate-180')}
+          style={{ color: bucket.col.color }}
+          aria-hidden
+        />
         <span
-          className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide"
+          className="min-w-0 truncate text-xs font-semibold uppercase tracking-wide"
           style={{ color: bucket.col.color }}
         >
           {bucket.col.label}
         </span>
-        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">({bucket.tasks.length})</span>
-      </div>
-      <div className="flex flex-col divide-y">
-        {bucket.tasks.map((issue) => (
-          <TaskRow key={issue.id} issue={issue} done={bucket.col.key === doneKey} />
-        ))}
-      </div>
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          ({bucket.tasks.length})
+        </span>
+        {open && showPoints && (
+          <span className="ml-auto shrink-0 text-[11px] uppercase tracking-wide text-muted-foreground">
+            {t('myteam.pointsColumn')}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="flex flex-col divide-y">
+          {bucket.tasks.map((issue) => (
+            <TaskRow
+              key={issue.id}
+              issue={issue}
+              done={bucket.col.key === doneKey}
+              showPoints={showPoints}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-/** One person's workload. Its summary shows counts, a share-complete ring, the status
- *  bar, an effort block (story points), and a compact index of statuses. Clicking a
- *  status heading drills *in place* into that status's item list (see FocusedStatus) —
- *  a Back button inside the card returns to this summary. The card takes its content's
- *  height and the PAGE scrolls (no nested list scrollbar). */
+/** One person's workload. The summary shows counts, a share-complete ring, the
+ *  status bar, an effort block (story points), then a status accordion — opening
+ *  a status reveals its issues inline, beneath everything else (see StatusGroup).
+ *  The header's ⌄⌄ control folds the whole card down to the person's name, for
+ *  skimming a crowded board. Cards take their content's height and the PAGE
+ *  scrolls, so nothing gets a nested scrollbar. */
 export function WorkloadCard({ person }: { person: PersonWorkload }) {
   const groups = person.byColumn.filter((b) => b.tasks.length > 0);
-  // The status drilled into, or null for the summary. Clicking a status heading
-  // sets it; Back clears it — all within this one card.
-  const [focusedKey, setFocusedKey] = useState<string | null>(null);
-  const focused = focusedKey ? groups.find((g) => g.col.key === focusedKey) ?? null : null;
+  const [collapsed, setCollapsed] = useState(false);
+  const CollapseIcon = collapsed ? ChevronsUpDown : ChevronsDownUp;
 
   return (
     <div className="flex flex-col rounded-xl border bg-card p-4 text-card-foreground shadow-sm">
-      {/* Header — who (kept in both views, so a drilled-in list still says whose it is) */}
+      {/* Header — who, plus the whole-card fold */}
       <div className="flex shrink-0 items-center gap-2.5">
         <PersonAvatar name={person.name} unassigned={person.isUnassigned} size={28} />
-        <div className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground" title={person.name}>
+        <div
+          className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground"
+          title={person.name}
+        >
           {person.name}
         </div>
+        {/* Folded, the card still has to say how much this person is carrying. */}
+        {collapsed && (
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+            {person.total}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? t('myteam.expand') : t('myteam.collapse')}
+          title={collapsed ? t('myteam.expand') : t('myteam.collapse')}
+          className="-mr-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <CollapseIcon className="size-4" aria-hidden />
+        </button>
       </div>
 
-      {focused ? (
-        <FocusedStatus bucket={focused} doneKey={person.doneKey} onBack={() => setFocusedKey(null)} />
-      ) : (
+      {!collapsed && (
         <>
           {/* Counts + share complete */}
           <div className="mt-4 flex shrink-0 items-center gap-5">
@@ -188,44 +233,32 @@ export function WorkloadCard({ person }: { person: PersonWorkload }) {
               )}
               {person.noEstimateCount > 0 && (
                 <div
-                  className={cn('flex items-center gap-1.5 text-xs', person.totalPoints > 0 ? 'mt-2' : 'mt-1')}
+                  className={cn(
+                    'flex items-center gap-1.5 text-xs',
+                    person.totalPoints > 0 ? 'mt-2' : 'mt-1',
+                  )}
                   style={{ color: 'hsl(var(--warning))' }}
                 >
                   <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
                   <span className="tabular-nums">
                     {person.noEstimateCount === 1
                       ? t('myteam.taskWithoutEstimateOne')
-                      : t('myteam.tasksWithoutEstimate').replace('{count}', String(person.noEstimateCount))}
+                      : t('myteam.tasksWithoutEstimate').replace(
+                          '{count}',
+                          String(person.noEstimateCount),
+                        )}
                   </span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Status index — a heading per non-empty status; click one to drill into
-              its item list in place. Colour comes from the column (never hardcoded). */}
+          {/* Statuses — each opens in place into its issue list. */}
           {groups.length > 0 && (
             <div className="mt-3 border-t pt-1">
               <div className="flex flex-col divide-y">
                 {groups.map((bucket) => (
-                  <button
-                    key={bucket.col.key}
-                    type="button"
-                    onClick={() => setFocusedKey(bucket.col.key)}
-                    aria-label={bucket.col.label}
-                    className="flex w-full items-center gap-2 rounded-md px-1 py-2 text-left transition-colors hover:bg-accent"
-                  >
-                    <span
-                      className="min-w-0 flex-1 truncate text-xs font-semibold uppercase tracking-wide"
-                      style={{ color: bucket.col.color }}
-                    >
-                      {bucket.col.label}
-                    </span>
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                      ({bucket.tasks.length})
-                    </span>
-                    <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
-                  </button>
+                  <StatusGroup key={bucket.col.key} bucket={bucket} doneKey={person.doneKey} />
                 ))}
               </div>
             </div>
