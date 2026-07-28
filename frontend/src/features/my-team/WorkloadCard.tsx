@@ -4,7 +4,6 @@ import { AlertTriangle, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-r
 import { Badge } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
-import { IssueKind } from '@/types/enums';
 import type { IssueDto } from '@/types/dto';
 import { ProgressRing } from './ProgressRing';
 import { initialsOf, type ColumnBucket, type PersonWorkload } from './workload';
@@ -61,11 +60,11 @@ function Stat({ value, label }: { value: number; label: string }) {
 }
 
 /** One issue in a drilled-in status list — title + optional estimate. Clicking it
- *  opens that issue's detail in a **new tab** (a bug → /bugs/:ref, a task →
- *  /tasks/:ref, by ref so the URL is human-friendly), keeping the focused list in
- *  place. The external-link glyph fades in on hover to signal it's a launcher. */
+ *  opens that issue's detail in a **new tab** (`/issues/:ref`, by ref so the URL
+ *  is human-friendly), keeping the focused list in place. The external-link glyph
+ *  fades in on hover to signal it's a launcher. */
 function TaskRow({ issue, done }: { issue: IssueDto; done: boolean }) {
-  const href = `/${issue.kind === IssueKind.BUG ? 'bugs' : 'tasks'}/${issue.shortId || issue.id}`;
+  const href = `/issues/${issue.shortId || issue.id}`;
   return (
     <Link
       to={href}

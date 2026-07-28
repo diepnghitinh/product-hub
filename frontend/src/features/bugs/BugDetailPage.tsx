@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { t } from '@/i18n';
 import { Icon } from '@/components/Icon';
 import { PageHeader } from '@/layouts/headers/PageHeader';
@@ -6,8 +6,9 @@ import { useEscapeBack } from '@/lib/useEscapeBack';
 import { BugDetail } from './components/BugDetail';
 import { CenteredPageLayout } from '@/layouts/shared';
 
-export function BugDetailPage() {
-  const { bugId } = useParams<{ bugId: string }>();
+/** One bug's detail. Reached at `/issues/<ref>` — `IssueDetailPage` resolves the
+ * kind and hands the ref down, so this isn't a route on its own. */
+export function BugDetailPage({ issueRef: bugId }: { issueRef: string }) {
   const navigate = useNavigate();
   useEscapeBack();
 

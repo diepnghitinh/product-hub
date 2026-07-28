@@ -18,6 +18,7 @@ import { RoadmapsPresentationModule } from './roadmaps/roadmaps.module';
 import { DocsPresentationModule } from './docs/docs.module';
 import { MilestonesPresentationModule } from './milestones/milestones.module';
 import { ApiKeysPresentationModule } from './api-keys/api-keys.module';
+import { McpPresentationModule } from './mcp/mcp.module';
 import { PublicPresentationModule } from './public/public.module';
 import { AppSettingsPresentationModule } from './app-settings/app-settings.module';
 import { StoragePresentationModule } from './storage/storage.module';
@@ -50,6 +51,8 @@ import { StoragePresentationModule } from './storage/storage.module';
     DocsPresentationModule,
     MilestonesPresentationModule,
     ApiKeysPresentationModule,
+    // Controller is @Controller('mcp') → /v1/mcp, so no RouterModule prefix.
+    McpPresentationModule,
     PublicPresentationModule,
     AppSettingsPresentationModule,
     // Controller is @Controller('uploads') → /v1/uploads, so it's imported like

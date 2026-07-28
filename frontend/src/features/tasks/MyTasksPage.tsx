@@ -284,7 +284,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
           )}
           onMove={onMove}
           disabled={!canWrite}
-          onCardClick={(task) => navigate(`/tasks/${task.shortId || task.id}`)}
+          onCardClick={(task) => navigate(`/issues/${task.shortId || task.id}`)}
           // The add + card-toolbar affordances, same as every board.
           renderCardToolbar={
             canWrite
@@ -292,7 +292,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
                   <KanbanCardToolbar
                     editLabel={t('common.edit')}
                     removeLabel={t('common.delete')}
-                    onEdit={() => navigate(`/tasks/${task.shortId || task.id}`)}
+                    onEdit={() => navigate(`/issues/${task.shortId || task.id}`)}
                     onRemove={() => {
                       if (confirm(t('tasks.confirmDelete'))) remove.mutate(task.id);
                     }}
@@ -375,7 +375,7 @@ export function TaskCard({
 /** The original queue view: grouped by status column, each row linking to its
  * backlog item's roadmap. `onOpen` overrides the row's default `<Link>` with a
  * callback (e.g. a public board opening a dialog instead of navigating to the
- * protected `/tasks/:id` route). */
+ * protected `/issues/:ref` route). */
 export function TaskList({
   tasks,
   columns,
@@ -483,7 +483,7 @@ function TaskRow({
       {content}
     </button>
   ) : (
-    <Link to={`/tasks/${task.shortId || task.id}`} className={className}>
+    <Link to={`/issues/${task.shortId || task.id}`} className={className}>
       {content}
     </Link>
   );

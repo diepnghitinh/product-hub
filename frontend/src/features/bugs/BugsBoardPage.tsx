@@ -315,7 +315,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           )}
           onMove={onMove}
           disabled={!canWrite}
-          onCardClick={(bug) => navigate(`/bugs/${bug.shortId || bug.id}`)}
+          onCardClick={(bug) => navigate(`/issues/${bug.shortId || bug.id}`)}
           // The add + card-toolbar affordances, same as every board.
           renderCardToolbar={
             canWrite
@@ -323,7 +323,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
                   <KanbanCardToolbar
                     editLabel={t('common.edit')}
                     removeLabel={t('common.delete')}
-                    onEdit={() => navigate(`/bugs/${bug.shortId || bug.id}`)}
+                    onEdit={() => navigate(`/issues/${bug.shortId || bug.id}`)}
                     onRemove={() => {
                       if (confirm(t('bugs.confirmDelete'))) remove.mutate(bug.id);
                     }}
@@ -354,7 +354,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
             bugs={bugs}
             columns={columns}
             labelsFor={labelsFor}
-            onOpen={(b) => navigate(`/bugs/${b.shortId || b.id}`)}
+            onOpen={(b) => navigate(`/issues/${b.shortId || b.id}`)}
             selection={bulkEnabled ? selection : undefined}
           />
         </div>

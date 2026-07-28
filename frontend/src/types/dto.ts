@@ -12,6 +12,7 @@ import {
   FeatureStatus,
   InboxKind,
   IssueKind,
+  McpEntity,
   MilestoneStatus,
   ProjectEnvironment,
   RelationType,
@@ -567,6 +568,32 @@ export interface ApiKeyDto {
 export interface CreatedApiKeyDto extends ApiKeyDto {
   /** Full secret — returned only once. */
   key: string;
+}
+
+/**
+ * One thing an MCP client created. Append-only, and denormalized on purpose:
+ * the key can be revoked and the item deleted while the row stays readable.
+ */
+export interface McpEventDto {
+  id: string;
+  keyId: string;
+  keyName: string;
+  userId: string;
+  userName: string;
+  /** Which assistant made the call, e.g. `claude-code/2.1.0`. */
+  clientName: string;
+  /** The MCP tool that ran — `create_issue`, `create_backlog_item`. */
+  tool: string;
+  entity: McpEntity;
+  entityId: string;
+  /** `TSK-6HCUHKX` for an issue, empty for a backlog item. */
+  entityRef: string;
+  entityTitle: string;
+  /** The team's name, or the roadmap's title. */
+  contextLabel: string;
+  /** In-app path to the created item. */
+  link: string;
+  createdAt: string;
 }
 
 /** Maps a workspace member to their chat-platform id, so they can be @mentioned. */

@@ -148,7 +148,7 @@ export function NewTaskPage() {
       },
       {
         // Straight into the task we just made — replace, so Back skips the form.
-        onSuccess: (task) => navigate(`/tasks/${task.shortId || task.id}`, { replace: true }),
+        onSuccess: (task) => navigate(`/issues/${task.shortId || task.id}`, { replace: true }),
         onError: (err) => setError((err as Error).message),
       },
     );

@@ -31,6 +31,18 @@
   padding: 0.3em 0;
 }
 
+/* Links are followable while writing (see RichTextEditor's onLinkClick), so they
+   have to look it — the caret cursor a contenteditable gives them says the
+   opposite. Alt-click still places the caret, for editing the words. */
+.rich-text-editor .ce-block a[href] {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  cursor: pointer;
+}
+.rich-text-editor .ce-block a[href]:hover {
+  text-decoration-thickness: 2px;
+}
+
 /* Inline tools */
 .rich-text-editor mark,
 .rich-text-editor .cdx-marker {

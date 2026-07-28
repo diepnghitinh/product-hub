@@ -153,9 +153,6 @@ export function SubtaskSection({
           issues.map((tk) => {
             const mine = !!user && tk.assigneeId === user.id;
             const team = teamById.get(tk.teamId);
-            // A linked child is a bug or a task depending on its team; its title
-            // links to the matching detail page.
-            const detailBase = team?.issueType === TeamIssueType.BUG ? '/bugs' : '/tasks';
             // This child's own columns — a bug team's `open`/`resolved` are as
             // real here as a task's `todo`, so the dot reads its colour from the
             // resolved column, not the task palette.
@@ -185,7 +182,8 @@ export function SubtaskSection({
                       setPeek({
                         id: tk.id,
                         issueType: team?.issueType ?? TeamIssueType.TASK,
-                        href: `${detailBase}/${tk.shortId || tk.id}`,
+                        // A child can be a bug or a task; one URL serves both.
+                        href: `/issues/${tk.shortId || tk.id}`,
                       })
                     }
                     className={cn(

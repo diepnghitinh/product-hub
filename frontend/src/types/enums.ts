@@ -130,6 +130,16 @@ export enum IssueKind {
   BUG = 'bug',
 }
 
+/**
+ * What an MCP client created. The two issue values are the same strings as
+ * `IssueKind` on purpose, so the history row picks its icon from one field.
+ */
+export enum McpEntity {
+  TASK = 'task',
+  BUG = 'bug',
+  BACKLOG_ITEM = 'backlog-item',
+}
+
 /** The six relation options in "Mark as" menu order (matches the mockup). */
 export const RELATION_TYPES: RelationType[] = [
   RelationType.PARENT_OF,

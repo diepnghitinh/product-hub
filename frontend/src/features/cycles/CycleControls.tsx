@@ -21,7 +21,6 @@ import {
   CYCLE_FILTER_NONE,
   CYCLE_FILTER_UPCOMING,
   CycleStatus,
-  IssueKind,
 } from '@/types/enums';
 import type { CycleDto, IssueDto, TeamDto } from '@/types/dto';
 import { useCycles, useFocusedCycle } from './api';
@@ -268,9 +267,8 @@ function GhostChips({
  *  detached). The suffix reads from the issue's *current* `cycleId` — the ghost
  *  is history, the destination is live. */
 function GhostChip({ issue, cycles }: { issue: IssueDto; cycles: CycleDto[] }) {
-  // Route to the right detail page by kind — a bug chip must not open /tasks/…
-  const ref = issue.shortId || issue.id;
-  const to = issue.kind === IssueKind.BUG ? `/bugs/${ref}` : `/tasks/${ref}`;
+  // One detail URL for both kinds; the ref carries which it is.
+  const to = `/issues/${issue.shortId || issue.id}`;
   const now = issue.cycleId ? cycles.find((c) => c.id === issue.cycleId) : undefined;
   const where = issue.cycleId
     ? now && `${t('cycles.cycle')} ${now.number}`

@@ -81,6 +81,21 @@ cases from a spreadsheet, or let CI tick results through the public API. This is
 
 ![Test cases](docs/images/testcases.png)
 
+### 🤖 File work from Claude, over MCP
+
+Your workspace *is* the MCP server. There's nothing to clone and nothing to install —
+**Settings → MCP** generates a key and hands you one command:
+
+```bash
+claude mcp add --transport http product-os https://your-host/v1/mcp \
+  --header "x-api-key: phk_…"
+```
+
+Then file work without leaving the conversation — *"there's a bug where avatar upload
+fails over 5MB, file it for QC"*. Team, status and assignee take plain names; an unknown
+one comes back with the valid choices instead of guessing. Items are authored by **you**,
+and every one an assistant created is listed under **Settings → MCP**.
+
 ---
 
 ## Works on every screen
@@ -149,6 +164,7 @@ Open the app, **register** a workspace, and you're in as its admin.
 product-hub/
 ├── frontend/     React + Vite SPA (features/, components/ui abstraction layer)
 ├── backend/      NestJS API (DDD: presentation / application / infrastructure)
+│                 — also serves the MCP endpoint at /v1/mcp
 ├── docs/         Product overview, architecture, roles, feature inventory
 └── dev.sh        One-command local stack (Mongo + API + web)
 ```

@@ -180,7 +180,7 @@ export function RoadmapItemDetailPage() {
     if (descTimer.current) clearTimeout(descTimer.current);
     descTimer.current = setTimeout(() => {
       save({ description: html });
-      // A pasted task or bug link (/tasks/TSK-5, /bugs/BUG-12) links it to this
+      // A pasted issue link (/issues/TSK-5, /issues/BUG-12) links it to this
       // item. Add-only: unresolved refs are ignored and deleting the text later
       // won't unlink.
       const refs = issueRefsInText(html);

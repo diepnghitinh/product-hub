@@ -5,11 +5,16 @@ import { AuthenticateApiKeyUseCase } from '@application/api-keys/use-cases/api-k
 export interface ApiAuth {
   tenantId: string;
   name: string;
+  /** The key's own id — what an MCP event is attributed to. */
+  keyId: string;
+  /** The user who generated the key. A key-authenticated write acts as them, so
+   *  an item created through MCP has a real author instead of a nameless robot. */
+  userId: string;
 }
 
 /**
  * Authenticates a request via the `x-api-key` header and attaches
- * `request.apiAuth` ({ tenantId, name }). Used on `@Public()` public-API routes.
+ * `request.apiAuth`. Used on `@Public()` public-API and MCP routes.
  */
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
@@ -25,7 +30,12 @@ export class ApiKeyGuard implements CanActivate {
       throw new UnauthorizedDomainException(result.error as string);
     }
     const entity = result.getValue();
-    req.apiAuth = { tenantId: entity.tenantId, name: entity.name };
+    req.apiAuth = {
+      tenantId: entity.tenantId,
+      name: entity.name,
+      keyId: entity.id.toString(),
+      userId: entity.createdBy,
+    };
     return true;
   }
 }

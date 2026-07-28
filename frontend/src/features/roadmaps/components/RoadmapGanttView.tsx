@@ -278,7 +278,7 @@ export function RoadmapGanttView({ roadmapId, items, columns, onOpenItem }: Road
         const cfg = statusesFor(tk.teamId, TeamIssueType.TASK).find((c) => c.key === tk.status);
         return { color: cfg?.color ?? 'hsl(var(--muted-foreground))', label: cfg?.label ?? tk.status };
       }}
-      taskHref={(tk) => `/tasks/${tk.shortId || tk.id}`}
+      taskHref={(tk) => `/issues/${tk.shortId || tk.id}`}
       onTaskDatesChange={canWrite ? reschedule : undefined}
     />
   );

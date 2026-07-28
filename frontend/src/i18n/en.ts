@@ -665,6 +665,30 @@ export const en = {
   'settings.apiGuideTestCaseId': 'is the case’s short id (shown in the test table) or its full id.',
   'settings.apiGuideResultsPrefix': 'Allowed',
   'settings.apiGuideResultsSuffix': 'values:',
+  'settings.mcp': 'MCP',
+  'settings.mcpHint':
+    'Connect Claude — or any assistant that speaks MCP — so it can file tasks, bugs and backlog items here straight from a conversation.',
+  'settings.mcpKeyNameDefault': 'Claude MCP',
+  'settings.mcpStep1': 'Generate a key',
+  'settings.mcpStep1Hint':
+    'The assistant acts as you through this key, so everything it creates has you as the author.',
+  'settings.mcpStep2': 'Register the URL with your assistant',
+  'settings.mcpStep2Hint':
+    'One command, run wherever your assistant lives. There is nothing to clone and nothing to install — the MCP server is this API.',
+  'settings.mcpEndpoint': 'MCP endpoint',
+  'settings.mcpEndpointHint':
+    'Where the assistant reaches this API. Change it if the machine running Claude can’t use the address your browser is on — it needs a URL of its own.',
+  'settings.mcpDesktopNote':
+    'Works with Claude Code and any client that can send a header. Claude Desktop’s custom connectors expect an OAuth sign-in rather than a key, so they can’t use this URL yet.',
+  'settings.mcpKeysNote': 'MCP uses the same keys as the API — revoke one under Settings → API keys.',
+  'settings.mcpTools':
+    'Then ask it to “list my Product OS workspace”, “file a bug for QC”, or “add a backlog item”. Team, status and assignee accept plain names; an unknown one comes back with the valid choices instead of guessing.',
+  'settings.mcpReady': 'Your key is ready',
+  'settings.mcpReadyHint': 'This command already contains it — run it in your terminal.',
+  'settings.mcpHistory': 'Created via MCP',
+  'settings.mcpHistoryHint': 'Everything an assistant has created in this workspace, newest first.',
+  'settings.mcpNoHistory': 'Nothing has been created via MCP yet.',
+  'settings.mcpShowMore': 'Show more',
   'settings.webhooks': 'Webhooks',
   'settings.storage': 'Storage',
   'settings.storageHint': 'Cloud storage for uploaded images and short videos.',

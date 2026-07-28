@@ -108,12 +108,12 @@ export function PersonalBoardPage() {
           getColumnKey={(tk) => tk.status}
           renderCard={(task, overlay) => <PersonalCard task={task} overlay={overlay} />}
           onMove={onMove}
-          onCardClick={(task) => navigate(`/tasks/${task.shortId || task.id}`)}
+          onCardClick={(task) => navigate(`/issues/${task.shortId || task.id}`)}
           renderCardToolbar={(task) => (
             <KanbanCardToolbar
               editLabel={t('common.edit')}
               removeLabel={t('common.delete')}
-              onEdit={() => navigate(`/tasks/${task.shortId || task.id}`)}
+              onEdit={() => navigate(`/issues/${task.shortId || task.id}`)}
               onRemove={() => {
                 if (confirm(t('tasks.confirmDelete'))) remove.mutate(task.id);
               }}
@@ -185,7 +185,7 @@ function PersonalList({ tasks, columns }: { tasks: TaskDto[]; columns: TeamStatu
               {list.map((task) => (
                 <Link
                   key={task.id}
-                  to={`/tasks/${task.shortId || task.id}`}
+                  to={`/issues/${task.shortId || task.id}`}
                   className="flex items-center gap-3 rounded-md px-4 py-3 text-foreground transition-colors hover:bg-accent [&:not(:last-child)]:border-b"
                 >
                   <span className="min-w-0 flex-1 truncate text-sm">{task.title}</span>

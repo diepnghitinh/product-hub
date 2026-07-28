@@ -1,32 +1,16 @@
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, type MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
-import { t } from '@/i18n';
 import { enhanceCodeBlocks } from '@/lib/enhanceCodeBlocks';
 import { renderMermaidBlocks } from '@/lib/mermaid';
 // The read-only view paints editor output — code-copy buttons and mermaid
 // diagrams both need these rules, on pages that never mount the editor itself.
 import '@/styles/rich-text-editor.css';
-import { Button } from './Button';
-import { Dialog } from './Dialog';
+import { isWebLink, resolveHref, useExternalLink } from './ExternalLink';
 import { useLightbox, type LightboxImage } from './Lightbox';
 
 /** Shared prose styling for editor HTML — links, images (click-to-zoom cursor). */
 const PROSE =
   '[&_a]:cursor-pointer [&_a]:text-primary [&_a]:underline [&_img]:h-auto [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md';
-
-/** Resolve an href against the current origin; null if it isn't a real URL. */
-function resolve(href: string): URL | null {
-  try {
-    return new URL(href, window.location.href);
-  } catch {
-    return null;
-  }
-}
-
-/** A web link we treat as "open in a new tab" (leaves mailto:/tel:/# alone). */
-function isWebLink(url: URL | null): url is URL {
-  return !!url && (url.protocol === 'http:' || url.protocol === 'https:');
-}
 
 export interface RichTextProps {
   /** Stored rich-text value as HTML (what the editor emits). */
@@ -49,8 +33,7 @@ export interface RichTextProps {
 export function RichText({ html, className }: RichTextProps) {
   const ref = useRef<HTMLDivElement>(null);
   const lightbox = useLightbox();
-  // The off-domain URL awaiting the user's confirmation (null = no prompt).
-  const [pending, setPending] = useState<string | null>(null);
+  const links = useExternalLink();
 
   // Decorate links (target/rel) and add code-copy buttons whenever the HTML
   // changes. Click behaviour itself is delegated on the container below.
@@ -62,7 +45,7 @@ export function RichText({ html, className }: RichTextProps) {
     // Fire-and-forget: mermaid loads lazily and a failure prints in its own box.
     void renderMermaidBlocks(root);
     root.querySelectorAll('a[href]').forEach((a) => {
-      if (isWebLink(resolve(a.getAttribute('href') || ''))) {
+      if (isWebLink(resolveHref(a.getAttribute('href') || ''))) {
         a.setAttribute('target', '_blank');
         a.setAttribute('rel', 'noopener noreferrer');
       }
@@ -91,18 +74,14 @@ export function RichText({ html, className }: RichTextProps) {
         return;
       }
 
-      // Link → new tab; off-domain links get a confirmation first. Same-origin
-      // links fall through to the anchor's native target=_blank.
+      // Link → new tab, off-domain ones after a confirmation. The guard opens it,
+      // so stop the anchor from opening a second copy of the same tab.
       const a = el.closest('a');
-      if (a && root.contains(a)) {
-        const url = resolve(a.getAttribute('href') || '');
-        if (isWebLink(url) && url.hostname !== window.location.hostname) {
-          e.preventDefault();
-          setPending(url.href);
-        }
+      if (a && root.contains(a) && links.open(a.getAttribute('href') || '')) {
+        e.preventDefault();
       }
     },
-    [lightbox],
+    [lightbox, links],
   );
 
   return (
@@ -114,31 +93,7 @@ export function RichText({ html, className }: RichTextProps) {
         dangerouslySetInnerHTML={{ __html: html }}
       />
       {lightbox.node}
-      <Dialog
-        open={pending !== null}
-        onClose={() => setPending(null)}
-        title={t('richText.externalTitle')}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setPending(null)}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={() => {
-                if (pending) window.open(pending, '_blank', 'noopener,noreferrer');
-                setPending(null);
-              }}
-            >
-              {t('richText.externalOpen')}
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-muted-foreground">{t('richText.externalBody')}</p>
-        <p className="mt-2 break-all rounded-md bg-muted px-3 py-2 font-mono text-xs text-foreground">
-          {pending}
-        </p>
-      </Dialog>
+      {links.node}
     </>
   );
 }
