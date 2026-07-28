@@ -92,7 +92,9 @@ claude mcp add --transport http product-os https://your-host/v1/mcp \
 ```
 
 Then file work without leaving the conversation — *"there's a bug where avatar upload
-fails over 5MB, file it for QC"*. Team, status and assignee take plain names; an unknown
+fails over 5MB, file it for QC"* — or have it write up what you just talked through:
+*"turn that into a discovery doc, with a diagram of the flow"*. Docs accept Mermaid, so the
+diagram arrives drawn and stays editable as text. Team, status and assignee take plain names; an unknown
 one comes back with the valid choices instead of guessing. Items are authored by **you**,
 and every one an assistant created is listed under **Settings → MCP**.
 

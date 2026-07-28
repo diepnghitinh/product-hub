@@ -6,7 +6,9 @@
 // SVG. It shows the picture once the source parses, and flips back to the
 // textarea when you click it — the same "click to edit, click away to see"
 // rhythm as the rest of the editor.
+import { decodeEntities } from '@/lib/editorjs';
 import { renderMermaid, stripMermaidFence } from '@/lib/mermaid';
+import { t } from '@/i18n';
 
 export interface MermaidData {
   code: string;
@@ -23,14 +25,20 @@ const PLACEHOLDER = `flowchart TD
 
 export class MermaidTool {
   static get toolbox() {
-    return { title: 'Diagram', icon: TOOLBOX_ICON };
+    return { title: t('editor.blockDiagram'), icon: TOOLBOX_ICON };
   }
   static get isReadOnlySupported() {
     return true;
   }
-  /** Diagram source is plain text with newlines — Editor.js must not sanitize it. */
+  /**
+   * Editor.js sanitizes block data on every save, and this config is a map of
+   * *tags to keep* — there is no way to opt a field out. So keep `<br>`, which
+   * is how a mermaid label breaks a line; everything else is stripped, which is
+   * right for diagram source. The sanitizer also escapes `>` on the way out, so
+   * the source is decoded again when it is stored and when it is drawn.
+   */
   static get sanitize() {
-    return { code: false };
+    return { br: true };
   }
   /** Paste a fenced ```mermaid block and it lands here rather than as a code block. */
   static get pasteConfig() {
@@ -45,7 +53,9 @@ export class MermaidTool {
   private editing = false;
 
   constructor({ data, readOnly }: { data?: MermaidData; readOnly?: boolean }) {
-    this.data = { code: data?.code || '' };
+    // Decoded on the way in, so the textarea always shows real diagram source —
+    // and so a page saved with escaped arrows is written back clean.
+    this.data = { code: decodeEntities(data?.code || '') };
     this.readOnly = !!readOnly;
     this.wrapper = document.createElement('div');
     this.textarea = document.createElement('textarea');
@@ -59,7 +69,7 @@ export class MermaidTool {
     this.textarea.value = this.data.code || PLACEHOLDER;
     this.textarea.spellcheck = false;
     this.textarea.readOnly = this.readOnly;
-    this.textarea.setAttribute('aria-label', 'Mermaid diagram source');
+    this.textarea.setAttribute('aria-label', t('editor.diagramSource'));
     this.textarea.rows = 6;
     // Enter belongs to the diagram, not to Editor.js's "new block" handling.
     this.textarea.addEventListener('keydown', (e) => e.stopPropagation());
@@ -109,7 +119,7 @@ export class MermaidTool {
       })
       .catch((e: Error) => {
         if (this.editing) return;
-        this.preview.textContent = e.message || 'Could not draw this diagram';
+        this.preview.textContent = e.message || t('editor.diagramFailed');
         this.wrapper.classList.add('has-error');
       });
   }

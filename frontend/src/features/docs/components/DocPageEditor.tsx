@@ -8,14 +8,20 @@ import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
 import { DocLinkKind, IssueKind, TEAM_COLORS } from '@/types/enums';
-import type { DocLink, DocPageDto } from '@/types/dto';
-import { useUpdateDocPage } from '../api';
+import type { DocAttachment, DocLink, DocPageDto } from '@/types/dto';
+import { useDoc, useUpdateDocPage } from '../api';
+import { pageStyleOf, typographyAttrs, widthClass, type DocPageStyle } from '../pageStyle';
+import { DocAttachments } from './DocAttachments';
 import { DocLinkDialog } from './DocLinkDialog';
+import { DocPageStyles } from './DocPageStyles';
 import { DocVersionHistory } from './DocVersionHistory';
 
 interface DocPageEditorProps {
   page: DocPageDto;
   canWrite: boolean;
+  /** Page Styles opens from the doc's ⋯ menu, which lives a level up. */
+  stylesOpen?: boolean;
+  onStylesClose?: () => void;
 }
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved';
@@ -30,7 +36,8 @@ type PagePatch = {
   coverUrl?: string;
   content?: string;
   links?: DocLink[];
-};
+  attachments?: DocAttachment[];
+} & Partial<DocPageStyle>;
 
 /** Where a linked record lives, so the chip is a real link, not a label. */
 function linkHref(link: DocLink): string {
@@ -47,13 +54,27 @@ function linkHref(link: DocLink): string {
  * Mount this with `key={page.id}`: Editor.js reads its value once, at mount, so
  * switching pages has to be a fresh mount rather than a prop change.
  */
-export function DocPageEditor({ page, canWrite }: DocPageEditorProps) {
+export function DocPageEditor({
+  page,
+  canWrite,
+  stylesOpen = false,
+  onStylesClose,
+}: DocPageEditorProps) {
   const update = useUpdateDocPage();
+  // Already loaded by the workspace around us — read from cache, for the one
+  // thing this component can't answer alone: which other pages "apply to all"
+  // means.
+  const { data: doc } = useDoc(page.docId);
   const [title, setTitle] = useState(page.title);
   const [icon, setIcon] = useState(page.icon);
   const [color, setColor] = useState<string | null>(page.color ?? null);
   const [coverUrl, setCoverUrl] = useState(page.coverUrl);
   const [links, setLinks] = useState<DocLink[]>(page.links);
+  // Pages written before attachments existed come back without the field.
+  const [files, setFiles] = useState<DocAttachment[]>(page.attachments ?? []);
+  // Page Styles. Held here, not read straight off `page`, so a switch flips
+  // under the pointer instead of after the round trip.
+  const [style, setStyle] = useState<DocPageStyle>(() => pageStyleOf(page));
   const [status, setStatus] = useState<SaveState>('idle');
   const [linkOpen, setLinkOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -143,9 +164,57 @@ export function DocPageEditor({ page, canWrite }: DocPageEditorProps) {
     saveNow({ links: next });
   }
 
+  /**
+   * One control from the Page Styles panel. Paints now, saves on the debounce
+   * — *not* `saveNow`, deliberately: flipping three switches in a row would
+   * otherwise fire three overlapping PATCHes of the same page, and the last one
+   * to land would put the other two back. The debounce merges them into a
+   * single write.
+   */
+  function changeStyle(patch: Partial<DocPageStyle>) {
+    setStyle((s) => ({ ...s, ...patch }));
+    queue(patch);
+  }
+
+  const otherPages = (doc?.pages ?? []).filter((p) => p.id !== page.id);
+
+  /**
+   * Copies *this* page's font, size and width onto every other page of the doc
+   * — the switches stay per page, since "show the cover here" is a statement
+   * about this page and not about the doc.
+   *
+   * Fanned out over the single-page endpoint rather than a bulk one, the way the
+   * rest of the app does it. A plain PATCH doesn't snapshot a version, so this
+   * doesn't fill anyone's history with a font change — it does move every page's
+   * "updated by", which is fair: it did just edit them.
+   */
+  async function applyTypographyToAll() {
+    // This page's own change may still be sitting in the debounce — write it
+    // first so "all pages" really does include the one you're looking at.
+    await flush();
+    const typography = {
+      fontStyle: style.fontStyle,
+      fontSize: style.fontSize,
+      pageWidth: style.pageWidth,
+    };
+    await Promise.all(
+      otherPages.map((p) =>
+        mutate.current({ docId: page.docId, pageId: p.id, input: typography }),
+      ),
+    );
+  }
+
+  // Offering "add a cover" while covers are switched off would contradict
+  // itself, so the button follows the switch.
+  const showAddCover = canWrite && style.showCover && !coverUrl;
+  // A band with a heading and nothing under it is worse than no band.
+  const linksOn = style.showLinks && (canWrite || links.length > 0);
+  const filesOn = style.showAttachments && (canWrite || files.length > 0);
+  const typo = typographyAttrs(style);
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      {coverUrl ? (
+      {coverUrl && style.showCover ? (
         <div className="group relative h-32 w-full overflow-hidden bg-muted sm:h-44">
           <img src={coverUrl} alt="" className="size-full object-cover" />
           {canWrite && (
@@ -175,74 +244,92 @@ export function DocPageEditor({ page, canWrite }: DocPageEditorProps) {
         </div>
       ) : null}
 
-      <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-8">
-        <div className="flex items-center gap-2">
-          {canWrite ? (
-            <SymbolPicker
-              variant="plain"
-              size={26}
-              value={icon || 'book'}
-              color={color}
-              options={TEAM_SYMBOL_NAMES}
-              colors={TEAM_COLORS}
-              ariaLabel={t('docs.pageIcon')}
-              onChange={(patch) => {
-                // The picker sends whichever half changed, so patch just that one
-                // — writing both would blank the other back to its default.
-                const next: PagePatch = {};
-                if (patch.icon !== undefined) {
-                  setIcon(patch.icon);
-                  next.icon = patch.icon;
-                }
-                if (patch.color !== undefined) {
-                  setColor(patch.color);
-                  next.color = patch.color;
-                }
-                saveNow(next);
-              }}
-            />
-          ) : (
-            <TeamSymbol
-              name={icon || 'book'}
-              size={26}
-              className="text-muted-foreground"
-              color={color ?? undefined}
-            />
-          )}
-          {canWrite && !coverUrl && (
-            <MediaUploader
-              accept="image/*"
-              multiple={false}
-              variant="ghost"
-              label={t('docs.addCover')}
-              className="text-muted-foreground"
-              onUploaded={(m) => {
-                setCoverUrl(m.url);
-                saveNow({ coverUrl: m.url });
-              }}
-            />
-          )}
-        </div>
+      <div
+        {...typo}
+        className={cn(
+          typo.className,
+          'mx-auto w-full px-4 pb-24 pt-6 sm:px-8',
+          widthClass(style.pageWidth),
+        )}
+      >
+        {(style.showTitle || showAddCover) && (
+          <div className="flex items-center gap-2">
+            {style.showTitle &&
+              (canWrite ? (
+                <SymbolPicker
+                  variant="plain"
+                  size={26}
+                  value={icon || 'book'}
+                  color={color}
+                  options={TEAM_SYMBOL_NAMES}
+                  colors={TEAM_COLORS}
+                  ariaLabel={t('docs.pageIcon')}
+                  onChange={(patch) => {
+                    // The picker sends whichever half changed, so patch just that
+                    // one — writing both would blank the other to its default.
+                    const next: PagePatch = {};
+                    if (patch.icon !== undefined) {
+                      setIcon(patch.icon);
+                      next.icon = patch.icon;
+                    }
+                    if (patch.color !== undefined) {
+                      setColor(patch.color);
+                      next.color = patch.color;
+                    }
+                    saveNow(next);
+                  }}
+                />
+              ) : (
+                <TeamSymbol
+                  name={icon || 'book'}
+                  size={26}
+                  className="text-muted-foreground"
+                  color={color ?? undefined}
+                />
+              ))}
+            {showAddCover && (
+              <MediaUploader
+                accept="image/*"
+                multiple={false}
+                variant="ghost"
+                label={t('docs.addCover')}
+                className="text-muted-foreground"
+                onUploaded={(m) => {
+                  setCoverUrl(m.url);
+                  saveNow({ coverUrl: m.url });
+                }}
+              />
+            )}
+          </div>
+        )}
 
-        <input
-          value={title}
-          readOnly={!canWrite}
-          onChange={(e) => {
-            setTitle(e.target.value);
-            queue({ title: e.target.value });
-          }}
-          onBlur={() => void flush()}
-          aria-label={t('docs.pageTitle')}
-          placeholder={t('docs.untitled')}
-          className="mt-3 w-full border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/60 sm:text-3xl"
-        />
+        {/* Hidden, the title is still edited from the rail — this switch is about
+            the page's own look, not about whether the page has a name. */}
+        {style.showTitle && (
+          <input
+            value={title}
+            readOnly={!canWrite}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              queue({ title: e.target.value });
+            }}
+            onBlur={() => void flush()}
+            aria-label={t('docs.pageTitle')}
+            placeholder={t('docs.untitled')}
+            className="mt-3 w-full border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/60 sm:text-3xl"
+          />
+        )}
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span>
-            {t('docs.updatedBy')
-              .replace('{name}', page.updatedByName || '—')
-              .replace('{when}', timeAgo(page.updatedAt))}
-          </span>
+          {/* Only the byline itself is switchable. Save status and history are
+              controls, not decoration — losing them would cost you the page. */}
+          {style.showUpdated && (
+            <span>
+              {t('docs.updatedBy')
+                .replace('{name}', page.updatedByName || '—')
+                .replace('{when}', timeAgo(page.updatedAt))}
+            </span>
+          )}
           <SaveStatus status={status} />
           {/* Sits with the byline because that's where "when did this change"
               already lives — history is the long answer to the same question. */}
@@ -255,43 +342,63 @@ export function DocPageEditor({ page, canWrite }: DocPageEditorProps) {
           </button>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-y py-2.5">
-          {links.map((link) => (
-            <span
-              key={link.refId}
-              className="group inline-flex items-center gap-1 rounded-md border bg-muted/40 py-1 pl-2 pr-1 text-xs"
-            >
-              <Link
-                to={linkHref(link)}
-                className="max-w-[220px] truncate font-medium text-foreground hover:text-primary"
-              >
-                {link.title}
-              </Link>
-              {canWrite && (
-                <button
-                  type="button"
-                  aria-label={t('docs.linkRemove')}
-                  title={t('docs.linkRemove')}
-                  onClick={() => removeLink(link.refId)}
-                  className="grid size-4 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+        {/* Links and files share one rule: both answer "what else belongs with
+            this page". A reader with nothing attached and no way to attach gets
+            no empty band across the page. */}
+        {(linksOn || filesOn) && (
+          <div className="mt-4 space-y-2 border-y py-2.5">
+            {linksOn && (
+            <div className="flex flex-wrap items-center gap-2">
+              {links.map((link) => (
+                <span
+                  key={link.refId}
+                  className="group inline-flex items-center gap-1 rounded-md border bg-muted/40 py-1 pl-2 pr-1 text-xs"
                 >
-                  <X className="size-3" />
-                </button>
+                  <Link
+                    to={linkHref(link)}
+                    className="max-w-[220px] truncate font-medium text-foreground hover:text-primary"
+                  >
+                    {link.title}
+                  </Link>
+                  {canWrite && (
+                    <button
+                      type="button"
+                      aria-label={t('docs.linkRemove')}
+                      title={t('docs.linkRemove')}
+                      onClick={() => removeLink(link.refId)}
+                      className="grid size-4 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <X className="size-3" />
+                    </button>
+                  )}
+                </span>
+              ))}
+              {canWrite && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 gap-1.5 text-xs text-muted-foreground"
+                  onClick={() => setLinkOpen(true)}
+                >
+                  <Link2 className="size-3.5" /> {t('docs.linkRecord')}
+                </Button>
               )}
-            </span>
-          ))}
-          {canWrite && (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-7 gap-1.5 text-xs text-muted-foreground"
-              onClick={() => setLinkOpen(true)}
-            >
-              <Link2 className="size-3.5" /> {t('docs.linkRecord')}
-            </Button>
-          )}
-        </div>
+            </div>
+            )}
+
+            {filesOn && (
+              <DocAttachments
+                items={files}
+                canWrite={canWrite}
+                onChange={(next) => {
+                  setFiles(next);
+                  saveNow({ attachments: next });
+                }}
+              />
+            )}
+          </div>
+        )}
 
         <div className={cn('mt-4', !canWrite && 'pointer-events-none opacity-90')}>
           <RichTextEditor
@@ -333,6 +440,17 @@ export function DocPageEditor({ page, canWrite }: DocPageEditorProps) {
           setSeed((s) => ({ nonce: s.nonce + 1, html: restored.content }));
         }}
       />
+
+      {canWrite && (
+        <DocPageStyles
+          open={stylesOpen}
+          onClose={() => onStylesClose?.()}
+          style={style}
+          onChange={changeStyle}
+          // Nothing to apply it to on a one-page doc, so the action isn't offered.
+          onApplyToAll={otherPages.length > 0 ? applyTypographyToAll : undefined}
+        />
+      )}
     </div>
   );
 }

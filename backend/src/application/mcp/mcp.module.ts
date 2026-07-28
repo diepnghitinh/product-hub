@@ -4,10 +4,12 @@ import { InfrastructureUsersModule } from '@infrastructure/users/users.module';
 import { ApplicationIssuesModule } from '@application/issues/issues.module';
 import { ApplicationTeamsModule } from '@application/teams/teams.module';
 import { ApplicationRoadmapsModule } from '@application/roadmaps/roadmaps.module';
+import { ApplicationDocsModule } from '@application/docs/docs.module';
 import {
   GetMcpContextUseCase,
   GetMcpEventsUseCase,
   McpCreateBacklogItemUseCase,
+  McpCreateDocUseCase,
   McpCreateIssueUseCase,
   McpSearchIssuesUseCase,
 } from './use-cases';
@@ -16,6 +18,7 @@ const useCases = [
   GetMcpContextUseCase,
   GetMcpEventsUseCase,
   McpCreateBacklogItemUseCase,
+  McpCreateDocUseCase,
   McpCreateIssueUseCase,
   McpSearchIssuesUseCase,
 ];
@@ -30,6 +33,7 @@ const useCases = [
     ApplicationIssuesModule,
     ApplicationTeamsModule,
     ApplicationRoadmapsModule,
+    ApplicationDocsModule,
   ],
   providers: [...useCases],
   exports: [...useCases],

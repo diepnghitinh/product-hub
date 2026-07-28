@@ -48,7 +48,7 @@ export function RegisterPage() {
             id="tenantName"
             value={tenantName}
             onChange={(e) => setTenantName(e.target.value)}
-            placeholder="Acme Product Team"
+            placeholder={t('auth.tenantPlaceholder')}
             required
             autoFocus
           />

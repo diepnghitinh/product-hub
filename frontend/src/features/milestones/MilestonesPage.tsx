@@ -96,7 +96,7 @@ export function MilestonesPage() {
             <Input id="ms-title" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
           </Field>
           <Field label={t('milestones.timeframe')} htmlFor="ms-tf">
-            <Input id="ms-tf" value={timeframe} onChange={(e) => setTimeframe(e.target.value)} placeholder="Jul–Dec 2026" />
+            <Input id="ms-tf" value={timeframe} onChange={(e) => setTimeframe(e.target.value)} placeholder={t('milestones.timeframePlaceholder')} />
           </Field>
         </form>
       </Dialog>

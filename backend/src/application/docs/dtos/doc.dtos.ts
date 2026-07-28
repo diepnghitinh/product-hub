@@ -9,13 +9,20 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
+  Min,
   MinLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { TEAM_COLORS } from '@application/teams/domain/enums/team.enums';
-import { DocLinkKind } from '../domain/enums/doc.enums';
+import {
+  DocFontSize,
+  DocFontStyle,
+  DocLinkKind,
+  DocPageWidth,
+} from '../domain/enums/doc.enums';
 
 export class CreateDocDto {
   @ApiProperty({ example: 'Discovery — Ads Connect' })
@@ -117,6 +124,33 @@ export class DocLinkInputDto {
   issueKind?: 'bug' | 'task';
 }
 
+/** One file attached to a page — the result of an upload, echoed back to be saved. */
+export class DocAttachmentInputDto {
+  @ApiProperty({ description: 'Public URL returned by POST /uploads' })
+  @IsString()
+  @MaxLength(2000)
+  // Only ever a stored file, and the chip is a link a reader clicks — so anything
+  // that isn't plain http(s) (`javascript:`, `data:`) has no business here.
+  @Matches(/^https?:\/\//i, { message: 'url must be an http(s) URL' })
+  url: string;
+
+  @ApiProperty({ example: 'requirements-v3.pdf' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(300)
+  name: string;
+
+  @ApiProperty({ example: 'application/pdf' })
+  @IsString()
+  @MaxLength(200)
+  contentType: string;
+
+  @ApiProperty({ description: 'Bytes' })
+  @IsInt()
+  @Min(0)
+  size: number;
+}
+
 export class CreateDocPageDto {
   @ApiPropertyOptional({ description: 'Defaults to "Untitled"' })
   @IsOptional()
@@ -171,6 +205,58 @@ export class UpdateDocPageDto {
   @ValidateNested({ each: true })
   @Type(() => DocLinkInputDto)
   links?: DocLinkInputDto[];
+
+  @ApiPropertyOptional({ type: [DocAttachmentInputDto], description: 'Replaces the whole list' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => DocAttachmentInputDto)
+  attachments?: DocAttachmentInputDto[];
+
+  // ── Page Styles ───────────────────────────────────────────────────────────
+  // Flat and all-optional: the panel patches one control at a time, so an
+  // absent field means "leave it alone", not "reset it".
+
+  @ApiPropertyOptional({ enum: DocFontStyle })
+  @IsOptional()
+  @IsEnum(DocFontStyle)
+  fontStyle?: DocFontStyle;
+
+  @ApiPropertyOptional({ enum: DocFontSize })
+  @IsOptional()
+  @IsEnum(DocFontSize)
+  fontSize?: DocFontSize;
+
+  @ApiPropertyOptional({ enum: DocPageWidth })
+  @IsOptional()
+  @IsEnum(DocPageWidth)
+  pageWidth?: DocPageWidth;
+
+  @ApiPropertyOptional({ description: 'Show the banner image' })
+  @IsOptional()
+  @IsBoolean()
+  showCover?: boolean;
+
+  @ApiPropertyOptional({ description: 'Show the icon + title heading' })
+  @IsOptional()
+  @IsBoolean()
+  showTitle?: boolean;
+
+  @ApiPropertyOptional({ description: 'Show the "updated by" byline' })
+  @IsOptional()
+  @IsBoolean()
+  showUpdated?: boolean;
+
+  @ApiPropertyOptional({ description: 'Show the linked-records row' })
+  @IsOptional()
+  @IsBoolean()
+  showLinks?: boolean;
+
+  @ApiPropertyOptional({ description: 'Show the attachments row' })
+  @IsOptional()
+  @IsBoolean()
+  showAttachments?: boolean;
 }
 
 export class SaveDocPageVersionDto {

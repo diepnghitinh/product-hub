@@ -1,5 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { DocLinkKind } from '../domain/enums/doc.enums';
+import {
+  DocFontSize,
+  DocFontStyle,
+  DocLinkKind,
+  DocPageWidth,
+} from '../domain/enums/doc.enums';
 
 /** A record a page is attached to (denormalized — see `DocLinkRef`). */
 export class DocLinkDto {
@@ -8,6 +13,14 @@ export class DocLinkDto {
   @ApiProperty() title: string;
   @ApiProperty({ description: 'Owning roadmap id — roadmap-item links only' }) roadmapId: string;
   @ApiProperty({ description: 'bug | task — issue links only' }) issueKind: string;
+}
+
+/** A file attached to a page — a snapshot of the upload (see `DocAttachment`). */
+export class DocAttachmentDto {
+  @ApiProperty() url: string;
+  @ApiProperty() name: string;
+  @ApiProperty({ description: 'Stored MIME type — drives the icon' }) contentType: string;
+  @ApiProperty({ description: 'Bytes' }) size: number;
 }
 
 /**
@@ -40,6 +53,17 @@ export class DocPageResponseDto {
   @ApiProperty() coverUrl: string;
   @ApiProperty({ description: 'The page body as HTML' }) content: string;
   @ApiProperty({ type: [DocLinkDto] }) links: DocLinkDto[];
+  @ApiProperty({ type: [DocAttachmentDto] }) attachments: DocAttachmentDto[];
+  // Page Styles, always populated — a page stored before they existed answers
+  // with the defaults rather than with nulls the client would have to handle.
+  @ApiProperty({ enum: DocFontStyle }) fontStyle: DocFontStyle;
+  @ApiProperty({ enum: DocFontSize }) fontSize: DocFontSize;
+  @ApiProperty({ enum: DocPageWidth }) pageWidth: DocPageWidth;
+  @ApiProperty() showCover: boolean;
+  @ApiProperty() showTitle: boolean;
+  @ApiProperty() showUpdated: boolean;
+  @ApiProperty() showLinks: boolean;
+  @ApiProperty() showAttachments: boolean;
   @ApiProperty() order: number;
   @ApiProperty() createdBy: string;
   @ApiProperty() updatedBy: string;

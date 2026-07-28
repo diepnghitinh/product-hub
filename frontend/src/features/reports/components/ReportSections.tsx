@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { ArrowRightLeft } from 'lucide-react';
 import { ColorSelect, type ColorOption, Select } from '@/components/ui';
+import { t } from '@/i18n';
 import { OwnerSelect } from './OwnerSelect';
 import { CaseEditDialog } from './CaseEditDialog';
 import type {
@@ -16,8 +17,10 @@ import type {
 } from '@/types/dto';
 import {
   SectionType,
+  TEST_RESULT_LABEL,
   TEST_RESULTS,
   TEST_TYPE_COLOR,
+  TEST_TYPE_LABEL,
   TEST_TYPES,
   TestResult,
   TestType,
@@ -33,13 +36,15 @@ const RESULT_VAR: Record<TestResult, string> = {
   [TestResult.UNTESTED]: 'var(--faint)',
 };
 
+// `value` is what gets stored on the test case (the API's own wording); only
+// `label` follows the UI language.
 const TYPE_OPTIONS: ColorOption[] = [
   { value: '', label: '—', color: 'var(--muted)' },
-  ...TEST_TYPES.map((tt) => ({ value: tt, label: tt, color: TEST_TYPE_COLOR[tt] })),
+  ...TEST_TYPES.map((tt) => ({ value: tt, label: TEST_TYPE_LABEL[tt], color: TEST_TYPE_COLOR[tt] })),
 ];
 const RESULT_OPTIONS: ColorOption[] = TEST_RESULTS.map((r) => ({
   value: r,
-  label: r,
+  label: TEST_RESULT_LABEL[r],
   color: RESULT_VAR[r],
 }));
 
@@ -112,8 +117,8 @@ function SectionTitle({
             <button
               type="button"
               className="section-ctrl-btn"
-              title="Move section up"
-              aria-label="Move section up"
+              title={t('report.moveSectionUp')}
+              aria-label={t('report.moveSectionUp')}
               disabled={index === 0}
               onClick={onMoveUp}
             >
@@ -122,8 +127,8 @@ function SectionTitle({
             <button
               type="button"
               className="section-ctrl-btn"
-              title="Move section down"
-              aria-label="Move section down"
+              title={t('report.moveSectionDown')}
+              aria-label={t('report.moveSectionDown')}
               disabled={index === total - 1}
               onClick={onMoveDown}
             >
@@ -132,8 +137,8 @@ function SectionTitle({
             <button
               type="button"
               className="section-ctrl-btn section-ctrl-remove"
-              title="Remove section"
-              aria-label="Remove section"
+              title={t('report.removeSection')}
+              aria-label={t('report.removeSection')}
               onClick={onDelete}
             >
               ×
@@ -207,8 +212,8 @@ function MoveCaseMenu({
         ref={triggerRef}
         type="button"
         className="cell-move-btn"
-        title="Move to another feature"
-        aria-label="Move to another feature"
+        title={t('report.moveToFeature')}
+        aria-label={t('report.moveToFeature')}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={toggle}
@@ -217,7 +222,7 @@ function MoveCaseMenu({
       </button>
       {open && menuStyle && (
         <div className="color-select-menu" role="menu" style={menuStyle}>
-          <div className="move-menu-title">Move to feature</div>
+          <div className="move-menu-title">{t('report.moveToFeatureHead')}</div>
           {features.map((f) => (
             <button
               key={f.id}
@@ -258,7 +263,7 @@ function Overview({ section, canWrite, onChange, ...rest }: SectionProps<Overvie
             <textarea
               className="edit-paragraph"
               value={p}
-              placeholder="Paragraph text"
+              placeholder={t('report.paragraphText')}
               onChange={(e) =>
                 set(paragraphs.map((v, j) => (j === i ? e.target.value : v)))
               }
@@ -266,7 +271,7 @@ function Overview({ section, canWrite, onChange, ...rest }: SectionProps<Overvie
             <button
               type="button"
               className="row-remove"
-              title="Remove this paragraph"
+              title={t('report.removeParagraph')}
               onClick={() => set(paragraphs.filter((_, j) => j !== i))}
             >
               ×
@@ -280,7 +285,7 @@ function Overview({ section, canWrite, onChange, ...rest }: SectionProps<Overvie
         <button
           type="button"
           className="inline-btn block-btn"
-          title="Add a new paragraph"
+          title={t('report.addParagraph')}
           onClick={() => set([...paragraphs, ''])}
         >
           + Add paragraph
@@ -319,7 +324,7 @@ function Bullets({ section, canWrite, onChange, ...rest }: SectionProps<BulletsS
                 <button
                   type="button"
                   className="row-remove"
-                  title="Remove item"
+                  title={t('report.removeItem')}
                   onClick={() => set(items.filter((_, j) => j !== i))}
                 >
                   ×
@@ -369,7 +374,7 @@ function Ordered({ section, canWrite, onChange, ...rest }: SectionProps<OrderedS
                 <button
                   type="button"
                   className="row-remove"
-                  title="Remove item"
+                  title={t('report.removeItem')}
                   onClick={() => set(items.filter((_, j) => j !== i))}
                 >
                   ×
@@ -412,7 +417,7 @@ function Cards({ section, canWrite, onChange, ...rest }: SectionProps<CardsSecti
                   className="edit-feature-id"
                   style={{ width: '100%', marginBottom: 6 }}
                   value={c.name}
-                  placeholder="Name"
+                  placeholder={t('report.cardName')}
                   onChange={(e) =>
                     set(cards.map((v, j) => (j === i ? { ...v, name: e.target.value } : v)))
                   }
@@ -421,7 +426,7 @@ function Cards({ section, canWrite, onChange, ...rest }: SectionProps<CardsSecti
                   className="edit-paragraph"
                   rows={2}
                   value={c.desc}
-                  placeholder="Description"
+                  placeholder={t('report.cardDescription')}
                   onChange={(e) =>
                     set(cards.map((v, j) => (j === i ? { ...v, desc: e.target.value } : v)))
                   }
@@ -480,7 +485,7 @@ function Steps({ section, canWrite, onChange, ...rest }: SectionProps<StepsSecti
                   className="edit-feature-id"
                   style={{ width: 'calc(100% - 32px)' }}
                   value={s.name}
-                  placeholder="Step name"
+                  placeholder={t('report.stepName')}
                   onChange={(e) =>
                     set(steps.map((v, j) => (j === i ? { ...v, name: e.target.value } : v)))
                   }
@@ -496,7 +501,7 @@ function Steps({ section, canWrite, onChange, ...rest }: SectionProps<StepsSecti
                   rows={2}
                   style={{ marginTop: 6 }}
                   value={s.desc}
-                  placeholder="Step description"
+                  placeholder={t('report.stepDescription')}
                   onChange={(e) =>
                     set(steps.map((v, j) => (j === i ? { ...v, desc: e.target.value } : v)))
                   }
@@ -552,7 +557,7 @@ function Screenshot({ section, canWrite, onChange, ...rest }: SectionProps<Scree
               className="edit-menu-label"
               style={{ width: '100%', border: 0, padding: '8px 12px' }}
               value={img.caption ?? ''}
-              placeholder="Caption"
+              placeholder={t('report.caption')}
               onChange={(e) =>
                 set(images.map((v, j) => (j === i ? { ...v, caption: e.target.value } : v)))
               }
@@ -664,7 +669,7 @@ function Testing({
               className="status-title status-title-edit"
               type="text"
               value={banner.title}
-              placeholder="Status title"
+              placeholder={t('report.statusTitle')}
               onChange={(e) =>
                 onChange({ ...section, banner: { ...banner, title: e.target.value } })
               }
@@ -673,7 +678,7 @@ function Testing({
               className="status-desc status-desc-edit"
               rows={2}
               value={banner.description}
-              placeholder="Status description"
+              placeholder={t('report.statusDescription')}
               onChange={(e) =>
                 onChange({ ...section, banner: { ...banner, description: e.target.value } })
               }
@@ -697,7 +702,7 @@ function Testing({
                 <div className="coverage-row" key={i}>
                   <div className="coverage-label">{c.label}</div>
                   <span className={`badge ${yes ? 'badge-success' : 'badge-muted'}`}>
-                    {yes ? 'Yes' : 'No'}
+                    {yes ? t('common.yes') : t('common.no')}
                   </span>
                 </div>
               );
@@ -708,10 +713,10 @@ function Testing({
                   className="edit-cell"
                   type="text"
                   value={c.label}
-                  placeholder="Coverage item (e.g. Happy path)"
+                  placeholder={t('report.coverageLabel')}
                   onChange={(e) => setCoverage(i, { label: e.target.value })}
                 />
-                <div className="yesno" role="group" aria-label="Covered?">
+                <div className="yesno" role="group" aria-label={t('report.covered')}>
                   <button
                     type="button"
                     className={`yesno-opt is-yes${yes ? ' is-active' : ''}`}
@@ -732,8 +737,8 @@ function Testing({
                 <button
                   type="button"
                   className="row-remove"
-                  title="Remove this item"
-                  aria-label="Remove coverage item"
+                  title={t('report.removeThisItem')}
+                  aria-label={t('report.removeCoverageItem')}
                   onClick={() => removeCoverage(i)}
                 >
                   ×
@@ -752,19 +757,19 @@ function Testing({
       {(cases.length > 0 || (canWrite && !!onImport)) && (
         <>
           <div className="tc-summary-head">
-            <h3>Test Case Summary</h3>
+            <h3>{t('report.caseSummary')}</h3>
             <div className="tc-summary-tools">
               {cases.length > 0 && (
                 <label className="report-filter">
-                  <span className="report-filter-label">Assignee</span>
+                  <span className="report-filter-label">{t('report.filterAssignee')}</span>
                   <Select
                     className="h-8 w-auto min-w-[150px]"
                     value={assignee}
                     onValueChange={setAssignee}
                     options={[
-                      { value: 'all', label: 'Everyone' },
-                      ...(userName ? [{ value: 'me', label: 'Assigned to me' }] : []),
-                      { value: 'unassigned', label: 'Unassigned' },
+                      { value: 'all', label: t('report.filterEveryone') },
+                      ...(userName ? [{ value: 'me', label: t('filters.assignedToMe') }] : []),
+                      { value: 'unassigned', label: t('report.unassigned') },
                       ...owners.map((o) => ({ value: o, label: o })),
                     ]}
                   />
@@ -790,13 +795,13 @@ function Testing({
             <table>
             <thead>
               <tr>
-                {canWrite && <th style={{ width: 1 }} aria-label="Reorder" />}
+                {canWrite && <th style={{ width: 1 }} aria-label={t('report.reorder')} />}
                 <th>ID</th>
-                <th>Area</th>
-                <th>Type</th>
-                <th>Result</th>
-                <th>Owner</th>
-                {bugsEnabled && <th>Bugs</th>}
+                <th>{t('report.colArea')}</th>
+                <th>{t('report.colType')}</th>
+                <th>{t('report.colResult')}</th>
+                <th>{t('report.colOwner')}</th>
+                {bugsEnabled && <th>{t('report.colBugs')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -812,7 +817,7 @@ function Testing({
                             <button
                               type="button"
                               title={locked ? 'Clear the assignee filter to reorder' : 'Move up'}
-                              aria-label="Move test case up"
+                              aria-label={t('report.moveCaseUp')}
                               disabled={locked || realIdx <= 0}
                               onClick={() => moveCase(c.id, -1)}
                             >
@@ -821,7 +826,7 @@ function Testing({
                             <button
                               type="button"
                               title={locked ? 'Clear the assignee filter to reorder' : 'Move down'}
-                              aria-label="Move test case down"
+                              aria-label={t('report.moveCaseDown')}
                               disabled={locked || realIdx >= cases.length - 1}
                               onClick={() => moveCase(c.id, 1)}
                             >
@@ -842,7 +847,7 @@ function Testing({
                         <button
                           type="button"
                           className="case-open-btn"
-                          title="Open &amp; edit test case"
+                          title={t('report.openEditCase')}
                           onClick={() => setEditingCase(c)}
                         >
                           {c.shortId}
@@ -856,8 +861,8 @@ function Testing({
                         <input
                           className="edit-cell"
                           value={c.area}
-                          placeholder="Area"
-                          aria-label="Area"
+                          placeholder={t('report.colArea')}
+                          aria-label={t('report.colArea')}
                           onChange={(e) => setCase(c.id, { area: e.target.value })}
                         />
                       ) : (
@@ -927,7 +932,7 @@ function Testing({
                             <button
                               type="button"
                               className="case-bug-add"
-                              title="Report a bug for this test case"
+                              title={t('report.reportBugForCase')}
                               onClick={() =>
                                 onCreateBug({ caseId: c.id, caseLabel: caseLabelOf(c) })
                               }

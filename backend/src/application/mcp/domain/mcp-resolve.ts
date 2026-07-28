@@ -115,3 +115,6 @@ export const issueLink = (id: string): string => `/issues/${id}`;
 
 export const backlogItemLink = (roadmapId: string, itemId: string): string =>
   `/roadmaps/${roadmapId}/items/${itemId}`;
+
+/** A doc is only ever read through a page, so link to the one that was written. */
+export const docPageLink = (docId: string, pageId: string): string => `/docs/${docId}/${pageId}`;

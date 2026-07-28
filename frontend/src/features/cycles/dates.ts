@@ -1,4 +1,4 @@
-import { t } from '@/i18n';
+import { localeTag, t } from '@/i18n';
 import { CycleStatus } from '@/types/enums';
 import type { CycleDto } from '@/types/dto';
 
@@ -18,7 +18,7 @@ export const addDays = (iso: string, n: number) =>
 
 /** Compact "Jul 20". */
 export const shortDay = (iso: string) =>
-  new Date(parseDay(iso)).toLocaleDateString(undefined, {
+  new Date(parseDay(iso)).toLocaleDateString(localeTag(), {
     month: 'short',
     day: 'numeric',
     timeZone: 'UTC',

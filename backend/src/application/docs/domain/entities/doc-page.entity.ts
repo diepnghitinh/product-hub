@@ -1,8 +1,39 @@
 import { AggregateRoot, UniqueEntityID } from '@core/domain';
 import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
+import {
+  DEFAULT_PAGE_STYLE,
+  DocFontSize,
+  DocFontStyle,
+  DocPageWidth,
+} from '../enums/doc.enums';
+import { DocAttachment } from '../types/doc-attachment.type';
 import { DocLinkRef } from '../types/doc-link.type';
 import { DocPageProps } from './doc-page.props';
+
+/**
+ * The keys that were actually given. Spreading a patch straight over
+ * `DEFAULT_PAGE_STYLE` would let an explicit `undefined` — which is what a page
+ * stored before Page Styles existed hands back — blank the default out again.
+ */
+function definedOnly<T extends object>(patch?: T): Partial<T> {
+  if (!patch) return {};
+  return Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined),
+  ) as Partial<T>;
+}
+
+/** The Page Styles half of an edit — every field optional, every one a patch. */
+export interface DocPageStyleEdit {
+  fontStyle?: DocFontStyle;
+  fontSize?: DocFontSize;
+  pageWidth?: DocPageWidth;
+  showCover?: boolean;
+  showTitle?: boolean;
+  showUpdated?: boolean;
+  showLinks?: boolean;
+  showAttachments?: boolean;
+}
 
 /**
  * One page of a doc — the thing you actually write in. Pages form a tree inside
@@ -25,6 +56,8 @@ export class DocPageEntity extends AggregateRoot<DocPageProps> {
       coverUrl?: string;
       content?: string;
       links?: DocLinkRef[];
+      attachments?: DocAttachment[];
+      style?: DocPageStyleEdit;
       order?: number;
       createdBy?: string;
       updatedBy?: string;
@@ -55,6 +88,9 @@ export class DocPageEntity extends AggregateRoot<DocPageProps> {
           coverUrl: props.coverUrl?.trim() || '',
           content: props.content ?? '',
           links: props.links ?? [],
+          attachments: props.attachments ?? [],
+          ...DEFAULT_PAGE_STYLE,
+          ...definedOnly(props.style),
           order: props.order ?? 0,
           createdBy: props.createdBy || '',
           updatedBy: props.updatedBy || props.createdBy || '',
@@ -97,6 +133,36 @@ export class DocPageEntity extends AggregateRoot<DocPageProps> {
   get links(): DocLinkRef[] {
     return this.props.links;
   }
+  get attachments(): DocAttachment[] {
+    // Pages stored before attachments existed have no array at all.
+    return this.props.attachments ?? [];
+  }
+  get fontStyle(): DocFontStyle {
+    return this.props.fontStyle ?? DEFAULT_PAGE_STYLE.fontStyle;
+  }
+  get fontSize(): DocFontSize {
+    return this.props.fontSize ?? DEFAULT_PAGE_STYLE.fontSize;
+  }
+  get pageWidth(): DocPageWidth {
+    return this.props.pageWidth ?? DEFAULT_PAGE_STYLE.pageWidth;
+  }
+  /** The header/section switches. `?? true` so a page stored before Page Styles
+   *  shows everything, which is exactly how it rendered yesterday. */
+  get showCover(): boolean {
+    return this.props.showCover ?? DEFAULT_PAGE_STYLE.showCover;
+  }
+  get showTitle(): boolean {
+    return this.props.showTitle ?? DEFAULT_PAGE_STYLE.showTitle;
+  }
+  get showUpdated(): boolean {
+    return this.props.showUpdated ?? DEFAULT_PAGE_STYLE.showUpdated;
+  }
+  get showLinks(): boolean {
+    return this.props.showLinks ?? DEFAULT_PAGE_STYLE.showLinks;
+  }
+  get showAttachments(): boolean {
+    return this.props.showAttachments ?? DEFAULT_PAGE_STYLE.showAttachments;
+  }
   get order(): number {
     return this.props.order;
   }
@@ -124,6 +190,8 @@ export class DocPageEntity extends AggregateRoot<DocPageProps> {
       coverUrl?: string;
       content?: string;
       links?: DocLinkRef[];
+      attachments?: DocAttachment[];
+      style?: DocPageStyleEdit;
     },
     editor: { userId: string; name: string },
   ): void {
@@ -136,6 +204,10 @@ export class DocPageEntity extends AggregateRoot<DocPageProps> {
     if (edit.coverUrl !== undefined) this.props.coverUrl = edit.coverUrl.trim();
     if (edit.content !== undefined) this.props.content = edit.content;
     if (edit.links !== undefined) this.props.links = edit.links;
+    if (edit.attachments !== undefined) this.props.attachments = edit.attachments;
+    // Page Styles arrive as a partial patch — one switch at a time, from a panel
+    // where the other seven aren't in play.
+    Object.assign(this.props, definedOnly(edit.style));
     this.props.updatedBy = editor.userId;
     this.props.updatedByName = editor.name;
     this.touch();

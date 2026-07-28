@@ -66,7 +66,8 @@ function computeTiming(items: RoadmapItem[]): Timing {
   };
 }
 
-const fmt = (v: number | null) => (v === null ? '—' : `${Math.round(v)}d`);
+const fmt = (v: number | null) =>
+  v === null ? '—' : t('board.ageDays').replace('{n}', String(Math.round(v)));
 
 /** Month-over-month delta. Lower lead/cycle time is better, so a decrease is
  *  shown in success green (↓) and an increase in destructive red (↑) — the

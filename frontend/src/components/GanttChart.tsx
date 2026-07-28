@@ -2,7 +2,7 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNod
 import { Link } from 'react-router-dom';
 import { Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { t } from '@/i18n';
+import { localeTag, t } from '@/i18n';
 import { formatDate } from '@/lib/format';
 
 /** One day in ms — exported so adapters can derive fallback end dates (+N days). */
@@ -39,7 +39,7 @@ function buildTicks(minMs: number, maxMs: number): Tick[] {
     c.setHours(0, 0, 0, 0);
     if (c.getTime() < minMs) c.setDate(c.getDate() + 1);
     for (let d = c.getTime(); d <= maxMs; d += 7 * GANTT_DAY) {
-      ticks.push({ x: pct(d), label: new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) });
+      ticks.push({ x: pct(d), label: new Date(d).toLocaleDateString(localeTag(), { month: 'short', day: 'numeric' }) });
     }
   } else {
     const c = new Date(minMs);
@@ -47,7 +47,7 @@ function buildTicks(minMs: number, maxMs: number): Tick[] {
     c.setHours(0, 0, 0, 0);
     if (c.getTime() < minMs) c.setMonth(c.getMonth() + 1);
     while (c.getTime() <= maxMs) {
-      ticks.push({ x: pct(c.getTime()), label: c.toLocaleDateString(undefined, { month: 'short' }) });
+      ticks.push({ x: pct(c.getTime()), label: c.toLocaleDateString(localeTag(), { month: 'short' }) });
       c.setMonth(c.getMonth() + 1);
     }
   }

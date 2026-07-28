@@ -5,7 +5,7 @@ import {
   SelectMenuTrigger,
 } from '@/components/ui';
 import { t } from '@/i18n';
-import { TEST_TYPE_COLOR, TEST_TYPES, TestType } from '@/types/enums';
+import { TEST_TYPE_COLOR, TEST_TYPE_LABEL, TEST_TYPES, TestType } from '@/types/enums';
 
 interface TypeSelectProps {
   value: TestType | '';
@@ -34,7 +34,7 @@ export function TypeSelect({ value, disabled, onChange }: TypeSelectProps) {
       onValueChange={(v) => onChange(v === NONE ? '' : (v as TestType))}
     >
       <SelectMenuTrigger
-        aria-label="Type"
+        aria-label={t('report.colType')}
         className="h-8 min-w-[128px] font-semibold disabled:opacity-100"
         style={{
           color,
@@ -44,7 +44,7 @@ export function TypeSelect({ value, disabled, onChange }: TypeSelectProps) {
       >
         <span className="flex items-center gap-1.5">
           <Dot color={color} />
-          {value || t('common.none')}
+          {value ? TEST_TYPE_LABEL[value] : t('common.none')}
         </span>
       </SelectMenuTrigger>
       <SelectMenuContent>
@@ -59,7 +59,7 @@ export function TypeSelect({ value, disabled, onChange }: TypeSelectProps) {
               className="flex items-center gap-2 font-medium"
               style={{ color: TEST_TYPE_COLOR[tt] }}
             >
-              <Dot color={TEST_TYPE_COLOR[tt]} /> {tt}
+              <Dot color={TEST_TYPE_COLOR[tt]} /> {TEST_TYPE_LABEL[tt]}
             </span>
           </SelectMenuItem>
         ))}

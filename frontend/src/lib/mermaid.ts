@@ -1,6 +1,7 @@
 // Mermaid diagrams, rendered on demand. The library is ~500KB, so it is loaded
 // with a dynamic import the first time a diagram actually needs drawing —
 // a page with no diagram never pays for it.
+import { decodeEntities } from '@/lib/editorjs';
 
 type MermaidApi = {
   initialize: (config: Record<string, unknown>) => void;
@@ -40,9 +41,14 @@ let seq = 0;
  * Draw one diagram. Resolves to SVG markup, or rejects with the parse error
  * mermaid produced — callers show that text, since a broken diagram is usually
  * a typo the author can fix on the spot.
+ *
+ * The source is decoded first. `-->` that has been through an HTML round-trip
+ * comes back as `--&gt;`, and mermaid reads that as a lexical error rather than
+ * an arrow — so a diagram that was saved before the escaping was fixed still
+ * draws, and is written back clean the next time its page is saved.
  */
 export async function renderMermaid(source: string): Promise<string> {
-  const code = stripMermaidFence(source);
+  const code = decodeEntities(stripMermaidFence(source));
   if (!code) throw new Error('Empty diagram');
   const mermaid = await load();
   // Re-initialized per render: it's cheap, and it's the only way a diagram
@@ -80,8 +86,12 @@ export async function renderMermaidBlocks(root: HTMLElement): Promise<void> {
       if (!host) return;
       // Already drawn from this exact source — nothing to redo.
       if (host.dataset.mermaidDrawn === source) return;
+      // Claimed *before* the first await, not after it. Drawing starts with a
+      // ~500KB dynamic import, and any second pass over the same DOM inside that
+      // window — a re-render, or React's double-invoked effects — would sail
+      // past the check above and append a second copy of the picture.
+      host.dataset.mermaidDrawn = source;
 
-      host.querySelector('.mermaid-render')?.remove();
       const output = document.createElement('div');
       output.className = 'mermaid-render';
       try {
@@ -91,7 +101,8 @@ export async function renderMermaidBlocks(root: HTMLElement): Promise<void> {
         output.textContent = (e as Error).message || 'Could not draw this diagram';
         host.dataset.mermaidError = 'true';
       }
-      host.dataset.mermaidDrawn = source;
+      // Swapped only once the new picture exists, so a redraw doesn't blink.
+      host.querySelector('.mermaid-render')?.remove();
       host.appendChild(output);
     }),
   );

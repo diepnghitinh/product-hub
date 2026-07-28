@@ -13,6 +13,7 @@ import { AppSettingsEntity } from '../domain/app-settings.entity';
 import { IAppSettingsRepository } from '../repositories/app-settings.repository';
 import {
   CloudStorageConfig,
+  DEFAULT_MAX_DOC_MB,
   DEFAULT_MAX_IMAGE_MB,
   DEFAULT_MAX_VIDEO_MB,
 } from '../domain/storage.types';
@@ -168,6 +169,7 @@ export function mergeStorageConfig(
     azureContainer: clean(dto.azureContainer),
     maxVideoMb: dto.maxVideoMb ?? current.maxVideoMb ?? DEFAULT_MAX_VIDEO_MB,
     maxImageMb: dto.maxImageMb ?? current.maxImageMb ?? DEFAULT_MAX_IMAGE_MB,
+    maxDocMb: dto.maxDocMb ?? current.maxDocMb ?? DEFAULT_MAX_DOC_MB,
   };
 }
 

@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { Button, Combobox, Input, Textarea } from '@/components/ui';
+import { t } from '@/i18n';
 import type { TestCaseData } from '@/types/dto';
 
 interface CaseEditDialogProps {
@@ -53,6 +54,7 @@ export function CaseEditDialog({ testCase, users, onClose, onSave }: CaseEditDia
   const steps = draft.testSteps ?? [];
   const setSteps = (next: string[]) => patch({ testSteps: next });
   const ownerKnown = !draft.owner || users.includes(draft.owner);
+  const noOwner = `— ${t('report.unassigned')} —`;
 
   return (
     <DialogPrimitive.Root open onOpenChange={(next) => !next && onClose()}>
@@ -69,14 +71,12 @@ export function CaseEditDialog({ testCase, users, onClose, onSave }: CaseEditDia
             </span>
             <div className="min-w-0">
               <DialogPrimitive.Title className="text-base font-semibold tracking-tight">
-                Edit test case
+                {t('report.editCase')}
               </DialogPrimitive.Title>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Make changes, then save to apply
-              </p>
+              <p className="mt-0.5 text-sm text-muted-foreground">{t('report.editCaseHint')}</p>
             </div>
             <DialogPrimitive.Close
-              aria-label="Close"
+              aria-label={t('common.close')}
               className="-mr-1 ml-auto grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="size-5" />
@@ -98,23 +98,23 @@ export function CaseEditDialog({ testCase, users, onClose, onSave }: CaseEditDia
                     ) : null
                   }
                 >
-                  Name
+                  {t('report.caseName')}
                 </SectionLabel>
                 <Input
                   value={draft.area}
-                  placeholder="Test case name"
+                  placeholder={t('report.caseNamePlaceholder')}
                   onChange={(e) => patch({ area: e.target.value })}
                 />
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <SectionLabel icon={User}>Owner</SectionLabel>
+                <SectionLabel icon={User}>{t('report.owner')}</SectionLabel>
                 <Combobox
                   value={draft.owner || ''}
                   onChange={(v) => patch({ owner: v })}
-                  placeholder="— Unassigned —"
+                  placeholder={noOwner}
                   options={[
-                    { value: '', label: '— Unassigned —' },
+                    { value: '', label: noOwner },
                     ...users.map((u) => ({ value: u, label: u })),
                     ...(!ownerKnown && draft.owner
                       ? [{ value: draft.owner, label: draft.owner }]
@@ -124,31 +124,31 @@ export function CaseEditDialog({ testCase, users, onClose, onSave }: CaseEditDia
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <SectionLabel icon={CircleAlert}>Precondition</SectionLabel>
+                <SectionLabel icon={CircleAlert}>{t('report.precondition')}</SectionLabel>
                 <Textarea
                   rows={3}
                   value={draft.precondition ?? ''}
-                  placeholder="What must be true before running this case"
+                  placeholder={t('report.preconditionPlaceholder')}
                   onChange={(e) => patch({ precondition: e.target.value })}
                 />
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <SectionLabel icon={Check}>Expected result</SectionLabel>
+                <SectionLabel icon={Check}>{t('report.expected')}</SectionLabel>
                 <Textarea
                   rows={3}
                   value={draft.expectedResult ?? ''}
-                  placeholder="What should happen"
+                  placeholder={t('report.expectedPlaceholder')}
                   onChange={(e) => patch({ expectedResult: e.target.value })}
                 />
               </label>
 
               <label className="flex flex-col gap-1.5">
-                <SectionLabel icon={SquareCheck}>Actual result</SectionLabel>
+                <SectionLabel icon={SquareCheck}>{t('report.actual')}</SectionLabel>
                 <Textarea
                   rows={3}
                   value={draft.actualResult ?? ''}
-                  placeholder="What actually happened"
+                  placeholder={t('report.actualPlaceholder')}
                   onChange={(e) => patch({ actualResult: e.target.value })}
                 />
               </label>
@@ -156,7 +156,7 @@ export function CaseEditDialog({ testCase, users, onClose, onSave }: CaseEditDia
 
             {/* Column 2 — steps */}
             <div className="flex flex-col gap-3">
-              <SectionLabel icon={ListChecks}>Test steps</SectionLabel>
+              <SectionLabel icon={ListChecks}>{t('report.testSteps')}</SectionLabel>
               <div className="flex flex-col gap-2">
                 {steps.map((s, i) => (
                   <div key={i} className="flex items-start gap-2">
@@ -166,13 +166,13 @@ export function CaseEditDialog({ testCase, users, onClose, onSave }: CaseEditDia
                     <Textarea
                       rows={2}
                       value={s}
-                      placeholder={`Step ${i + 1}`}
+                      placeholder={t('report.stepN').replace('{n}', String(i + 1))}
                       className="min-h-[60px]"
                       onChange={(e) => setSteps(steps.map((v, j) => (j === i ? e.target.value : v)))}
                     />
                     <button
                       type="button"
-                      aria-label="Remove step"
+                      aria-label={t('report.removeStep')}
                       onClick={() => setSteps(steps.filter((_, j) => j !== i))}
                       className="mt-1 grid size-7 shrink-0 place-items-center rounded-md border text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
                     >
@@ -186,16 +186,16 @@ export function CaseEditDialog({ testCase, users, onClose, onSave }: CaseEditDia
                 className="w-full"
                 onClick={() => setSteps([...steps, ''])}
               >
-                <Plus className="size-4" /> Add step
+                <Plus className="size-4" /> {t('report.addStep')}
               </Button>
             </div>
 
             {/* Column 3 — note */}
             <div className="flex min-h-[220px] flex-col gap-3">
-              <SectionLabel icon={FileText}>Note</SectionLabel>
+              <SectionLabel icon={FileText}>{t('report.note')}</SectionLabel>
               <Textarea
                 value={draft.note ?? ''}
-                placeholder="Additional notes, context, or follow-ups"
+                placeholder={t('report.notePlaceholder')}
                 className="min-h-[220px] flex-1 resize-none"
                 onChange={(e) => patch({ note: e.target.value })}
               />
@@ -205,9 +205,9 @@ export function CaseEditDialog({ testCase, users, onClose, onSave }: CaseEditDia
           {/* Footer */}
           <div className="flex justify-end gap-2 border-t bg-muted/30 px-6 py-4">
             <Button variant="ghost" onClick={onClose}>
-              Cancel
+              {t('common.cancel')}
             </Button>
-            <Button onClick={() => onSave(draft)}>Save</Button>
+            <Button onClick={() => onSave(draft)}>{t('common.save')}</Button>
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>

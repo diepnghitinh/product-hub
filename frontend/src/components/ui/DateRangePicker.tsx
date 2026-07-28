@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { Calendar, CalendarRange, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { Button } from './Button';
 
@@ -326,7 +327,7 @@ export function DateRangePicker({
             <span
               role="button"
               tabIndex={-1}
-              aria-label="Clear dates"
+              aria-label={t('common.clearDates')}
               onClick={(e) => {
                 e.stopPropagation();
                 onChange({ start: '', end: '' });
@@ -355,7 +356,7 @@ export function DateRangePicker({
           <div className="flex items-center gap-2 border-b p-2">
             <DateField
               value={startFocused ? startText : dStart ? longDate(dStart) : ''}
-              placeholder="Start date"
+              placeholder={t('common.startDate')}
               clearable={clearable && !!dStart}
               onFocus={() => {
                 setStartFocused(true);
@@ -374,7 +375,7 @@ export function DateRangePicker({
             />
             <DateField
               value={endFocused ? endText : dEnd ? longDate(dEnd) : ''}
-              placeholder="End date"
+              placeholder={t('common.endDate')}
               clearable={clearable && !!dEnd}
               onFocus={() => {
                 setEndFocused(true);
@@ -458,7 +459,7 @@ export function DateRangePicker({
                   </button>
                   <button
                     type="button"
-                    aria-label="Previous month"
+                    aria-label={t('common.prevMonth')}
                     onClick={() => shiftMonth(-1)}
                     className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
@@ -466,7 +467,7 @@ export function DateRangePicker({
                   </button>
                   <button
                     type="button"
-                    aria-label="Next month"
+                    aria-label={t('common.nextMonth')}
                     onClick={() => shiftMonth(1)}
                     className="grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                   >

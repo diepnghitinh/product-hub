@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Maximize2, Minimize2, X } from 'lucide-react';
+import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { Button } from './Button';
 
@@ -102,14 +103,14 @@ export function Dialog({
                   </Button>
                 )}
                 <DialogPrimitive.Close asChild>
-                  <Button type="button" variant="ghost" size="icon" aria-label="Close" className={HEADER_BTN}>
+                  <Button type="button" variant="ghost" size="icon" aria-label={t('common.close')} className={HEADER_BTN}>
                     <X />
                   </Button>
                 </DialogPrimitive.Close>
               </div>
             </div>
           ) : (
-            <DialogPrimitive.Title className="sr-only">Dialog</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="sr-only">{t('common.dialog')}</DialogPrimitive.Title>
           )}
           <div className="overflow-y-auto px-6 py-5">{children}</div>
           {footer && (

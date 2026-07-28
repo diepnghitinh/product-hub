@@ -12,6 +12,7 @@
 import type { API, BlockAPI } from '@editorjs/editorjs';
 import { uploadMedia } from '@/features/uploads/api';
 import { compressImageFile } from '@/lib/compressImage';
+import { t } from '@/i18n';
 
 /** Block data — the shape `lib/editorjs.ts` already reads and writes. */
 export interface ResizableImageData {
@@ -39,7 +40,7 @@ const clampPct = (pct: number) => Math.max(MIN_PCT, Math.min(MAX_PCT, Math.round
  * when none is set up (or the upload fails) — mirrors the old uploader so images
  * keep working with zero storage config.
  */
-async function toUrl(file: File): Promise<string> {
+export async function toUrl(file: File): Promise<string> {
   try {
     return (await uploadMedia(file)).url;
   } catch {
@@ -54,7 +55,7 @@ interface PasteEventLike {
 
 export class ResizableImageTool {
   static get toolbox() {
-    return { title: 'Image', icon: TOOLBOX_ICON };
+    return { title: t('editor.blockImage'), icon: TOOLBOX_ICON };
   }
   static get isReadOnlySupported() {
     return true;
@@ -106,7 +107,7 @@ export class ResizableImageTool {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'rte-image__picker';
-    btn.textContent = 'Select an image';
+    btn.textContent = t('editor.selectImage');
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -116,12 +117,12 @@ export class ResizableImageTool {
       const file = input.files?.[0];
       if (!file) return;
       btn.disabled = true;
-      btn.textContent = 'Uploading…';
+      btn.textContent = t('editor.uploading');
       try {
         await this.setUrl(await toUrl(file));
       } catch (e) {
         btn.disabled = false;
-        btn.textContent = (e as Error)?.message || 'Upload failed — click to retry';
+        btn.textContent = (e as Error)?.message || t('editor.uploadFailed');
       }
     });
     this.wrapper.append(btn, input);
@@ -155,8 +156,8 @@ export class ResizableImageTool {
       handle.className = 'rte-image__handle';
       handle.setAttribute('role', 'slider');
       handle.tabIndex = 0;
-      handle.setAttribute('aria-label', 'Resize image');
-      handle.title = 'Drag to resize';
+      handle.setAttribute('aria-label', t('editor.resizeImage'));
+      handle.title = t('editor.dragToResize');
       this.attachResize(handle);
 
       const label = document.createElement('span');
@@ -240,7 +241,7 @@ export class ResizableImageTool {
     return [
       {
         icon: BORDER_ICON,
-        label: this.data.withBorder ? 'Remove border' : 'Add border',
+        label: this.data.withBorder ? t('editor.removeBorder') : t('editor.addBorder'),
         closeOnActivate: true,
         isActive: !!this.data.withBorder,
         onActivate: () => {

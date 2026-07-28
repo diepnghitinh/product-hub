@@ -33,6 +33,7 @@ export interface UpdateStoragePayload {
   azureContainer?: string;
   maxVideoMb?: number;
   maxImageMb?: number;
+  maxDocMb?: number;
 }
 
 /** Save the tenant's cloud-storage config (admin). */

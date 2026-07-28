@@ -26,7 +26,16 @@ export type HtmlEditorBlock =
     }
   | {
       type: 'table';
-      data: { withHeadings: boolean; content: string[][] };
+      data: {
+        withHeadings: boolean;
+        content: string[][];
+        // Sizes set by dragging a column/row edge (`ResizableTableTool`), stored
+        // as the markup a table already has for the job: `colWidths` become a
+        // `<colgroup>` in %, `rowHeights` a `height:px` on each `<tr>`. Absent
+        // on a table nobody has resized.
+        colWidths?: number[];
+        rowHeights?: number[];
+      };
     }
   | {
       // @editorjs/image block. `file.url` is the stored file's URL (or a base64
@@ -54,6 +63,26 @@ function escapeHtml(text: string): string {
     .replace(/>/g, '&gt;');
 }
 
+/**
+ * The inverse of `escapeHtml`, for text that has been through an HTML
+ * round-trip and come back escaped.
+ *
+ * Editor.js sanitizes every string in a block's data before saving it, and that
+ * sanitizer parses the value as HTML and re-serializes it — which turns a plain
+ * `>` into `&gt;`. Harmless for prose, fatal for a mermaid diagram, whose arrows
+ * *are* `-->`. Decoding here keeps stored diagram source escaped exactly once
+ * instead of gaining a layer on every save.
+ */
+export function decodeEntities(text: string): string {
+  return text
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&');
+}
+
 // Escape a string for use inside a double-quoted HTML attribute.
 function escapeAttr(value: string): string {
   return value
@@ -72,6 +101,14 @@ function stripTags(value: string): string {
 function parseImageWidth(el: Element): string {
   const w = (el as HTMLElement).style?.width?.trim() ?? '';
   return /^\d+(\.\d+)?(px|%)$/.test(w) ? w : '';
+}
+
+/** A positive CSS length as a bare number, or 0 when it isn't one. */
+function parseLength(value: string | null | undefined, unit: '%' | 'px'): number {
+  const m = new RegExp(`^(\\d+(?:\\.\\d+)?)${unit === '%' ? '%' : 'px'}$`).exec(
+    (value ?? '').trim(),
+  );
+  return m ? Number(m[1]) : 0;
 }
 
 /** Marker classes that make a mermaid diagram recognisable in stored HTML. */
@@ -221,9 +258,21 @@ export function htmlToBlocks(html: string): HtmlEditorBlock[] {
           .map((cell) => cell.innerHTML),
       );
       const hasTh = !!el.querySelector('thead th, tr:first-child th');
+      // Sizes come back off the `<colgroup>` and the rows' own heights. A
+      // partial or hand-written colgroup is ignored rather than half-applied:
+      // one missing width would mis-size every column after it.
+      const colWidths = Array.from(el.querySelectorAll('col')).map((c) =>
+        parseLength((c as HTMLElement).style?.width, '%'),
+      );
+      const rowHeights = rowEls.map((tr) => parseLength((tr as HTMLElement).style?.height, 'px'));
       blocks.push({
         type: 'table',
-        data: { withHeadings: hasTh, content },
+        data: {
+          withHeadings: hasTh,
+          content,
+          ...(colWidths.length > 1 && colWidths.every((w) => w > 0) ? { colWidths } : {}),
+          ...(rowHeights.some((h) => h > 0) ? { rowHeights } : {}),
+        },
       });
       continue;
     }
@@ -316,7 +365,9 @@ function renderBlock(b: HtmlEditorBlock): string {
     return `<pre><code>${escapeHtml(b.data.code ?? '')}</code></pre>`;
   }
   if (b.type === 'mermaid') {
-    const code = (b.data.code ?? '').trim();
+    // Decoded first: the source arrives from Editor.js's sanitizer already
+    // escaped, and escaping it again would store `--&amp;gt;` for `-->`.
+    const code = decodeEntities(b.data.code ?? '').trim();
     if (!code) return '';
     // The source is the whole payload; the SVG is drawn from it wherever this
     // HTML is displayed, so the stored value stays small and stays editable.
@@ -326,17 +377,33 @@ function renderBlock(b: HtmlEditorBlock): string {
     const rows = b.data.content ?? [];
     if (rows.length === 0) return '';
     const withHeadings = !!b.data.withHeadings;
-    const renderRow = (cells: string[], useTh: boolean) =>
-      `<tr>${cells.map((c) => `<${useTh ? 'th' : 'td'}>${c ?? ''}</${useTh ? 'th' : 'td'}>`).join('')}</tr>`;
+    const heights = b.data.rowHeights ?? [];
+    // Dragged column widths ride along as a `<colgroup>`. `table-layout:fixed`
+    // is inline rather than in a stylesheet so the widths hold everywhere the
+    // stored HTML is painted — read views and public share pages included, with
+    // nothing for them to opt into.
+    const widths = b.data.colWidths ?? [];
+    const cols = widths.length
+      ? `<colgroup>${widths.map((w) => `<col style="width:${w}%">`).join('')}</colgroup>`
+      : '';
+    const open = widths.length
+      ? '<table style="table-layout:fixed;width:100%">'
+      : '<table>';
+    const renderRow = (cells: string[], useTh: boolean, index: number) => {
+      const h = heights[index] ?? 0;
+      const style = h > 0 ? ` style="height:${h}px"` : '';
+      const tag = useTh ? 'th' : 'td';
+      return `<tr${style}>${cells.map((c) => `<${tag}>${c ?? ''}</${tag}>`).join('')}</tr>`;
+    };
     if (withHeadings) {
       const [head, ...body] = rows;
-      const thead = `<thead>${renderRow(head, true)}</thead>`;
+      const thead = `<thead>${renderRow(head, true, 0)}</thead>`;
       const tbody = body.length
-        ? `<tbody>${body.map((r) => renderRow(r, false)).join('')}</tbody>`
+        ? `<tbody>${body.map((r, i) => renderRow(r, false, i + 1)).join('')}</tbody>`
         : '';
-      return `<table>${thead}${tbody}</table>`;
+      return `${open}${cols}${thead}${tbody}</table>`;
     }
-    return `<table><tbody>${rows.map((r) => renderRow(r, false)).join('')}</tbody></table>`;
+    return `${open}${cols}<tbody>${rows.map((r, i) => renderRow(r, false, i)).join('')}</tbody></table>`;
   }
   if (b.type === 'image') {
     const url = b.data.file?.url ?? '';

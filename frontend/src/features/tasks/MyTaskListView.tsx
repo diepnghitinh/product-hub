@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Badge, Checkbox } from '@/components/ui';
 import { ListSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
-import { t } from '@/i18n';
+import { localeTag, t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { TaskStatus } from '@/types/enums';
@@ -11,11 +11,12 @@ import type { TaskDto } from '@/types/dto';
 import { useSetTaskStatus, useTasks } from './api';
 
 /** Local calendar day (YYYY-MM-DD) — string-compared to a task's `dueDate` so
- * timezones never shift the boundary. */
+ * timezones never shift the boundary. `en-CA` is the ISO shape, not a language
+ * choice: this string is compared, never shown, so it must not follow the UI locale. */
 const todayStr = () => new Date().toLocaleDateString('en-CA');
 const dueDay = (task: TaskDto) => (task.dueDate ? task.dueDate.slice(0, 10) : '');
 const formatDay = (day: string) =>
-  new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  new Date(`${day}T00:00:00`).toLocaleDateString(localeTag(), { month: 'short', day: 'numeric' });
 
 /**
  * The two flat "My Tasks" sub-views. Both list every task assigned to me across
