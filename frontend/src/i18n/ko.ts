@@ -676,7 +676,9 @@ export const ko: Record<I18nKey, string> = {
   'myteam.everyone': '전체',
   'myteam.collapseAll': '모두 접기',
   'myteam.expandAll': '모두 펼치기',
-  'myteam.back': '뒤로',
+  'myteam.collapse': '접기',
+  'myteam.expand': '펼치기',
+  'myteam.pointsColumn': '포인트',
   'myteam.openInNewTab': '새 탭에서 열기',
 
   'milestones.title': 'OKR',

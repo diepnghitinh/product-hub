@@ -1,7 +1,13 @@
-import { useMemo } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { t } from '@/i18n';
 import { PersonAvatar, WorkloadCard } from './WorkloadCard';
 import type { PersonWorkload } from './workload';
+
+/** Narrowest a workload card still reads well at, and the gutter between them (px). */
+const MIN_CARD = 296;
+const GAP = 16;
+/** Cards get wide and sparse past this — cap the grid instead. */
+const MAX_COLUMNS = 4;
 
 /**
  * The "who's carrying what" cell — a vertical bar per person (their load relative to
@@ -39,13 +45,39 @@ function WorkloadSummary({ people }: { people: PersonWorkload[] }) {
 }
 
 /**
- * The Box view: a responsive grid — the Workload chart first, then the Unassigned
- * bucket, then a card per person. Cards take their natural height (`items-start`)
- * and the PAGE scrolls, so expanding a status reveals the whole list with no
- * nested in-card scrollbar. Only the chart keeps a fixed height — its bars need
- * one to mean anything. Wraps to fewer columns as the screen narrows (1 up on mobile).
+ * How many columns fit. Measured from the **container**, not the viewport, so the
+ * grid also reflows when the sidebar collapses. Read once in a layout effect (before
+ * paint, so there's no one-column flash) and then on every resize.
+ */
+function useColumnCount(ref: RefObject<HTMLElement>) {
+  const [count, setCount] = useState(1);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = (width: number) =>
+      setCount(Math.max(1, Math.min(MAX_COLUMNS, Math.floor((width + GAP) / (MIN_CARD + GAP)))));
+    measure(el.clientWidth);
+    const observer = new ResizeObserver(([entry]) => measure(entry.contentRect.width));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return count;
+}
+
+/**
+ * The Box view: a masonry of cards — the Workload chart takes the first slot, then a
+ * card per person, filling across the columns and wrapping back under the chart (the
+ * reference's packing). Cards take their natural height and the PAGE scrolls, so
+ * opening a status shows the whole list with no nested scrollbar.
+ *
+ * Columns are laid out in JS rather than with CSS `columns` on purpose: CSS would
+ * re-balance every column when one card grows, so opening a status would shuffle
+ * *other* people's cards around the screen. Here a card only ever grows its own column.
  */
 export function TeamWorkloadView({ people }: { people: PersonWorkload[] }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const columnCount = useColumnCount(containerRef);
+
   // Unassigned rides up front (right after the Workload chart), then the real people.
   const ordered = useMemo(() => {
     const unassigned = people.filter((p) => p.isUnassigned);
@@ -53,16 +85,32 @@ export function TeamWorkloadView({ people }: { people: PersonWorkload[] }) {
     return [...unassigned, ...assigned];
   }, [people]);
 
+  const showChart = people.length > 1;
+
+  // Deal the cards across columns, left to right. The chart holds column 0's first
+  // slot, so people start one place along and wrap back beneath it.
+  const columns = useMemo(() => {
+    const cols: PersonWorkload[][] = Array.from({ length: columnCount }, () => []);
+    ordered.forEach((person, i) => {
+      cols[(i + (showChart ? 1 : 0)) % columnCount].push(person);
+    });
+    return cols;
+  }, [ordered, columnCount, showChart]);
+
   return (
-    <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {people.length > 1 && (
-        <div className="h-[300px]">
-          {/* Chart bars follow the card order — Unassigned first (position 0). */}
-          <WorkloadSummary people={ordered} />
+    <div ref={containerRef} className="flex items-start gap-4">
+      {columns.map((column, i) => (
+        <div key={i} className="flex min-w-0 flex-1 flex-col gap-4">
+          {i === 0 && showChart && (
+            <div className="h-[300px]">
+              {/* Chart bars follow the card order — Unassigned first (position 0). */}
+              <WorkloadSummary people={ordered} />
+            </div>
+          )}
+          {column.map((person) => (
+            <WorkloadCard key={person.id} person={person} />
+          ))}
         </div>
-      )}
-      {ordered.map((person) => (
-        <WorkloadCard key={person.id} person={person} />
       ))}
     </div>
   );
