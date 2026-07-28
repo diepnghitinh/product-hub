@@ -138,6 +138,7 @@ export enum McpEntity {
   TASK = 'task',
   BUG = 'bug',
   BACKLOG_ITEM = 'backlog-item',
+  DOC = 'doc',
 }
 
 /** The six relation options in "Mark as" menu order (matches the mockup). */

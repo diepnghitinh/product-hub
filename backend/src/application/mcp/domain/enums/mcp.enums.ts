@@ -6,6 +6,7 @@ export enum McpEntity {
   TASK = 'task',
   BUG = 'bug',
   BACKLOG_ITEM = 'backlog-item',
+  DOC = 'doc',
 }
 
 /**
@@ -15,6 +16,7 @@ export enum McpEntity {
 export enum McpTool {
   CREATE_ISSUE = 'create_issue',
   CREATE_BACKLOG_ITEM = 'create_backlog_item',
+  CREATE_DOC = 'create_doc',
 }
 
 /** Header the MCP server identifies itself with, e.g. `claude-code/1.2.3`. */

@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -8,6 +10,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 import { BugSeverity, IssueKind } from '@application/issues/domain/enums/issue.enums';
@@ -152,6 +155,34 @@ export class McpCreateBacklogItemDto {
   @IsOptional()
   @IsString()
   startDate?: string;
+}
+
+/**
+ * A doc is a container whose writing lives in its pages, and it is created with
+ * one page named after it — so a doc and its opening page arrive together here,
+ * rather than making an assistant call twice to end up with any text at all.
+ */
+export class McpCreateDocDto {
+  @ApiProperty({ example: 'Discovery — Ads Connect' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(160)
+  title: string;
+
+  @ApiPropertyOptional({
+    description: 'The first page body as HTML; Markdown is accepted and converted',
+  })
+  @IsOptional()
+  @IsString()
+  content?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Free-text tags for the docs hub filter' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  tags?: string[];
 }
 
 /** Lookup before creating, so an assistant can spot a duplicate itself. */

@@ -10,18 +10,21 @@ import {
 } from '@application/roadmaps/domain/enums/roadmap.enums';
 import {
   McpCreateBacklogItemDto,
+  McpCreateDocDto,
   McpCreateIssueDto,
   McpSearchIssuesDto,
 } from '@application/mcp/dtos/mcp.dtos';
 import {
   McpBacklogItemResponseDto,
   McpContextResponseDto,
+  McpDocResponseDto,
   McpIssueResponseDto,
 } from '@application/mcp/dtos/mcp.response.dto';
 import {
   GetMcpContextUseCase,
   McpActor,
   McpCreateBacklogItemUseCase,
+  McpCreateDocUseCase,
   McpCreateIssueUseCase,
   McpSearchIssuesUseCase,
 } from '@application/mcp/use-cases';
@@ -75,6 +78,7 @@ export class McpServerFactory {
     private readonly getContext: GetMcpContextUseCase,
     private readonly createIssue: McpCreateIssueUseCase,
     private readonly createBacklogItem: McpCreateBacklogItemUseCase,
+    private readonly createDoc: McpCreateDocUseCase,
     private readonly searchIssues: McpSearchIssuesUseCase,
     config: ConfigService,
   ) {
@@ -108,6 +112,7 @@ export class McpServerFactory {
     this.registerSearchIssues(server, run);
     this.registerCreateIssue(server, run);
     this.registerCreateBacklogItem(server, run);
+    this.registerCreateDoc(server, run);
 
     return server;
   }
@@ -232,6 +237,44 @@ export class McpServerFactory {
               `Added "${item.title}" to ${item.roadmapTitle} → ${item.phase}`,
               `RICE ${item.riceScore} · status ${item.status}`,
               this.url(item.link),
+            ].join('\n'),
+        ),
+    );
+  }
+
+  private registerCreateDoc(server: McpServer, run: Run): void {
+    registerTool<McpCreateDocDto>(
+      server,
+      'create_doc',
+      {
+        title: 'Write a doc',
+        description:
+          'Write a document into the workspace — a PRD, discovery notes, a spec, a decision record. ' +
+          'Use this for prose the team should read; work to be done belongs in create_issue or ' +
+          'create_backlog_item. The doc opens on a first page holding the body you pass.',
+        inputSchema: {
+          title: z.string().min(1).describe('Doc title, e.g. "Discovery — Ads Connect"'),
+          content: z
+            .string()
+            .optional()
+            .describe(
+              'The page body. HTML is stored as-is — <h2>, <p>, <ul>/<ol>, <pre>, <table>, <b>, ' +
+                '<i>, <a>, <img> all survive into the editor. Markdown is accepted too and is ' +
+                'converted to those tags.',
+            ),
+          tags: z
+            .array(z.string())
+            .optional()
+            .describe('Free-text tags the docs hub filters on, e.g. ["discovery", "q3"]'),
+        },
+      },
+      (dto) =>
+        run<McpDocResponseDto>(
+          (actor) => this.createDoc.execute({ actor, dto }),
+          (doc) =>
+            [
+              `Created doc "${doc.title}"${doc.tags.length ? ` · ${doc.tags.join(', ')}` : ''}`,
+              this.url(doc.link),
             ].join('\n'),
         ),
     );

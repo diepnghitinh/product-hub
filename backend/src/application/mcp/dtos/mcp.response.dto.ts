@@ -116,6 +116,24 @@ export class McpIssueResponseDto {
   updatedAt: Date;
 }
 
+/** A doc, plus the page its text went into — the link has to point at a page. */
+export class McpDocResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ description: 'The first page, where the body was written' })
+  pageId: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty({ type: [String] })
+  tags: string[];
+
+  @ApiProperty({ description: 'In-app path, e.g. /docs/<id>/<pageId>' })
+  link: string;
+}
+
 export class McpBacklogItemResponseDto {
   @ApiProperty()
   id: string;

@@ -5,18 +5,21 @@ import { ValidationException } from '@core/exceptions';
 import { MCP_CLIENT_HEADER, UNKNOWN_MCP_CLIENT } from '@application/mcp/domain/enums/mcp.enums';
 import {
   McpCreateBacklogItemDto,
+  McpCreateDocDto,
   McpCreateIssueDto,
   McpSearchIssuesDto,
 } from '@application/mcp/dtos/mcp.dtos';
 import {
   McpBacklogItemResponseDto,
   McpContextResponseDto,
+  McpDocResponseDto,
   McpIssueResponseDto,
 } from '@application/mcp/dtos/mcp.response.dto';
 import {
   GetMcpContextUseCase,
   McpActor,
   McpCreateBacklogItemUseCase,
+  McpCreateDocUseCase,
   McpCreateIssueUseCase,
   McpSearchIssuesUseCase,
 } from '@application/mcp/use-cases';
@@ -45,6 +48,7 @@ export class McpController {
     private readonly getContext: GetMcpContextUseCase,
     private readonly createIssue: McpCreateIssueUseCase,
     private readonly createBacklogItem: McpCreateBacklogItemUseCase,
+    private readonly createDoc: McpCreateDocUseCase,
     private readonly searchIssues: McpSearchIssuesUseCase,
   ) {}
 
@@ -74,6 +78,14 @@ export class McpController {
     @Body() dto: McpCreateBacklogItemDto,
   ): Promise<McpBacklogItemResponseDto> {
     const result = await this.createBacklogItem.execute({ actor: actorOf(req), dto });
+    if (result.isFailure) throw new ValidationException(result.error as string);
+    return result.getValue();
+  }
+
+  @Post('docs')
+  @ApiOperation({ summary: 'Write a doc, body included (API key)' })
+  async addDoc(@Req() req: McpRequest, @Body() dto: McpCreateDocDto): Promise<McpDocResponseDto> {
+    const result = await this.createDoc.execute({ actor: actorOf(req), dto });
     if (result.isFailure) throw new ValidationException(result.error as string);
     return result.getValue();
   }

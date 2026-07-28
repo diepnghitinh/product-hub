@@ -18,12 +18,17 @@ import { riceScore } from '@application/roadmaps/domain/types/roadmap-item.type'
 import { IUserRepository } from '@application/users/repositories/user.repository';
 import { UserEntity } from '@application/users/domain/entities/user.entity';
 import { QueryUserDto } from '@application/users/dtos/query-user.dto';
+import { CreateDocUseCase } from '@application/docs/use-cases/doc.use-cases';
+import { UpdateDocPageUseCase } from '@application/docs/use-cases/doc-page.use-cases';
+import { CreateDocDto, UpdateDocPageDto } from '@application/docs/dtos/doc.dtos';
 import { McpEventEntity } from '../domain/entities/mcp-event.entity';
 import { McpEntity, McpTool } from '../domain/enums/mcp.enums';
+import { docBodyToHtml, stripEchoedTitle } from '../domain/mcp-doc-body';
 import {
   backlogItemLink,
   columnsOf,
   didYouMean,
+  docPageLink,
   issueLink,
   resolvePerson,
   resolvePhase,
@@ -34,12 +39,14 @@ import {
 } from '../domain/mcp-resolve';
 import {
   McpCreateBacklogItemDto,
+  McpCreateDocDto,
   McpCreateIssueDto,
   McpSearchIssuesDto,
 } from '../dtos/mcp.dtos';
 import {
   McpBacklogItemResponseDto,
   McpContextResponseDto,
+  McpDocResponseDto,
   McpIssueResponseDto,
 } from '../dtos/mcp.response.dto';
 import {
@@ -325,6 +332,77 @@ export class McpCreateBacklogItemUseCase
       riceScore: riceScore(item),
       link,
     });
+  }
+}
+
+@Injectable()
+export class McpCreateDocUseCase
+  implements IUsecaseExecute<{ actor: McpActor; dto: McpCreateDocDto }, Result<McpDocResponseDto>>
+{
+  constructor(
+    private readonly createDoc: CreateDocUseCase,
+    private readonly updatePage: UpdateDocPageUseCase,
+    @Inject(IUserRepository) private readonly users: IUserRepository,
+    @Inject(IMcpEventRepository) private readonly events: IMcpEventRepository,
+  ) {}
+
+  async execute({
+    actor,
+    dto,
+  }: {
+    actor: McpActor;
+    dto: McpCreateDocDto;
+  }): Promise<Result<McpDocResponseDto>> {
+    const actorUser = await this.users.findById(actor.userId);
+    const author = { userId: actor.userId, name: actorUser?.name ?? actor.keyName };
+
+    const created = await this.createDoc.execute({
+      tenantId: actor.tenantId,
+      author,
+      dto: { title: dto.title, tags: dto.tags } as CreateDocDto,
+    });
+    if (created.isFailure) return Result.fail(created.error as string);
+
+    // A new doc already carries one page named after it. The write-up goes
+    // there, so the doc opens on the text instead of an empty page the user has
+    // to notice and fill in themselves.
+    const { doc, pages } = created.getValue();
+    const page = pages[0];
+    const docId = doc.id.toString();
+    const pageId = page.id.toString();
+
+    const content = stripEchoedTitle(docBodyToHtml(dto.content), doc.title);
+    if (content) {
+      const written = await this.updatePage.execute({
+        docId,
+        pageId,
+        tenantId: actor.tenantId,
+        author,
+        dto: { content } as UpdateDocPageDto,
+      });
+      if (written.isFailure) return Result.fail(written.error as string);
+    }
+
+    const link = docPageLink(docId, pageId);
+    const event = McpEventEntity.create({
+      tenantId: actor.tenantId,
+      keyId: actor.keyId,
+      keyName: actor.keyName,
+      userId: actor.userId,
+      userName: author.name,
+      clientName: actor.clientName,
+      tool: McpTool.CREATE_DOC,
+      entity: McpEntity.DOC,
+      entityId: docId,
+      entityTitle: doc.title,
+      // A doc has no team or roadmap behind it; its tags are the nearest thing
+      // to the context the other history rows show.
+      contextLabel: doc.tags.join(', '),
+      link,
+    });
+    if (event.isSuccess) await this.events.append(event.getValue());
+
+    return Result.ok({ id: docId, pageId, title: doc.title, tags: doc.tags, link });
   }
 }
 

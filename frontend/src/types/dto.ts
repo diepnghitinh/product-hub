@@ -582,7 +582,7 @@ export interface McpEventDto {
   userName: string;
   /** Which assistant made the call, e.g. `claude-code/2.1.0`. */
   clientName: string;
-  /** The MCP tool that ran — `create_issue`, `create_backlog_item`. */
+  /** The MCP tool that ran — `create_issue`, `create_backlog_item`, `create_doc`. */
   tool: string;
   entity: McpEntity;
   entityId: string;
