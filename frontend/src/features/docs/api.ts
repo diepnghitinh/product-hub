@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
 import type {
+  DocAttachment,
   DocDto,
   DocLink,
   DocPageDto,
@@ -9,6 +10,7 @@ import type {
   DocPageVersionSummary,
   LinkedDocPage,
 } from '@/types/dto';
+import type { DocPageStyle } from './pageStyle';
 
 export function useDocs() {
   return useQuery({ queryKey: ['docs'], queryFn: () => apiGet<DocDto[]>('/docs') });
@@ -138,7 +140,11 @@ export function useUpdateDocPage() {
         coverUrl?: string;
         content?: string;
         links?: DocLink[];
-      };
+        /** Replaces the whole list — the row always knows the full set. */
+        attachments?: DocAttachment[];
+        // Page Styles ride the same patch, flat and one at a time — the panel
+        // changes a single control and sends only that.
+      } & Partial<DocPageStyle>;
     }) => apiPatch<DocPageDto>(`/docs/${docId}/pages/${pageId}`, input),
     onSuccess: (page) => {
       qc.setQueryData<DocPageDto>(['doc-page', page.docId, page.id], page);

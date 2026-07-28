@@ -14,11 +14,14 @@ export const STORAGE_PROVIDERS: StorageProvider[] = [
 /** The product cares about short videos (default cap 30MB); images get a smaller cap. */
 export const DEFAULT_MAX_VIDEO_MB = 30;
 export const DEFAULT_MAX_IMAGE_MB = 10;
+/** Documents attached to a doc page — a slide deck or a spec runs bigger than an image. */
+export const DEFAULT_MAX_DOC_MB = 25;
 
 /**
- * Per-tenant cloud-storage config for uploading short videos + images. The two
- * secret fields (`s3SecretAccessKey`, `azureConnectionString`) are persisted but
- * NEVER returned to the client — the API masks them to `*Configured` booleans.
+ * Per-tenant cloud-storage config for uploading short videos, images and
+ * documents. The two secret fields (`s3SecretAccessKey`, `azureConnectionString`)
+ * are persisted but NEVER returned to the client — the API masks them to
+ * `*Configured` booleans.
  */
 export interface CloudStorageConfig {
   provider: StorageProvider;
@@ -32,9 +35,12 @@ export interface CloudStorageConfig {
   // Azure Blob Storage
   azureConnectionString?: string; // secret
   azureContainer?: string;
-  // Media size caps (MB)
+  // Upload size caps (MB)
   maxVideoMb: number;
   maxImageMb: number;
+  /** Optional on stored configs — tenants set up before documents were uploadable
+   *  have no value, and reads fall back to `DEFAULT_MAX_DOC_MB`. */
+  maxDocMb?: number;
 }
 
 /** A fresh config with uploads disabled and the shipped size caps. */
@@ -43,5 +49,6 @@ export function defaultStorageConfig(): CloudStorageConfig {
     provider: StorageProvider.NONE,
     maxVideoMb: DEFAULT_MAX_VIDEO_MB,
     maxImageMb: DEFAULT_MAX_IMAGE_MB,
+    maxDocMb: DEFAULT_MAX_DOC_MB,
   };
 }

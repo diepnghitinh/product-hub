@@ -176,14 +176,14 @@ export function ReportView() {
                 className="edit-report-title"
                 type="text"
                 value={report.title}
-                placeholder="Feature title"
+                placeholder={t('report.featureTitlePlaceholder')}
                 onChange={(e) => update.mutate({ id: report.id, input: { title: e.target.value } })}
               />
               <input
                 className="edit-report-subtitle"
                 type="text"
                 value={report.subtitle}
-                placeholder="Subtitle"
+                placeholder={t('report.subtitlePlaceholder')}
                 onChange={(e) =>
                   update.mutate({ id: report.id, input: { subtitle: e.target.value } })
                 }
@@ -382,7 +382,7 @@ function StatusSelect({
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        title="Status — controls badge color and sidebar dot"
+        title={t('report.statusHelp')}
       >
         {value}
         <span aria-hidden style={{ marginLeft: 2, fontSize: 9 }}>

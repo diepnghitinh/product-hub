@@ -1,5 +1,7 @@
 import { Schema } from 'mongoose';
 import { v4 as uuid } from 'uuid';
+import { DocFontSize, DocFontStyle, DocPageWidth } from '@application/docs/domain/enums/doc.enums';
+import { DocAttachment } from '@application/docs/domain/types/doc-attachment.type';
 import { DocLinkRef } from '@application/docs/domain/types/doc-link.type';
 
 export interface DocPageDoc {
@@ -13,6 +15,15 @@ export interface DocPageDoc {
   coverUrl: string;
   content: string;
   links: DocLinkRef[];
+  attachments: DocAttachment[];
+  fontStyle: DocFontStyle;
+  fontSize: DocFontSize;
+  pageWidth: DocPageWidth;
+  showCover: boolean;
+  showTitle: boolean;
+  showUpdated: boolean;
+  showLinks: boolean;
+  showAttachments: boolean;
   order: number;
   createdBy: string;
   updatedBy: string;
@@ -33,6 +44,18 @@ export const DocPageSchema = new Schema<DocPageDoc>(
     coverUrl: { type: String, default: '' },
     content: { type: String, default: '' },
     links: { type: [Schema.Types.Mixed], default: [] } as unknown as DocLinkRef[],
+    attachments: { type: [Schema.Types.Mixed], default: [] } as unknown as DocAttachment[],
+    // Page Styles. No `default:` on purpose — an absent field is what tells the
+    // entity "this page predates Page Styles", and its getters answer with the
+    // defaults. Writing defaults here would only backfill on the next save anyway.
+    fontStyle: { type: String, enum: Object.values(DocFontStyle) },
+    fontSize: { type: String, enum: Object.values(DocFontSize) },
+    pageWidth: { type: String, enum: Object.values(DocPageWidth) },
+    showCover: { type: Boolean },
+    showTitle: { type: Boolean },
+    showUpdated: { type: Boolean },
+    showLinks: { type: Boolean },
+    showAttachments: { type: Boolean },
     order: { type: Number, default: 0 },
     createdBy: { type: String, default: '' },
     updatedBy: { type: String, default: '' },

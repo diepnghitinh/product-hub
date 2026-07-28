@@ -56,7 +56,7 @@ export function SectionBlock({
             trigger={
               <button
                 className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                aria-label="Section menu"
+                aria-label={t('report.sectionMenu')}
               >
                 <MoreHorizontal className="size-4" />
               </button>

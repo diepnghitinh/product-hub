@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
+import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { Button } from './Button';
 
@@ -60,7 +61,7 @@ export function Drawer({
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label="Close"
+                aria-label={t('common.close')}
                 className="size-7 shrink-0 text-muted-foreground"
               >
                 <X />

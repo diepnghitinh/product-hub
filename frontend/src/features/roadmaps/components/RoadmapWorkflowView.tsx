@@ -3,9 +3,11 @@ import { t } from '@/i18n';
 import type { RoadmapItem } from '@/types/dto';
 import { RoadmapTimingSummary } from './RoadmapTimingSummary';
 
+const days = (n: number) => t('board.ageDays').replace('{n}', String(n));
+
 /** A finished duration, e.g. "10d" / "<1d" — dash when an endpoint is missing. */
 const dur = (from?: string, to?: string) =>
-  from && to ? (daysBetween(from, to) === 0 ? t('roadmaps.underDay') : `${daysBetween(from, to)}d`) : '—';
+  from && to ? (daysBetween(from, to) === 0 ? t('roadmaps.underDay') : days(daysBetween(from, to))) : '—';
 
 interface Row {
   id: string;
@@ -69,8 +71,8 @@ export function RoadmapWorkflowView({ items }: { items: RoadmapItem[] }) {
               started: formatDate(i.startedAt!),
               completed: '—',
               // Running so far — measured to now rather than to a completion.
-              lead: i.createdAt ? `${daysSince(i.createdAt)}d` : '—',
-              cycle: `${daysSince(i.startedAt!)}d`,
+              lead: i.createdAt ? days(daysSince(i.createdAt)) : '—',
+              cycle: days(daysSince(i.startedAt!)),
             }))}
           />
         </section>

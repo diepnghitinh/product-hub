@@ -4,6 +4,8 @@ import { ChevronRight, FileText } from 'lucide-react';
 import { DetailSkeleton } from '@/components/Skeletons';
 import { RichText } from '@/components/ui';
 import { TeamSymbol } from '@/components/TeamSymbol';
+import { DocAttachments } from '@/features/docs/components/DocAttachments';
+import { pageStyleOf, typographyAttrs, widthClass } from '@/features/docs/pageStyle';
 import { pageFromSlug, pageSlug } from '@/features/docs/slug';
 import { buildDocTree, visibleRows } from '@/features/docs/tree';
 import { cn } from '@/lib/utils';
@@ -87,6 +89,11 @@ export function PublicDocPage() {
       return next;
     });
 
+  // Whatever the author set on *this* page. `showLinks` has no bearing here —
+  // the shared payload carries no records to link to.
+  const style = pageStyleOf(page);
+  const typo = typographyAttrs(style);
+
   return (
     <PublicShell title={data.doc.title}>
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -150,26 +157,51 @@ export function PublicDocPage() {
         </aside>
 
         <div ref={body} className="min-w-0 flex-1 overflow-y-auto">
-          {page?.coverUrl && (
+          {page?.coverUrl && style.showCover && (
             <div className="h-32 w-full overflow-hidden bg-muted sm:h-44">
               <img src={page.coverUrl} alt="" className="size-full object-cover" />
             </div>
           )}
-          <article className="mx-auto w-full max-w-3xl px-4 pb-16 pt-6 sm:px-8">
-            <TeamSymbol
-              name={page?.icon || 'book'}
-              size={26}
-              className="mb-3 text-muted-foreground"
-              color={page?.color ?? undefined}
-            />
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              {page?.title || t('docs.untitled')}
-            </h1>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t('docs.updatedBy')
-                .replace('{name}', page?.updatedByName || '—')
-                .replace('{when}', page ? timeAgo(page.updatedAt) : '')}
-            </p>
+          {/* Page Styles are how the author set this page, so they hold here too
+              — a shared link should look like what they were looking at. */}
+          <article
+            {...typo}
+            className={cn(
+              typo.className,
+              'mx-auto w-full px-4 pb-16 pt-6 sm:px-8',
+              widthClass(style.pageWidth),
+            )}
+          >
+            {style.showTitle && (
+              <>
+                <TeamSymbol
+                  name={page?.icon || 'book'}
+                  size={26}
+                  className="mb-3 text-muted-foreground"
+                  color={page?.color ?? undefined}
+                />
+                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                  {page?.title || t('docs.untitled')}
+                </h1>
+              </>
+            )}
+            {style.showUpdated && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {t('docs.updatedBy')
+                  .replace('{name}', page?.updatedByName || '—')
+                  .replace('{when}', page ? timeAgo(page.updatedAt) : '')}
+              </p>
+            )}
+            {/* Files travel with the shared payload, so a reader gets the deck
+                and the spec without an account — same row as the workspace,
+                minus every way to change it. */}
+            {style.showAttachments && (
+              <DocAttachments
+                items={page?.attachments ?? []}
+                canWrite={false}
+                className="mt-4 border-y py-2.5"
+              />
+            )}
             <RichText html={page?.content ?? ''} className="mt-6" />
           </article>
         </div>

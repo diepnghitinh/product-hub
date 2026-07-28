@@ -1,5 +1,6 @@
 import { Target } from 'lucide-react';
 import { Dialog, DotLabel, ProgressBar, RichText } from '@/components/ui';
+import { t } from '@/i18n';
 import type { RoadmapColumn, RoadmapItem } from '@/types/dto';
 import { ROADMAP_ITEM_STATUS_COLOR, ROADMAP_ITEM_STATUS_LABEL } from '@/types/enums';
 
@@ -22,7 +23,7 @@ export function PublicRoadmapItemDialog({
         <DotLabel color={ROADMAP_ITEM_STATUS_COLOR[item.status]}>
           {ROADMAP_ITEM_STATUS_LABEL[item.status]}
         </DotLabel>
-        <span className="font-mono text-muted-foreground" title="RICE score">
+        <span className="font-mono text-muted-foreground" title={t('roadmaps.riceScore')}>
           RICE {item.rice}
         </span>
         {item.okrLabel && (

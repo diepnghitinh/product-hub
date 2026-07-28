@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { MoreHorizontal, PanelLeftClose, PanelLeftOpen, Share2, Trash2 } from 'lucide-react';
+import {
+  MoreHorizontal,
+  Paintbrush,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Share2,
+  Trash2,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button, Drawer, Menu, type MenuItem } from '@/components/ui';
 import { DetailSkeleton } from '@/components/Skeletons';
@@ -63,6 +70,9 @@ export function DocWorkspacePage() {
   const [railOpen, setRailOpen] = useState(true);
   const [mobileRail, setMobileRail] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  // Opened from the ⋯ menu up here, but owned by the editor below — the style
+  // belongs to the page it's editing, not to the workspace around it.
+  const [stylesOpen, setStylesOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -110,6 +120,18 @@ export function DocWorkspacePage() {
   }
 
   const docMenu: MenuItem[] = [
+    // Page-scoped, so it needs only write rights — unlike sharing or deleting
+    // the whole doc below it.
+    ...(canWrite
+      ? [
+          {
+            label: t('docs.pageStyles'),
+            icon: <Paintbrush className="size-4" />,
+            closeOnSelect: true,
+            onClick: () => setStylesOpen(true),
+          },
+        ]
+      : []),
     ...(canManageDelivery
       ? [
           {
@@ -233,7 +255,13 @@ export function DocWorkspacePage() {
             </div>
           ) : (
             // Keyed by page id: Editor.js reads its content once, at mount.
-            <DocPageEditor key={page.id} page={page} canWrite={canWrite} />
+            <DocPageEditor
+              key={page.id}
+              page={page}
+              canWrite={canWrite}
+              stylesOpen={stylesOpen}
+              onStylesClose={() => setStylesOpen(false)}
+            />
           )}
         </div>
       </div>

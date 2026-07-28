@@ -228,6 +228,19 @@ export class UpdateStorageDto {
   @Min(1)
   @Max(2000)
   maxImageMb?: number;
+
+  @ApiProperty({
+    required: false,
+    example: 25,
+    minimum: 1,
+    maximum: 2000,
+    description: 'Cap for documents attached to a doc page (PDF, Office, text).',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(2000)
+  maxDocMb?: number;
 }
 
 /** Storage config as returned to the client — secrets masked to booleans. */
@@ -257,6 +270,8 @@ export class StorageSettingsResponseDto {
   maxVideoMb: number;
   @ApiProperty()
   maxImageMb: number;
+  @ApiProperty()
+  maxDocMb: number;
 }
 
 /** Flat settings shape. */

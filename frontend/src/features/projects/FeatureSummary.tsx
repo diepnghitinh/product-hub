@@ -1,9 +1,11 @@
 import { Link, useParams } from 'react-router-dom';
 import { Spinner } from '@/components/ui';
+import { t } from '@/i18n';
 import {
   FEATURE_STATUS_LABEL,
   FeatureStatus,
   SectionType,
+  TEST_RESULT_LABEL,
   TEST_RESULTS,
   TestResult,
 } from '@/types/enums';
@@ -59,7 +61,7 @@ function ResultDonut({ total, byResult }: { total: number; byResult: Record<Test
         height={size}
         viewBox={`0 0 ${size} ${size}`}
         role="img"
-        aria-label={`Test case results: ${total} total`}
+        aria-label={t('summary.donutLabel').replace('{n}', String(total))}
       >
         <circle cx={c} cy={c} r={radius} fill="transparent" stroke="var(--bg-subtle)" strokeWidth={strokeWidth} />
         <g transform={`rotate(-90 ${c} ${c})`}>
@@ -80,7 +82,9 @@ function ResultDonut({ total, byResult }: { total: number; byResult: Record<Test
       </svg>
       <div className="result-donut-center">
         <span className="result-donut-value">{total}</span>
-        <span className="result-donut-label">{total === 1 ? 'case' : 'cases'}</span>
+        <span className="result-donut-label">
+          {t(total === 1 ? 'report.caseOne' : 'report.caseMany')}
+        </span>
       </div>
     </div>
   );
@@ -149,55 +153,57 @@ export function FeatureSummary() {
   const ungrouped = list.filter((r) => !knownGroupIds.has(r.groupId));
   const sections: { id: string; title: string; items: ReportDto[] }[] = [
     ...groupList.map((g) => ({ id: g.id, title: g.title, items: list.filter((r) => r.groupId === g.id) })),
-    ...(ungrouped.length ? [{ id: '__ungrouped', title: 'Ungrouped', items: ungrouped }] : []),
+    ...(ungrouped.length
+      ? [{ id: '__ungrouped', title: t('summary.ungrouped'), items: ungrouped }]
+      : []),
   ];
 
   return (
     <article className="feature-summary">
       <header className="feature-summary-header">
         <div className="feature-summary-header-top">
-          <span className="feature-summary-eyebrow">Feature Summary</span>
+          <span className="feature-summary-eyebrow">{t('summary.title')}</span>
           <h1>{project.title}</h1>
           {project.subtitle && <p className="feature-summary-subtitle">{project.subtitle}</p>}
         </div>
         <dl className="feature-summary-meta">
           <div>
-            <dt>Owner</dt>
+            <dt>{t('projects.owner')}</dt>
             <dd>{project.owner || '—'}</dd>
           </div>
           <div>
-            <dt>Generated</dt>
+            <dt>{t('summary.generated')}</dt>
             <dd>{generated}</dd>
           </div>
           <div>
-            <dt>Features</dt>
+            <dt>{t('summary.features')}</dt>
             <dd>{stats.reportCount}</dd>
           </div>
           <div>
-            <dt>Groups</dt>
+            <dt>{t('groups.title')}</dt>
             <dd>{groupList.length}</dd>
           </div>
         </dl>
       </header>
 
       <section className="feature-summary-section">
-        <h2 className="feature-summary-section-title">Test coverage rollup</h2>
+        <h2 className="feature-summary-section-title">{t('summary.coverageRollup')}</h2>
         {stats.caseTotal === 0 && stats.coverageValues.length === 0 ? (
-          <p className="feature-summary-empty">
-            No testing sections yet — add a Testing section to a feature to see test data here.
-          </p>
+          <p className="feature-summary-empty">{t('summary.noTesting')}</p>
         ) : (
           <div className="feature-summary-rollup">
             <div className="feature-summary-rollup-stats">
               <div className="rollup-stat">
-                <span className="rollup-stat-label">Test cases</span>
+                <span className="rollup-stat-label">{t('summary.testCases')}</span>
                 <span className="rollup-stat-value">{stats.caseTotal}</span>
               </div>
               <div className="rollup-stat">
-                <span className="rollup-stat-label">Avg coverage</span>
+                <span className="rollup-stat-label">{t('summary.avgCoverage')}</span>
                 <span className="rollup-stat-value">{stats.coverageAvg.toFixed(1)}%</span>
                 <span className="rollup-stat-sub">
-                  across {stats.coverageValues.length} item{stats.coverageValues.length === 1 ? '' : 's'}
+                  {t(
+                    stats.coverageValues.length === 1 ? 'summary.acrossOne' : 'summary.acrossMany',
+                  ).replace('{n}', String(stats.coverageValues.length))}
                 </span>
               </div>
             </div>
@@ -210,7 +216,7 @@ export function FeatureSummary() {
                     const pct = stats.resultTotal ? Math.round((count / stats.resultTotal) * 100) : 0;
                     return (
                       <div key={r} className={`rollup-result ${RESULT_CLASS[r]}`}>
-                        <span className="rollup-result-label">{r}</span>
+                        <span className="rollup-result-label">{TEST_RESULT_LABEL[r]}</span>
                         <span className="rollup-result-bar">
                           <span className="rollup-result-fill" style={{ width: `${pct}%` }} />
                         </span>
@@ -229,7 +235,7 @@ export function FeatureSummary() {
       </section>
 
       <section className="feature-summary-section">
-        <h2 className="feature-summary-section-title">Status totals</h2>
+        <h2 className="feature-summary-section-title">{t('summary.statusTotals')}</h2>
         <div className="feature-summary-tiles">
           {STATUS_ORDER.map((s) => {
             const count = stats.statusCounts[s] ?? 0;
@@ -238,7 +244,9 @@ export function FeatureSummary() {
               <div key={s} className={`feature-summary-tile tile-${s}`}>
                 <span className="feature-summary-tile-count">{count}</span>
                 <span className="feature-summary-tile-label">{FEATURE_STATUS_LABEL[s]}</span>
-                <span className="feature-summary-tile-pct">{pct}% of features</span>
+                <span className="feature-summary-tile-pct">
+                  {t('summary.ofFeatures').replace('{n}', String(pct))}
+                </span>
               </div>
             );
           })}
@@ -246,9 +254,9 @@ export function FeatureSummary() {
       </section>
 
       <section className="feature-summary-section">
-        <h2 className="feature-summary-section-title">Features by group</h2>
+        <h2 className="feature-summary-section-title">{t('summary.byGroup')}</h2>
         {sections.length === 0 ? (
-          <p className="feature-summary-empty">No groups yet.</p>
+          <p className="feature-summary-empty">{t('groups.empty')}</p>
         ) : (
           <div className="feature-summary-groups">
             {sections.map((group) => (
@@ -256,19 +264,20 @@ export function FeatureSummary() {
                 <header className="feature-summary-group-head">
                   <h3>{group.title}</h3>
                   <span className="feature-summary-group-count">
-                    {group.items.length} {group.items.length === 1 ? 'feature' : 'features'}
+                    {group.items.length}{' '}
+                    {t(group.items.length === 1 ? 'summary.featureOne' : 'summary.featureMany')}
                   </span>
                 </header>
                 {group.items.length === 0 ? (
-                  <p className="feature-summary-empty">No features in this group.</p>
+                  <p className="feature-summary-empty">{t('summary.noFeaturesInGroup')}</p>
                 ) : (
                   <table className="feature-summary-table">
                     <thead>
                       <tr>
-                        <th>ID</th>
-                        <th>Feature</th>
-                        <th>Status</th>
-                        <th>Reported</th>
+                        <th>{t('report.colId')}</th>
+                        <th>{t('summary.feature')}</th>
+                        <th>{t('summary.status')}</th>
+                        <th>{t('summary.reported')}</th>
                       </tr>
                     </thead>
                     <tbody>

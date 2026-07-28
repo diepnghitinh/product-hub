@@ -7,7 +7,10 @@ import {
   CustomFieldConfig,
   CustomFieldValue,
   CycleStatus,
+  DocFontSize,
+  DocFontStyle,
   DocLinkKind,
+  DocPageWidth,
   FavouriteKind,
   FeatureStatus,
   InboxKind,
@@ -762,6 +765,8 @@ export interface StorageSettings {
   azureConnectionConfigured: boolean;
   maxVideoMb: number;
   maxImageMb: number;
+  /** Cap for files attached to a doc page (PDF, Office, text). */
+  maxDocMb: number;
 }
 
 export interface AppSettingsDto {
@@ -784,6 +789,20 @@ export interface DocLink {
   roadmapId: string;
   /** 'bug' | 'task' for an issue, '' otherwise — drives the detail route. */
   issueKind: string;
+}
+
+/** A file attached to a doc page — a snapshot of the upload, so the chip renders
+ *  its icon and size without a second request (the public view has no session to
+ *  make one with). */
+export interface DocAttachment {
+  /** Public URL of the stored file. */
+  url: string;
+  /** Original filename — the chip's label and the download name. */
+  name: string;
+  /** Stored MIME type — picks the glyph. */
+  contentType: string;
+  /** Bytes. */
+  size: number;
 }
 
 /** A page in the left rail: everything the tree needs, minus the body. */
@@ -809,6 +828,16 @@ export interface DocPageDto extends DocPageSummary {
   /** Body as HTML (Editor.js blocks are converted on the way in/out). */
   content: string;
   links: DocLink[];
+  attachments: DocAttachment[];
+  /** Page Styles. Always present — the API fills in the defaults for old pages. */
+  fontStyle: DocFontStyle;
+  fontSize: DocFontSize;
+  pageWidth: DocPageWidth;
+  showCover: boolean;
+  showTitle: boolean;
+  showUpdated: boolean;
+  showLinks: boolean;
+  showAttachments: boolean;
   createdBy: string;
   updatedBy: string;
   createdAt: string;

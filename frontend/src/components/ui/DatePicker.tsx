@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import * as PopoverPrimitive from '@radix-ui/react-popover';
 import { Calendar, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 export interface DatePickerProps {
@@ -126,7 +127,7 @@ export function DatePicker({
             <span
               role="button"
               tabIndex={-1}
-              aria-label="Clear date"
+              aria-label={t('common.clearDate')}
               onClick={(e) => {
                 e.stopPropagation();
                 onChange('');
@@ -149,7 +150,7 @@ export function DatePicker({
           <div className="mb-2 flex items-center justify-between">
             <button
               type="button"
-              aria-label="Previous month"
+              aria-label={t('common.prevMonth')}
               onClick={() => shiftMonth(-1)}
               className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
@@ -160,7 +161,7 @@ export function DatePicker({
             </div>
             <button
               type="button"
-              aria-label="Next month"
+              aria-label={t('common.nextMonth')}
               onClick={() => shiftMonth(1)}
               className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >

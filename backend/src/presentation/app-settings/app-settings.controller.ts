@@ -20,7 +20,10 @@ import {
   UpdateWebhooksDto,
 } from '@application/app-settings/dtos/app-settings.dtos';
 import { AppSettingsEntity } from '@application/app-settings/domain/app-settings.entity';
-import { CloudStorageConfig } from '@application/app-settings/domain/storage.types';
+import {
+  CloudStorageConfig,
+  DEFAULT_MAX_DOC_MB,
+} from '@application/app-settings/domain/storage.types';
 
 @ApiTags('Settings')
 @ApiBearerAuth('JWT-auth')
@@ -48,6 +51,8 @@ export class AppSettingsController {
       azureConnectionConfigured: !!c.azureConnectionString,
       maxVideoMb: c.maxVideoMb,
       maxImageMb: c.maxImageMb,
+      // Configs saved before documents were uploadable carry no cap of their own.
+      maxDocMb: c.maxDocMb ?? DEFAULT_MAX_DOC_MB,
     };
   }
 

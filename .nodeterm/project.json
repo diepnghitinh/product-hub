@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "rev": 409,
-  "savedAt": "2026-07-28T06:05:35.040Z",
+  "rev": 421,
+  "savedAt": "2026-07-28T07:26:42.454Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 575.9319538036511,
-    "y": 2726.529123718299,
+    "x": 591.0360468045528,
+    "y": 2745.803584083656,
     "zoom": 1.15
   },
   "nodes": [
@@ -43,26 +43,6 @@
         "height": 400
       },
       "title": "Tạo sub-task roadmap với chọn team bugs",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
-      "collapsed": false,
-      "cwd": ".",
-      "agentId": "claude"
-    },
-    {
-      "id": "term-ms3je8ts-3",
-      "kind": "terminal",
-      "position": {
-        "x": -200.88322072655407,
-        "y": -1861.8300966158629
-      },
-      "size": {
-        "width": 600,
-        "height": 400
-      },
-      "title": "Đổi icon khác ở side menu",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,

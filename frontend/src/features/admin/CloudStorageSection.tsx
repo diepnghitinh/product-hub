@@ -39,6 +39,7 @@ function toForm(s: StorageSettings): UpdateStoragePayload {
     azureContainer: s.azureContainer ?? '',
     maxVideoMb: s.maxVideoMb,
     maxImageMb: s.maxImageMb,
+    maxDocMb: s.maxDocMb,
   };
 }
 
@@ -224,6 +225,19 @@ export function CloudStorageSection() {
                     value={form.maxImageMb ?? 10}
                     onChange={(e) => set({ maxImageMb: Number(e.target.value) || undefined })}
                   />
+                </Field>
+                <Field label={t('settings.storageMaxDoc')} htmlFor="st-maxdoc">
+                  <Input
+                    id="st-maxdoc"
+                    type="number"
+                    min={1}
+                    max={2000}
+                    value={form.maxDocMb ?? 25}
+                    onChange={(e) => set({ maxDocMb: Number(e.target.value) || undefined })}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t('settings.storageMaxDocHint')}
+                  </p>
                 </Field>
               </div>
             )}

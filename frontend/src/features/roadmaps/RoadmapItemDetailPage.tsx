@@ -165,7 +165,7 @@ export function RoadmapItemDetailPage() {
     from && to
       ? daysBetween(from, to) === 0
         ? t('roadmaps.underDay')
-        : `${daysBetween(from, to)}d`
+        : t('board.ageDays').replace('{n}', String(daysBetween(from, to)))
       : '—';
 
   /** Persist a field patch: recompute RICE, re-derive the cover, PUT the array. */

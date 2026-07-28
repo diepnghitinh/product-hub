@@ -8,7 +8,15 @@ import { uploadMedia, type UploadedMedia } from '@/features/uploads/api';
 
 interface MediaUploaderProps {
   /** Called once per successfully uploaded file. */
-  onUploaded: (media: UploadedMedia) => void;
+  onUploaded?: (media: UploadedMedia) => void;
+  /**
+   * Called once with everything that uploaded, after the last one lands. Use
+   * this — not `onUploaded` — when the handler appends to a list: `onUploaded`
+   * fires from the closure captured when the picker opened, so each file would
+   * be added to the list as it stood *before* the batch, and only the last would
+   * survive.
+   */
+  onUploadedAll?: (media: UploadedMedia[]) => void;
   /** File picker filter. Defaults to images + videos. */
   accept?: string;
   /** Button label. Defaults to "Upload". */
@@ -29,6 +37,7 @@ interface MediaUploaderProps {
  */
 export function MediaUploader({
   onUploaded,
+  onUploadedAll,
   accept = 'image/*,video/*',
   label,
   multiple = true,
@@ -43,16 +52,20 @@ export function MediaUploader({
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     setBusy(true);
+    const uploaded: UploadedMedia[] = [];
     try {
       for (const file of Array.from(files)) {
         try {
-          onUploaded(await uploadMedia(file));
+          const media = await uploadMedia(file);
+          uploaded.push(media);
+          onUploaded?.(media);
         } catch (e) {
           toast.error((e as Error).message);
         }
       }
     } finally {
       setBusy(false);
+      if (uploaded.length) onUploadedAll?.(uploaded);
       // Reset so picking the same file again still fires onChange.
       if (inputRef.current) inputRef.current.value = '';
     }

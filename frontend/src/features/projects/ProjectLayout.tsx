@@ -205,7 +205,7 @@ export function ProjectLayout() {
           </span>
         </div>
 
-        <nav className="topbar-tabs" role="tablist" aria-label="Project view">
+        <nav className="topbar-tabs" role="tablist" aria-label={t('project.viewTabs')}>
           <button
             type="button"
             role="tab"
@@ -287,10 +287,10 @@ export function ProjectLayout() {
               onClick={() => setMenuOpen((v) => !v)}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              title="More actions"
+              title={t('project.moreActions')}
             >
               <span aria-hidden>⋯</span>
-              <span className="visually-hidden">More actions</span>
+              <span className="visually-hidden">{t('project.moreActions')}</span>
             </button>
             {menuOpen && (
               <div className="topbar-menu-panel" role="menu">
@@ -342,7 +342,7 @@ export function ProjectLayout() {
                       );
                     }}
                   >
-                    <span className="topbar-menu-item-label">Export project</span>
+                    <span className="topbar-menu-item-label">{t('project.export')}</span>
                     <span className="topbar-menu-item-hint">Download as JSON</span>
                   </button>
                 )}
@@ -355,7 +355,7 @@ export function ProjectLayout() {
                     downloadFile('feature-report-prompt.md', EXAMPLE_PROMPT, 'text/markdown');
                   }}
                 >
-                  <span className="topbar-menu-item-label">Download prompt</span>
+                  <span className="topbar-menu-item-label">{t('project.downloadPrompt')}</span>
                   <span className="topbar-menu-item-hint">For Claude / ChatGPT</span>
                 </button>
                 <button

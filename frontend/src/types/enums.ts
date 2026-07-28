@@ -2,7 +2,13 @@
  * Shared enums — mirror the backend's `@core/interfaces` + domain enums exactly.
  * Reuse these everywhere; do not redeclare literal unions inline.
  * Source of truth: ../../docs/00-feature-inventory.md §4.
+ *
+ * The `*_LABEL` maps are what a person reads, so they come from the dictionary;
+ * the enum *values* are what the API stores and never translate. These maps are
+ * built once when this module loads, which is why switching language reloads the
+ * page (see `i18n/index.ts`).
  */
+import { t } from '@/i18n';
 
 export enum Role {
   ADMIN = 'admin',
@@ -110,6 +116,29 @@ export enum DocLinkKind {
   ROADMAP_ITEM = 'roadmap-item',
 }
 
+/**
+ * Page Styles — how one doc page is set (mirrors the backend enums of the same
+ * names). No `*_LABEL` maps: unlike a status or a priority these never appear as
+ * data anywhere in the app, only as the controls in their own panel, which draws
+ * each option as a specimen of the thing it turns on.
+ */
+export enum DocFontStyle {
+  SYSTEM = 'system',
+  SERIF = 'serif',
+  MONO = 'mono',
+}
+
+export enum DocFontSize {
+  SMALL = 'small',
+  DEFAULT = 'default',
+  LARGE = 'large',
+}
+
+export enum DocPageWidth {
+  DEFAULT = 'default',
+  FULL = 'full',
+}
+
 /** The fixed quick-reaction palette — mirrors the backend allow-list + order. */
 export const REACTION_EMOJIS = ['👍', '❤️', '🎉', '😄', '🚀', '👀'] as const;
 export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
@@ -153,12 +182,12 @@ export const RELATION_TYPES: RelationType[] = [
 
 /** Verb form, used in the "Mark as" menu and the relation row ("Blocked by PRO-13"). */
 export const RELATION_TYPE_LABEL: Record<RelationType, string> = {
-  [RelationType.PARENT_OF]: 'Parent of',
-  [RelationType.SUB_ISSUE_OF]: 'Sub-issue of',
-  [RelationType.RELATED_TO]: 'Related to',
-  [RelationType.BLOCKED_BY]: 'Blocked by',
-  [RelationType.BLOCKS]: 'Blocking',
-  [RelationType.DUPLICATE_OF]: 'Duplicate of',
+  [RelationType.PARENT_OF]: t('enum.relation.parentOf'),
+  [RelationType.SUB_ISSUE_OF]: t('enum.relation.subIssueOf'),
+  [RelationType.RELATED_TO]: t('enum.relation.relatedTo'),
+  [RelationType.BLOCKED_BY]: t('enum.relation.blockedBy'),
+  [RelationType.BLOCKS]: t('enum.relation.blocks'),
+  [RelationType.DUPLICATE_OF]: t('enum.relation.duplicateOf'),
 };
 
 export enum WebhookEvent {
@@ -211,23 +240,23 @@ export enum TaskStatus {
 }
 
 export const ROLE_LABEL: Record<Role, string> = {
-  [Role.ADMIN]: 'Admin',
-  [Role.TESTER]: 'Tester',
-  [Role.GUEST]: 'Guest',
-  [Role.PRODUCT]: 'Product',
-  [Role.DEVELOPER]: 'Developer',
+  [Role.ADMIN]: t('enum.role.admin'),
+  [Role.TESTER]: t('enum.role.tester'),
+  [Role.GUEST]: t('enum.role.guest'),
+  [Role.PRODUCT]: t('enum.role.product'),
+  [Role.DEVELOPER]: t('enum.role.developer'),
 };
 
 export const ENVIRONMENT_LABEL: Record<ProjectEnvironment, string> = {
-  [ProjectEnvironment.DEVELOPMENT]: 'Development',
-  [ProjectEnvironment.STAGING]: 'Staging',
-  [ProjectEnvironment.PRODUCTION]: 'Production',
+  [ProjectEnvironment.DEVELOPMENT]: t('enum.environment.development'),
+  [ProjectEnvironment.STAGING]: t('enum.environment.staging'),
+  [ProjectEnvironment.PRODUCTION]: t('enum.environment.production'),
 };
 
 export const FEATURE_STATUS_LABEL: Record<FeatureStatus, string> = {
-  [FeatureStatus.TESTING]: 'Testing',
-  [FeatureStatus.DONE]: 'Done',
-  [FeatureStatus.INFO]: 'Info',
+  [FeatureStatus.TESTING]: t('enum.featureStatus.testing'),
+  [FeatureStatus.DONE]: t('enum.featureStatus.done'),
+  [FeatureStatus.INFO]: t('enum.featureStatus.info'),
 };
 
 /** Semantic color per feature status (shadcn theme tokens). */
@@ -259,6 +288,30 @@ export const TEST_TYPES: TestType[] = [
   TestType.OTHER,
 ];
 
+/** The stored value is the English word (`'Passed'`) — the API accepts exactly
+ *  that, so only the pill's text is translated, never what we send. */
+export const TEST_RESULT_LABEL: Record<TestResult, string> = {
+  [TestResult.PASSED]: t('enum.testResult.passed'),
+  [TestResult.FAILED]: t('enum.testResult.failed'),
+  [TestResult.BLOCKED]: t('enum.testResult.blocked'),
+  [TestResult.RETEST]: t('enum.testResult.retest'),
+  [TestResult.SKIPPED]: t('enum.testResult.skipped'),
+  [TestResult.UNTESTED]: t('enum.testResult.untested'),
+};
+
+export const TEST_TYPE_LABEL: Record<TestType, string> = {
+  [TestType.FUNCTIONAL]: t('enum.testType.functional'),
+  [TestType.UI]: t('enum.testType.ui'),
+  [TestType.UX]: t('enum.testType.ux'),
+  [TestType.API]: t('enum.testType.api'),
+  [TestType.INTEGRATION]: t('enum.testType.integration'),
+  [TestType.PERFORMANCE]: t('enum.testType.performance'),
+  [TestType.SECURITY]: t('enum.testType.security'),
+  [TestType.REGRESSION]: t('enum.testType.regression'),
+  [TestType.ACCESSIBILITY]: t('enum.testType.accessibility'),
+  [TestType.OTHER]: t('enum.testType.other'),
+};
+
 /** Categorical color per test type — drives the colored Type pill. */
 export const TEST_TYPE_COLOR: Record<TestType, string> = {
   [TestType.FUNCTIONAL]: 'hsl(262 60% 58%)',
@@ -284,13 +337,13 @@ export const TEST_RESULT_COLOR: Record<TestResult, string> = {
 };
 
 export const SECTION_TYPE_LABEL: Record<SectionType, string> = {
-  [SectionType.OVERVIEW]: 'Overview',
-  [SectionType.SCREENSHOT]: 'Screenshots',
-  [SectionType.CARDS]: 'Cards',
-  [SectionType.STEPS]: 'Steps',
-  [SectionType.BULLETS]: 'Bullet list',
-  [SectionType.ORDERED]: 'Numbered list',
-  [SectionType.TESTING]: 'Testing',
+  [SectionType.OVERVIEW]: t('enum.sectionType.overview'),
+  [SectionType.SCREENSHOT]: t('enum.sectionType.screenshot'),
+  [SectionType.CARDS]: t('enum.sectionType.cards'),
+  [SectionType.STEPS]: t('enum.sectionType.steps'),
+  [SectionType.BULLETS]: t('enum.sectionType.bullets'),
+  [SectionType.ORDERED]: t('enum.sectionType.ordered'),
+  [SectionType.TESTING]: t('enum.sectionType.testing'),
 };
 
 /** Accent color per section type — the colored bars in the "Add section" menu. */
@@ -312,10 +365,10 @@ export const BUG_SEVERITIES: BugSeverity[] = [
 ];
 
 export const BUG_SEVERITY_LABEL: Record<BugSeverity, string> = {
-  [BugSeverity.LOW]: 'Low',
-  [BugSeverity.MEDIUM]: 'Medium',
-  [BugSeverity.HIGH]: 'High',
-  [BugSeverity.CRITICAL]: 'Critical',
+  [BugSeverity.LOW]: t('enum.bugSeverity.low'),
+  [BugSeverity.MEDIUM]: t('enum.bugSeverity.medium'),
+  [BugSeverity.HIGH]: t('enum.bugSeverity.high'),
+  [BugSeverity.CRITICAL]: t('enum.bugSeverity.critical'),
 };
 
 export const BUG_SEVERITY_COLOR: Record<BugSeverity, string> = {
@@ -335,11 +388,11 @@ export const BUG_STATUSES: BugStatus[] = [
 ];
 
 export const BUG_STATUS_LABEL: Record<BugStatus, string> = {
-  [BugStatus.OPEN]: 'Open',
-  [BugStatus.IN_PROGRESS]: 'In progress',
-  [BugStatus.BLOCKED]: 'Blocked',
-  [BugStatus.RESOLVED]: 'Resolved',
-  [BugStatus.CLOSED]: 'Closed',
+  [BugStatus.OPEN]: t('enum.bugStatus.open'),
+  [BugStatus.IN_PROGRESS]: t('enum.bugStatus.inProgress'),
+  [BugStatus.BLOCKED]: t('enum.bugStatus.blocked'),
+  [BugStatus.RESOLVED]: t('enum.bugStatus.resolved'),
+  [BugStatus.CLOSED]: t('enum.bugStatus.closed'),
 };
 
 /** A tenant-configurable bug board column. `key` is the fixed workflow value;
@@ -367,13 +420,13 @@ export const DEFAULT_BUG_STATUSES: BugStatusConfig[] = BUG_STATUSES.map((key) =>
 }));
 
 export const INBOX_KIND_LABEL: Record<InboxKind, string> = {
-  [InboxKind.MENTION]: 'Mention',
-  [InboxKind.ASSIGNED_BUG]: 'Assigned',
+  [InboxKind.MENTION]: t('enum.inboxKind.mention'),
+  [InboxKind.ASSIGNED_BUG]: t('enum.inboxKind.assigned'),
 };
 
 export const FAVOURITE_KIND_LABEL: Record<FavouriteKind, string> = {
-  [FavouriteKind.ROADMAP_ITEM]: 'Roadmap item',
-  [FavouriteKind.ISSUE]: 'Issue',
+  [FavouriteKind.ROADMAP_ITEM]: t('enum.favouriteKind.roadmapItem'),
+  [FavouriteKind.ISSUE]: t('enum.favouriteKind.issue'),
 };
 
 export const ROADMAP_PHASES: RoadmapPhase[] = [
@@ -384,10 +437,10 @@ export const ROADMAP_PHASES: RoadmapPhase[] = [
 ];
 
 export const ROADMAP_PHASE_LABEL: Record<RoadmapPhase, string> = {
-  [RoadmapPhase.NOW]: 'Now',
-  [RoadmapPhase.NEXT]: 'Next',
-  [RoadmapPhase.LATER]: 'Later',
-  [RoadmapPhase.DONE]: 'Done',
+  [RoadmapPhase.NOW]: t('enum.roadmapPhase.now'),
+  [RoadmapPhase.NEXT]: t('enum.roadmapPhase.next'),
+  [RoadmapPhase.LATER]: t('enum.roadmapPhase.later'),
+  [RoadmapPhase.DONE]: t('enum.roadmapPhase.done'),
 };
 
 /** Column accent per phase (shadcn theme tokens — no new brand colors).
@@ -401,23 +454,23 @@ export const ROADMAP_PHASE_COLOR: Record<RoadmapPhase, string> = {
 
 /** Fallback columns if a roadmap somehow has none (backend seeds these; mirror it). */
 export const DEFAULT_ROADMAP_COLUMNS: { key: string; label: string; color: string }[] = [
-  { key: 'now', label: 'Now', color: 'hsl(248 53% 58%)' },
-  { key: 'next', label: 'Next', color: 'hsl(38 92% 50%)' },
-  { key: 'later', label: 'Later', color: 'hsl(220 9% 46%)' },
-  { key: 'done', label: 'Done', color: 'hsl(142 55% 40%)' },
+  { key: 'now', label: ROADMAP_PHASE_LABEL[RoadmapPhase.NOW], color: 'hsl(248 53% 58%)' },
+  { key: 'next', label: ROADMAP_PHASE_LABEL[RoadmapPhase.NEXT], color: 'hsl(38 92% 50%)' },
+  { key: 'later', label: ROADMAP_PHASE_LABEL[RoadmapPhase.LATER], color: 'hsl(220 9% 46%)' },
+  { key: 'done', label: ROADMAP_PHASE_LABEL[RoadmapPhase.DONE], color: 'hsl(142 55% 40%)' },
 ];
 
 /** Preset palette for a roadmap column's colour — `value` is the stored CSS colour. */
 export const ROADMAP_COLUMN_PALETTE: { value: string; label: string; color: string }[] = [
-  { label: 'Violet', value: 'hsl(248 53% 58%)', color: 'hsl(248 53% 58%)' },
-  { label: 'Blue', value: 'hsl(212 72% 52%)', color: 'hsl(212 72% 52%)' },
-  { label: 'Teal', value: 'hsl(180 52% 40%)', color: 'hsl(180 52% 40%)' },
-  { label: 'Green', value: 'hsl(142 55% 40%)', color: 'hsl(142 55% 40%)' },
-  { label: 'Amber', value: 'hsl(38 92% 50%)', color: 'hsl(38 92% 50%)' },
-  { label: 'Orange', value: 'hsl(18 80% 54%)', color: 'hsl(18 80% 54%)' },
-  { label: 'Red', value: 'hsl(0 70% 58%)', color: 'hsl(0 70% 58%)' },
-  { label: 'Pink', value: 'hsl(330 68% 56%)', color: 'hsl(330 68% 56%)' },
-  { label: 'Slate', value: 'hsl(220 9% 46%)', color: 'hsl(220 9% 46%)' },
+  { label: t('enum.colour.violet'), value: 'hsl(248 53% 58%)', color: 'hsl(248 53% 58%)' },
+  { label: t('enum.colour.blue'), value: 'hsl(212 72% 52%)', color: 'hsl(212 72% 52%)' },
+  { label: t('enum.colour.teal'), value: 'hsl(180 52% 40%)', color: 'hsl(180 52% 40%)' },
+  { label: t('enum.colour.green'), value: 'hsl(142 55% 40%)', color: 'hsl(142 55% 40%)' },
+  { label: t('enum.colour.amber'), value: 'hsl(38 92% 50%)', color: 'hsl(38 92% 50%)' },
+  { label: t('enum.colour.orange'), value: 'hsl(18 80% 54%)', color: 'hsl(18 80% 54%)' },
+  { label: t('enum.colour.red'), value: 'hsl(0 70% 58%)', color: 'hsl(0 70% 58%)' },
+  { label: t('enum.colour.pink'), value: 'hsl(330 68% 56%)', color: 'hsl(330 68% 56%)' },
+  { label: t('enum.colour.slate'), value: 'hsl(220 9% 46%)', color: 'hsl(220 9% 46%)' },
 ];
 
 export const ROADMAP_ITEM_STATUSES: RoadmapItemStatus[] = [
@@ -428,10 +481,10 @@ export const ROADMAP_ITEM_STATUSES: RoadmapItemStatus[] = [
 ];
 
 export const ROADMAP_ITEM_STATUS_LABEL: Record<RoadmapItemStatus, string> = {
-  [RoadmapItemStatus.IDEA]: 'Idea',
-  [RoadmapItemStatus.PLANNED]: 'Planned',
-  [RoadmapItemStatus.IN_PROGRESS]: 'In progress',
-  [RoadmapItemStatus.DONE]: 'Done',
+  [RoadmapItemStatus.IDEA]: t('enum.roadmapItemStatus.idea'),
+  [RoadmapItemStatus.PLANNED]: t('enum.roadmapItemStatus.planned'),
+  [RoadmapItemStatus.IN_PROGRESS]: t('enum.roadmapItemStatus.inProgress'),
+  [RoadmapItemStatus.DONE]: t('enum.roadmapItemStatus.done'),
 };
 
 /** Status dot colour (semantic tokens — no new brand colours). Idea = not
@@ -451,9 +504,9 @@ export const ROADMAP_DIFFICULTIES: RoadmapDifficulty[] = [
 ];
 
 export const ROADMAP_DIFFICULTY_LABEL: Record<RoadmapDifficulty, string> = {
-  [RoadmapDifficulty.EASY]: 'Easy',
-  [RoadmapDifficulty.MEDIUM]: 'Medium',
-  [RoadmapDifficulty.HARD]: 'Hard',
+  [RoadmapDifficulty.EASY]: t('enum.roadmapDifficulty.easy'),
+  [RoadmapDifficulty.MEDIUM]: t('enum.roadmapDifficulty.medium'),
+  [RoadmapDifficulty.HARD]: t('enum.roadmapDifficulty.hard'),
 };
 
 /** Difficulty dot colour (semantic tokens — no new brand colours). Escalating
@@ -471,9 +524,9 @@ export const MILESTONE_STATUSES: MilestoneStatus[] = [
 ];
 
 export const MILESTONE_STATUS_LABEL: Record<MilestoneStatus, string> = {
-  [MilestoneStatus.ACTIVE]: 'Active',
-  [MilestoneStatus.COMPLETED]: 'Completed',
-  [MilestoneStatus.ARCHIVED]: 'Archived',
+  [MilestoneStatus.ACTIVE]: t('enum.milestoneStatus.active'),
+  [MilestoneStatus.COMPLETED]: t('enum.milestoneStatus.completed'),
+  [MilestoneStatus.ARCHIVED]: t('enum.milestoneStatus.archived'),
 };
 
 /** Qualitative OKR status for an objective / key result ('' = no status). */
@@ -490,10 +543,10 @@ export const OKR_STATUSES: OkrStatus[] = [
   OkrStatus.DONE,
 ];
 export const OKR_STATUS_LABEL: Record<OkrStatus, string> = {
-  [OkrStatus.ON_TRACK]: 'On track',
-  [OkrStatus.AT_RISK]: 'At risk',
-  [OkrStatus.OFF_TRACK]: 'Off track',
-  [OkrStatus.DONE]: 'Done',
+  [OkrStatus.ON_TRACK]: t('enum.okrStatus.onTrack'),
+  [OkrStatus.AT_RISK]: t('enum.okrStatus.atRisk'),
+  [OkrStatus.OFF_TRACK]: t('enum.okrStatus.offTrack'),
+  [OkrStatus.DONE]: t('enum.okrStatus.done'),
 };
 /** Status dot colour (semantic tokens — no new brand colours). */
 export const OKR_STATUS_COLOR: Record<OkrStatus, string> = {
@@ -515,9 +568,9 @@ export const STORAGE_PROVIDERS: StorageProvider[] = [
   StorageProvider.AZURE,
 ];
 export const STORAGE_PROVIDER_LABEL: Record<StorageProvider, string> = {
-  [StorageProvider.NONE]: 'Disabled',
-  [StorageProvider.S3]: 'AWS S3 (or compatible)',
-  [StorageProvider.AZURE]: 'Azure Blob Storage',
+  [StorageProvider.NONE]: t('enum.storageProvider.none'),
+  [StorageProvider.S3]: t('enum.storageProvider.s3'),
+  [StorageProvider.AZURE]: t('enum.storageProvider.azure'),
 };
 
 /** Task workflow columns, in order. */
@@ -528,9 +581,9 @@ export const TASK_STATUSES: TaskStatus[] = [
 ];
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
-  [TaskStatus.TODO]: 'To do',
-  [TaskStatus.IN_PROGRESS]: 'In progress',
-  [TaskStatus.DONE]: 'Done',
+  [TaskStatus.TODO]: t('enum.taskStatus.todo'),
+  [TaskStatus.IN_PROGRESS]: t('enum.taskStatus.inProgress'),
+  [TaskStatus.DONE]: t('enum.taskStatus.done'),
 };
 
 /** Semantic color per task status (shadcn theme tokens — no new brand colors). */
@@ -563,7 +616,9 @@ export const isIssueDone = (kind: IssueKind, status: string): boolean =>
 export const TASK_ESTIMATES = [1, 2, 3, 5, 8, 13, 21] as const;
 
 export const taskEstimateLabel = (value: number): string =>
-  value === 0 ? 'No estimate' : `${value} ${value === 1 ? 'Point' : 'Points'}`;
+  value === 0
+    ? t('enum.estimate.none')
+    : t(value === 1 ? 'enum.estimate.one' : 'enum.estimate.many').replace('{n}', String(value));
 
 /** A tenant-defined task label. No built-ins — a workspace defines its own. */
 export interface TaskLabelConfig {
@@ -592,11 +647,11 @@ export const CUSTOM_FIELD_TYPES: CustomFieldType[] = [
 
 /** Type names for the picker (a small controlled vocabulary, like ROLE_LABEL). */
 export const CUSTOM_FIELD_TYPE_LABEL: Record<CustomFieldType, string> = {
-  [CustomFieldType.TEXT]: 'Text',
-  [CustomFieldType.NUMBER]: 'Number',
-  [CustomFieldType.SELECT]: 'Dropdown',
-  [CustomFieldType.DATE]: 'Date',
-  [CustomFieldType.CHECKBOX]: 'Checkbox',
+  [CustomFieldType.TEXT]: t('enum.customFieldType.text'),
+  [CustomFieldType.NUMBER]: t('enum.customFieldType.number'),
+  [CustomFieldType.SELECT]: t('enum.customFieldType.select'),
+  [CustomFieldType.DATE]: t('enum.customFieldType.date'),
+  [CustomFieldType.CHECKBOX]: t('enum.customFieldType.checkbox'),
 };
 
 /** True when the field type carries a fixed option list (only `select` does). */
@@ -657,8 +712,8 @@ export function defaultTeamIcon(issueType: TeamIssueType): string {
 export const TEAM_COLORS: string[] = ROADMAP_COLUMN_PALETTE.map((c) => c.value);
 
 export const TEAM_ISSUE_TYPE_LABEL: Record<TeamIssueType, string> = {
-  [TeamIssueType.BUG]: 'Bugs',
-  [TeamIssueType.TASK]: 'Tasks',
+  [TeamIssueType.BUG]: t('enum.teamIssueType.bug'),
+  [TeamIssueType.TASK]: t('enum.teamIssueType.task'),
 };
 
 /** Where a team cycle sits in time — derived from its dates, never stored. */
@@ -680,13 +735,13 @@ export const CYCLE_START_DAYS: number[] = [1, 2, 3, 4, 5, 6, 7];
 /** Weekday label per `cycleStartDay` value (same label-map pattern as
  *  `CUSTOM_FIELD_TYPE_LABEL`). */
 export const CYCLE_START_DAY_LABEL: Record<number, string> = {
-  1: 'Monday',
-  2: 'Tuesday',
-  3: 'Wednesday',
-  4: 'Thursday',
-  5: 'Friday',
-  6: 'Saturday',
-  7: 'Sunday',
+  1: t('enum.weekday.1'),
+  2: t('enum.weekday.2'),
+  3: t('enum.weekday.3'),
+  4: t('enum.weekday.4'),
+  5: t('enum.weekday.5'),
+  6: t('enum.weekday.6'),
+  7: t('enum.weekday.7'),
 };
 
 /** Cycle rhythm bounds (mirror the backend guards). */
@@ -704,9 +759,13 @@ export interface TaskStatusConfig {
 /** Client fallback until the tenant's task columns load (mirrors the backend).
  * Colors are concrete hex (the config stores hex), matching the token hues. */
 export const DEFAULT_TASK_STATUSES: TaskStatusConfig[] = [
-  { key: TaskStatus.TODO, label: 'To do', color: '#6b7280' },
-  { key: TaskStatus.IN_PROGRESS, label: 'In progress', color: '#2563eb' },
-  { key: TaskStatus.DONE, label: 'Done', color: '#16a34a' },
+  { key: TaskStatus.TODO, label: TASK_STATUS_LABEL[TaskStatus.TODO], color: '#6b7280' },
+  {
+    key: TaskStatus.IN_PROGRESS,
+    label: TASK_STATUS_LABEL[TaskStatus.IN_PROGRESS],
+    color: '#2563eb',
+  },
+  { key: TaskStatus.DONE, label: TASK_STATUS_LABEL[TaskStatus.DONE], color: '#16a34a' },
 ];
 
 export const WEBHOOK_PROVIDERS: WebhookProvider[] = [
@@ -721,7 +780,7 @@ export const WEBHOOK_EVENTS: WebhookEvent[] = [
 ];
 
 export const WEBHOOK_EVENT_LABEL: Record<WebhookEvent, string> = {
-  [WebhookEvent.BUG_CREATED]: 'Bug created',
-  [WebhookEvent.BUG_ASSIGNED]: 'Bug assigned',
-  [WebhookEvent.COMMENT_MENTION]: 'Comment mention',
+  [WebhookEvent.BUG_CREATED]: t('enum.webhookEvent.bugCreated'),
+  [WebhookEvent.BUG_ASSIGNED]: t('enum.webhookEvent.bugAssigned'),
+  [WebhookEvent.COMMENT_MENTION]: t('enum.webhookEvent.commentMention'),
 };

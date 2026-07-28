@@ -13,7 +13,8 @@ import {
   SelectMenuItem,
   SelectMenuTrigger,
 } from '@/components/ui';
-import { TEST_RESULT_COLOR, TEST_RESULTS, TestResult } from '@/types/enums';
+import { t } from '@/i18n';
+import { TEST_RESULT_COLOR, TEST_RESULT_LABEL, TEST_RESULTS, TestResult } from '@/types/enums';
 
 interface ResultSelectProps {
   value: TestResult;
@@ -45,7 +46,7 @@ export function ResultSelect({ value, disabled, onChange }: ResultSelectProps) {
       onValueChange={(v) => onChange(v as TestResult)}
     >
       <SelectMenuTrigger
-        aria-label="Result"
+        aria-label={t('report.colResult')}
         className="h-8 min-w-[132px] disabled:opacity-100"
         style={{
           color,
@@ -55,7 +56,7 @@ export function ResultSelect({ value, disabled, onChange }: ResultSelectProps) {
       >
         <span className="flex items-center gap-1.5">
           <Icon className="size-3.5 shrink-0" style={{ color }} />
-          {value}
+          {TEST_RESULT_LABEL[value]}
         </span>
       </SelectMenuTrigger>
       <SelectMenuContent>
@@ -67,7 +68,7 @@ export function ResultSelect({ value, disabled, onChange }: ResultSelectProps) {
                 className="flex items-center gap-2 font-medium"
                 style={{ color: TEST_RESULT_COLOR[r] }}
               >
-                <RIcon className="size-3.5 shrink-0" /> {r}
+                <RIcon className="size-3.5 shrink-0" /> {TEST_RESULT_LABEL[r]}
               </span>
             </SelectMenuItem>
           );

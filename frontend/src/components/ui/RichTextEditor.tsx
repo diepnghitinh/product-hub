@@ -6,13 +6,16 @@ import Marker from '@editorjs/marker';
 import InlineCode from '@editorjs/inline-code';
 import Underline from '@editorjs/underline';
 import CodeTool from '@editorjs/code';
-import Table from '@editorjs/table';
 import Undo from 'editorjs-undo';
 import { blocksToHtml, htmlToBlocks, type HtmlEditorBlock } from '@/lib/editorjs';
 import { enhanceCodeBlocks } from '@/lib/enhanceCodeBlocks';
 import { ResizableImageTool } from '@/lib/editor/ResizableImageTool';
+import { ResizableTableTool } from '@/lib/editor/ResizableTableTool';
 import { MermaidTool } from '@/lib/editor/MermaidTool';
 import { uploadMedia } from '@/features/uploads/api';
+import { useUsers } from '@/features/users/api';
+import type { SlashPerson } from '@/lib/editor/CellSlashMenu';
+import { t } from '@/i18n';
 import '@/styles/rich-text-editor.css';
 import { useExternalLink } from './ExternalLink';
 
@@ -45,7 +48,7 @@ export interface RichTextEditorProps {
 class VideoTool {
   static get toolbox() {
     return {
-      title: 'Video',
+      title: t('editor.blockVideo'),
       icon: '<svg width="17" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="14" height="16" rx="2"/><path d="M16 9l6-3v12l-6-3"/></svg>',
     };
   }
@@ -76,7 +79,7 @@ class VideoTool {
   private renderPicker(wrapper: HTMLElement) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = 'Select a video';
+    btn.textContent = t('editor.selectVideo');
     btn.style.cssText =
       'width:100%;padding:14px;border:1px dashed hsl(var(--border));border-radius:8px;background:transparent;color:hsl(var(--muted-foreground));font-size:14px;cursor:pointer';
     const input = document.createElement('input');
@@ -88,14 +91,14 @@ class VideoTool {
       const file = input.files && input.files[0];
       if (!file) return;
       btn.disabled = true;
-      btn.textContent = 'Uploading…';
+      btn.textContent = t('editor.uploading');
       try {
         const media = await uploadMedia(file);
         this.data.url = media.url;
         this.renderPlayer(wrapper);
       } catch (e) {
         btn.disabled = false;
-        btn.textContent = (e as Error).message || 'Upload failed — click to retry';
+        btn.textContent = (e as Error).message || t('editor.uploadFailed');
       }
     });
     wrapper.append(btn, input);
@@ -141,6 +144,13 @@ export function RichTextEditor({
   const imagesRef = useRef(images);
   const diagramsRef = useRef(diagrams);
   const links = useExternalLink();
+  // People the table cell's `/` menu can @-mention. Read through a ref because
+  // the editor is built once on mount, well before this query resolves; the
+  // query key is shared with every other member list, so it costs one request.
+  const { data: usersData } = useUsers({ limit: 100 });
+  const peopleRef = useRef<SlashPerson[]>([]);
+  peopleRef.current =
+    usersData?.items.map((u) => ({ id: u.id, name: u.name, email: u.email })) ?? [];
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -200,12 +210,20 @@ export function RichTextEditor({
           code: {
             class: CodeTool,
             shortcut: 'CMD+SHIFT+C',
-            config: { placeholder: 'Enter code' },
+            config: { placeholder: t('editor.enterCode') },
           },
+          // The stock table plus drag-to-resize columns and rows, and a `/` menu
+          // inside a cell (list, checklist, link, code, image, mention, date).
           table: {
-            class: Table,
+            class: ResizableTableTool,
             inlineToolbar: true,
-            config: { rows: 2, cols: 3, withHeadings: true },
+            config: {
+              rows: 2,
+              cols: 3,
+              withHeadings: true,
+              images: imagesRef.current,
+              people: () => peopleRef.current,
+            },
           },
           // Drag-to-resize image tool (upload to storage, base64 fallback,
           // paste/drop, caption) + a minimal video block.

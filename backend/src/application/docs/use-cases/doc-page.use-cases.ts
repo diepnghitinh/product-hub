@@ -162,6 +162,17 @@ export class UpdateDocPageUseCase
         coverUrl: dto.coverUrl,
         content: dto.content,
         links: dto.links,
+        attachments: dto.attachments,
+        style: {
+          fontStyle: dto.fontStyle,
+          fontSize: dto.fontSize,
+          pageWidth: dto.pageWidth,
+          showCover: dto.showCover,
+          showTitle: dto.showTitle,
+          showUpdated: dto.showUpdated,
+          showLinks: dto.showLinks,
+          showAttachments: dto.showAttachments,
+        },
       },
       author,
     );

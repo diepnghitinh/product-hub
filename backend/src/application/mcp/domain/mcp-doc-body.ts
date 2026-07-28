@@ -10,6 +10,9 @@
  * converted to the tag subset the editor understands. Deliberately small: this
  * is a safety net for a body that ignored the tool's "HTML" hint, not a Markdown
  * engine — anything it doesn't recognise simply stays as paragraph text.
+ *
+ * The one place it does more than translate is ```mermaid, which becomes a
+ * diagram block rather than a listing of diagram syntax.
  */
 
 /** Any block-level tag means the caller sent HTML and meant it. */
@@ -19,7 +22,9 @@ const HEADING = /^(#{1,6})\s+(.*)$/;
 const BULLET = /^\s*[-*+]\s+(.*)$/;
 const NUMBERED = /^\s*\d+[.)]\s+(.*)$/;
 const QUOTE = /^\s*>\s?(.*)$/;
-const FENCE = /^\s*```/;
+const FENCE = /^\s*```(\w*)/;
+/** Whole fenced blocks, used to keep their contents out of prose-level checks. */
+const FENCED_BLOCK = /```[\s\S]*?```/g;
 
 /** Marks a stashed code span. A NUL can't occur in prose, so it can't collide. */
 const SENTINEL = '\u0000';
@@ -29,7 +34,10 @@ const RESTORE_SPAN = /\u0000(\d+)\u0000/g;
 export function docBodyToHtml(body: string | undefined): string {
   const value = (body ?? '').trim();
   if (!value) return '';
-  if (BLOCK_HTML.test(value)) return value;
+  // Fenced blocks are content, not markup: mermaid labels wrap lines with
+  // `<br/>`, and reading that as "this body is HTML" would store the whole
+  // document as literal Markdown text.
+  if (BLOCK_HTML.test(value.replace(FENCED_BLOCK, ''))) return promoteMermaid(value);
   return renderMarkdown(value);
 }
 
@@ -47,6 +55,44 @@ export function stripEchoedTitle(html: string, title: string): string {
   const heading = unescapeHtml(opening[2].replace(/<[^>]+>/g, '')).trim().toLowerCase();
   if (heading !== title.trim().toLowerCase()) return html;
   return html.slice(opening[0].length).trim();
+}
+
+/* ── Diagrams ─────────────────────────────────────────────────────────────
+   A mermaid diagram is stored as its *source* inside a marked figure, and the
+   picture is drawn from that source wherever the page is displayed. The two
+   class names are the whole contract: they are how the editor tells a diagram
+   from a code block, so they must match `renderBlock`'s mermaid case in
+   `frontend/src/lib/editorjs.ts`. Get them wrong and the diagram still saves —
+   it just comes back as code that never draws. */
+const MERMAID_BLOCK_CLASS = 'mermaid-block';
+const MERMAID_SOURCE_CLASS = 'mermaid-source';
+
+const mermaidFigure = (source: string): string =>
+  `<figure class="${MERMAID_BLOCK_CLASS}"><pre class="${MERMAID_SOURCE_CLASS}"><code>${escapeHtml(
+    source.trim(),
+  )}</code></pre></figure>`;
+
+/** A `<pre>`, with the attributes of it and of any `<code>` it wraps. */
+const HTML_PRE = /<pre\b([^>]*)>\s*(?:<code\b([^>]*)>)?([\s\S]*?)(?:<\/code>\s*)?<\/pre>/gi;
+/** `class="mermaid"` (mermaid's own convention) or `class="language-mermaid"`. */
+const NAMES_MERMAID = /class\s*=\s*["'][^"']*\bmermaid\b/i;
+const ALREADY_A_DIAGRAM = new RegExp(`\\b${MERMAID_SOURCE_CLASS}\\b`, 'i');
+
+/**
+ * Rewrite a diagram an HTML body carried as a code block into the figure the
+ * editor reads as a diagram.
+ *
+ * The tool says HTML is stored as-is, so an assistant that writes a ```mermaid
+ * fence and then renders its own Markdown hands over
+ * `<pre><code class="language-mermaid">`. Left alone that is a code block
+ * printing diagram syntax — correct text, no picture.
+ */
+function promoteMermaid(html: string): string {
+  return html.replace(HTML_PRE, (whole, pre = '', code = '', body = '') => {
+    const attrs = `${pre} ${code}`;
+    if (ALREADY_A_DIAGRAM.test(attrs) || !NAMES_MERMAID.test(attrs)) return whole;
+    return mermaidFigure(unescapeHtml(body.replace(/<[^>]+>/g, '')));
+  });
 }
 
 const escapeHtml = (s: string): string =>
@@ -94,12 +140,21 @@ function renderMarkdown(body: string): string {
       continue;
     }
 
-    if (FENCE.test(line)) {
+    const fence = line.match(FENCE);
+    if (fence) {
+      const language = fence[1].toLowerCase();
       const code: string[] = [];
       i++;
       while (i < lines.length && !FENCE.test(lines[i])) code.push(lines[i++]);
       i++; // the closing fence, or the end of the body if it was never closed
-      out.push(`<pre>${escapeHtml(code.join('\n'))}</pre>`);
+      const source = code.join('\n');
+      // ```mermaid is a picture, not a listing — that fence is how assistants
+      // write a flowchart, and it's the only way one reaches the page.
+      if (language === 'mermaid') {
+        if (source.trim()) out.push(mermaidFigure(source));
+      } else {
+        out.push(`<pre>${escapeHtml(source)}</pre>`);
+      }
       continue;
     }
 

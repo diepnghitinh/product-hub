@@ -8,9 +8,13 @@ import '@/styles/rich-text-editor.css';
 import { isWebLink, resolveHref, useExternalLink } from './ExternalLink';
 import { useLightbox, type LightboxImage } from './Lightbox';
 
-/** Shared prose styling for editor HTML — links, images (click-to-zoom cursor). */
+/** Shared prose styling for editor HTML — links, images (click-to-zoom cursor).
+ *  `rich-text-content` is the read-view half of the content rules the editor
+ *  scopes to `.rich-text-editor` (code chips, table gridlines — see
+ *  styles/rich-text-editor.css); without it the same HTML reads differently
+ *  depending on whether you happen to be allowed to edit it. */
 const PROSE =
-  '[&_a]:cursor-pointer [&_a]:text-primary [&_a]:underline [&_img]:h-auto [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md';
+  'rich-text-content [&_a]:cursor-pointer [&_a]:text-primary [&_a]:underline [&_img]:h-auto [&_img]:max-w-full [&_img]:cursor-zoom-in [&_img]:rounded-md';
 
 export interface RichTextProps {
   /** Stored rich-text value as HTML (what the editor emits). */

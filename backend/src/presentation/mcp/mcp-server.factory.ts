@@ -251,7 +251,8 @@ export class McpServerFactory {
         description:
           'Write a document into the workspace — a PRD, discovery notes, a spec, a decision record. ' +
           'Use this for prose the team should read; work to be done belongs in create_issue or ' +
-          'create_backlog_item. The doc opens on a first page holding the body you pass.',
+          'create_backlog_item. The doc opens on a first page holding the body you pass, and can ' +
+          'include Mermaid diagrams — draw the flow rather than describing it in a paragraph.',
         inputSchema: {
           title: z.string().min(1).describe('Doc title, e.g. "Discovery — Ads Connect"'),
           content: z
@@ -260,7 +261,9 @@ export class McpServerFactory {
             .describe(
               'The page body. HTML is stored as-is — <h2>, <p>, <ul>/<ol>, <pre>, <table>, <b>, ' +
                 '<i>, <a>, <img> all survive into the editor. Markdown is accepted too and is ' +
-                'converted to those tags.',
+                'converted to those tags. A ```mermaid fence becomes a diagram block: any Mermaid ' +
+                'syntax works (flowchart, sequenceDiagram, stateDiagram-v2, erDiagram, gantt, ' +
+                'journey) and it is drawn on the page while staying editable as text.',
             ),
           tags: z
             .array(z.string())

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { t } from '@/i18n';
 import { ROADMAP_ITEM_STATUS_LABEL } from '@/types/enums';
 import type { RoadmapColumn, RoadmapItem } from '@/types/dto';
 
@@ -64,7 +65,7 @@ export function RoadmapRiceChart({
         viewBox={`0 0 ${width} ${height}`}
         className="w-full"
         role="img"
-        aria-label="RICE prioritization bubble chart"
+        aria-label={t('roadmaps.riceChart')}
         onMouseLeave={() => setActiveId(null)}
       >
         <g transform={`translate(${m.left} ${m.top})`}>
@@ -75,10 +76,10 @@ export function RoadmapRiceChart({
             <line key={`xg${tk}`} x1={xScale(tk)} x2={xScale(tk)} y1={0} y2={innerH} stroke={grid} strokeDasharray="3 3" />
           ))}
 
-          <text x={4} y={12} fontSize={10} fill={ink} opacity={0.7}>Quick wins</text>
-          <text x={innerW - 4} y={12} textAnchor="end" fontSize={10} fill={ink} opacity={0.7}>Big bets</text>
-          <text x={4} y={innerH - 4} fontSize={10} fill={ink} opacity={0.7}>Fill-ins</text>
-          <text x={innerW - 4} y={innerH - 4} textAnchor="end" fontSize={10} fill={ink} opacity={0.7}>Money pit</text>
+          <text x={4} y={12} fontSize={10} fill={ink} opacity={0.7}>{t('roadmaps.quadQuickWins')}</text>
+          <text x={innerW - 4} y={12} textAnchor="end" fontSize={10} fill={ink} opacity={0.7}>{t('roadmaps.quadBigBets')}</text>
+          <text x={4} y={innerH - 4} fontSize={10} fill={ink} opacity={0.7}>{t('roadmaps.quadFillIns')}</text>
+          <text x={innerW - 4} y={innerH - 4} textAnchor="end" fontSize={10} fill={ink} opacity={0.7}>{t('roadmaps.quadMoneyPit')}</text>
 
           <line x1={0} x2={innerW} y1={innerH} y2={innerH} stroke={ink} />
           <line x1={0} x2={0} y1={0} y2={innerH} stroke={ink} />
@@ -94,8 +95,8 @@ export function RoadmapRiceChart({
               <text x={-8} dy="0.32em" textAnchor="end" fontSize={10} fill={ink}>{tk}</text>
             </g>
           ))}
-          <text x={innerW / 2} y={innerH + 38} textAnchor="middle" fontSize={11} fontWeight={600} fill={ink}>Effort →</text>
-          <text transform={`translate(-42 ${innerH / 2}) rotate(-90)`} textAnchor="middle" fontSize={11} fontWeight={600} fill={ink}>Impact ↑</text>
+          <text x={innerW / 2} y={innerH + 38} textAnchor="middle" fontSize={11} fontWeight={600} fill={ink}>{t('roadmaps.axisEffort')}</text>
+          <text transform={`translate(-42 ${innerH / 2}) rotate(-90)`} textAnchor="middle" fontSize={11} fontWeight={600} fill={ink}>{t('roadmaps.axisImpact')}</text>
 
           {[...scored]
             .sort((a, b) => b.reach - a.reach)
@@ -135,29 +136,29 @@ export function RoadmapRiceChart({
             <span className="rounded bg-muted px-1.5 py-0.5">{active.progress}%</span>
           </div>
           <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
-            <dt className="text-muted-foreground">Reach</dt>
+            <dt className="text-muted-foreground">{t('roadmaps.reach')}</dt>
             <dd className="text-right font-mono">{active.reach}</dd>
-            <dt className="text-muted-foreground">Impact</dt>
+            <dt className="text-muted-foreground">{t('roadmaps.impact')}</dt>
             <dd className="text-right font-mono">{active.impact}</dd>
-            <dt className="text-muted-foreground">Confidence</dt>
+            <dt className="text-muted-foreground">{t('roadmaps.confidence')}</dt>
             <dd className="text-right font-mono">{active.confidence}</dd>
-            <dt className="text-muted-foreground">Effort</dt>
+            <dt className="text-muted-foreground">{t('roadmaps.effort')}</dt>
             <dd className="text-right font-mono">{active.effort}</dd>
-            <dt className="font-medium">RICE</dt>
+            <dt className="font-medium">{t('roadmaps.rice')}</dt>
             <dd className="text-right font-mono font-semibold">{active.rice}</dd>
           </dl>
         </div>
       )}
 
       <div className="mt-2 flex flex-wrap items-center gap-2 px-1 text-[11px] text-muted-foreground">
-        <span className="font-medium">Confidence</span>
+        <span className="font-medium">{t('roadmaps.confidence')}</span>
         <span
           className="h-2 w-24 rounded-full"
           style={{ background: 'linear-gradient(90deg, hsl(0 62% 47%), hsl(60 62% 47%), hsl(120 62% 47%))' }}
         />
-        <span>low → high</span>
+        <span>{t('roadmaps.legendLowHigh')}</span>
         <span className="mx-1 h-3 w-px bg-border" />
-        <span className="font-medium">Bubble size = Reach</span>
+        <span className="font-medium">{t('roadmaps.legendBubble')}</span>
       </div>
     </div>
   );

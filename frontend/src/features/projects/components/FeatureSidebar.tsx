@@ -220,7 +220,7 @@ export function FeatureSidebar({
               }
             >
               {canWrite && (
-                <span className="drag-handle" aria-hidden title="Drag to reorder">
+                <span className="drag-handle" aria-hidden title={t('report.drag')}>
                   ⋮⋮
                 </span>
               )}
@@ -241,7 +241,7 @@ export function FeatureSidebar({
                   type="button"
                   className="row-action"
                   onClick={() => renameFeature(item)}
-                  title="Rename feature"
+                  title={t('project.renameFeature')}
                   aria-label={`Rename feature "${item.label || item.title}"`}
                 >
                   <span aria-hidden>✎</span>
@@ -250,7 +250,7 @@ export function FeatureSidebar({
                   type="button"
                   className="row-action row-action-danger"
                   onClick={() => removeFeature(item)}
-                  title="Remove feature"
+                  title={t('project.removeFeature')}
                   aria-label={`Remove feature "${item.label || item.title}"`}
                 >
                   <span aria-hidden>×</span>
@@ -277,8 +277,8 @@ export function FeatureSidebar({
               type="button"
               className="nav-add nav-add-icon"
               onClick={() => addFeature(groupId, groupTitle)}
-              title="Add a feature"
-              aria-label="Add a feature"
+              title={t('project.addFeatureTip')}
+              aria-label={t('project.addFeatureTip')}
             >
               <svg
                 width="14"
@@ -346,7 +346,7 @@ export function FeatureSidebar({
                         type="button"
                         className="row-action"
                         onClick={() => renameGroup(group)}
-                        title="Rename group"
+                        title={t('project.renameGroup')}
                         aria-label={`Rename group "${group.title}"`}
                       >
                         <span aria-hidden>✎</span>
@@ -355,7 +355,7 @@ export function FeatureSidebar({
                         type="button"
                         className="row-action row-action-danger"
                         onClick={() => removeGroup(group, items.length)}
-                        title="Remove group"
+                        title={t('project.removeGroup')}
                         aria-label={`Remove group "${group.title}"`}
                       >
                         <span aria-hidden>×</span>
@@ -386,7 +386,7 @@ export function FeatureSidebar({
               type="button"
               className="nav-add nav-add-group"
               onClick={addGroup}
-              title="Add a new group to the sidebar"
+              title={t('project.addGroupTip')}
             >
               <span className="nav-add-plus" aria-hidden>
                 +

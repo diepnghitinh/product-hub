@@ -103,7 +103,7 @@ export function BoardCardAge({ createdAt }: { createdAt?: string }) {
   return (
     <span className="flex items-center gap-1" title={`${t('board.createdOn')} ${formatDate(createdAt)}`}>
       <Clock className="size-3" aria-hidden />
-      {days === 0 ? t('board.ageToday') : `${days}d`}
+      {days === 0 ? t('board.ageToday') : t('board.ageDays').replace('{n}', String(days))}
     </span>
   );
 }
