@@ -298,6 +298,16 @@ export const en = {
   'bugs.dates': 'Dates',
   'bugs.setDates': 'Set dates',
   'bugs.noDates': 'No dates',
+  // Bug-report templates — the shapes a bug actually arrives in. Same picker as
+  // the backlog item's (shared strings live under `templates.*`).
+  'bugs.templateReport': 'Bug report',
+  'bugs.templateReportHint': 'Steps to reproduce · expected vs actual · environment · impact',
+  'bugs.templateRegression': 'Regression',
+  'bugs.templateRegressionHint': 'Worked before, broken now — last known good + suspected change',
+  'bugs.templateCrash': 'Crash / Error',
+  'bugs.templateCrashHint': 'Error message, stack trace or log, frequency, impact',
+  'bugs.templateUiVisual': 'UI / Visual',
+  'bugs.templateUiVisualHint': 'What looks wrong, on which screen and size, vs the design',
 
   'activity.title': 'Activity',
   'activity.empty': 'No comments yet.',
@@ -507,10 +517,7 @@ export const en = {
   'roadmaps.done': 'Done',
   'roadmaps.description': 'Description',
   // Backlog-item templates — prefill the description with a proven structure.
-  'roadmaps.templates': 'Templates',
-  'roadmaps.startFromTemplate': 'Start from a template',
-  'roadmaps.templateReplaceConfirm':
-    'Replace the current description with this template? This can be undone with Undo.',
+  // (The picker's own strings are shared: see `templates.*` below.)
   'roadmaps.templateUserStory': 'User Story',
   'roadmaps.templateUserStoryHint': 'As a… I want… so that… + INVEST checklist',
   'roadmaps.templateJtbd': 'Jobs to be Done',
@@ -1128,6 +1135,14 @@ export const en = {
   'personal.moveTasksTrail': 'Where should they go before it’s removed?',
   'personal.moveTasksTo': 'Move remaining tasks to',
   'personal.moveAndRemove': 'Move & remove',
+
+  // Description templates — the shared picker above a description editor
+  // (components/DescriptionTemplates). Each feature names its own templates;
+  // these three strings are the chrome around them.
+  'templates.title': 'Templates',
+  'templates.start': 'Start from a template',
+  'templates.replaceConfirm':
+    'Replace the current description with this template? This can be undone with Undo.',
 
   // Rich-text read view — off-domain link guard.
   'richText.externalTitle': 'Open external link?',

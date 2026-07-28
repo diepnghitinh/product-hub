@@ -17,6 +17,19 @@
   box-shadow: 0 0 0 1px hsl(var(--ring));
 }
 
+/* Embedded in a container that already owns the chrome — the comment composer
+   is one bordered box that lights up on focus, so the editor inside it draws no
+   border, ring or padding of its own, and reads at the size of the comments it
+   sits under. */
+.rich-text-editor.rte-bare,
+.rich-text-editor.rte-bare:focus-within {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  font-size: 1rem;
+}
+
 /* Fill the container instead of Editor.js's default narrow centered column. */
 .rich-text-editor .ce-block__content,
 .rich-text-editor .ce-toolbar__content {
@@ -43,9 +56,11 @@
   text-decoration-thickness: 2px;
 }
 
-/* Inline tools */
-.rich-text-editor mark,
-.rich-text-editor .cdx-marker {
+/* Inline tools. Matched in the read-only renderer too (see the note below), or a
+   highlight would be the app's amber while you write it and the browser's raw
+   yellow the moment you post it. */
+:is(.rich-text-editor, .rich-text-content) mark,
+:is(.rich-text-editor, .rich-text-content) .cdx-marker {
   background: hsl(var(--warning) / 0.35);
   border-radius: 2px;
   padding: 0 0.15em;

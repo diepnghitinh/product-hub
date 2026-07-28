@@ -12,6 +12,7 @@ import { enhanceCodeBlocks } from '@/lib/enhanceCodeBlocks';
 import { ResizableImageTool } from '@/lib/editor/ResizableImageTool';
 import { ResizableTableTool } from '@/lib/editor/ResizableTableTool';
 import { MermaidTool } from '@/lib/editor/MermaidTool';
+import { MentionMenu } from '@/lib/editor/MentionMenu';
 import { uploadMedia } from '@/features/uploads/api';
 import { useUsers } from '@/features/users/api';
 import type { SlashPerson } from '@/lib/editor/CellSlashMenu';
@@ -37,6 +38,25 @@ export interface RichTextEditorProps {
    * every block menu — so it's opt-in, for long-form surfaces like a doc page.
    */
   diagrams?: boolean;
+  /**
+   * Short-form mode, for a comment box rather than a document: paragraphs,
+   * lists, code and the full inline toolbar (bold / italic / link / underline /
+   * highlight / inline code), but no headings and no tables. Structure that
+   * belongs in a doc only gets in the way in a two-line reply.
+   */
+  minimal?: boolean;
+  /**
+   * Offer `@` mentions. Inserts the same `rte-mention` chip the table cell's `/`
+   * menu does, which `mentionIdsFromHtml` reads back out to notify people.
+   */
+  mentions?: boolean;
+  /**
+   * Who can be mentioned. Defaults to the workspace's members; pass a list when
+   * the surface scopes it (a comment thread offers the people it was handed).
+   */
+  people?: SlashPerson[];
+  /** Put the caret in the editor once it's ready — for a box opened to be typed in. */
+  autoFocus?: boolean;
   className?: string;
 }
 
@@ -109,6 +129,29 @@ class VideoTool {
   }
 }
 
+/**
+ * Marker, plus the one sanitize rule that lets a mention chip survive being saved.
+ *
+ * Editor.js builds each block's whitelist from the block tool *and its inline
+ * tools*; nothing in a paragraph declares `<span>`, so a chip typed into one is
+ * stripped back to plain text on the next save — the `@Dana Park` stays, the
+ * mention doesn't. A table cell doesn't hit this because the table tool declares
+ * its own whitelist (`ResizableTableTool.sanitize`); paragraphs and list items
+ * have no such hook, so the rule rides in on an inline tool, which every block
+ * with an inline toolbar inherits.
+ *
+ * The attributes match the table's rule exactly — the same chips, written in a
+ * different kind of block.
+ */
+class MarkerWithChips extends Marker {
+  static get sanitize() {
+    return {
+      ...(Marker as unknown as { sanitize: Record<string, unknown> }).sanitize,
+      span: { class: true, 'data-user-id': true, 'data-date': true },
+    };
+  }
+}
+
 function withFallbackBlocks(blocks: HtmlEditorBlock[]): HtmlEditorBlock[] {
   return blocks.length > 0 ? blocks : [{ type: 'paragraph', data: { text: '' } }];
 }
@@ -132,6 +175,10 @@ export function RichTextEditor({
   minHeight,
   images = false,
   diagrams = false,
+  minimal = false,
+  mentions = false,
+  people,
+  autoFocus = false,
   className,
 }: RichTextEditorProps) {
   const holderRef = useRef<HTMLDivElement | null>(null);
@@ -143,14 +190,17 @@ export function RichTextEditor({
   const minHeightRef = useRef(minHeight);
   const imagesRef = useRef(images);
   const diagramsRef = useRef(diagrams);
+  const minimalRef = useRef(minimal);
+  const mentionsRef = useRef(mentions);
+  const autoFocusRef = useRef(autoFocus);
   const links = useExternalLink();
-  // People the table cell's `/` menu can @-mention. Read through a ref because
+  // People the `@` and cell `/` menus can mention. Read through a ref because
   // the editor is built once on mount, well before this query resolves; the
   // query key is shared with every other member list, so it costs one request.
   const { data: usersData } = useUsers({ limit: 100 });
   const peopleRef = useRef<SlashPerson[]>([]);
   peopleRef.current =
-    usersData?.items.map((u) => ({ id: u.id, name: u.name, email: u.email })) ?? [];
+    people ?? usersData?.items.map((u) => ({ id: u.id, name: u.name, email: u.email })) ?? [];
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -189,6 +239,7 @@ export function RichTextEditor({
     let editor: EditorJS | null = null;
     let cancelled = false;
     let observer: MutationObserver | null = null;
+    let mentionMenu: MentionMenu | null = null;
     let rafId = 0;
 
     const initTimer = window.setTimeout(() => {
@@ -202,9 +253,8 @@ export function RichTextEditor({
         minHeight: minHeightRef.current ?? 40,
         data: { blocks: initialBlocks },
         tools: {
-          header: { class: Header, inlineToolbar: true },
           list: { class: List, inlineToolbar: true },
-          marker: Marker,
+          marker: MarkerWithChips,
           inlineCode: InlineCode,
           underline: Underline,
           code: {
@@ -212,19 +262,26 @@ export function RichTextEditor({
             shortcut: 'CMD+SHIFT+C',
             config: { placeholder: t('editor.enterCode') },
           },
-          // The stock table plus drag-to-resize columns and rows, and a `/` menu
-          // inside a cell (list, checklist, link, code, image, mention, date).
-          table: {
-            class: ResizableTableTool,
-            inlineToolbar: true,
-            config: {
-              rows: 2,
-              cols: 3,
-              withHeadings: true,
-              images: imagesRef.current,
-              people: () => peopleRef.current,
-            },
-          },
+          // Document furniture — a comment box gets formatting, not structure.
+          ...(minimalRef.current
+            ? {}
+            : {
+                header: { class: Header, inlineToolbar: true },
+                // The stock table plus drag-to-resize columns and rows, and a `/`
+                // menu inside a cell (list, checklist, link, code, image, mention,
+                // date).
+                table: {
+                  class: ResizableTableTool,
+                  inlineToolbar: true,
+                  config: {
+                    rows: 2,
+                    cols: 3,
+                    withHeadings: true,
+                    images: imagesRef.current,
+                    people: () => peopleRef.current,
+                  },
+                },
+              }),
           // Drag-to-resize image tool (upload to storage, base64 fallback,
           // paste/drop, caption) + a minimal video block.
           ...(imagesRef.current ? { image: ResizableImageTool, video: VideoTool } : {}),
@@ -258,6 +315,22 @@ export function RichTextEditor({
         .then(() => {
           if (cancelled) return;
           enhanceCodeBlocks(holder);
+          // `@` mentions across the editor's blocks (the table cell's `/` menu
+          // covers cells, which this one stays out of).
+          if (mentionsRef.current) {
+            mentionMenu = new MentionMenu({
+              people: () => peopleRef.current,
+              onChange: () => void emitHtml(),
+            });
+            mentionMenu.bind(holder);
+          }
+          if (autoFocusRef.current) {
+            try {
+              instance.focus(true);
+            } catch {
+              /* ignore: focus is a nicety */
+            }
+          }
           // Undo/redo history (Ctrl/Cmd+Z undo, Ctrl/Cmd+Y redo). Seed the
           // baseline with the initial blocks — without initialize() the first
           // undo empties the editor. Progressive enhancement: never let a
@@ -283,6 +356,7 @@ export function RichTextEditor({
       window.clearTimeout(initTimer);
       if (rafId) cancelAnimationFrame(rafId);
       observer?.disconnect();
+      mentionMenu?.destroy();
       const e = editor;
       editor = null;
       if (editorRef.current === e) editorRef.current = null;

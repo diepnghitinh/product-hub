@@ -2,6 +2,11 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
 import { Menu, RichText, RichTextEditor, type MenuItem } from '@/components/ui';
+import {
+  DescriptionTemplates,
+  useTemplateSeed,
+  type DescriptionTemplate,
+} from '@/components/DescriptionTemplates';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
@@ -39,6 +44,10 @@ export interface IssueDetailMainProps {
   comments?: CommentDto[];
   onSaveTitle: (title: string) => void;
   onSaveDescription: (html: string) => void;
+  /** Starter structures offered above the description — a bug's repro-steps
+   *  shapes (`bugs/bugTemplates`). Omit for issues that have none; the picker
+   *  renders nothing rather than an empty strip. */
+  templates?: DescriptionTemplate[];
   /** Overflow (⋯) actions for the header — e.g. Delete. Hidden when empty. */
   menuItems?: MenuItem[];
   /** Where the ⋯ menu renders: portaled into the app topbar, right of the
@@ -85,6 +94,7 @@ export function IssueDetailMain({
   comments,
   onSaveTitle,
   onSaveDescription,
+  templates = [],
   menuItems,
   menuTarget = 'header',
   favourite,
@@ -102,6 +112,10 @@ export function IssueDetailMain({
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => onSaveDescription(html), 700);
   }
+
+  // Templates: applying one saves at once (no debounce) and remounts the editor
+  // via `nonce`, since Editor.js only reads `value` at mount.
+  const seed = useTemplateSeed(description, onSaveDescription, issueId);
 
   // The ⋯ overflow menu. On a standalone route it portals up into the app
   // topbar (right of the breadcrumb); in the inbox pane it renders inline.
@@ -192,14 +206,22 @@ export function IssueDetailMain({
 
       <div className="mt-4">
         {canWrite ? (
-          <RichTextEditor
-            value={description}
-            onChange={handleDescription}
-            placeholder={descriptionPlaceholder}
-            minHeight={80}
-            images
-            className="border-0"
-          />
+          <>
+            <DescriptionTemplates
+              templates={templates}
+              hasContent={seed.hasContent}
+              onApply={seed.apply}
+            />
+            <RichTextEditor
+              key={`${issueId}:${seed.nonce}`}
+              value={seed.value}
+              onChange={handleDescription}
+              placeholder={descriptionPlaceholder}
+              minHeight={80}
+              images
+              className="border-0"
+            />
+          </>
         ) : description ? (
           <RichText className="text-sm text-muted-foreground" html={description} />
         ) : (

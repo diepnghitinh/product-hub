@@ -12,7 +12,6 @@ import { useAuth } from '@/lib/auth';
 import { Button, Drawer, Menu, type MenuItem } from '@/components/ui';
 import { DetailSkeleton } from '@/components/Skeletons';
 import { ShareLinkDialog } from '@/components/ShareLinkDialog';
-import { TeamSymbol } from '@/components/TeamSymbol';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { FullScreenLayout } from '@/layouts/shared';
 import { cn } from '@/lib/utils';
@@ -186,14 +185,6 @@ export function DocWorkspacePage() {
           front of the title; passing it again would print the crumb twice. */}
       <PageHeader
         title={doc.title}
-        leading={
-          <TeamSymbol
-            name={doc.icon || 'book'}
-            size={15}
-            className="text-muted-foreground"
-            color={doc.color ?? undefined}
-          />
-        }
         onTitleChange={
           canWrite ? (title) => updateDoc.mutate({ id: doc.id, input: { title } }) : undefined
         }

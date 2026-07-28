@@ -180,6 +180,60 @@ export function firstImageUrl(html: string): string {
   return doc.querySelector('img')?.getAttribute('src') ?? '';
 }
 
+/**
+ * The user ids of every `@` mention in a rich-text value, deduped. The chip the
+ * mention menus insert carries the id, so the ids are read back off the saved
+ * HTML at submit rather than tracked alongside it — nothing to keep in sync, and
+ * deleting the chip deletes the mention.
+ */
+export function mentionIdsFromHtml(html: string): string[] {
+  if (!html) return [];
+  if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
+    return [...new Set([...html.matchAll(/data-user-id=["']([^"']+)["']/g)].map((m) => m[1]))];
+  }
+  const doc = new DOMParser().parseFromString(`<!doctype html><body>${html}`, 'text/html');
+  const ids = [...doc.querySelectorAll('[data-user-id]')]
+    .map((el) => el.getAttribute('data-user-id') || '')
+    .filter(Boolean);
+  return [...new Set(ids)];
+}
+
+/**
+ * The visible text of a rich-text value — for "is this actually empty?" checks,
+ * where `<p></p>` and `<br>` are markup, not content. Embeds contribute no text,
+ * so a caller that counts an image as content looks for one separately.
+ */
+export function htmlToPlainText(html: string): string {
+  if (!html) return '';
+  if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
+    return html.replace(/<[^>]*>/g, ' ');
+  }
+  const doc = new DOMParser().parseFromString(`<!doctype html><body>${html}`, 'text/html');
+  // Chips insert a non-breaking space after themselves; it isn't content.
+  return (doc.body.textContent ?? '').replace(/\u00a0/g, ' ');
+}
+
+/** A tag the editor actually emits — not any `<` someone typed in a sentence. */
+const RICH_TAG =
+  /<(p|div|br|ul|ol|li|h[1-6]|pre|code|blockquote|table|span|b|strong|i|em|u|mark|a)\b[^>]*>/i;
+/** `&amp;` / `&lt;` / `&#39;` — text that has been through an HTML escaper. */
+const HTML_ENTITY = /&(?:[a-z]+|#\d+|#x[0-9a-f]+);/i;
+
+/**
+ * Whether a stored value is rich text or plain text someone typed before the
+ * surface had an editor. Comments predate their rich editor, so the read view has
+ * to tell the two apart: HTML rendered as text shows its tags, and text rendered
+ * as HTML loses its line breaks.
+ *
+ * Entities count as rich, because a single-paragraph value is stored without its
+ * `<p>` wrapper (see `blocksToHtml`) — so "Tom & Jerry" typed into the editor is
+ * stored as `Tom &amp; Jerry` with no tag in sight, and printing it as text would
+ * show the reader the escape.
+ */
+export function isRichHtml(value: string): boolean {
+  return RICH_TAG.test(value) || HTML_ENTITY.test(value);
+}
+
 export function htmlToBlocks(html: string): HtmlEditorBlock[] {
   if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
     return html ? [{ type: 'paragraph', data: { text: html } }] : [];

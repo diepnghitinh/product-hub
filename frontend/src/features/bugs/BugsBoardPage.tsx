@@ -230,9 +230,9 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
 
   return (
     <IssueBoardLayout
-      // Bugs hang off the dynamic Teams list, so the shell's nav model has no
-      // icon for this route — supply one, or the crumb reads bare next to every
-      // other page's.
+      // Neither /bugs nor /teams/:id is in the nav model, so this board's crumb
+      // is the breadcrumb root and carries level 0's icon: the team's symbol on
+      // a team board, else the bug mark.
       titleIcon={titleIcon ?? <Icon name="bug" size={16} className="shrink-0 text-muted-foreground" />}
       backLink={
         projectId ? (

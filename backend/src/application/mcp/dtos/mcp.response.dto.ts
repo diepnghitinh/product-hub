@@ -138,6 +138,9 @@ export class McpBacklogItemResponseDto {
   @ApiProperty()
   id: string;
 
+  @ApiProperty({ example: 'RM-6HCUHKX', description: 'Ref to quote back to the user' })
+  shortId: string;
+
   @ApiProperty()
   roadmapId: string;
 

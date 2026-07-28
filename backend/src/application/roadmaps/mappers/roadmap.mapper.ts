@@ -14,6 +14,9 @@ export class RoadmapMapper {
       // still return a clean, typed shape.
       items: roadmap.items.map((item) => ({
         ...item,
+        // '' for items minted before refs existed — every caller falls back to
+        // the uuid, so they keep working until the backfill script runs.
+        shortId: item.shortId ?? '',
         imageUrl: item.imageUrl ?? '',
         startDate: item.startDate ?? '',
         assignees: item.assignees ?? [],

@@ -252,42 +252,76 @@ export function DocPageEditor({
           widthClass(style.pageWidth),
         )}
       >
-        {(style.showTitle || showAddCover) && (
-          <div className="flex items-center gap-2">
-            {style.showTitle &&
-              (canWrite ? (
-                <SymbolPicker
-                  variant="plain"
-                  size={26}
-                  value={icon || 'book'}
-                  color={color}
-                  options={TEAM_SYMBOL_NAMES}
-                  colors={TEAM_COLORS}
-                  ariaLabel={t('docs.pageIcon')}
-                  onChange={(patch) => {
-                    // The picker sends whichever half changed, so patch just that
-                    // one — writing both would blank the other to its default.
-                    const next: PagePatch = {};
-                    if (patch.icon !== undefined) {
-                      setIcon(patch.icon);
-                      next.icon = patch.icon;
-                    }
-                    if (patch.color !== undefined) {
-                      setColor(patch.color);
-                      next.color = patch.color;
-                    }
-                    saveNow(next);
-                  }}
-                />
-              ) : (
-                <TeamSymbol
-                  name={icon || 'book'}
-                  size={26}
-                  className="text-muted-foreground"
-                  color={color ?? undefined}
-                />
-              ))}
+        {/* Symbol and title share one line, so the icon reads as part of the
+            heading rather than a row floating above it. "Add cover" rides the
+            same line and stays out of the way until you hover — the same
+            treatment the cover's own controls get above.
+            Hidden, the title is still edited from the rail — this switch is
+            about the page's own look, not about whether the page has a name. */}
+        {style.showTitle ? (
+          <div className="group flex items-center gap-2">
+            {canWrite ? (
+              <SymbolPicker
+                variant="plain"
+                size={26}
+                value={icon || 'book'}
+                color={color}
+                options={TEAM_SYMBOL_NAMES}
+                colors={TEAM_COLORS}
+                ariaLabel={t('docs.pageIcon')}
+                onChange={(patch) => {
+                  // The picker sends whichever half changed, so patch just that
+                  // one — writing both would blank the other to its default.
+                  const next: PagePatch = {};
+                  if (patch.icon !== undefined) {
+                    setIcon(patch.icon);
+                    next.icon = patch.icon;
+                  }
+                  if (patch.color !== undefined) {
+                    setColor(patch.color);
+                    next.color = patch.color;
+                  }
+                  saveNow(next);
+                }}
+              />
+            ) : (
+              <TeamSymbol
+                name={icon || 'book'}
+                size={26}
+                className="shrink-0 text-muted-foreground"
+                color={color ?? undefined}
+              />
+            )}
+            <input
+              value={title}
+              readOnly={!canWrite}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                queue({ title: e.target.value });
+              }}
+              onBlur={() => void flush()}
+              aria-label={t('docs.pageTitle')}
+              placeholder={t('docs.untitled')}
+              className="min-w-0 flex-1 border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/60 sm:text-3xl"
+            />
             {showAddCover && (
+              <MediaUploader
+                accept="image/*"
+                multiple={false}
+                variant="ghost"
+                label={t('docs.addCover')}
+                className="shrink-0 text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
+                onUploaded={(m) => {
+                  setCoverUrl(m.url);
+                  saveNow({ coverUrl: m.url });
+                }}
+              />
+            )}
+          </div>
+        ) : (
+          // No title to hang it on, so the cover button keeps a line of its own.
+          showAddCover && (
+            <div className="flex items-center gap-2">
               <MediaUploader
                 accept="image/*"
                 multiple={false}
@@ -299,25 +333,8 @@ export function DocPageEditor({
                   saveNow({ coverUrl: m.url });
                 }}
               />
-            )}
-          </div>
-        )}
-
-        {/* Hidden, the title is still edited from the rail — this switch is about
-            the page's own look, not about whether the page has a name. */}
-        {style.showTitle && (
-          <input
-            value={title}
-            readOnly={!canWrite}
-            onChange={(e) => {
-              setTitle(e.target.value);
-              queue({ title: e.target.value });
-            }}
-            onBlur={() => void flush()}
-            aria-label={t('docs.pageTitle')}
-            placeholder={t('docs.untitled')}
-            className="mt-3 w-full border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/60 sm:text-3xl"
-          />
+            </div>
+          )
         )}
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">

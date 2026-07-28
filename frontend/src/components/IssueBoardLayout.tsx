@@ -18,7 +18,8 @@ export interface IssueViewOption {
 interface IssueBoardLayoutProps {
   title: string;
   subtitle?: string;
-  /** Rendered beside the title — the team's symbol on a team board. */
+  /** The team's symbol on a team board. Drawn only when this board's crumb is
+   *  the breadcrumb root — `PageHeader` drops it otherwise. */
   titleIcon?: ReactNode;
   /** Optional back link rendered above the header (e.g. bugs scoped to a project). */
   backLink?: ReactNode;
@@ -121,11 +122,13 @@ export function IssueBoardLayout({
       <PageHeader
         title={title}
         subtitle={subtitle}
-        leading={titleIcon ? (
-          <span className="flex h-5 w-5 items-center justify-center rounded-sm hover:bg-accent/60 hover:text-accent-foreground">
-            {titleIcon}
-          </span>
-        ) : null}
+        leading={
+          titleIcon ? (
+            <span className="flex h-5 w-5 items-center justify-center rounded-sm hover:bg-accent/60 hover:text-accent-foreground">
+              {titleIcon}
+            </span>
+          ) : null
+        }
         onTitleChange={onTitleChange}
         titleLabel={titleLabel}
         actions={actions}

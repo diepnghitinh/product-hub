@@ -306,6 +306,16 @@ export const ko: Record<I18nKey, string> = {
   'bugs.dates': '날짜',
   'bugs.setDates': '날짜 설정',
   'bugs.noDates': '날짜 없음',
+  // Bug-report templates — the shapes a bug actually arrives in. Same picker as
+  // the backlog item's (shared strings live under `templates.*`).
+  'bugs.templateReport': '버그 리포트',
+  'bugs.templateReportHint': '재현 절차 · 기대 결과와 실제 결과 · 환경 · 영향',
+  'bugs.templateRegression': '리그레션',
+  'bugs.templateRegressionHint': '되던 기능이 안 될 때 — 마지막 정상 버전 + 의심되는 변경',
+  'bugs.templateCrash': '크래시 / 오류',
+  'bugs.templateCrashHint': '오류 메시지, 스택 트레이스나 로그, 발생 빈도, 영향',
+  'bugs.templateUiVisual': 'UI / 화면',
+  'bugs.templateUiVisualHint': '무엇이 어떻게 어긋났는지, 어느 화면·크기에서, 디자인과 비교',
 
   'activity.title': '활동',
   'activity.empty': '아직 댓글이 없습니다.',
@@ -515,10 +525,7 @@ export const ko: Record<I18nKey, string> = {
   'roadmaps.done': '완료',
   'roadmaps.description': '설명',
   // Backlog-item templates — prefill the description with a proven structure.
-  'roadmaps.templates': '템플릿',
-  'roadmaps.startFromTemplate': '템플릿으로 시작',
-  'roadmaps.templateReplaceConfirm':
-    '현재 설명을 이 템플릿으로 바꿀까요? 실행 취소로 되돌릴 수 있습니다.',
+  // (The picker's own strings are shared: see `templates.*` below.)
   'roadmaps.templateUserStory': '사용자 스토리',
   'roadmaps.templateUserStoryHint': '~로서, ~하고 싶다, 그래서… + INVEST 체크리스트',
   'roadmaps.templateJtbd': 'Jobs to be Done',
@@ -1140,6 +1147,13 @@ export const ko: Record<I18nKey, string> = {
   'personal.moveTasksTrail': '삭제하기 전에 어디로 옮길까요?',
   'personal.moveTasksTo': '남은 태스크를 옮길 곳',
   'personal.moveAndRemove': '옮기고 삭제',
+
+  // Description templates — the shared picker above a description editor
+  // (components/DescriptionTemplates). Each feature names its own templates;
+  // these three strings are the chrome around them.
+  'templates.title': '템플릿',
+  'templates.start': '템플릿으로 시작',
+  'templates.replaceConfirm': '현재 설명을 이 템플릿으로 바꿀까요? 실행 취소로 되돌릴 수 있습니다.',
 
   // Rich-text read view — off-domain link guard.
   'richText.externalTitle': '외부 링크를 열까요?',

@@ -1,26 +1,26 @@
 {
   "version": 1,
-  "rev": 427,
-  "savedAt": "2026-07-28T08:54:29.663Z",
+  "rev": 449,
+  "savedAt": "2026-07-28T16:35:19.896Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 629.0360468045528,
-    "y": 2761.303584083656,
-    "zoom": 1.15
+    "x": 670.8487184722114,
+    "y": 1692.9230923845885,
+    "zoom": 0.6037545980811426
   },
   "nodes": [
     {
       "id": "term-ms3a3yyd-2",
       "kind": "terminal",
       "position": {
-        "x": -199.50604678578358,
-        "y": -2311.329672798521
+        "x": -262.9843076553488,
+        "y": -2404.3731510593907
       },
       "size": {
-        "width": 600,
-        "height": 400
+        "width": 641,
+        "height": 447
       },
       "title": "Change layout to cards design",
       "titleAuto": true,
@@ -28,6 +28,44 @@
       "group": null,
       "tags": [],
       "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-ms4uxlk8-1",
+      "kind": "terminal",
+      "position": {
+        "x": 469.5805733225794,
+        "y": -2405.1757219538454
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Thay thế UID bằng short ID cho roadmap items",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-ms4v87rp-2",
+      "kind": "terminal",
+      "position": {
+        "x": -942.3946413077019,
+        "y": -2160.934287121526
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Refactor breadcrumb icons for nested levels",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
       "cwd": ".",
       "agentId": "claude"
     }

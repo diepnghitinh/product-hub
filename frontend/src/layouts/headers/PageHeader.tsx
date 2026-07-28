@@ -1,9 +1,10 @@
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { usePageTitle } from '@/layouts/head/PageTitleManager';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { usePageChrome } from '@/layouts/headers/PageChrome';
+import { findNavItem } from '@/layouts/sidebar/menuConfig';
 
 interface PageHeaderProps {
   title: string;
@@ -18,7 +19,12 @@ interface PageHeaderProps {
    * as the crumb's tooltip rather than being thrown away.
    */
   subtitle?: string;
-  /** Rendered immediately before the title (e.g. a team's symbol). */
+  /**
+   * A symbol for this page's first crumb — a team's board shows the team's.
+   * Only honoured on routes the nav model doesn't know: where a section exists
+   * it already drew level 0's icon, so this would land on level 1 and is
+   * dropped rather than doubling up.
+   */
   leading?: ReactNode;
   /** Right-aligned actions (buttons, links). */
   actions?: ReactNode;
@@ -39,8 +45,12 @@ const titleSize = (value: string) => Math.max(8, Math.min(value.length + 1, 40))
 
 /**
  * A page's identity and actions — rendered into the shell's topbar, not in
- * place. The title becomes the last crumb of the breadcrumb; `AppLayout` puts the
- * section icon and parent link in front of it.
+ * place. The title becomes the last crumb of the breadcrumb; `AppLayout` puts
+ * the section icon and parent link in front of it.
+ *
+ * Only the breadcrumb's root crumb takes an icon; level 1 and deeper are text.
+ * The shell decides which one this page is, so a page can hand over `leading`
+ * without having to know its own depth.
  *
  * Pages still just render `<PageHeader …/>` wherever it reads best in their
  * markup; the portal does the moving.
@@ -59,6 +69,12 @@ export function PageHeader({
   // (a bug, a team board) would otherwise fall back to just the app name.
   usePageTitle(title);
   const { crumb, actions: actionsSlot } = usePageChrome();
+  // A route the nav model knows already has the section as its level-0 crumb,
+  // icon included — so this page's own crumb is level 1 and takes none. Only a
+  // route with no section (a team board, /bugs, /tasks/new) starts the trail
+  // itself, and there `leading` is the root icon.
+  const { pathname } = useLocation();
+  const ownsRootCrumb = !findNavItem(pathname);
 
   /** Blank or unchanged snaps back rather than saving — the field is
    *  uncontrolled, so nothing else would restore it. */
@@ -75,7 +91,7 @@ export function PageHeader({
     // The page's h1 lives here, in the topbar — there's exactly one per page and
     // it's the thing the breadcrumb ends on.
     <h1 className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold tracking-tight text-foreground">
-      {leading}
+      {ownsRootCrumb && leading}
       {parent && (
         <>
           <Link

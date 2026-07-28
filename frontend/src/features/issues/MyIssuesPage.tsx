@@ -197,8 +197,6 @@ export function MyIssuesPage() {
 
   return (
     <IssueBoardLayout
-      // /issues is in the nav model, so the topbar's section icon already covers
-      // the heading — adding a titleIcon here would double up (same as My Tasks).
       title={t('tasks.assignedToMe')}
       subtitle={t('issues.mySubtitle')}
       search={{

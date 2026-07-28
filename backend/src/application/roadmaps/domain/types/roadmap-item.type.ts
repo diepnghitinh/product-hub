@@ -27,9 +27,19 @@ export const DEFAULT_ROADMAP_COLUMNS: RoadmapColumn[] = [
   { key: RoadmapPhase.DONE, label: 'Done', color: 'hsl(142 55% 40%)' },
 ];
 
+/** The ref prefix for a roadmap (backlog) item — `RM-6HCUHKX`, alongside
+ *  `TSK-…` / `BUG-…` for issues. */
+export const ROADMAP_ITEM_REF_PREFIX = 'RM';
+
 /** A single roadmap item. RICE score is derived, not stored. */
 export interface RoadmapItemData {
   id: string;
+  /** Human-friendly ref used in the URL and quoted in conversation (`RM-6HCUHKX`).
+   *  Minted server-side and preserved thereafter; `id` stays the real identity
+   *  (comments, favourites, links and issue back-references all key off it).
+   *  Optional because items created before refs existed have none until the
+   *  next save or the `backfill:roadmap-item-refs` script runs. */
+  shortId?: string;
   title: string;
   description: string;
   /** The column ("pool") this item sits in — a `RoadmapColumn.key`. */
@@ -70,6 +80,21 @@ export interface RoadmapItemData {
   objectiveId: string;
   keyResultId: string;
   okrLabel: string;
+}
+
+/**
+ * Find one item by whatever the caller has: its ref (`RM-6HCUHKX`, case- and
+ * space-insensitive) or its uuid. One helper because every entry point — the
+ * detail URL, MCP, links pasted into a doc — must resolve both: refs are new, so
+ * a link handed out before they existed still has to open the same item.
+ */
+export function findRoadmapItem(
+  items: RoadmapItemData[],
+  ref: string | undefined,
+): RoadmapItemData | undefined {
+  if (!ref) return undefined;
+  const wanted = ref.trim().toUpperCase();
+  return items.find((i) => i.shortId?.toUpperCase() === wanted) ?? items.find((i) => i.id === ref);
 }
 
 /** RICE = (reach × impact × confidence) / effort. Effort 0 → score 0. */

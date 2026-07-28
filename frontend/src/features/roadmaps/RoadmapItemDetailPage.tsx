@@ -26,6 +26,7 @@ import {
   Select,
 } from '@/components/ui';
 import { DetailSkeleton } from '@/components/Skeletons';
+import { DescriptionTemplates, useTemplateSeed } from '@/components/DescriptionTemplates';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { usePageChrome } from '@/layouts/headers/PageChrome';
@@ -56,7 +57,7 @@ import {
 } from '@/types/enums';
 import type { Objective, RoadmapItem } from '@/types/dto';
 import { useReplaceRoadmapItems, useRoadmap } from './api';
-import { BACKLOG_TEMPLATES, type BacklogTemplate } from './backlogTemplates';
+import { BACKLOG_TEMPLATES } from './backlogTemplates';
 import { CenteredPageLayout } from '@/layouts/shared';
 
 /** RICE inputs, in order, with the field key + help copy. */
@@ -100,7 +101,22 @@ export function RoadmapItemDetailPage() {
   const { crumbActions } = usePageChrome();
 
   const items = roadmap?.items ?? [];
-  const item = items.find((i) => i.id === itemId);
+  // The URL carries the item's ref (`RM-6HCUHKX`), but resolve a uuid too: links
+  // handed out before refs existed — and the board's own create-and-open, which
+  // navigates before the server has minted one — still name items that way.
+  const wanted = itemId?.toUpperCase();
+  const item =
+    items.find((i) => i.shortId && i.shortId.toUpperCase() === wanted) ??
+    items.find((i) => i.id === itemId);
+
+  // Once the ref is known, rewrite the address bar to it (replace, so Back still
+  // leaves the page). A uuid link keeps working; it just doesn't stay on screen.
+  const canonicalRef = item?.shortId;
+  useEffect(() => {
+    if (roadmap && canonicalRef && canonicalRef !== itemId) {
+      navigate(`/roadmaps/${roadmap.id}/items/${canonicalRef}`, { replace: true });
+    }
+  }, [roadmap?.id, canonicalRef, itemId]);
 
   // Progress slider keeps a local draft so it stays smooth while dragging; the
   // value is written back only on release. Synced when the item changes.
@@ -112,14 +128,19 @@ export function RoadmapItemDetailPage() {
   const descTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => void (descTimer.current && clearTimeout(descTimer.current)), []);
 
-  // Applying a backlog template seeds the editor's value and bumps `nonce` to
-  // remount it (the editor reads `value` only at mount, keyed) — so the template
-  // shows regardless of when the optimistic cache flushes. Clears on item change.
-  const [seed, setSeed] = useState<{ nonce: number; html: string | null }>({
-    nonce: 0,
-    html: null,
-  });
-  useEffect(() => setSeed({ nonce: 0, html: null }), [itemId]);
+  /** Persist a field patch: recompute RICE, re-derive the cover, PUT the array.
+   *  Declared above the loading guard so the template picker (a hook) can save
+   *  through it; it no-ops until the item resolves. */
+  const save = (patch: Partial<RoadmapItem>) => {
+    if (!roadmap || !item) return;
+    const next: RoadmapItem = { ...item, ...patch };
+    next.rice = Math.round(riceOf(next));
+    if (patch.description !== undefined) next.imageUrl = firstImageUrl(next.description);
+    replaceItems.mutate({ id: roadmap.id, items: items.map((i) => (i.id === item.id ? next : i)) });
+  };
+
+  // Backlog templates (User Story / JTBD) — the shared picker, same as a bug's.
+  const seed = useTemplateSeed(item?.description ?? '', (html) => save({ description: html }), itemId);
 
   if (isLoading) {
     return (
@@ -129,16 +150,19 @@ export function RoadmapItemDetailPage() {
     );
   }
   if (!roadmap || !item) {
+    // Same shell as the skeleton above — otherwise the card stretches edge to edge.
     return (
-      <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-        {t('roadmaps.itemNotFound')}{' '}
-        <Link
-          to={roadmap ? `/roadmaps/${roadmap.id}` : '/roadmaps'}
-          className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
-        >
-          {roadmap?.title ?? t('roadmaps.title')}
-        </Link>
-      </div>
+      <CenteredPageLayout>
+        <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
+          {t('roadmaps.itemNotFound')}{' '}
+          <Link
+            to={roadmap ? `/roadmaps/${roadmap.id}` : '/roadmaps'}
+            className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {roadmap?.title ?? t('roadmaps.title')}
+          </Link>
+        </div>
+      </CenteredPageLayout>
     );
   }
 
@@ -168,14 +192,6 @@ export function RoadmapItemDetailPage() {
         : t('board.ageDays').replace('{n}', String(daysBetween(from, to)))
       : '—';
 
-  /** Persist a field patch: recompute RICE, re-derive the cover, PUT the array. */
-  const save = (patch: Partial<RoadmapItem>) => {
-    const next: RoadmapItem = { ...item, ...patch };
-    next.rice = Math.round(riceOf(next));
-    if (patch.description !== undefined) next.imageUrl = firstImageUrl(next.description);
-    replaceItems.mutate({ id: roadmap.id, items: items.map((i) => (i.id === item.id ? next : i)) });
-  };
-
   const saveDescription = (html: string) => {
     if (descTimer.current) clearTimeout(descTimer.current);
     descTimer.current = setTimeout(() => {
@@ -195,18 +211,6 @@ export function RoadmapItemDetailPage() {
         });
       }
     }, 700);
-  };
-
-  // The description as the editor will render it (seed wins right after a
-  // template is applied), and whether it already holds anything worth guarding.
-  const effectiveDesc = seed.html ?? item.description;
-  const descHasContent =
-    /<(img|video)/i.test(effectiveDesc) || effectiveDesc.replace(/<[^>]*>/g, '').trim().length > 0;
-  const applyTemplate = (tpl: BacklogTemplate) => {
-    if (descHasContent && !confirm(t('roadmaps.templateReplaceConfirm'))) return;
-    const html = tpl.buildHtml();
-    setSeed((s) => ({ nonce: s.nonce + 1, html }));
-    save({ description: html });
   };
 
   const addAssignee = (id: string) => {
@@ -292,6 +296,12 @@ export function RoadmapItemDetailPage() {
       <DetailGrid>
         {/* ── Main column ─────────────────────────────────────────────────── */}
         <div className="min-w-0">
+          {/* The item's ref, above the title exactly as a task/bug shows its own. */}
+          {item.shortId && (
+            <span className="mb-1 block font-mono text-xs text-muted-foreground">
+              {item.shortId}
+            </span>
+          )}
           {canWrite ? (
             <input
               key={item.id}
@@ -314,16 +324,14 @@ export function RoadmapItemDetailPage() {
           <div className="mt-4">
             {canWrite ? (
               <>
-                {descHasContent ? (
-                  <div className="mb-2 flex justify-end">
-                    <BacklogTemplateMenu onApply={applyTemplate} />
-                  </div>
-                ) : (
-                  <BacklogTemplatePanel onApply={applyTemplate} />
-                )}
+                <DescriptionTemplates
+                  templates={BACKLOG_TEMPLATES}
+                  hasContent={seed.hasContent}
+                  onApply={seed.apply}
+                />
                 <RichTextEditor
                   key={`${item.id}:${seed.nonce}`}
-                  value={effectiveDesc}
+                  value={seed.value}
                   onChange={saveDescription}
                   placeholder={t('roadmaps.description')}
                   minHeight={80}
@@ -626,52 +634,5 @@ export function RoadmapItemDetailPage() {
         </PropSidebar>
       </DetailGrid>
     </CenteredPageLayout>
-  );
-}
-
-/** The empty-state prompt above the description: pick a proven structure to start
- *  from (User Story / INVEST, JTBD) instead of a blank page. */
-function BacklogTemplatePanel({ onApply }: { onApply: (tpl: BacklogTemplate) => void }) {
-  return (
-    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2">
-      <span className="mr-1 text-xs font-medium text-muted-foreground">
-        {t('roadmaps.startFromTemplate')}
-      </span>
-      {BACKLOG_TEMPLATES.map((tpl) => (
-        <button
-          key={tpl.id}
-          type="button"
-          onClick={() => onApply(tpl)}
-          title={t(tpl.hintKey)}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-accent"
-        >
-          <FileText className="size-3.5 text-primary" aria-hidden />
-          {t(tpl.labelKey)}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** Quiet templates menu shown once the description has content — applying
- *  confirms first (see `applyTemplate`), since it replaces what's there. */
-function BacklogTemplateMenu({ onApply }: { onApply: (tpl: BacklogTemplate) => void }) {
-  return (
-    <Menu
-      align="right"
-      triggerClassName="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-foreground"
-      trigger={
-        <>
-          <FileText className="size-3.5" aria-hidden />
-          {t('roadmaps.templates')}
-        </>
-      }
-      items={BACKLOG_TEMPLATES.map((tpl) => ({
-        label: t(tpl.labelKey),
-        icon: <FileText className="size-4" />,
-        closeOnSelect: true,
-        onClick: () => onApply(tpl),
-      }))}
-    />
   );
 }

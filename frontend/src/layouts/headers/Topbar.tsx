@@ -19,6 +19,11 @@ interface TopbarProps {
  * The leading crumb is the nav section this route sits under, and becomes a
  * link once you're deeper than the section's own page. Pages outside the nav
  * model (a bug, a team board) have no section, so their own crumb is the root.
+ *
+ * Only the root crumb (level 0) carries an icon. Everything after it is text and
+ * a chevron, so depth reads as one line instead of a row of competing symbols.
+ * When the route has a section that icon is the section's; when it doesn't, the
+ * page supplies its own through `PageHeader`'s `leading`.
  */
 export function Topbar({ onOpenMenu, crumbRef, crumbActionsRef, actionsRef }: TopbarProps) {
   const { pathname } = useLocation();
@@ -38,6 +43,7 @@ export function Topbar({ onOpenMenu, crumbRef, crumbActionsRef, actionsRef }: To
       </button>
 
       <nav className="flex min-w-0 flex-1 items-center gap-1.5" aria-label="Breadcrumb">
+        {/* Level 0's icon. Deeper crumbs get none — see `PageHeader`. */}
         {section && <Icon name={section.icon} size={16} className="shrink-0 text-muted-foreground" />}
         {section && !atSectionRoot && (
           <>

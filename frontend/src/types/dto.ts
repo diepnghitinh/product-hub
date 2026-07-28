@@ -356,6 +356,11 @@ export interface RoadmapColumn {
 
 export interface RoadmapItem {
   id: string;
+  /** Human-friendly ref used in the item's URL (`RM-6HCUHKX`). Minted
+   *  server-side; '' for items created before refs existed (and absent on a
+   *  draft item the board has not saved yet) — link with `shortId || id`, which
+   *  the detail page resolves either way. */
+  shortId?: string;
   title: string;
   description: string;
   /** The column ("pool") this item sits in — a `RoadmapColumn.key`. */

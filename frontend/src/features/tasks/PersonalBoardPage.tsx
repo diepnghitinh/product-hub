@@ -57,7 +57,6 @@ export function PersonalBoardPage() {
 
   return (
     <IssueBoardLayout
-      titleIcon={<Lock className="size-3.5" aria-hidden />}
       title={t('personal.title')}
       subtitle={t('personal.subtitle')}
       search={{ value: search, onChange: setSearch, placeholder: t('personal.search') }}

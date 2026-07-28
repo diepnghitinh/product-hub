@@ -17,6 +17,11 @@ export class RoadmapColumnDto {
 /** A roadmap item with its derived RICE score. */
 export class RoadmapItemDto {
   @ApiProperty() id: string;
+  @ApiProperty({
+    example: 'RM-6HCUHKX',
+    description: 'Human-friendly ref used in the item URL. Empty for legacy items.',
+  })
+  shortId: string;
   @ApiProperty() title: string;
   @ApiProperty() description: string;
   @ApiProperty() phase: string;

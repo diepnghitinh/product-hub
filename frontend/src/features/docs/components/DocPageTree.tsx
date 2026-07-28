@@ -108,17 +108,17 @@ export function DocPageTree({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="relative px-3 pb-2">
-        <Search
-          className="pointer-events-none absolute left-5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
+      <div className="px-3 pb-2">
+        {/* The icon rides inside <Input>, which centres it against the field
+         *  itself — positioned here it would centre against this padded wrapper
+         *  and sit low. */}
         <Input
+          icon={<Search aria-hidden />}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('docs.searchPages')}
           aria-label={t('docs.searchPages')}
-          className="h-8 pl-8 text-[13px]"
+          className="h-8 text-[13px]"
         />
       </div>
 

@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { FileText, MoreHorizontal, Share2, Tag, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
-  Badge,
   Button,
   Dialog,
   Field,
@@ -14,7 +13,7 @@ import {
   TagInput,
 } from '@/components/ui';
 import { CardGridSkeleton } from '@/components/Skeletons';
-import { FilterMenu, type FilterSelections } from '@/components/FilterMenu';
+import { DocTagChip } from './components/DocTagChip';
 import { ShareLinkDialog } from '@/components/ShareLinkDialog';
 import { TeamSymbol, TEAM_SYMBOL_NAMES } from '@/components/TeamSymbol';
 import { PageHeader } from '@/layouts/headers/PageHeader';
@@ -27,8 +26,6 @@ import { useCreateDoc, useDeleteDoc, useDocs, useSetDocSharing, useUpdateDoc } f
 
 const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]';
 
-/** The one filter category on this hub — `FilterSelections` is keyed by it. */
-const TAG_FILTER = 'tags';
 /** Tags are matched case-insensitively, so both sides go through this. */
 const tagKey = (tag: string) => tag.toLowerCase();
 
@@ -54,7 +51,8 @@ export function DocsHubPage() {
   const [color, setColor] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [sharing, setSharingDoc] = useState<DocDto | null>(null);
-  const [filters, setFilters] = useState<FilterSelections>({});
+  /** Lower-cased tag keys, not labels — see `tagKey`. */
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const docs = useMemo(() => data ?? [], [data]);
   // Re-read the shared doc from the list so the dialog's switch follows the
@@ -71,9 +69,15 @@ export function DocsHubPage() {
     return [...byKey.values()].sort((a, b) => a.localeCompare(b));
   }, [docs]);
 
+  const toggleTag = (tag: string) =>
+    setSelectedTags((current) =>
+      current.includes(tagKey(tag))
+        ? current.filter((k) => k !== tagKey(tag))
+        : [...current, tagKey(tag)],
+    );
+
   // Filtered here rather than on the server: the hub already holds every doc in
-  // one query, so a round-trip per checkbox would only be slower.
-  const selectedTags = filters[TAG_FILTER] ?? [];
+  // one query, so a round-trip per chip would only be slower.
   const visible = useMemo(() => {
     if (!selectedTags.length) return docs;
     const wanted = new Set(selectedTags);
@@ -131,26 +135,35 @@ export function DocsHubPage() {
         actions={canWrite ? <Button onClick={openCreate}>+ {t('docs.new')}</Button> : undefined}
       />
 
-      {/* Only what narrows the list, and only once there's something to narrow by. */}
+      {/*
+        Every tag in the workspace, laid out as chips rather than hidden behind a
+        dropdown: the list doubles as the hub's vocabulary, so you can see what's
+        here before deciding to narrow it. Wraps on a phone.
+      */}
       {allTags.length > 0 && (
-        <div className="mb-4 flex items-center gap-2">
-          <FilterMenu
-            categories={[
-              {
-                id: TAG_FILTER,
-                label: t('docs.tags'),
-                icon: <Tag className="size-4" />,
-                searchable: allTags.length > 8,
-                options: allTags.map((tag) => ({ id: tagKey(tag), label: tag })),
-              },
-            ]}
-            value={filters}
-            onChange={setFilters}
-          />
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          <Tag className="mr-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+          {allTags.map((tag) => (
+            <DocTagChip
+              key={tagKey(tag)}
+              tag={tag}
+              selected={selectedTags.includes(tagKey(tag))}
+              onClick={() => toggleTag(tag)}
+            />
+          ))}
           {selectedTags.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {visible.length} / {docs.length}
-            </span>
+            <>
+              <span className="ml-1 text-xs tabular-nums text-muted-foreground">
+                {visible.length} / {docs.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedTags([])}
+                className="rounded-md px-1.5 py-1 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              >
+                {t('filters.clearAll')}
+              </button>
+            </>
           )}
         </div>
       )}
@@ -214,9 +227,7 @@ export function DocsHubPage() {
                 {(doc.tags ?? []).length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {doc.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="font-normal">
-                        {tag}
-                      </Badge>
+                      <DocTagChip key={tag} tag={tag} />
                     ))}
                   </div>
                 )}

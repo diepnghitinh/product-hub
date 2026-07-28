@@ -44,7 +44,8 @@ export function TeamBoardPage() {
     );
   }
 
-  // The symbol identifies the board; it's changed from the nav, not here.
+  // /teams/:id isn't in the nav model, so this board's own crumb is the
+  // breadcrumb root — it carries the symbol. It's changed from the nav, not here.
   const icon = <TeamIconPicker team={team} readOnly size={22} className="text-muted-foreground" />;
 
   return team.issueType === TeamIssueType.BUG ? (
