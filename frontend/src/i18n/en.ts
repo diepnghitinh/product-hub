@@ -31,6 +31,15 @@ export const en = {
   'theme.light': 'Light',
   'theme.dark': 'Dark',
 
+  // Shown by UpdatePrompt when the service worker has a newly deployed build
+  // waiting. Reloading is the user's call — anything unsaved would be lost.
+  // Kept short on purpose: a toast carrying two buttons has ~180px for copy,
+  // and longer wording wrapped mid-phrase.
+  'update.title': 'New version available',
+  'update.description': 'Reload to update.',
+  'update.reload': 'Update now',
+  'update.later': 'Later',
+
   'navgroup.overview': 'Overview',
   'navgroup.discovery': 'Product Discovery',
   'navgroup.teams': 'Teams',
@@ -276,7 +285,6 @@ export const en = {
 
   'bugs.title': 'Bugs',
   'bugs.new': 'New bug',
-  'bugs.report': 'Report bug',
   'bugs.empty': 'No bugs reported. Nice.',
   'bugs.search': 'Search bugs…',
   'bugs.allSeverities': 'All severities',
@@ -298,6 +306,17 @@ export const en = {
   'bugs.dates': 'Dates',
   'bugs.setDates': 'Set dates',
   'bugs.noDates': 'No dates',
+  'bugs.activityAfterCreate': 'Comments and activity open up once you report this bug.',
+  // Bug-report templates — the shapes a bug actually arrives in. Same picker as
+  // the backlog item's (shared strings live under `templates.*`).
+  'bugs.templateReport': 'Bug report',
+  'bugs.templateReportHint': 'Steps to reproduce · expected vs actual · environment · impact',
+  'bugs.templateRegression': 'Regression',
+  'bugs.templateRegressionHint': 'Worked before, broken now — last known good + suspected change',
+  'bugs.templateCrash': 'Crash / Error',
+  'bugs.templateCrashHint': 'Error message, stack trace or log, frequency, impact',
+  'bugs.templateUiVisual': 'UI / Visual',
+  'bugs.templateUiVisualHint': 'What looks wrong, on which screen and size, vs the design',
 
   'activity.title': 'Activity',
   'activity.empty': 'No comments yet.',
@@ -320,6 +339,7 @@ export const en = {
   'inbox.tabMentions': 'Mentions',
   'inbox.tabAssigned': 'Assigned',
   'inbox.mentionedYou': 'mentioned you',
+  'inbox.mentionedYouDoc': 'mentioned you in a doc',
   'inbox.assignedYou': 'assigned you a bug',
   'inbox.selectPrompt': 'Select a notification to see its details.',
 
@@ -403,6 +423,8 @@ export const en = {
   'docs.share': 'Share doc',
   'docs.shareHint': 'Anyone with the link can read this doc and its pages.',
   'docs.readOnly': 'You have read-only access to docs.',
+  'docs.exportPdf': 'Export PDF',
+  'docs.exportingPdf': 'Preparing PDF…',
 
   // Page Styles — one page's typography and which parts of its header show.
   'docs.pageStyles': 'Page styles',
@@ -427,6 +449,23 @@ export const en = {
   'docs.showUpdated': 'Last modified',
   'docs.showLinks': 'Linked records',
   'docs.showAttachments': 'Attachments',
+  'docs.comments.title': 'Comments',
+  'docs.comments.add': 'Comment',
+  'docs.comments.open': 'Open',
+  'docs.comments.resolved': 'Resolved',
+  'docs.comments.empty': 'No open comments. Select any text to start one.',
+  'docs.comments.emptyResolved': 'Nothing resolved yet.',
+  'docs.comments.orphaned': 'The text this refers to is no longer on the page.',
+  'docs.comments.wholePage': 'On this page',
+  'docs.comments.openOnPage': 'Open comments',
+  'docs.comments.resolve': 'Resolve',
+  'docs.comments.reopen': 'Reopen',
+  'docs.comments.resolvedBy': 'Resolved by {name}',
+  'docs.comments.placeholder': 'Write a comment… use @ to mention someone',
+  'docs.comments.post': 'Comment',
+  'docs.comments.pageComment': 'Comment on the page',
+  'docs.comments.pagePlaceholder': 'A note about this page as a whole…',
+  'docs.comments.hint': 'Select any text on the page to comment on that passage.',
 
   'roadmaps.title': 'Roadmaps',
   'roadmaps.new': 'New roadmap',
@@ -507,10 +546,7 @@ export const en = {
   'roadmaps.done': 'Done',
   'roadmaps.description': 'Description',
   // Backlog-item templates — prefill the description with a proven structure.
-  'roadmaps.templates': 'Templates',
-  'roadmaps.startFromTemplate': 'Start from a template',
-  'roadmaps.templateReplaceConfirm':
-    'Replace the current description with this template? This can be undone with Undo.',
+  // (The picker's own strings are shared: see `templates.*` below.)
   'roadmaps.templateUserStory': 'User Story',
   'roadmaps.templateUserStoryHint': 'As a… I want… so that… + INVEST checklist',
   'roadmaps.templateJtbd': 'Jobs to be Done',
@@ -909,10 +945,19 @@ export const en = {
   // Cycles — a team's automatic sprint rhythm (start/end/repeat by themselves)
   'cycles.title': 'Cycles',
   'cycles.teamHint':
-    'An automatic sprint rhythm. Cycles start, end and repeat on schedule by themselves — nobody opens or closes a sprint — and unfinished work rolls into the next cycle.',
-  'cycles.enable': 'Automatic cycles',
+    'Time-boxed sprints. Run them on an automatic rhythm or plan each one yourself — either way a cycle ends by itself and unfinished work rolls into the next one.',
+  'cycles.enable': 'Cycles',
   'cycles.enableHint':
     'Enabling creates the current cycle and the next two. Disabling keeps past cycles readable but deletes the upcoming ones.',
+  'cycles.cadence': 'Cadence',
+  'cycles.cadenceHint': 'Who decides when a cycle starts and ends. Cycles always end by themselves.',
+  'cycles.cadenceAuto': 'Automatic rhythm',
+  'cycles.cadenceAutoHint': 'Cycles start, end and repeat on the schedule below — nobody plans them.',
+  'cycles.cadenceManual': 'Manual',
+  'cycles.cadenceManualHint':
+    'You plan each cycle yourself on the team’s Cycles page. The rhythm settings below stop applying.',
+  'cycles.manualNote':
+    'Cycles are planned by hand on this team’s Cycles page. Switching back to the automatic rhythm keeps everything already planned.',
   'cycles.length': 'Cycle length',
   'cycles.cooldown': 'Cooldown',
   'cycles.cooldownRowHint': 'A gap between cycles with no current cycle — a catch-up week.',
@@ -949,9 +994,24 @@ export const en = {
   'cycles.cooldownUntil': 'Cooldown until',
   'cycles.pts': 'pts',
   'cycles.issues': 'issues',
+  'cycles.gap': 'No cycle',
   'cycles.empty': 'No cycles yet.',
-  'cycles.emptyHint': 'Turn on automatic cycles in this team’s settings and the first cycle starts itself.',
+  'cycles.emptyHint': 'Turn on cycles in this team’s settings and the first cycle starts itself.',
+  'cycles.emptyManualHint':
+    'This team plans its own cycles. Create the first one and it starts on the date you give it.',
   'cycles.openSettings': 'Open team settings',
+  // Planning a cycle by hand (manual-cadence teams only)
+  'cycles.newCycle': 'New cycle',
+  'cycles.editCycle': 'Edit cycle',
+  'cycles.deleteCycle': 'Delete cycle',
+  'cycles.deleteConfirm':
+    'Delete {name}? Its issues drop back to no cycle, and any saved stats for it are lost. This cannot be undone.',
+  'cycles.deleted': 'Cycle deleted',
+  'cycles.name': 'Name',
+  'cycles.nameHint': 'Optional — leave it empty and the cycle is just numbered.',
+  'cycles.namePlaceholder': 'e.g. Checkout polish',
+  'cycles.dates': 'Runs',
+  'cycles.lengthDays': '{n} days',
   'cycles.viewBoard': 'View on board',
   'cycles.viewAll': 'All cycles',
   'cycles.prevCycle': 'Previous cycle',
@@ -1129,6 +1189,14 @@ export const en = {
   'personal.moveTasksTo': 'Move remaining tasks to',
   'personal.moveAndRemove': 'Move & remove',
 
+  // Description templates — the shared picker above a description editor
+  // (components/DescriptionTemplates). Each feature names its own templates;
+  // these three strings are the chrome around them.
+  'templates.title': 'Templates',
+  'templates.start': 'Start from a template',
+  'templates.replaceConfirm':
+    'Replace the current description with this template? This can be undone with Undo.',
+
   // Rich-text read view — off-domain link guard.
   'richText.externalTitle': 'Open external link?',
   'richText.externalBody': 'This link leads to a site outside this workspace. Open it in a new tab?',
@@ -1156,6 +1224,16 @@ export const en = {
   'editor.blockImage': 'Image',
   'editor.blockVideo': 'Video',
   'editor.blockDiagram': 'Diagram',
+  'editor.blockHeading1': 'Heading 1',
+  'editor.blockHeading2': 'Heading 2',
+  'editor.blockHeading3': 'Heading 3',
+  'editor.blockHeading4': 'Heading 4',
+  'editor.blockQuote': 'Quote',
+  'editor.blockToggle': 'Toggle list',
+  'editor.blockDivider': 'Divider',
+  'editor.quotePlaceholder': 'Quote',
+  'editor.togglePlaceholder': 'Toggle',
+  'editor.toggleBodyPlaceholder': 'Hidden until you open it',
   'editor.selectImage': 'Select an image',
   'editor.selectVideo': 'Select a video',
   'editor.uploading': 'Uploading…',
@@ -1169,9 +1247,17 @@ export const en = {
   'editor.diagramSource': 'Mermaid diagram source',
   'editor.diagramFailed': 'Could not draw this diagram',
   'editor.enterCode': 'Enter code',
-  // The `/` menu inside a table cell (lib/editor/CellSlashMenu).
+  'editor.strikethrough': 'Strikethrough',
+  'editor.tableFitWidth': 'Fit to width',
+  'editor.tableHeaderRow': 'Header row',
+  'editor.tableHeaderColumn': 'Header column',
+  // The `/` menu — in a block and in a table cell (lib/editor/SlashMenu).
+  'editor.slashText': 'Text',
   'editor.slashBullet': 'Bulleted list',
+  'editor.slashNumbered': 'Numbered list',
   'editor.slashChecklist': 'Checklist',
+  'editor.slashTable': 'Table',
+  'editor.slashCodeBlock': 'Code block',
   'editor.slashLink': 'Link',
   'editor.slashCode': 'Code',
   'editor.slashImage': 'Image',
@@ -1237,9 +1323,11 @@ export const en = {
 
   'enum.inboxKind.mention': 'Mention',
   'enum.inboxKind.assigned': 'Assigned',
+  'enum.inboxKind.docMention': 'Doc',
 
   'enum.favouriteKind.roadmapItem': 'Roadmap item',
   'enum.favouriteKind.issue': 'Issue',
+  'enum.favouriteKind.doc': 'Doc',
 
   'enum.relation.parentOf': 'Parent of',
   'enum.relation.subIssueOf': 'Sub-issue of',

@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Inbox as InboxIcon } from 'lucide-react';
 import { Badge, Button } from '@/components/ui';
 import { DetailSkeleton, ListSkeleton } from '@/components/Skeletons';
@@ -12,29 +12,43 @@ import { useInbox, useMarkInboxItemRead, useMarkInboxSeen } from './api';
 import type { InboxItemDto } from '@/types/dto';
 import { FullWidthPageLayout } from '@/layouts/shared';
 
+/** A doc mention leaves the inbox instead of filling its detail pane — `refId`
+ *  is already the path into the passage (`docId/pageId?comment=…`). */
+const isDocItem = (item: InboxItemDto) => item.kind === InboxKind.DOC_MENTION;
+
 /**
  * Two-pane inbox (Linear-style): a notification list on the left, the selected
- * item's detail in the main pane. Every inbox item references a bug, so the main
- * pane renders the shared <BugDetail>. Full-height; on mobile the list and the
- * detail swap (tap a row → detail, back arrow → list).
+ * item's detail in the main pane. Bug items render the shared <BugDetail> there;
+ * doc mentions navigate to the doc instead. Full-height; on mobile the list and
+ * the detail swap (tap a row → detail, back arrow → list).
  */
 export function InboxPage() {
   const { data, isLoading } = useInbox();
   const markSeen = useMarkInboxSeen();
   const markItemRead = useMarkInboxItemRead();
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const items = data?.items ?? [];
-  // `?item=` = an explicit tap (drives mobile). Desktop falls back to the first.
+  // `?item=` = an explicit tap (drives mobile). Desktop falls back to the first
+  // — the first bug, since only those have anything to show in the pane.
   const tapped = params.get('item');
-  const selected = items.find((i) => i.refId === tapped) ?? items[0];
+  const selected =
+    items.find((i) => i.refId === tapped && !isDocItem(i)) ?? items.find((i) => !isDocItem(i));
 
   // Open a notification: focus it in the detail pane and mark just this one read.
   function openItem(item: InboxItemDto) {
+    if (!item.seen) markItemRead.mutate(item.key);
+    if (isDocItem(item)) {
+      // `refId` is `<docId>/<pageId>?comment=<id>` — ids, because a notification
+      // only ever knows ids. The workspace resolves those and rewrites the
+      // address bar to the ref/slug form, so this stays as-is on purpose.
+      navigate(`/docs/${item.refId}`);
+      return;
+    }
     const next = new URLSearchParams(params);
     next.set('item', item.refId);
     setParams(next, { replace: true });
-    if (!item.seen) markItemRead.mutate(item.key);
   }
   function clearSelection() {
     const next = new URLSearchParams(params);
@@ -98,7 +112,7 @@ export function InboxPage() {
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="flex items-center gap-2">
                       <Badge
-                        variant={item.kind === InboxKind.MENTION ? 'info' : 'muted'}
+                        variant={item.kind === InboxKind.ASSIGNED_BUG ? 'muted' : 'info'}
                         className="shrink-0"
                       >
                         {INBOX_KIND_LABEL[item.kind]}
@@ -111,9 +125,11 @@ export function InboxPage() {
                     <span className="truncate text-sm font-medium">{item.title}</span>
                     <span className="truncate text-xs text-muted-foreground">
                       {item.actorName}{' '}
-                      {item.kind === InboxKind.MENTION
-                        ? t('inbox.mentionedYou')
-                        : t('inbox.assignedYou')}
+                      {item.kind === InboxKind.ASSIGNED_BUG
+                        ? t('inbox.assignedYou')
+                        : isDocItem(item)
+                          ? t('inbox.mentionedYouDoc')
+                          : t('inbox.mentionedYou')}
                     </span>
                   </span>
                 </button>

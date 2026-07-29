@@ -1,5 +1,14 @@
 import { useMemo, useState, type DragEvent } from 'react';
-import { ChevronRight, FileText, MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import {
+  ChevronRight,
+  FileText,
+  MessageSquare,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import { Button, Input, Menu, type MenuItem } from '@/components/ui';
 import { TeamSymbol } from '@/components/TeamSymbol';
 import { cn } from '@/lib/utils';
@@ -19,6 +28,9 @@ interface DocPageTreeProps {
   activeId: string | undefined;
   onSelect: (pageId: string) => void;
   canWrite: boolean;
+  /** Unresolved comment threads per page id — a page with a conversation open on
+   *  it says so, so a reply isn't only found by opening every page. */
+  openComments?: Record<string, number>;
   onAdd: (parentId: string) => void;
   /** Commits an inline rename. Only called with a title that actually changed. */
   onRename: (page: DocPageSummary, title: string) => void;
@@ -56,6 +68,7 @@ export function DocPageTree({
   activeId,
   onSelect,
   canWrite,
+  openComments,
   onAdd,
   onRename,
   onDelete,
@@ -108,17 +121,17 @@ export function DocPageTree({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="relative px-3 pb-2">
-        <Search
-          className="pointer-events-none absolute left-5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
+      <div className="px-3 pb-2">
+        {/* The icon rides inside <Input>, which centres it against the field
+         *  itself — positioned here it would centre against this padded wrapper
+         *  and sit low. */}
         <Input
+          icon={<Search aria-hidden />}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('docs.searchPages')}
           aria-label={t('docs.searchPages')}
-          className="h-8 pl-8 text-[13px]"
+          className="h-8 text-[13px]"
         />
       </div>
 
@@ -265,6 +278,18 @@ export function DocPageTree({
                           {page.title || t('docs.untitled')}
                         </span>
                       </button>
+                    )}
+
+                    {/* Open threads on this page. Sits outside the title button so
+                        it stays put while the title truncates around it. */}
+                    {(openComments?.[page.id] ?? 0) > 0 && !isEditing && (
+                      <span
+                        title={t('docs.comments.openOnPage')}
+                        className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary"
+                      >
+                        <MessageSquare className="size-2.5" aria-hidden />
+                        {openComments?.[page.id]}
+                      </span>
                     )}
 
                     {canWrite && !isEditing && (

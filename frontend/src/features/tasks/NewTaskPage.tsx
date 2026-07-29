@@ -74,8 +74,11 @@ export function NewTaskPage() {
   // Fall back to the first column so the Status select always shows a real value.
   const effectiveStatus = status ?? columns[0]?.key;
 
-  // Breadcrumb + leading icon, identical to the detail page: the task's team
-  // board when known, otherwise "My Tasks" with the current user's avatar.
+  // Breadcrumb: the task's team board when known, otherwise "My Tasks".
+  // /tasks/new isn't in the nav model, so this parent crumb is the breadcrumb
+  // root and takes level 0's icon — a skeleton while teams load (never a guessed
+  // icon), the team's own symbol once resolved, or the current user's avatar for
+  // a team-less draft, matching the sidebar's "Assigned to me" treatment.
   const { data: teams, isLoading: teamsLoading } = useTeams();
   const team = teams?.find((tm) => tm.id === teamId);
   const parent = team
@@ -88,7 +91,7 @@ export function NewTaskPage() {
       <TeamIconPicker team={team} readOnly size={16} className="shrink-0 text-muted-foreground" />
     </span>
   ) : user ? (
-    <span className="grid size-4 shrink-0 place-items-center rounded-full bg-primary text-[8px] font-semibold text-primary-foreground flex h-5 w-5 items-center justify-center rounded-sm">
+    <span className="grid size-5 shrink-0 place-items-center rounded-full bg-primary text-[8px] font-semibold text-primary-foreground">
       {initials(user.name, user.email)}
     </span>
   ) : (

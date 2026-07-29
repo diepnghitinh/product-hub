@@ -1,6 +1,7 @@
 import { Fragment, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Pencil, Settings2, Target } from 'lucide-react';
+import { Pencil, Plus, Settings2, Target, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Badge, Button, ProgressBar, Spinner } from '@/components/ui';
 import { ListSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
@@ -8,20 +9,25 @@ import { CenteredPageLayout } from '@/layouts/shared';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
-import { CycleStatus } from '@/types/enums';
+import { CycleMode, CycleStatus } from '@/types/enums';
 import type { CycleDto } from '@/types/dto';
 import { useTeams } from '@/features/teams/api';
 import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
-import { useCycles } from './api';
+import { useCreateCycle, useCycles, useDeleteCycle, useUpdateCycle, type CycleInput } from './api';
+import { CycleFormDialog } from './components/CycleFormDialog';
 import { CycleInsightsDrawer } from './CycleInsights';
-import { addDays, cycleStatusBadge, cycleTimeHint, dayDiff, shortDay } from './dates';
+import { addDays, cycleName, cycleStatusBadge, cycleTimeHint, dayDiff, shortDay } from './dates';
 
 /**
  * A team's cycle history and plan: one row per cycle, newest first, with the
- * cooldown gaps drawn between rows. There is deliberately nothing to create or
- * close here — cycles are automatic (the rhythm lives in team settings); a row
- * opens the team board filtered to that cycle, and its goal strip opens the
- * insights drawer, where the goal is written.
+ * cooldown gaps drawn between rows. A row opens the team board filtered to that
+ * cycle, and its goal strip opens the insights drawer, where the goal is written.
+ *
+ * Whether cycles can be created here depends on the team's cadence, which is set
+ * in team settings. On an **automatic** team there is deliberately nothing to
+ * create or close — the scheduler owns the calendar and would overwrite a
+ * hand-made cycle. On a **manual** team this page is the calendar: plan, rename,
+ * re-schedule and delete each cycle. Ending one stays automatic either way.
  */
 export function TeamCyclesPage() {
   const { teamId } = useParams<{ teamId: string }>();
@@ -29,10 +35,16 @@ export function TeamCyclesPage() {
   const { canManageDelivery } = useAuth();
   // The cycle whose insights drawer is open ('' = closed).
   const [insightsId, setInsightsId] = useState('');
+  // The form dialog: closed, open on a cycle (edit), or open on nothing (create).
+  const [form, setForm] = useState<{ open: boolean; cycle?: CycleDto }>({ open: false });
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Same resolution as TeamBoardPage: the route accepts an id or a team key.
   const team = (teams ?? []).find((x) => x.id === teamId || x.key === teamId);
   const { data: cycles, isLoading: cyclesLoading } = useCycles(team?.id);
+  const create = useCreateCycle();
+  const update = useUpdateCycle();
+  const remove = useDeleteCycle();
 
   if (teamsLoading) {
     return (
@@ -61,6 +73,40 @@ export function TeamCyclesPage() {
 
   const rows = cycles ?? [];
   const settingsTo = `/admin/settings?tab=team:${team.id}`;
+  // Planning by hand is offered only where it takes effect: a manual-cadence
+  // team, cycles on, and someone allowed to shape delivery. The API enforces the
+  // same rules — this just doesn't offer a button that would be rejected.
+  const canPlan =
+    canManageDelivery && team.cyclesEnabled && team.cycleMode === CycleMode.MANUAL;
+
+  /** One save path for both create and edit — the dialog can't tell which it is
+   *  from the outside, and a server rejection (an overlap) belongs in it. */
+  async function submitForm(values: CycleInput) {
+    setFormError(null);
+    try {
+      if (form.cycle) {
+        await update.mutateAsync({ teamId: team!.id, cycleId: form.cycle.id, ...values });
+      } else {
+        await create.mutateAsync({ teamId: team!.id, input: values });
+      }
+      setForm({ open: false });
+    } catch (err) {
+      // The dialog stays open holding the entered dates — the usual rejection is
+      // an overlap with another cycle, which is fixed by nudging them, not by
+      // starting over.
+      setFormError((err as Error).message);
+    }
+  }
+
+  async function deleteCycle(cycle: CycleDto) {
+    if (!confirm(t('cycles.deleteConfirm').replace('{name}', cycleName(cycle)))) return;
+    try {
+      await remove.mutateAsync({ teamId: team!.id, cycleId: cycle.id });
+      toast.success(t('cycles.deleted'));
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  }
 
   return (
     <IssueBoardLayout
@@ -69,12 +115,20 @@ export function TeamCyclesPage() {
       titleIcon={<TeamIconPicker team={team} readOnly size={22} className="text-muted-foreground" />}
       actions={
         canManageDelivery ? (
-          <Button asChild variant="ghost" size="sm">
-            <Link to={settingsTo}>
-              <Settings2 className="mr-1.5 size-4" />
-              {t('cycles.openSettings')}
-            </Link>
-          </Button>
+          <>
+            <Button asChild variant="ghost" size="sm">
+              <Link to={settingsTo}>
+                <Settings2 className="mr-1.5 size-4" />
+                {t('cycles.openSettings')}
+              </Link>
+            </Button>
+            {canPlan && (
+              <Button size="sm" onClick={() => setForm({ open: true })}>
+                <Plus className="mr-1.5 size-4" />
+                {t('cycles.newCycle')}
+              </Button>
+            )}
+          </>
         ) : undefined
       }
     >
@@ -88,11 +142,22 @@ export function TeamCyclesPage() {
         ) : rows.length === 0 ? (
           <div className="mx-auto max-w-md rounded-xl border border-dashed p-10 text-center">
             <p className="font-medium">{t('cycles.empty')}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{t('cycles.emptyHint')}</p>
-            {canManageDelivery && (
-              <Button asChild variant="outline" size="sm" className="mt-4">
-                <Link to={settingsTo}>{t('cycles.openSettings')}</Link>
+            {/* Two different dead-ends, two different ways out: a manual team has
+                nothing to plan yet, an automatic one hasn't been switched on. */}
+            <p className="mt-1 text-sm text-muted-foreground">
+              {canPlan ? t('cycles.emptyManualHint') : t('cycles.emptyHint')}
+            </p>
+            {canPlan ? (
+              <Button size="sm" className="mt-4" onClick={() => setForm({ open: true })}>
+                <Plus className="mr-1.5 size-4" />
+                {t('cycles.newCycle')}
               </Button>
+            ) : (
+              canManageDelivery && (
+                <Button asChild variant="outline" size="sm" className="mt-4">
+                  <Link to={settingsTo}>{t('cycles.openSettings')}</Link>
+                </Button>
+              )
             )}
           </div>
         ) : (
@@ -108,12 +173,16 @@ export function TeamCyclesPage() {
                     teamId={team.id}
                     canManageDelivery={canManageDelivery}
                     onOpenGoal={() => setInsightsId(c.id)}
+                    onEdit={canPlan ? () => setForm({ open: true, cycle: c }) : undefined}
+                    onDelete={canPlan ? () => deleteCycle(c) : undefined}
                   />
                   {gapDays > 0 && next && (
                     <div className="flex items-center gap-3 px-1 text-xs text-muted-foreground">
                       <span className="h-px flex-1 border-t border-dashed" />
-                      {t('cycles.cooldown')} · {shortDay(addDays(next.endDate, 1))} –{' '}
-                      {shortDay(addDays(c.startDate, -1))}
+                      {/* "Cooldown" is rhythm vocabulary — a gap a manual team
+                          left between two cycles it planned is just a gap. */}
+                      {canPlan ? t('cycles.gap') : t('cycles.cooldown')} ·{' '}
+                      {shortDay(addDays(next.endDate, 1))} – {shortDay(addDays(c.startDate, -1))}
                       <span className="h-px flex-1 border-t border-dashed" />
                     </div>
                   )}
@@ -134,6 +203,19 @@ export function TeamCyclesPage() {
         selectedId={insightsId}
         onSelect={setInsightsId}
       />
+
+      <CycleFormDialog
+        open={form.open}
+        onClose={() => {
+          setForm({ open: false });
+          setFormError(null);
+        }}
+        cycle={form.cycle}
+        cycles={rows}
+        submitting={create.isPending || update.isPending}
+        error={formError}
+        onSubmit={submitForm}
+      />
     </IssueBoardLayout>
   );
 }
@@ -144,17 +226,24 @@ export function TeamCyclesPage() {
  * insights drawer to edit it — the strip is a separate button so a click on the
  * goal never navigates away, and viewers who can't set one and have none to read
  * get no strip at all.
+ *
+ * `onEdit`/`onDelete` are absent on an automatic team (its calendar isn't the
+ * team's to change), so the row simply has no such controls there.
  */
 function CycleRow({
   cycle,
   teamId,
   canManageDelivery,
   onOpenGoal,
+  onEdit,
+  onDelete,
 }: {
   cycle: CycleDto;
   teamId: string;
   canManageDelivery: boolean;
   onOpenGoal: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   const navigate = useNavigate();
   const badge = cycleStatusBadge(cycle.status);
@@ -165,23 +254,26 @@ function CycleRow({
   // with no goal stays quiet rather than nagging down the whole history.
   const showGoal = !!goal || (canManageDelivery && cycle.status !== CycleStatus.COMPLETED);
 
+  const name = cycleName(cycle);
+  const actions = !!(onEdit || onDelete);
+
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-xl border bg-card transition-colors',
+        'group relative overflow-hidden rounded-xl border bg-card transition-colors',
         cycle.status === CycleStatus.ACTIVE && 'border-primary/50',
       )}
     >
       <button
         type="button"
         onClick={() => navigate(`/teams/${teamId}?cycle=${cycle.id}`)}
-        aria-label={`${t('cycles.cycle')} ${cycle.number} — ${t('cycles.viewBoard')}`}
+        aria-label={`${name} — ${t('cycles.viewBoard')}`}
         className="block w-full p-4 text-left transition-colors hover:bg-accent/40"
       >
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <span className="text-sm font-semibold">
-            {t('cycles.cycle')} {cycle.number}
-          </span>
+        {/* Room reserved on the right for the action cluster, which is a sibling
+            of this button (a button can't nest buttons) and so overlays it. */}
+        <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5', actions && 'pr-16')}>
+          <span className="text-sm font-semibold">{name}</span>
           <Badge variant={badge.variant}>{badge.label}</Badge>
           <span className="text-sm text-muted-foreground">
             {shortDay(cycle.startDate)} – {shortDay(cycle.endDate)}
@@ -204,6 +296,38 @@ function CycleRow({
           </span>
         </div>
       </button>
+      {actions && (
+        // Faint until the row is hovered or focused, so a long history reads as
+        // a list rather than a wall of icons — but never fully hidden, since a
+        // touch device has no hover to reveal them with.
+        <div className="absolute right-3 top-3 flex items-center rounded-md border bg-card opacity-60 shadow-sm transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+          {onEdit && (
+            <>
+              <button
+                type="button"
+                onClick={onEdit}
+                aria-label={t('cycles.editCycle')}
+                title={t('cycles.editCycle')}
+                className="grid size-7 place-items-center rounded-l-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <Pencil className="size-3.5" />
+              </button>
+              <span className="h-4 w-px bg-border" aria-hidden />
+            </>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label={t('cycles.deleteCycle')}
+              title={t('cycles.deleteCycle')}
+              className="grid size-7 place-items-center rounded-r-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          )}
+        </div>
+      )}
       {showGoal && (
         <button
           type="button"

@@ -29,3 +29,25 @@ export function pageFromSlug<T extends { id: string }>(
   if (!key) return null;
   return pages.find((p) => p.id.slice(0, KEY_LEN).toLowerCase() === key) ?? null;
 }
+
+/**
+ * A doc's handle in a URL: its ref (`DOC-6HCUHKX`) once it has one, its uuid
+ * until then. Docs written before refs existed keep addressing by id — the API
+ * resolves either — so this degrades quietly instead of producing a dead link.
+ */
+export function docKey(doc: { id: string; ref?: string }): string {
+  return doc.ref || doc.id;
+}
+
+/**
+ * The canonical detail URL — `/docs/DOC-6HCUHKX/getting-started-622436d1`.
+ * Both halves are readable and neither is a uuid, which is the whole point:
+ * these get pasted into chat and read aloud.
+ */
+export function docPath(
+  doc: { id: string; ref?: string },
+  page?: { id: string; title: string } | null,
+): string {
+  const base = `/docs/${docKey(doc)}`;
+  return page ? `${base}/${pageSlug(page)}` : base;
+}

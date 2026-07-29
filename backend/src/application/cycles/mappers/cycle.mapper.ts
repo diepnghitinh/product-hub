@@ -19,6 +19,7 @@ export class CycleMapper {
       tenantId: cycle.tenantId,
       teamId: cycle.teamId,
       number: cycle.number,
+      name: cycle.name,
       startDate: cycle.startDate,
       endDate: cycle.endDate,
       description: cycle.description,

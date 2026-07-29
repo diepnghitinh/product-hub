@@ -199,9 +199,10 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
 
   return (
     <IssueBoardLayout
-      // Team boards (titleIcon passed in) aren't in the nav model, so they bring
-      // their own icon. Standalone "Assigned to me" IS in the nav model — the
-      // topbar's section icon already covers it, so adding one here would double up.
+      // Only reaches the crumb on a team board, where /teams/:id has no nav
+      // section and this board is therefore the root crumb. Standalone
+      // "Assigned to me" sits under /issues, so the shell's section icon is
+      // level 0 and this is dropped.
       titleIcon={titleIcon}
       title={teamName ?? t('tasks.assignedToMe')}
       subtitle={teamName ? t('teams.issuesSubtitle') : t('tasks.mySubtitle')}

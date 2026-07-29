@@ -3,9 +3,9 @@
 //
 // It *subclasses* the stock tool rather than replacing it, because everything
 // else about that table (the add/delete row+column toolboxes, cell selection,
-// Tab navigation, the headings tune, paste) is worth keeping and is a lot of
-// behaviour to re-earn. All this adds is two handles and two extra fields on the
-// saved data.
+// Tab navigation, the header-row machinery, paste) is worth keeping and is a lot
+// of behaviour to re-earn. What this adds: two drag handles, a **header column**
+// to go with the stock header row, and three extra fields on the saved data.
 //
 // Sizes survive the HTML round-trip (`lib/editorjs.ts`) as the markup a table
 // already has for the job: `<colgroup><col style="width:%">` for columns and
@@ -23,7 +23,8 @@
 import Table from '@editorjs/table';
 import type { API, BlockAPI, SanitizerConfig } from '@editorjs/editorjs';
 import { t } from '@/i18n';
-import { CellSlashMenu, type CellSlashConfig } from './CellSlashMenu';
+import { SlashMenu, type SlashMenuConfig } from './SlashMenu';
+import { INLINE_SANITIZE } from './sanitize';
 
 /** Percent of the table width. Narrow enough to be useful, wide enough to grab. */
 const MIN_COL_PCT = 5;
@@ -36,7 +37,14 @@ const KEY_ROW_STEP = 8;
 const CHECK_HIT_PX = 22;
 
 export interface ResizableTableData {
+  /** First **row** is a header. The stock tool's own field — its name is fixed. */
   withHeadings: boolean;
+  /**
+   * First **column** is a header — the mirror image, which the stock tool has no
+   * idea about. Absent rather than `false` when off, so turning it on is the only
+   * thing that ever writes it into a document.
+   */
+  withHeadingsColumn?: boolean;
   stretched?: boolean;
   content: string[][];
   /**
@@ -59,7 +67,12 @@ interface TableInternals {
   deleteColumn(index: number): void;
   addRow(index?: number, setFocus?: boolean): HTMLElement;
   deleteRow(index: number): void;
+  /** Toggles `tc-table--heading` and the first row's placeholder attributes. */
+  setHeadingsSetting(withHeadings: boolean): void;
 }
+
+/** Marks the first column as a header — the column half of `tc-table--heading`. */
+const HEAD_COL_CLASS = 'rte-table--headcol';
 
 /** Scale widths so they sum to exactly 100 — every column stays proportional. */
 function normalize(widths: number[]): number[] {
@@ -70,6 +83,20 @@ function normalize(widths: number[]): number[] {
 
 /** Round for storage: one decimal is finer than any screen, and keeps HTML short. */
 const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** Arrows pushing out to two edges — "make this exactly as wide as the page". */
+const FIT_ICON =
+  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4v16"/><path d="M21 4v16"/><path d="M8 9 5 12l3 3"/><path d="m16 9 3 3-3 3"/><path d="M5 12h14"/></svg>';
+
+/**
+ * A little table with one band filled — the same drawing twice, rotated. The
+ * pair is what makes the two settings read as two halves of one idea rather
+ * than as unrelated switches.
+ */
+const HEAD_ROW_ICON =
+  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 4h16v5H4z" fill="currentColor"/><path d="M4 4h16v16H4z"/><path d="M4 9h16M4 14.5h16M12 9v11"/></svg>';
+const HEAD_COL_ICON =
+  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 4h5v16H4z" fill="currentColor"/><path d="M4 4h16v16H4z"/><path d="M9 4v16M14.5 4v16M9 12h11"/></svg>';
 
 export class ResizableTableTool extends Table {
   /**
@@ -85,34 +112,34 @@ export class ResizableTableTool extends Table {
       // Only `content` is listed: every other field of a table is a boolean or a
       // number, and the sanitizer walks strings only.
       content: {
-        br: true,
-        b: {},
-        strong: {},
-        i: {},
-        em: {},
-        u: {},
-        mark: {},
-        code: { class: true },
-        a: { href: true, target: true, rel: true },
+        // The inline markup every text block keeps…
+        ...INLINE_SANITIZE,
+        // …plus the three things the cell's `/` menu can insert that a
+        // paragraph can't: a list, a checklist item's tick, an image.
         ul: { class: true },
         ol: { class: true },
         li: { 'data-checked': true },
         img: { src: true, alt: true, width: true, height: true },
-        span: { class: true, 'data-user-id': true, 'data-date': true },
       },
     };
   }
 
   private colWidths: number[] | null = null;
   private rowHeights: number[] | null = null;
+  /**
+   * Held on the instance rather than in `this.data`, because the stock tool
+   * *replaces* `this.data` wholesale when a table is pasted in — anything of ours
+   * living in there would be dropped on the floor by that assignment.
+   */
+  private headingColumn = false;
   private overlay: HTMLElement | null = null;
   /** Set while a handle is being dragged, to suppress handle rebuilds mid-gesture. */
   private dragging = false;
-  private slash: CellSlashMenu | null = null;
+  private slash: SlashMenu | null = null;
 
   constructor(opts: {
     data?: Partial<ResizableTableData>;
-    config?: CellSlashConfig & { rows?: number; cols?: number; withHeadings?: boolean };
+    config?: SlashMenuConfig & { rows?: number; cols?: number; withHeadings?: boolean };
     api: API;
     readOnly?: boolean;
     block?: BlockAPI;
@@ -120,9 +147,10 @@ export class ResizableTableTool extends Table {
     super(opts as never);
     if (!opts.readOnly) {
       const { people, images } = opts.config ?? {};
-      this.slash = new CellSlashMenu({ people, images, onChange: () => this.changed() });
+      this.slash = new SlashMenu({ host: 'cell', people, images, onChange: () => this.changed() });
     }
-    const { colWidths, rowHeights } = opts.data ?? {};
+    const { colWidths, rowHeights, withHeadingsColumn } = opts.data ?? {};
+    this.headingColumn = !!withHeadingsColumn;
     // Only trust a full, sane set — a partial array would mis-size every column
     // after the gap.
     if (Array.isArray(colWidths) && colWidths.length > 1 && colWidths.every((w) => w > 0)) {
@@ -139,12 +167,104 @@ export class ResizableTableTool extends Table {
     // it again), so everything below re-attaches to the new DOM.
     this.applyColWidths();
     this.applyRowHeights();
+    this.applyHeadingColumn();
     if (!this.isReadOnly()) {
       this.patchStructuralMethods();
       this.syncHandles();
       this.wireCellTools();
     }
     return container;
+  }
+
+  /**
+   * The block's settings menu: **Header row**, **Header column**, **Fit to
+   * width**.
+   *
+   * Written from scratch instead of appending to the stock tool's list, for two
+   * reasons. The stock list spends *two* entries on one boolean ("With headings"
+   * and "Without headings", only one ever active), which would have become four
+   * entries once the column got the same treatment — a menu that lists every
+   * state instead of every choice. And its third entry, "Stretch", writes an
+   * Editor.js block tune that this app never stores: the document is saved as
+   * HTML (`lib/editorjs`), which has nowhere to put it, so stretching a table
+   * silently un-stretched itself on reload. Two honest toggles are better than
+   * four entries and a lie.
+   *
+   * **Fit to width**: a table can end up wider than the page in two ordinary
+   * ways — a column got dragged out, or there are simply more columns than the
+   * stock `minmax(10%, 1fr)` track list can fit. Either way the wrapper starts
+   * scrolling sideways and the table stops reading as part of the page. This puts
+   * it back: every column an equal share of exactly 100%. It writes real widths
+   * rather than clearing them, because that is also what makes the *stored* HTML
+   * fit — `lib/editorjs` only emits the `<colgroup>` and `table-layout: fixed`
+   * when there are widths to emit, so a read view and a public share page get the
+   * same table the author fitted.
+   */
+  renderSettings(): unknown[] {
+    return [
+      {
+        icon: HEAD_ROW_ICON,
+        label: t('editor.tableHeaderRow'),
+        toggle: true,
+        isActive: this.headingRow,
+        closeOnActivate: false,
+        onActivate: () => this.setHeadingRow(!this.headingRow),
+      },
+      {
+        icon: HEAD_COL_ICON,
+        label: t('editor.tableHeaderColumn'),
+        toggle: true,
+        isActive: this.headingColumn,
+        closeOnActivate: false,
+        onActivate: () => this.setHeadingColumn(!this.headingColumn),
+      },
+      {
+        icon: FIT_ICON,
+        label: t('editor.tableFitWidth'),
+        closeOnActivate: true,
+        onActivate: () => this.fitToWidth(),
+      },
+    ];
+  }
+
+  // ── Headers ────────────────────────────────────────────────────────────────
+
+  /** The stock tool's own flag, which only it may write. */
+  private get headingRow(): boolean {
+    return !!(this as unknown as { data?: ResizableTableData }).data?.withHeadings;
+  }
+
+  /**
+   * Delegated to the stock tool, which does more than add a class: it also puts
+   * the "Heading" placeholder attribute on the first row's cells (and takes it
+   * off again), so an empty header row still says what it is.
+   */
+  private setHeadingRow(on: boolean) {
+    const data = (this as unknown as { data?: ResizableTableData }).data;
+    if (data) data.withHeadings = on;
+    this.internals?.setHeadingsSetting?.(on);
+    this.changed();
+  }
+
+  private setHeadingColumn(on: boolean) {
+    this.headingColumn = on;
+    this.applyHeadingColumn();
+    this.changed();
+  }
+
+  /** One class on `.tc-table`, mirroring the stock `tc-table--heading`. */
+  private applyHeadingColumn() {
+    this.tableEl?.classList.toggle(HEAD_COL_CLASS, this.headingColumn);
+  }
+
+  /** Equal columns summing to 100% — the table is exactly as wide as the page. */
+  private fitToWidth() {
+    const n = this.columnCount();
+    if (n < 2) return;
+    this.colWidths = Array.from({ length: n }, () => 100 / n);
+    this.applyColWidths();
+    this.syncHandles();
+    this.changed();
   }
 
   /**
@@ -164,6 +284,7 @@ export class ResizableTableTool extends Table {
     const heights = this.collectRowHeights();
     return {
       ...saved,
+      ...(this.headingColumn ? { withHeadingsColumn: true } : {}),
       ...(this.colWidths ? { colWidths: this.colWidths.map(round1) } : {}),
       ...(heights.some((h) => h > 0) ? { rowHeights: heights } : {}),
     };

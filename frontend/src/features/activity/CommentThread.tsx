@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowUp } from 'lucide-react';
-import { Button, MentionTextarea, Spinner, Textarea } from '@/components/ui';
+import { Button, RichText, RichTextEditor, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
+import { htmlToPlainText, isRichHtml, mentionIdsFromHtml } from '@/lib/editorjs';
 import type { CommentDto } from '@/types/dto';
 import {
   useComments,
@@ -19,6 +20,8 @@ import { AttachMediaButton, AttachmentStrip, CommentMedia } from '@/features/act
 export interface Person {
   id: string;
   name: string;
+  /** Optional: lets the `@` menu match on address as well as name. */
+  email?: string;
 }
 
 /** Initial-in-a-circle avatar used across the activity timeline. */
@@ -143,9 +146,16 @@ function CommentThreadCard({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col">
-        <CommentItem source={source} comment={root} canEdit={canEdit(root)} />
+        <CommentItem source={source} comment={root} users={users} canEdit={canEdit(root)} />
         {replies.map((r) => (
-          <CommentItem key={r.id} source={source} comment={r} canEdit={canEdit(r)} isReply />
+          <CommentItem
+            key={r.id}
+            source={source}
+            comment={r}
+            users={users}
+            canEdit={canEdit(r)}
+            isReply
+          />
         ))}
       </div>
       {canWrite && (
@@ -155,12 +165,20 @@ function CommentThreadCard({
   );
 }
 
+/** People in the shape the editor's `@` menu wants them. */
+const asMentionable = (users: Person[]) =>
+  users.map((u) => ({ id: u.id, name: u.name, email: u.email ?? '' }));
+
 /**
- * The comment box: viewer's avatar, @-mention textarea, drag / paste / pick media.
+ * The comment box: viewer's avatar, the block editor in its short-form mode
+ * (formatting and `@` mentions, no headings or tables), drag / paste / pick media.
  * `root` is the standalone composer at the foot of the thread (posts a new
- * top-level comment); `reply` is the compact single-row composer that sits under a
- * thread's comments and posts a reply to that thread's `parentId`. Both are their
- * own bordered box; the comments they attach to are not.
+ * top-level comment); `reply` sits under a thread's comments and posts a reply to
+ * that thread's `parentId`. Both are their own bordered box; the comments they
+ * attach to are not.
+ *
+ * A reply's editor is only built once someone means to write in it — a long
+ * thread list would otherwise mount one Editor.js per thread on page load.
  */
 function CommentComposer({
   source,
@@ -176,41 +194,59 @@ function CommentComposer({
   const { user } = useAuth();
   const create = useCreateComment(source);
   const [body, setBody] = useState('');
-  const [mentionIds, setMentionIds] = useState<string[]>([]);
+  // Editor.js reads its value at mount and owns the content after that, so
+  // emptying the box after posting means handing it a new key.
+  const [nonce, setNonce] = useState(0);
   const media = useMediaAttachments();
   const isReply = variant === 'reply';
+  const [open, setOpen] = useState(!isReply);
+  const placeholder = isReply ? t('activity.reply') : t('activity.placeholder');
 
-  const canPost = (!!body.trim() || media.items.length > 0) && !media.busy;
+  // Attaching, dropping or pasting a file into the collapsed row means "I'm
+  // writing here" — without this the staged file has no send button to reach.
+  useEffect(() => {
+    if (media.items.length > 0) setOpen(true);
+  }, [media.items.length]);
+
+  // Formatting markup isn't content: an empty editor still emits `<p></p>`.
+  const canPost = (!!htmlToPlainText(body).trim() || media.items.length > 0) && !media.busy;
 
   function post() {
     if (!canPost) return;
     create.mutate(
-      { body: body.trim(), mentions: mentionIds, images: media.urls, ...(parentId ? { parentId } : {}) },
+      {
+        body: body.trim(),
+        // Read back off the chips in the text, so deleting a chip drops its mention.
+        mentions: mentionIdsFromHtml(body),
+        images: media.urls,
+        ...(parentId ? { parentId } : {}),
+      },
       {
         onSuccess: () => {
           setBody('');
-          setMentionIds([]);
+          setNonce((n) => n + 1);
           media.clear();
+          if (isReply) setOpen(false);
         },
       },
     );
   }
 
-  const textarea = (
-    <MentionTextarea
-      value={body}
+  const editor = (
+    <RichTextEditor
+      key={nonce}
+      value=""
       onChange={setBody}
-      onMentionsChange={setMentionIds}
-      options={users.map((u) => ({ id: u.id, name: u.name }))}
-      placeholder={isReply ? t('activity.reply') : t('activity.placeholder')}
-      aria-label={isReply ? t('activity.reply') : t('activity.placeholder')}
-      // A reply starts as a single line so the field is one row (24px) and sits
-      // centered against the avatar; the root composer stays multi-line.
-      rows={isReply ? 1 : undefined}
-      className={cn(
-        'resize-none border-0 bg-transparent p-0 text-base shadow-none focus-visible:ring-0',
-        isReply ? 'min-h-[24px]' : 'min-h-[64px]',
-      )}
+      placeholder={placeholder}
+      // Editor.js pads the bottom of the writing area by this much — a reply is
+      // one line until it isn't, so it gets none.
+      minHeight={isReply ? 0 : 24}
+      minimal
+      mentions
+      people={asMentionable(users)}
+      // The reply box was just opened by a click that meant "write here".
+      autoFocus={isReply}
+      className="rte-bare"
     />
   );
   const attachBtn = <AttachMediaButton onFiles={media.addFiles} disabled={media.busy} />;
@@ -227,29 +263,52 @@ function CommentComposer({
     </button>
   );
 
-  // Reply: a compact single-row bordered box under a thread's comments —
-  // avatar · field · attach · send, with attachments dropping to a strip under the field.
+  // Reply: a bordered box under a thread's comments — avatar · field · attach ·
+  // send. Closed it's one row that reads like a field; open it grows to the
+  // editor, with the actions dropping to their own row beneath it.
   if (isReply) {
     return (
       <div
         className={cn(
-          'rounded-xl border bg-card transition-colors focus-within:border-primary',
+          'rounded-xl border bg-card px-4 py-2.5 transition-colors focus-within:border-primary',
           media.dragging && 'border-primary ring-2 ring-primary/30',
         )}
         {...media.dropHandlers}
       >
-        <div className="flex items-center gap-3 px-4 py-2.5">
-          {user && <Avatar name={user.name} />}
-          <div className="min-w-0 flex-1">{textarea}</div>
-          {attachBtn}
-          {sendBtn}
+        <div className={cn('flex gap-3', open ? 'items-start' : 'items-center')}>
+          {user && <Avatar name={user.name} className={open ? 'mt-0.5' : undefined} />}
+          <div className="min-w-0 flex-1">
+            {open ? (
+              editor
+            ) : (
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="w-full py-0.5 text-left text-base text-muted-foreground"
+              >
+                {placeholder}
+              </button>
+            )}
+          </div>
+          {!open && attachBtn}
         </div>
         <AttachmentStrip
           items={media.items}
           busy={media.busy}
           onRemove={media.remove}
-          className="pb-2.5 pl-[3.25rem] pr-4"
+          className="mt-2 pl-9"
         />
+        {open && (
+          <div className="mt-1 flex items-center justify-end gap-1">
+            {media.dragging && (
+              <span className="mr-auto truncate text-xs text-muted-foreground">
+                {t('activity.dropHint')}
+              </span>
+            )}
+            {attachBtn}
+            {sendBtn}
+          </div>
+        )}
       </div>
     );
   }
@@ -264,7 +323,7 @@ function CommentComposer({
       )}
       {...media.dropHandlers}
     >
-      {textarea}
+      {editor}
       <AttachmentStrip items={media.items} busy={media.busy} onRemove={media.remove} className="mt-2" />
       <div className="mt-1 flex items-center justify-end gap-1">
         {media.dragging && (
@@ -277,6 +336,22 @@ function CommentComposer({
   );
 }
 
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * A stored body as the editor wants it. Comments were plain text long before they
+ * had an editor, so an old one is escaped and split a paragraph per line — feeding
+ * it through as-is would swallow its line breaks and read `<` as markup.
+ */
+export function toEditorValue(body: string): string {
+  if (isRichHtml(body)) return body;
+  return body
+    .split('\n')
+    .map((line) => (line ? `<p>${escapeHtml(line)}</p>` : '<p></p>'))
+    .join('');
+}
+
 /**
  * One comment inside a thread card — avatar, inline edit / delete, and any media.
  * The surrounding card owns the border; a reply gets a top divider and is
@@ -285,27 +360,36 @@ function CommentComposer({
 function CommentItem({
   source,
   comment,
+  users,
   canEdit,
   isReply,
 }: {
   source: CommentSource;
   comment: CommentDto;
+  users: Person[];
   canEdit: boolean;
   isReply?: boolean;
 }) {
+  // Both the draft and the editor start from the same value, so "unchanged"
+  // compares like with like even for a comment that was stored as plain text.
+  const editorValue = toEditorValue(comment.body);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(comment.body);
+  const [draft, setDraft] = useState(editorValue);
   const update = useUpdateComment(source);
   const remove = useDeleteComment(source);
   const edited = comment.updatedAt && comment.updatedAt !== comment.createdAt;
 
   function saveEdit() {
     const body = draft.trim();
-    if (!body || body === comment.body) {
+    // Nothing typed, or nothing changed — close rather than write an empty comment.
+    if (!htmlToPlainText(body).trim() || body === editorValue.trim()) {
       setEditing(false);
       return;
     }
-    update.mutate({ commentId: comment.id, input: { body } }, { onSuccess: () => setEditing(false) });
+    update.mutate(
+      { commentId: comment.id, input: { body, mentions: mentionIdsFromHtml(body) } },
+      { onSuccess: () => setEditing(false) },
+    );
   }
 
   return (
@@ -323,7 +407,7 @@ function CommentItem({
               type="button"
               className="text-xs text-muted-foreground hover:text-foreground"
               onClick={() => {
-                setDraft(comment.body);
+                setDraft(editorValue);
                 setEditing(true);
               }}
             >
@@ -344,7 +428,18 @@ function CommentItem({
       <div className={cn(isReply && 'pl-9')}>
         {editing ? (
           <div className="flex flex-col gap-2">
-            <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus />
+            <div className="rounded-xl border bg-card px-4 py-3 transition-colors focus-within:border-primary">
+              <RichTextEditor
+                value={editorValue}
+                onChange={setDraft}
+                minHeight={44}
+                minimal
+                mentions
+                people={asMentionable(users)}
+                autoFocus
+                className="rte-bare"
+              />
+            </div>
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
                 {t('common.cancel')}
@@ -356,7 +451,21 @@ function CommentItem({
           </div>
         ) : (
           <>
-            <p className="whitespace-pre-wrap text-base text-foreground">{comment.body}</p>
+            {/* A long comment scrolls in place instead of pushing the rest of the
+                thread off the screen. The cap is generous, so an ordinary comment
+                never scrolls — and `overflow-y-auto` makes the other axis auto
+                too, so a wide table or an unbroken URL scrolls rather than
+                bleeding out of the column. Media stays outside: its thumbnails
+                are already capped and wrap on their own. */}
+            <div className="max-h-96 overflow-y-auto">
+              {/* Comments written before the editor existed are plain text, and
+                  would lose their line breaks rendered as markup. */}
+              {isRichHtml(comment.body) ? (
+                <RichText className="text-base text-foreground" html={comment.body} />
+              ) : (
+                <p className="whitespace-pre-wrap text-base text-foreground">{comment.body}</p>
+              )}
+            </div>
             <CommentMedia urls={comment.images} />
           </>
         )}

@@ -11,7 +11,6 @@ import {
 import type { ReportDto, ReportSection, TestCaseData, TestingSection } from '@/types/dto';
 import { useUsers } from '@/features/users/api';
 import { useBugs } from '@/features/bugs/api';
-import { CreateBugDialog } from '@/features/bugs/components/CreateBugDialog';
 import { ReportSectionBlock } from './components/ReportSections';
 import { OwnerSelect } from './components/OwnerSelect';
 import { ImportTestCasesDialog } from './components/ImportTestCasesDialog';
@@ -75,19 +74,26 @@ export function ReportView() {
   const navigate = useNavigate();
 
   // Bug ↔ test-case linking: count linked bugs per case for this report.
-  const [bugForCase, setBugForCase] = useState<{ caseId: string; caseLabel: string } | null>(null);
   const { data: bugData } = useBugs(effectiveId ? { reportId: effectiveId } : undefined);
   const bugCountByCase = useMemo(() => {
     const map: Record<string, number> = {};
     for (const b of bugData?.items ?? []) if (b.caseId) map[b.caseId] = (map[b.caseId] ?? 0) + 1;
     return map;
   }, [bugData]);
-  const openBugsForCase = ({ caseId, caseLabel }: { caseId: string; caseLabel: string }) => {
+  /** The case's link, in the shape both bug routes read it. */
+  const caseParams = ({ caseId, caseLabel }: { caseId: string; caseLabel: string }) => {
     const params = new URLSearchParams({ caseId, case: caseLabel });
     if (projectId) params.set('projectId', projectId);
     if (effectiveId) params.set('reportId', effectiveId);
-    navigate(`/bugs?${params.toString()}`);
+    return params.toString();
   };
+  const openBugsForCase = (c: { caseId: string; caseLabel: string }) =>
+    navigate(`/bugs?${caseParams(c)}`);
+  // Reporting a bug on a case is a page now, not a modal — the case rides along,
+  // so the draft opens already linked. Creating replaces the draft in history,
+  // so Back from the new bug lands on this report again.
+  const createBugForCase = (c: { caseId: string; caseLabel: string }) =>
+    navigate(`/bugs/new?${caseParams(c)}`);
 
   const sections = report?.sections ?? [];
 
@@ -309,7 +315,7 @@ export function ReportView() {
                 onMoveCase={moveCase}
                 onImport={() => setImportOpen(true)}
                 bugCountByCase={bugCountByCase}
-                onCreateBug={(opts) => setBugForCase(opts)}
+                onCreateBug={createBugForCase}
                 onOpenBugs={openBugsForCase}
                 onChange={(updated) => updateAt(i, updated)}
                 onDelete={() => {
@@ -339,17 +345,6 @@ export function ReportView() {
           onClose={() => setImportOpen(false)}
           projectId={projectId}
           reportId={report.id}
-        />
-      )}
-
-      {bugForCase && (
-        <CreateBugDialog
-          open
-          onClose={() => setBugForCase(null)}
-          defaultProjectId={projectId}
-          defaultCaseId={bugForCase.caseId}
-          defaultCaseLabel={bugForCase.caseLabel}
-          defaultReportId={report.id}
         />
       )}
     </>

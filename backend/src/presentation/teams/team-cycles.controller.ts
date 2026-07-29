@@ -1,4 +1,13 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser, Roles } from '@core/decorators';
 import { JwtPayload, Role } from '@core/interfaces';
@@ -8,12 +17,15 @@ import { TeamResponseDto } from '@application/teams/dtos/team.dtos';
 import { TeamMapper } from '@application/teams/mappers/team.mapper';
 import {
   CYCLE_NOT_FOUND,
+  CreateCycleUseCase,
+  DeleteCycleUseCase,
   GetCycleBurndownUseCase,
   GetTeamCyclesUseCase,
   UpdateCycleUseCase,
   UpdateTeamCycleConfigUseCase,
 } from '@application/cycles/use-cases/cycle.use-cases';
 import {
+  CreateCycleDto,
   CycleBurndownResponseDto,
   CycleResponseDto,
   UpdateCycleDto,
@@ -28,7 +40,9 @@ export class TeamCyclesController {
   constructor(
     private readonly getCycles: GetTeamCyclesUseCase,
     private readonly getBurndown: GetCycleBurndownUseCase,
+    private readonly createCycle: CreateCycleUseCase,
     private readonly updateCycle: UpdateCycleUseCase,
+    private readonly deleteCycle: DeleteCycleUseCase,
     private readonly updateConfig: UpdateTeamCycleConfigUseCase,
   ) {}
 
@@ -59,9 +73,30 @@ export class TeamCyclesController {
     return result.getValue();
   }
 
+  @Post(':teamId/cycles')
+  @Roles(Role.ADMIN, Role.PRODUCT)
+  @ApiOperation({
+    summary: 'Plan a cycle by hand (manual-cadence teams only; dates may not overlap another cycle)',
+  })
+  async create(
+    @AuthUser() auth: JwtPayload,
+    @Param('teamId') teamId: string,
+    @Body() dto: CreateCycleDto,
+  ): Promise<CycleResponseDto> {
+    const result = await this.createCycle.execute({ tenantId: auth.tenantId, teamId, dto });
+    if (result.isFailure) {
+      const msg = result.error as string;
+      if (msg === TEAM_NOT_FOUND) throw new EntityNotFoundException(msg);
+      throw new BadRequestException(msg);
+    }
+    return result.getValue();
+  }
+
   @Patch(':teamId/cycles/:cycleId')
   @Roles(Role.ADMIN, Role.PRODUCT)
-  @ApiOperation({ summary: "Set (or clear) a cycle's goal / notes (the sprint goal)" })
+  @ApiOperation({
+    summary: "Set a cycle's goal / notes; rename and re-schedule it on a manual-cadence team",
+  })
   async update(
     @AuthUser() auth: JwtPayload,
     @Param('teamId') teamId: string,
@@ -75,6 +110,25 @@ export class TeamCyclesController {
       throw new BadRequestException(msg);
     }
     return result.getValue();
+  }
+
+  @Delete(':teamId/cycles/:cycleId')
+  @Roles(Role.ADMIN, Role.PRODUCT)
+  @ApiOperation({
+    summary: 'Delete a hand-planned cycle (manual-cadence teams only); its issues drop to no-cycle',
+  })
+  async remove(
+    @AuthUser() auth: JwtPayload,
+    @Param('teamId') teamId: string,
+    @Param('cycleId') cycleId: string,
+  ): Promise<{ ok: true }> {
+    const result = await this.deleteCycle.execute({ tenantId: auth.tenantId, teamId, cycleId });
+    if (result.isFailure) {
+      const msg = result.error as string;
+      if (msg === TEAM_NOT_FOUND || msg === CYCLE_NOT_FOUND) throw new EntityNotFoundException(msg);
+      throw new BadRequestException(msg);
+    }
+    return { ok: true };
   }
 
   @Patch(':teamId/cycle-config')

@@ -14,6 +14,17 @@ import { addDays, daysBetween, startDayOnOrBefore, todayISO } from '../domain/cy
 import { ICycleRepository } from '../repositories/cycle.repository';
 
 /**
+ * The soonest cycle that hasn't finished yet, by start date. Number order is the
+ * same thing on an auto team, but a manual team numbers cycles in the order they
+ * were *created*, which need not be the order they run in.
+ */
+function soonestOpen(cycles: CycleEntity[], today: string): CycleEntity | undefined {
+  return cycles
+    .filter((c) => c.statusOn(today) !== CycleStatus.COMPLETED)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+}
+
+/**
  * The "auto" in auto-sprints. There is no cron: every read that touches cycles
  * runs {@link ensureCyclesCurrent} first, so the first look after a boundary is
  * what advances the clock. It is idempotent and cheap when nothing is due (one
@@ -33,6 +44,12 @@ export class CycleSchedulerService {
    * and 2 upcoming ones exist, then process any past-due boundary — freeze its
    * stats and move unfinished issues to the next cycle (rollover on) or back to
    * no-cycle (off). No-op when the team doesn't use cycles.
+   *
+   * A **manual** team skips generation only. Its boundaries are still processed
+   * here: closing is bookkeeping the team shouldn't have to do by hand, and
+   * skipping it would leave every past manual cycle reading "100% done" off live
+   * rollups. With no next cycle to roll into, unfinished work falls back to
+   * no-cycle — the same thing `cycleAutoRollover: false` already does.
    */
   async ensureCyclesCurrent(team: TeamEntity, today: string = todayISO()): Promise<CycleEntity[]> {
     if (!team.cyclesEnabled) {
@@ -42,7 +59,7 @@ export class CycleSchedulerService {
     const teamId = team.id.toString();
 
     let all = await this.cycles.findByTeam(tenantId, teamId);
-    const generated = await this.generate(team, all, today);
+    const generated = team.cyclesManual ? false : await this.generate(team, all, today);
     if (generated) all = await this.cycles.findByTeam(tenantId, teamId);
 
     const processed = await this.processDueBoundaries(team, all, today);
@@ -155,9 +172,10 @@ export class CycleSchedulerService {
       }
     }
 
-    const target = team.cycleAutoRollover
-      ? all.find((c) => c.statusOn(today) !== CycleStatus.COMPLETED)
-      : undefined;
+    // "The next cycle" is the soonest one still to come, by date. On an auto
+    // team that's also the lowest number; a manual team can create cycle 5 for
+    // a window before cycle 4's, so number order can't be trusted here.
+    const target = team.cycleAutoRollover ? soonestOpen(all, today) : undefined;
     const moved = await this.issues.moveUnfinishedIssues(
       team.tenantId,
       completedIds,
@@ -182,7 +200,13 @@ export class CycleSchedulerService {
       const active = all.find((c) => c.statusOn(today) === CycleStatus.ACTIVE);
       return active ? active.id.toString() : CYCLE_FILTER_NO_MATCH;
     }
-    const next = all.find((c) => c.statusOn(today) === CycleStatus.UPCOMING);
+    // Soonest by date, not lowest number — see `soonestOpen`. (An active cycle
+    // sorts before every upcoming one, so filtering to UPCOMING first is what
+    // keeps this "the next one", not "the current one".)
+    const next = soonestOpen(
+      all.filter((c) => c.statusOn(today) === CycleStatus.UPCOMING),
+      today,
+    );
     return next ? next.id.toString() : CYCLE_FILTER_NO_MATCH;
   }
 }

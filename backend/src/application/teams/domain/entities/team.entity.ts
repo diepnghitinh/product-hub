@@ -8,6 +8,8 @@ import {
   fieldTypeHasOptions,
 } from '../enums/custom-field.enums';
 import {
+  CYCLE_MODES,
+  CycleMode,
   DEFAULT_TEAM_KEYS,
   TeamIssueType,
   TeamStatusConfig,
@@ -38,6 +40,7 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
       labels?: TaskLabelConfig[];
       customFields?: CustomFieldConfig[];
       cyclesEnabled?: boolean;
+      cycleMode?: CycleMode;
       cycleLengthWeeks?: number;
       cycleCooldownWeeks?: number;
       cycleStartDay?: number;
@@ -84,6 +87,9 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
           // Cycles are opt-in; the rhythm defaults (2 weeks, no cooldown, Monday,
           // rollover on) apply the moment a team enables them.
           cyclesEnabled: props.cyclesEnabled ?? false,
+          // Teams created before manual mode existed had a rhythm and nothing
+          // else, so absent reads as AUTO — no migration needed.
+          cycleMode: props.cycleMode ?? CycleMode.AUTO,
           cycleLengthWeeks: props.cycleLengthWeeks ?? 2,
           cycleCooldownWeeks: props.cycleCooldownWeeks ?? 0,
           cycleStartDay: props.cycleStartDay ?? 1,
@@ -147,6 +153,13 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
   }
   get cyclesEnabled(): boolean {
     return this.props.cyclesEnabled;
+  }
+  get cycleMode(): CycleMode {
+    return this.props.cycleMode;
+  }
+  /** Cycles are run by hand: the scheduler generates nothing for this team. */
+  get cyclesManual(): boolean {
+    return this.props.cycleMode === CycleMode.MANUAL;
   }
   get cycleLengthWeeks(): number {
     return this.props.cycleLengthWeeks;
@@ -286,12 +299,16 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
    *  scheduler consequences (seeding, deleting upcoming) live in the use-case. */
   setCycleConfig(cfg: {
     cyclesEnabled?: boolean;
+    cycleMode?: CycleMode;
     cycleLengthWeeks?: number;
     cycleCooldownWeeks?: number;
     cycleStartDay?: number;
     cycleStartDate?: string | null;
     cycleAutoRollover?: boolean;
   }): Result<void> {
+    if (cfg.cycleMode !== undefined && !CYCLE_MODES.includes(cfg.cycleMode)) {
+      return Result.fail('Cycle mode must be "auto" or "manual"');
+    }
     if (cfg.cycleLengthWeeks !== undefined && (cfg.cycleLengthWeeks < 1 || cfg.cycleLengthWeeks > 4)) {
       return Result.fail('Cycle length must be 1–4 weeks');
     }
@@ -313,6 +330,7 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
     }
 
     if (cfg.cyclesEnabled !== undefined) this.props.cyclesEnabled = cfg.cyclesEnabled;
+    if (cfg.cycleMode !== undefined) this.props.cycleMode = cfg.cycleMode;
     if (cfg.cycleLengthWeeks !== undefined) this.props.cycleLengthWeeks = cfg.cycleLengthWeeks;
     if (cfg.cycleCooldownWeeks !== undefined) this.props.cycleCooldownWeeks = cfg.cycleCooldownWeeks;
     if (cfg.cycleStartDay !== undefined) this.props.cycleStartDay = cfg.cycleStartDay;

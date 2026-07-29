@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { FileText, MoreHorizontal, Share2, Tag, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
-  Badge,
   Button,
   Dialog,
   Field,
@@ -14,21 +13,23 @@ import {
   TagInput,
 } from '@/components/ui';
 import { CardGridSkeleton } from '@/components/Skeletons';
-import { FilterMenu, type FilterSelections } from '@/components/FilterMenu';
+import { DocTagChip } from './components/DocTagChip';
 import { ShareLinkDialog } from '@/components/ShareLinkDialog';
 import { TeamSymbol, TEAM_SYMBOL_NAMES } from '@/components/TeamSymbol';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { CenteredPageLayout } from '@/layouts/shared';
+import { FavouriteButton } from '@/features/favourites/FavouriteButton';
+import { isFavourited, useFavourites } from '@/features/favourites/api';
 import { timeAgo } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
-import { TEAM_COLORS } from '@/types/enums';
+import { FavouriteKind, TEAM_COLORS } from '@/types/enums';
 import type { DocDto } from '@/types/dto';
 import { useCreateDoc, useDeleteDoc, useDocs, useSetDocSharing, useUpdateDoc } from './api';
+import { docPath } from './slug';
 
 const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]';
 
-/** The one filter category on this hub — `FilterSelections` is keyed by it. */
-const TAG_FILTER = 'tags';
 /** Tags are matched case-insensitively, so both sides go through this. */
 const tagKey = (tag: string) => tag.toLowerCase();
 
@@ -41,6 +42,9 @@ export function DocsHubPage() {
   const navigate = useNavigate();
   const { canWrite, canManageDelivery } = useAuth();
   const { data, isLoading } = useDocs();
+  // Shared cache with the sidebar — read here only to decide which stars stay
+  // visible without a hover.
+  const { data: favourites } = useFavourites();
   const create = useCreateDoc();
   const update = useUpdateDoc();
   const remove = useDeleteDoc();
@@ -54,7 +58,8 @@ export function DocsHubPage() {
   const [color, setColor] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [sharing, setSharingDoc] = useState<DocDto | null>(null);
-  const [filters, setFilters] = useState<FilterSelections>({});
+  /** Lower-cased tag keys, not labels — see `tagKey`. */
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const docs = useMemo(() => data ?? [], [data]);
   // Re-read the shared doc from the list so the dialog's switch follows the
@@ -71,9 +76,15 @@ export function DocsHubPage() {
     return [...byKey.values()].sort((a, b) => a.localeCompare(b));
   }, [docs]);
 
+  const toggleTag = (tag: string) =>
+    setSelectedTags((current) =>
+      current.includes(tagKey(tag))
+        ? current.filter((k) => k !== tagKey(tag))
+        : [...current, tagKey(tag)],
+    );
+
   // Filtered here rather than on the server: the hub already holds every doc in
-  // one query, so a round-trip per checkbox would only be slower.
-  const selectedTags = filters[TAG_FILTER] ?? [];
+  // one query, so a round-trip per chip would only be slower.
   const visible = useMemo(() => {
     if (!selectedTags.length) return docs;
     const wanted = new Set(selectedTags);
@@ -115,7 +126,7 @@ export function DocsHubPage() {
           onSuccess: (doc) => {
             setOpen(false);
             // A new doc is created with its first page — go straight to writing.
-            navigate(`/docs/${doc.id}`);
+            navigate(docPath(doc));
           },
         },
       );
@@ -131,26 +142,35 @@ export function DocsHubPage() {
         actions={canWrite ? <Button onClick={openCreate}>+ {t('docs.new')}</Button> : undefined}
       />
 
-      {/* Only what narrows the list, and only once there's something to narrow by. */}
+      {/*
+        Every tag in the workspace, laid out as chips rather than hidden behind a
+        dropdown: the list doubles as the hub's vocabulary, so you can see what's
+        here before deciding to narrow it. Wraps on a phone.
+      */}
       {allTags.length > 0 && (
-        <div className="mb-4 flex items-center gap-2">
-          <FilterMenu
-            categories={[
-              {
-                id: TAG_FILTER,
-                label: t('docs.tags'),
-                icon: <Tag className="size-4" />,
-                searchable: allTags.length > 8,
-                options: allTags.map((tag) => ({ id: tagKey(tag), label: tag })),
-              },
-            ]}
-            value={filters}
-            onChange={setFilters}
-          />
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          <Tag className="mr-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+          {allTags.map((tag) => (
+            <DocTagChip
+              key={tagKey(tag)}
+              tag={tag}
+              selected={selectedTags.includes(tagKey(tag))}
+              onClick={() => toggleTag(tag)}
+            />
+          ))}
           {selectedTags.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {visible.length} / {docs.length}
-            </span>
+            <>
+              <span className="ml-1 text-xs tabular-nums text-muted-foreground">
+                {visible.length} / {docs.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedTags([])}
+                className="rounded-md px-1.5 py-1 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              >
+                {t('filters.clearAll')}
+              </button>
+            </>
           )}
         </div>
       )}
@@ -198,9 +218,11 @@ export function DocsHubPage() {
               <article
                 key={doc.id}
                 className="group relative flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:border-foreground/20"
-                onClick={() => navigate(`/docs/${doc.id}`)}
+                onClick={() => navigate(docPath(doc))}
               >
-                <div className="flex items-start gap-2.5 pr-8">
+                {/* Right padding clears the action cluster in the corner — two
+                    controls wide now that the pin sits beside the ⋯ menu. */}
+                <div className="flex items-start gap-2.5 pr-14">
                   <span className="mt-px grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
                     <TeamSymbol name={doc.icon || 'book'} size={16} color={doc.color ?? undefined} />
                   </span>
@@ -214,9 +236,7 @@ export function DocsHubPage() {
                 {(doc.tags ?? []).length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {doc.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="font-normal">
-                        {tag}
-                      </Badge>
+                      <DocTagChip key={tag} tag={tag} />
                     ))}
                   </div>
                 )}
@@ -228,25 +248,41 @@ export function DocsHubPage() {
                   <span>{timeAgo(doc.updatedAt)}</span>
                 </div>
 
-                {items.length > 0 && (
-                  // Always visible on touch, where there's no hover to reveal it.
-                  <span
-                    className="absolute right-2 top-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
-                    onClick={(e) => e.stopPropagation()} // don't open the doc
-                  >
-                    <Menu
-                      align="right"
-                      items={items}
-                      triggerClassName="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      trigger={
-                        <>
-                          <MoreHorizontal className="size-4" aria-hidden />
-                          <span className="sr-only">{t('common.more')}</span>
-                        </>
-                      }
-                    />
-                  </span>
-                )}
+                {/* Card actions — pin, then the ⋯ menu. Revealed on hover, and
+                    always visible on touch, where there's no hover to reveal
+                    them. A *pinned* star stays visible whatever the pointer is
+                    doing: the hub should say at a glance which docs are already
+                    in your sidebar. */}
+                <span
+                  className="absolute right-2 top-2 flex items-center gap-0.5"
+                  onClick={(e) => e.stopPropagation()} // don't open the doc
+                >
+                  <FavouriteButton
+                    kind={FavouriteKind.DOC}
+                    refId={doc.id}
+                    title={doc.title}
+                    size={15}
+                    className={cn(
+                      'size-7 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100',
+                      !isFavourited(favourites, FavouriteKind.DOC, doc.id) && 'opacity-0',
+                    )}
+                  />
+                  {items.length > 0 && (
+                    <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100">
+                      <Menu
+                        align="right"
+                        items={items}
+                        triggerClassName="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        trigger={
+                          <>
+                            <MoreHorizontal className="size-4" aria-hidden />
+                            <span className="sr-only">{t('common.more')}</span>
+                          </>
+                        }
+                      />
+                    </span>
+                  )}
+                </span>
               </article>
             );
           })}

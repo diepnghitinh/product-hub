@@ -1,8 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
-import { keepOrUpgradeShareToken } from '@module-shared/utils/short-id.util';
+import { keepOrUpgradeShareToken, uniqueRef } from '@module-shared/utils/short-id.util';
+import { ICommentRepository } from '@application/activity/repositories/comment.repository';
 import { CreateDocDto, UpdateDocDto } from '../dtos/doc.dtos';
+import { DOC_REF_PREFIX } from '../domain/entities/doc.props';
 import { DocEntity } from '../domain/entities/doc.entity';
 import { DocPageEntity } from '../domain/entities/doc-page.entity';
 import { IDocRepository } from '../repositories/doc.repository';
@@ -45,6 +47,7 @@ export class CreateDocUseCase
   }): Promise<Result<DocWithPages>> {
     const created = DocEntity.create({
       tenantId,
+      ref: await uniqueRef(DOC_REF_PREFIX, (ref) => this.docs.refExists(tenantId, ref)),
       title: dto.title,
       icon: dto.icon,
       color: dto.color,
@@ -109,9 +112,11 @@ export class GetDocUseCase
     id: string;
     tenantId: string;
   }): Promise<Result<DocWithPages>> {
-    const doc = await this.docs.findById(id);
+    // `id` is whatever the URL carried — a `DOC-…` ref or the uuid. Pages are
+    // always keyed by the uuid, so read it back off the resolved doc.
+    const doc = await this.docs.findByIdOrRef(tenantId, id);
     if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
-    return Result.ok({ doc, pages: await this.pages.findByDoc(id) });
+    return Result.ok({ doc, pages: await this.pages.findByDoc(doc.id.toString()) });
   }
 }
 
@@ -131,7 +136,7 @@ export class UpdateDocUseCase
     tenantId: string;
     dto: UpdateDocDto;
   }): Promise<Result<DocEntity>> {
-    const doc = await this.docs.findById(id);
+    const doc = await this.docs.findByIdOrRef(tenantId, id);
     if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
     doc.applyMeta(dto);
     await this.docs.update(doc);
@@ -147,15 +152,19 @@ export class DeleteDocUseCase
     @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
     @Inject(IDocPageVersionRepository) private readonly versions: IDocPageVersionRepository,
+    @Inject(ICommentRepository) private readonly comments: ICommentRepository,
   ) {}
 
   async execute({ id, tenantId }: { id: string; tenantId: string }): Promise<Result<void>> {
-    const doc = await this.docs.findById(id);
+    const doc = await this.docs.findByIdOrRef(tenantId, id);
     if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
+    // Everything below is keyed by the uuid, never the ref.
+    const docId = doc.id.toString();
     // Pages first: a doc without pages is recoverable noise, orphan pages are not.
-    await this.pages.deleteByDoc(id);
-    await this.versions.deleteByDoc(id);
-    await this.docs.delete(id);
+    await this.pages.deleteByDoc(docId);
+    await this.versions.deleteByDoc(docId);
+    await this.comments.deleteByDoc(tenantId, docId);
+    await this.docs.delete(docId);
     return Result.ok();
   }
 }
@@ -176,7 +185,7 @@ export class SetDocSharingUseCase
     tenantId: string;
     enabled: boolean;
   }): Promise<Result<DocEntity>> {
-    const doc = await this.docs.findById(id);
+    const doc = await this.docs.findByIdOrRef(tenantId, id);
     if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
     // Reuse the existing token when re-enabling so old links keep working
     // (legacy UUID tokens are swapped for a short one — see the helper).

@@ -39,9 +39,16 @@ export function daysLeftLabel(endDate: string): string {
   return `${left} ${left === 1 ? t('cycles.dayLeft') : t('cycles.daysLeft')}`;
 }
 
-/** One canonical display name for a cycle: "Cycle 12 · Jul 20 – Aug 2". */
+/** What to call a cycle: its own name, or "Cycle 12" when it hasn't been given
+ *  one (every auto-generated cycle, and manual ones left unnamed). */
+export function cycleName(c: CycleDto): string {
+  return c.name.trim() || `${t('cycles.cycle')} ${c.number}`;
+}
+
+/** One canonical display name for a cycle: "Cycle 12 · Jul 20 – Aug 2", or
+ *  "Checkout polish · Jul 20 – Aug 2" once it's named. */
 export function cycleLabel(c: CycleDto): string {
-  return `${t('cycles.cycle')} ${c.number} · ${shortDay(c.startDate)} – ${shortDay(c.endDate)}`;
+  return `${cycleName(c)} · ${shortDay(c.startDate)} – ${shortDay(c.endDate)}`;
 }
 
 /** Status → Badge variant + label, shared by the cycles page and the board

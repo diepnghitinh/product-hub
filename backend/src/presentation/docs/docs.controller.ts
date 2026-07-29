@@ -1,5 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
+import { ApiBearerAuth, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
 import { AuthUser, Roles } from '@core/decorators';
 import { JwtPayload, Role } from '@core/interfaces';
 import { EntityNotFoundException } from '@core/exceptions';
@@ -25,6 +26,7 @@ import {
   GetDocPageVersionUseCase,
   RestoreDocPageVersionUseCase,
 } from '@application/docs/use-cases/doc-page-version.use-cases';
+import { ExportDocPagePdfUseCase } from '@application/docs/use-cases/doc-page-pdf.use-case';
 import {
   CreateDocDto,
   CreateDocPageDto,
@@ -70,6 +72,7 @@ export class DocsController {
     private readonly getVersions: GetDocPageVersionsUseCase,
     private readonly getVersion: GetDocPageVersionUseCase,
     private readonly restoreVersionUseCase: RestoreDocPageVersionUseCase,
+    private readonly exportPagePdf: ExportDocPagePdfUseCase,
   ) {}
 
   @Get()
@@ -91,7 +94,9 @@ export class DocsController {
   ): Promise<LinkedDocPageDto[]> {
     if (!refId) return [];
     const result = await this.getLinked.execute({ tenantId: auth.tenantId, refId });
-    return result.getValue().map(({ page, docTitle }) => DocMapper.toLinkedPageDto(page, docTitle));
+    return result
+      .getValue()
+      .map(({ page, docTitle, docRef }) => DocMapper.toLinkedPageDto(page, docTitle, docRef));
   }
 
   @Post()
@@ -200,6 +205,45 @@ export class DocsController {
     const result = await this.getPage.execute({ docId: id, pageId, tenantId: auth.tenantId });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return DocMapper.toPageResponseDto(result.getValue());
+  }
+
+  /**
+   * The page as a PDF, rendered server-side by headless Chrome — same bytes for
+   * everyone, whatever browser or printer settings they have.
+   *
+   * `@Res()` on purpose: every other route is wrapped in the `{ statusCode, data }`
+   * envelope by the global interceptor, and a PDF is not JSON. Writing the
+   * response here is what takes it out of that path. Anyone who can read the
+   * page can export it — this adds no access, only a file format.
+   */
+  @Get(':id/pages/:pageId/pdf')
+  @ApiOperation({ summary: 'Export one page as a PDF' })
+  @ApiProduces('application/pdf')
+  async pagePdf(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+    @Param('pageId') pageId: string,
+    @Query('locale') locale: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const result = await this.exportPagePdf.execute({
+      docId: id,
+      pageId,
+      tenantId: auth.tenantId,
+      locale: locale === 'ko' ? 'ko' : 'en',
+    });
+    if (result.isFailure) throw new EntityNotFoundException(result.error as string);
+    const { buffer, filename } = result.getValue();
+    res.setHeader('Content-Type', 'application/pdf');
+    // Both forms: `filename` for old clients, `filename*` so a Korean or
+    // accented page title survives the trip.
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${filename.replace(/[^\x20-\x7e]/g, '_')}"; ` +
+        `filename*=UTF-8''${encodeURIComponent(filename)}`,
+    );
+    res.setHeader('Content-Length', buffer.length.toString());
+    res.end(buffer);
   }
 
   @Patch(':id/pages/:pageId')

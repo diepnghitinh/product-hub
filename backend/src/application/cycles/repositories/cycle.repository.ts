@@ -22,6 +22,12 @@ export abstract class ICycleRepository {
    *  cycle exists for the tenant. A plain field write — unlike `closeCycle` there
    *  is no write-once claim to win. */
   setDescription: (tenantId: string, id: string, description: string | null) => Promise<boolean>;
+  /** Persist a manual cycle's name and date window. Never touches the frozen
+   *  stats — rescheduling a closed cycle moves the label, not the history. */
+  saveSchedule: (cycle: CycleEntity) => Promise<boolean>;
+  /** Delete one cycle. Returns false when it doesn't exist for the tenant; the
+   *  caller detaches its issues. */
+  deleteById: (tenantId: string, id: string) => Promise<boolean>;
   /** Delete a team's not-yet-started cycles (start > today); returns their ids
    *  so the caller can detach issues. Used when cycles are turned off. */
   deleteUpcoming: (tenantId: string, teamId: string, today: string) => Promise<string[]>;

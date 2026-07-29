@@ -24,7 +24,14 @@ import {
 } from '@/types/enums';
 import type { CycleDto, IssueDto, TeamDto } from '@/types/dto';
 import { useCycles, useFocusedCycle } from './api';
-import { cycleLabel, cycleStatusBadge, cycleTimeHint, daysLeftLabel, shortDay } from './dates';
+import {
+  cycleLabel,
+  cycleName,
+  cycleStatusBadge,
+  cycleTimeHint,
+  daysLeftLabel,
+  shortDay,
+} from './dates';
 
 /**
  * The board's cycle filter — a single-choice Select (a cycle is one window, so
@@ -125,9 +132,7 @@ export function CycleBoardBanner({
           </Button>
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 px-1">
             <CycleIcon className="text-muted-foreground" />
-            <span className="text-sm font-semibold">
-              {t('cycles.cycle')} {focused.number}
-            </span>
+            <span className="text-sm font-semibold">{cycleName(focused)}</span>
             <Badge variant={badge.variant}>{badge.label}</Badge>
             <span className="text-sm text-muted-foreground">
               {shortDay(focused.startDate)} – {shortDay(focused.endDate)}
@@ -271,7 +276,7 @@ function GhostChip({ issue, cycles }: { issue: IssueDto; cycles: CycleDto[] }) {
   const to = `/issues/${issue.shortId || issue.id}`;
   const now = issue.cycleId ? cycles.find((c) => c.id === issue.cycleId) : undefined;
   const where = issue.cycleId
-    ? now && `${t('cycles.cycle')} ${now.number}`
+    ? now && cycleName(now)
     : t('cycles.toBacklog');
 
   return (
@@ -396,7 +401,7 @@ export function CycleChip({ team }: { team: TeamDto | undefined }) {
   const upcoming = [...cycles].reverse().find((c) => c.status === CycleStatus.UPCOMING);
   let label: string;
   if (active) {
-    label = `${t('cycles.cycle')} ${active.number} · ${daysLeftLabel(active.endDate)}`;
+    label = `${cycleName(active)} · ${daysLeftLabel(active.endDate)}`;
   } else if (upcoming) {
     label = `${t('cycles.cooldownUntil')} ${shortDay(upcoming.startDate)}`;
   } else {

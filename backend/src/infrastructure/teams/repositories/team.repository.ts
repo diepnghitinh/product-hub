@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { UniqueEntityID } from '@core/domain';
 import { ITeamRepository } from '@application/teams/repositories/team.repository';
 import { TeamEntity } from '@application/teams/domain/entities/team.entity';
-import { TeamIssueType } from '@application/teams/domain/enums/team.enums';
+import { CycleMode, TeamIssueType } from '@application/teams/domain/enums/team.enums';
 import { TeamDoc } from '../entities/team.schema';
 
 @Injectable()
@@ -24,6 +24,7 @@ export class TeamRepository implements ITeamRepository {
         labels: doc.labels,
         customFields: doc.customFields,
         cyclesEnabled: doc.cyclesEnabled,
+        cycleMode: doc.cycleMode as CycleMode | undefined,
         cycleLengthWeeks: doc.cycleLengthWeeks,
         cycleCooldownWeeks: doc.cycleCooldownWeeks,
         cycleStartDay: doc.cycleStartDay,
@@ -55,6 +56,7 @@ export class TeamRepository implements ITeamRepository {
       labels: team.labels,
       customFields: team.customFields,
       cyclesEnabled: team.cyclesEnabled,
+      cycleMode: team.cycleMode,
       cycleLengthWeeks: team.cycleLengthWeeks,
       cycleCooldownWeeks: team.cycleCooldownWeeks,
       cycleStartDay: team.cycleStartDay,

@@ -6,6 +6,7 @@ import {
   BugStatusConfig,
   CustomFieldConfig,
   CustomFieldValue,
+  CycleMode,
   CycleStatus,
   DocFontSize,
   DocFontStyle,
@@ -318,8 +319,33 @@ export interface CommentDto {
   body: string;
   mentions: string[];
   images: string[];
+  /** The doc page this comment is on; empty for an issue / roadmap-item comment. */
+  docPageId: string;
+  /** Its doc — carried flat so a mention can link straight to the page. */
+  docId: string;
+  /**
+   * The passage this thread is about, and enough of the text either side to tell
+   * repeats of the same phrase apart. Only a top-level comment carries one; a
+   * reply inherits its root's. Empty `anchorExact` = a page-level comment.
+   */
+  anchorExact: string;
+  anchorPrefix: string;
+  anchorSuffix: string;
+  /** Where the quote sat when the comment was written; -1 when unanchored. */
+  anchorStart: number;
+  /** Ticked off. Set on the root; replies follow it. */
+  resolved: boolean;
+  resolvedById: string;
+  resolvedByName: string;
+  resolvedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** How many open threads a doc page carries — drives the badge in the page rail. */
+export interface DocPageCommentCount {
+  pageId: string;
+  openCount: number;
 }
 
 export interface InboxItemDto {
@@ -356,6 +382,11 @@ export interface RoadmapColumn {
 
 export interface RoadmapItem {
   id: string;
+  /** Human-friendly ref used in the item's URL (`RM-6HCUHKX`). Minted
+   *  server-side; '' for items created before refs existed (and absent on a
+   *  draft item the board has not saved yet) — link with `shortId || id`, which
+   *  the detail page resolves either way. */
+  shortId?: string;
   title: string;
   description: string;
   /** The column ("pool") this item sits in — a `RoadmapColumn.key`. */
@@ -642,10 +673,13 @@ export interface TeamDto {
   labels: TaskLabelConfig[];
   /** This team's custom fields, shared by its tasks/bugs. Empty until defined. */
   customFields: CustomFieldConfig[];
-  /** Automatic sprint rhythm (cycles). Off by default; the rhythm fields keep
-   *  their values while off so re-enabling picks up the old settings. */
+  /** Sprint rhythm (cycles). Off by default; the rhythm fields keep their values
+   *  while off so re-enabling picks up the old settings. */
   cyclesEnabled: boolean;
-  /** Weeks per cycle (1–4). */
+  /** Who mints the cycles: `auto` (the scheduler, from the rhythm below) or
+   *  `manual` (the team, by hand — every rhythm field is then inert). */
+  cycleMode: CycleMode;
+  /** Weeks per cycle (1–4). Auto mode only. */
   cycleLengthWeeks: number;
   /** Weeks between cycles with no current cycle at all (0–2). */
   cycleCooldownWeeks: number;
@@ -672,8 +706,12 @@ export interface CycleDto {
   id: string;
   tenantId: string;
   teamId: string;
-  /** Auto-incremented per team: Cycle 1, 2, 3… */
+  /** Auto-incremented per team: Cycle 1, 2, 3… On a manual team this is creation
+   *  order, which needn't match date order — the list sorts by date. */
   number: number;
+  /** What the team calls this cycle. `''` (the norm on an auto team) means the
+   *  display falls back to "Cycle N", so the number is always the identity. */
+  name: string;
   /** ISO `YYYY-MM-DD`, inclusive — same date-only convention as issue start/end. */
   startDate: string;
   endDate: string;
@@ -845,6 +883,9 @@ export interface DocPageDto extends DocPageSummary {
 
 export interface DocDto {
   id: string;
+  /** URL handle, `DOC-6HCUHKX`. '' on docs created before refs existed — those
+   *  keep addressing by `id` until `backfill:doc-refs` runs. */
+  ref: string;
   tenantId: string;
   title: string;
   icon: string;
@@ -892,6 +933,8 @@ export interface DocPageVersion extends DocPageVersionSummary {
 /** A doc page attached to an issue / roadmap item, as that record sees it. */
 export interface LinkedDocPage {
   docId: string;
+  /** The doc's short ref (`DOC-6HCUHKX`) — `''` on docs predating refs. */
+  docRef: string;
   docTitle: string;
   pageId: string;
   pageTitle: string;

@@ -3,7 +3,12 @@ import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
 import { CommentProps } from './comment.props';
 
-/** A comment in an issue's (or roadmap item's) activity thread. */
+/** How much quoted text and context an anchor keeps. Long enough to be unique in
+ *  a page, short enough that the row stays small when a reader selects an essay. */
+const ANCHOR_EXACT_MAX = 400;
+const ANCHOR_CONTEXT_MAX = 64;
+
+/** A comment in an issue's, roadmap item's, or doc page's thread. */
 export class CommentEntity extends AggregateRoot<CommentProps> {
   private constructor(props: CommentProps, id?: UniqueEntityID) {
     super(props, id);
@@ -16,6 +21,16 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
       bugId?: string;
       taskId?: string;
       roadmapItemId?: string;
+      docId?: string;
+      docPageId?: string;
+      anchorExact?: string;
+      anchorPrefix?: string;
+      anchorSuffix?: string;
+      anchorStart?: number;
+      resolved?: boolean;
+      resolvedById?: string;
+      resolvedByName?: string;
+      resolvedAt?: Date | null;
       parentId?: string;
       authorId: string;
       authorName: string;
@@ -32,12 +47,13 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
       { argument: props.authorId, argumentName: 'authorId' },
     ]);
     if (!guard.succeeded) return Result.fail(guard.message);
-    // A comment belongs to exactly one subject — an issue or a roadmap item.
-    // `issueId` is canonical; a caller passing only the legacy `bugId`/`taskId`
-    // (e.g. rehydrating an un-backfilled doc) still resolves to an issue below.
+    // A comment belongs to exactly one subject — an issue, a roadmap item, or a
+    // doc page. `issueId` is canonical; a caller passing only the legacy
+    // `bugId`/`taskId` (e.g. rehydrating an un-backfilled doc) still resolves to
+    // an issue below.
     const issueId = props.issueId || props.bugId || props.taskId || '';
-    if (!issueId && !props.roadmapItemId)
-      return Result.fail('issueId or roadmapItemId is required');
+    if (!issueId && !props.roadmapItemId && !props.docPageId)
+      return Result.fail('issueId, roadmapItemId or docPageId is required');
     // A comment needs *something*: text or at least one attachment. A dropped
     // screenshot or short clip can stand on its own, so an empty body is fine
     // as long as there's media.
@@ -55,6 +71,16 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
           bugId: props.bugId || '',
           taskId: props.taskId || '',
           roadmapItemId: props.roadmapItemId || '',
+          docId: props.docId || '',
+          docPageId: props.docPageId || '',
+          anchorExact: (props.anchorExact || '').slice(0, ANCHOR_EXACT_MAX),
+          anchorPrefix: (props.anchorPrefix || '').slice(-ANCHOR_CONTEXT_MAX),
+          anchorSuffix: (props.anchorSuffix || '').slice(0, ANCHOR_CONTEXT_MAX),
+          anchorStart: Number.isFinite(props.anchorStart) ? (props.anchorStart as number) : -1,
+          resolved: props.resolved ?? false,
+          resolvedById: props.resolvedById || '',
+          resolvedByName: props.resolvedByName || '',
+          resolvedAt: props.resolvedAt ?? null,
           parentId: props.parentId || '',
           authorId: props.authorId,
           authorName: props.authorName,
@@ -87,6 +113,36 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
 
   get roadmapItemId(): string {
     return this.props.roadmapItemId;
+  }
+  get docId(): string {
+    return this.props.docId;
+  }
+  get docPageId(): string {
+    return this.props.docPageId;
+  }
+  get anchorExact(): string {
+    return this.props.anchorExact;
+  }
+  get anchorPrefix(): string {
+    return this.props.anchorPrefix;
+  }
+  get anchorSuffix(): string {
+    return this.props.anchorSuffix;
+  }
+  get anchorStart(): number {
+    return this.props.anchorStart;
+  }
+  get resolved(): boolean {
+    return this.props.resolved;
+  }
+  get resolvedById(): string {
+    return this.props.resolvedById;
+  }
+  get resolvedByName(): string {
+    return this.props.resolvedByName;
+  }
+  get resolvedAt(): Date | null {
+    return this.props.resolvedAt;
   }
   get parentId(): string {
     return this.props.parentId;
@@ -127,5 +183,18 @@ export class CommentEntity extends AggregateRoot<CommentProps> {
     if (fields.images !== undefined) this.props.images = nextImages;
     this.props.updatedAt = new Date();
     return Result.ok();
+  }
+
+  /**
+   * Resolve or reopen a thread. Deliberately *not* an edit: `updatedAt` stays put
+   * so ticking a thread off doesn't relabel every comment in it "edited", and the
+   * body is untouched — resolving is a statement about the conversation, not
+   * about what was said.
+   */
+  setResolved(resolved: boolean, by: { userId: string; name: string }): void {
+    this.props.resolved = resolved;
+    this.props.resolvedById = resolved ? by.userId : '';
+    this.props.resolvedByName = resolved ? by.name : '';
+    this.props.resolvedAt = resolved ? new Date() : null;
   }
 }

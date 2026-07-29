@@ -194,7 +194,9 @@ export class McpServerFactory {
           backlogItemId: z
             .string()
             .optional()
-            .describe('Roadmap backlog item id to file this under, as delivery work for it'),
+            .describe(
+              'Roadmap backlog item ref (RM-6HCUHKX) or id to file this under, as delivery work for it',
+            ),
         },
       },
       (dto) =>
@@ -234,7 +236,7 @@ export class McpServerFactory {
           (actor) => this.createBacklogItem.execute({ actor, dto }),
           (item) =>
             [
-              `Added "${item.title}" to ${item.roadmapTitle} → ${item.phase}`,
+              `Added ${item.shortId} "${item.title}" to ${item.roadmapTitle} → ${item.phase}`,
               `RICE ${item.riceScore} · status ${item.status}`,
               this.url(item.link),
             ].join('\n'),

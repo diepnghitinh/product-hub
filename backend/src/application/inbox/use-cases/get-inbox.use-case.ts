@@ -38,6 +38,28 @@ export interface GetInboxRequest {
 }
 
 /**
+ * A comment body is rich HTML — a mention is a `<span class="rte-mention">`, not
+ * bare text. The inbox shows one flat line per notification, so flatten it here:
+ * the list renders its title as text, and unflattened markup would show up as
+ * literal tags.
+ */
+function plainText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    // `&amp;` last, or `&amp;lt;` would decode all the way down to `<`.
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Assembles a user's inbox from two sources — comments that mention them and
  * bugs assigned to them — annotating each with its own read state from
  * `user.readInboxKeys` (per-item, not an all-or-nothing watermark).
@@ -73,12 +95,17 @@ export class GetInboxUseCase implements IUsecaseExecute<GetInboxRequest, Result<
 
     for (const c of mentions) {
       if (c.authorId === userId) continue; // don't notify yourself
+      // A doc mention points at the page, with the thread to open — the inbox
+      // navigates there rather than rendering a whole doc page in its list pane.
+      const isDoc = !!c.docPageId;
+      const kind = isDoc ? InboxKind.DOC_MENTION : InboxKind.MENTION;
+      const text = plainText(c.body);
       items.push({
-        kind: InboxKind.MENTION,
+        kind,
         id: c.id.toString(),
-        refId: c.bugId,
-        key: `${InboxKind.MENTION}:${c.id.toString()}:${c.createdAt.getTime()}`,
-        title: c.body.length > 100 ? `${c.body.slice(0, 100)}…` : c.body,
+        refId: isDoc ? `${c.docId}/${c.docPageId}?comment=${c.id.toString()}` : c.bugId,
+        key: `${kind}:${c.id.toString()}:${c.createdAt.getTime()}`,
+        title: text.length > 100 ? `${text.slice(0, 100)}…` : text,
         actorName: c.authorName,
         seen: false,
         createdAt: c.createdAt,

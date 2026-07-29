@@ -14,7 +14,11 @@ import {
   AddRoadmapItemUseCase,
   GetRoadmapsUseCase,
 } from '@application/roadmaps/use-cases/roadmap.use-cases';
-import { riceScore } from '@application/roadmaps/domain/types/roadmap-item.type';
+import {
+  findRoadmapItem,
+  riceScore,
+  type RoadmapItemData,
+} from '@application/roadmaps/domain/types/roadmap-item.type';
 import { IUserRepository } from '@application/users/repositories/user.repository';
 import { UserEntity } from '@application/users/domain/entities/user.entity';
 import { QueryUserDto } from '@application/users/dtos/query-user.dto';
@@ -170,16 +174,21 @@ export class McpCreateIssueUseCase
       assigneeId = person.id.toString();
     }
 
-    // A backlog item is addressed by its own id — the roadmap holding it is found
-    // here, because the caller has no reason to know which one that is.
+    // A backlog item is addressed by its ref (`RM-6HCUHKX`) or uuid — the roadmap
+    // holding it is found here, because the caller has no reason to know which one
+    // that is. What gets stored on the issue is always the item's uuid: that's
+    // what the app's own back-links (the item's Tasks panel) read.
     let roadmapId = '';
+    let roadmapItemId = '';
     let roadmapItemLabel = '';
     if (dto.backlogItemId) {
       const roadmaps = (await this.getRoadmaps.execute({ tenantId: actor.tenantId })).getValue();
-      const owner = roadmaps.find((r) => r.items.some((i) => i.id === dto.backlogItemId));
-      if (!owner) return Result.fail(`Backlog item "${dto.backlogItemId}" not found`);
+      let found: RoadmapItemData | undefined;
+      const owner = roadmaps.find((r) => (found = findRoadmapItem(r.items, dto.backlogItemId)));
+      if (!owner || !found) return Result.fail(`Backlog item "${dto.backlogItemId}" not found`);
       roadmapId = owner.id.toString();
-      roadmapItemLabel = owner.items.find((i) => i.id === dto.backlogItemId)?.title ?? '';
+      roadmapItemId = found.id;
+      roadmapItemLabel = found.title;
     }
 
     const actorUser = await this.users.findById(actor.userId);
@@ -201,7 +210,7 @@ export class McpCreateIssueUseCase
         estimate: isBug ? undefined : dto.estimate,
         severity: isBug ? dto.severity : undefined,
         roadmapId: roadmapId || undefined,
-        roadmapItemId: dto.backlogItemId,
+        roadmapItemId: roadmapItemId || undefined,
         roadmapItemLabel: roadmapItemLabel || undefined,
       } as CreateIssueDto,
     });
@@ -303,7 +312,7 @@ export class McpCreateBacklogItemUseCase
 
     const { item } = added.getValue();
     const roadmapId = roadmap.id.toString();
-    const link = backlogItemLink(roadmapId, item.id);
+    const link = backlogItemLink(roadmapId, item.shortId || item.id);
 
     const actorUser = await this.users.findById(actor.userId);
     const event = McpEventEntity.create({
@@ -316,6 +325,7 @@ export class McpCreateBacklogItemUseCase
       tool: McpTool.CREATE_BACKLOG_ITEM,
       entity: McpEntity.BACKLOG_ITEM,
       entityId: item.id,
+      entityRef: item.shortId,
       entityTitle: item.title,
       contextLabel: roadmap.title,
       link,
@@ -324,6 +334,7 @@ export class McpCreateBacklogItemUseCase
 
     return Result.ok({
       id: item.id,
+      shortId: item.shortId ?? '',
       roadmapId,
       roadmapTitle: roadmap.title,
       title: item.title,

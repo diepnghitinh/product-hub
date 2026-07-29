@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { InfrastructureDocsModule } from '@infrastructure/docs/docs.module';
+// Deleting a doc / page takes its comment threads with it.
+import { InfrastructureActivityModule } from '@infrastructure/activity/activity.module';
 import {
   CreateDocUseCase,
   GetDocsUseCase,
@@ -23,6 +25,7 @@ import {
   GetDocPageVersionUseCase,
   RestoreDocPageVersionUseCase,
 } from './use-cases/doc-page-version.use-cases';
+import { ExportDocPagePdfUseCase } from './use-cases/doc-page-pdf.use-case';
 
 const useCases = [
   CreateDocUseCase,
@@ -42,10 +45,11 @@ const useCases = [
   GetDocPageVersionsUseCase,
   GetDocPageVersionUseCase,
   RestoreDocPageVersionUseCase,
+  ExportDocPagePdfUseCase,
 ];
 
 @Module({
-  imports: [InfrastructureDocsModule],
+  imports: [InfrastructureDocsModule, InfrastructureActivityModule],
   providers: [...useCases],
   exports: [...useCases],
 })

@@ -4,6 +4,8 @@ import { InfrastructureIssuesModule } from '@infrastructure/issues/issues.module
 import { InfrastructureTeamsModule } from '@infrastructure/teams/teams.module';
 import { CycleSchedulerService } from './services/cycle-scheduler.service';
 import {
+  CreateCycleUseCase,
+  DeleteCycleUseCase,
   GetCycleBurndownUseCase,
   GetTeamCyclesUseCase,
   UpdateCycleUseCase,
@@ -19,14 +21,18 @@ import {
     CycleSchedulerService,
     GetTeamCyclesUseCase,
     GetCycleBurndownUseCase,
+    CreateCycleUseCase,
     UpdateCycleUseCase,
+    DeleteCycleUseCase,
     UpdateTeamCycleConfigUseCase,
   ],
   exports: [
     CycleSchedulerService,
     GetTeamCyclesUseCase,
     GetCycleBurndownUseCase,
+    CreateCycleUseCase,
     UpdateCycleUseCase,
+    DeleteCycleUseCase,
     UpdateTeamCycleConfigUseCase,
     InfrastructureCyclesModule,
   ],

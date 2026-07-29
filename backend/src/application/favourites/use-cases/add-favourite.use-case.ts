@@ -4,6 +4,7 @@ import { Result } from '@shared/logic/result';
 import { IUserRepository } from '@application/users/repositories/user.repository';
 import { IIssueRepository } from '@application/issues/repositories/issue.repository';
 import { IRoadmapRepository } from '@application/roadmaps/repositories/roadmap.repository';
+import { IDocRepository } from '@application/docs/repositories/doc.repository';
 import { FavouriteKind } from '../domain/favourite-kind.enum';
 import { FavouriteRef } from '../domain/favourite.ref';
 
@@ -31,6 +32,7 @@ export class AddFavouriteUseCase
     // One store for both kinds — a pinned task or bug lives in the unified issues collection.
     @Inject(IIssueRepository) private readonly issues: IIssueRepository,
     @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
+    @Inject(IDocRepository) private readonly docs: IDocRepository,
   ) {}
 
   async execute(req: AddFavouriteRequest): Promise<Result<FavouriteRef[]>> {
@@ -75,6 +77,19 @@ export class AddFavouriteUseCase
           refId: item.id,
           title: item.title,
           roadmapId: roadmap.id.toString(),
+          createdAt,
+        });
+      }
+      case FavouriteKind.Doc: {
+        // The URL may have carried either the `DOC-…` ref or the uuid — the same
+        // resolve the workspace itself does. What's stored is always the uuid, so
+        // a pin keeps working if the ref is ever backfilled or re-minted.
+        const doc = await this.docs.findByIdOrRef(req.tenantId, req.refId);
+        if (!doc) return Result.fail('Doc not found');
+        return Result.ok({
+          kind: FavouriteKind.Doc,
+          refId: doc.id.toString(),
+          title: doc.title,
           createdAt,
         });
       }

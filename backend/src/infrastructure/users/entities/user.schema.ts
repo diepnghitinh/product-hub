@@ -29,6 +29,10 @@ const FavouriteRefSchema = new Schema<FavouriteRef>(
     title: { type: String, required: true },
     roadmapId: { type: String, default: undefined },
     teamId: { type: String, default: undefined },
+    // Mongoose strips anything a subdocument schema doesn't declare, so leaving
+    // this out didn't just skip a field — a pinned bug came back from the DB
+    // without its kind and the sidebar drew it with the task icon.
+    issueKind: { type: String, default: undefined },
     createdAt: { type: Date, required: true },
   },
   { _id: false },

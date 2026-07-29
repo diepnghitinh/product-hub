@@ -13,7 +13,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { TEAM_COLORS, TeamIssueType } from '../domain/enums/team.enums';
+import { CycleMode, TEAM_COLORS, TeamIssueType } from '../domain/enums/team.enums';
 import { CustomFieldType } from '../domain/enums/custom-field.enums';
 import { TEAM_ICONS } from '../domain/enums/team-icons';
 
@@ -195,8 +195,16 @@ export class TeamResponseDto {
   @ApiProperty({ type: [CustomFieldDto], description: "This team's custom fields (may be empty)" })
   customFields: CustomFieldDto[];
 
-  @ApiProperty({ description: 'Whether the automatic sprint rhythm is on' })
+  @ApiProperty({ description: 'Whether this team runs cycles at all' })
   cyclesEnabled: boolean;
+
+  @ApiProperty({
+    enum: CycleMode,
+    description:
+      "'auto' = the scheduler mints cycles from the rhythm below; 'manual' = the " +
+      'team creates each cycle by hand and the rhythm fields are inert',
+  })
+  cycleMode: CycleMode;
 
   @ApiProperty({ description: 'Weeks per cycle (1–4)' })
   cycleLengthWeeks: number;

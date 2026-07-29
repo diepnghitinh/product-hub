@@ -1,33 +1,70 @@
 {
   "version": 1,
-  "rev": 427,
-  "savedAt": "2026-07-28T08:54:29.663Z",
+  "rev": 484,
+  "savedAt": "2026-07-29T08:48:16.567Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 629.0360468045528,
-    "y": 2761.303584083656,
-    "zoom": 1.15
+    "x": 677.630973107621,
+    "y": 2391.4555375650593,
+    "zoom": 0.968709487914002
   },
   "nodes": [
     {
-      "id": "term-ms3a3yyd-2",
+      "id": "term-ms5jkaag-1",
       "kind": "terminal",
       "position": {
-        "x": -199.50604678578358,
-        "y": -2311.329672798521
+        "x": -453.78552605198195,
+        "y": -2561.759391839777
       },
       "size": {
         "width": 600,
         "height": 400
       },
-      "title": "Change layout to cards design",
+      "title": "Cho phép bôi và comment vào paragraph",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,
       "tags": [],
-      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-ms5jlze7-2",
+      "kind": "terminal",
+      "position": {
+        "x": 202.33330990984382,
+        "y": -2560.033788091893
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Implement service worker update notification",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-ms5quf2n-3",
+      "kind": "terminal",
+      "position": {
+        "x": -448.7865814321583,
+        "y": -2089.882241484112
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Fix editor menu display outside line start",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
       "cwd": ".",
       "agentId": "claude"
     }

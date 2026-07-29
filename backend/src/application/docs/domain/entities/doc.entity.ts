@@ -43,6 +43,7 @@ export class DocEntity extends AggregateRoot<DocProps> {
   static create(
     props: {
       tenantId: string;
+      ref?: string;
       title: string;
       icon?: string;
       color?: string | null;
@@ -68,6 +69,7 @@ export class DocEntity extends AggregateRoot<DocProps> {
         {
           id: id || new UniqueEntityID(),
           tenantId: props.tenantId,
+          ref: props.ref?.trim().toUpperCase() || '',
           title: props.title.trim(),
           icon: props.icon?.trim() || '',
           color: props.color ?? null,
@@ -90,6 +92,9 @@ export class DocEntity extends AggregateRoot<DocProps> {
   }
   get tenantId(): string {
     return this.props.tenantId;
+  }
+  get ref(): string {
+    return this.props.ref;
   }
   get title(): string {
     return this.props.title;
@@ -143,6 +148,13 @@ export class DocEntity extends AggregateRoot<DocProps> {
     // editor always knows the full set.
     if (meta.tags !== undefined) this.props.tags = DocEntity.normalizeTags(meta.tags);
     this.touch();
+  }
+
+  /** Give a legacy doc its ref. Only ever set once — a ref that moved would
+   *  break every link already handed out, so an existing one is kept. */
+  assignRef(ref: string): void {
+    if (this.props.ref) return;
+    this.props.ref = ref.trim().toUpperCase();
   }
 
   enableSharing(token: string): void {

@@ -1,8 +1,8 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { toast } from 'sonner';
-import { Camera, KeyRound, Languages, Trash2 } from 'lucide-react';
+import { Camera, KeyRound, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Badge, Button, Select, Separator, Spinner } from '@/components/ui';
+import { Badge, Button, Separator, Spinner } from '@/components/ui';
 import { UserAvatar } from '@/components/UserAvatar';
 import { CenteredPageLayout } from '@/layouts/shared';
 import { PageHeader } from '@/layouts/headers/PageHeader';
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { uploadMedia } from '@/features/uploads/api';
 import { useUpdateMyAvatar } from '@/features/users/api';
 import { ROLE_LABEL } from '@/types/enums';
-import { getLocale, LOCALES, setLocale, t, type Locale } from '@/i18n';
+import { t } from '@/i18n';
 import { ChangePasswordDialog } from '@/features/account/ChangePasswordDialog';
 import { AvatarCropDialog } from '@/features/account/AvatarCropDialog';
 
@@ -159,24 +159,9 @@ export function MyProfilePage() {
           </dl>
         </section>
 
-        {/* Language — a browser preference, not an account field: nothing is
-            saved server-side, and picking one reloads the page (see i18n). */}
-        <section className="flex flex-col gap-4 rounded-xl border p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Languages className="size-4 text-muted-foreground" />
-              {t('profile.language')}
-            </h3>
-            <p className="mt-0.5 text-sm text-muted-foreground">{t('profile.languageHint')}</p>
-          </div>
-          <Select
-            aria-label={t('profile.language')}
-            className="w-full shrink-0 sm:w-48"
-            value={getLocale()}
-            onValueChange={(v) => setLocale(v as Locale)}
-            options={LOCALES.map((l) => ({ value: l.value, label: l.label }))}
-          />
-        </section>
+        {/* Language isn't here: it's a per-browser preference like the theme, and
+            both live together in the profile menu (sidebar footer) so there's one
+            place to change how the app looks and reads — not two. */}
 
         {/* Security */}
         <section className="flex flex-col gap-4 rounded-xl border p-6 sm:flex-row sm:items-center sm:justify-between">

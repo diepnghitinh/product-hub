@@ -4,6 +4,7 @@ import { BarChart3, CalendarDays, Gauge, LayoutGrid, MoreHorizontal, Table2, Tar
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, Menu } from '@/components/ui';
 import { BoardSkeleton } from '@/components/Skeletons';
+import { CenteredPageLayout } from '@/layouts/shared';
 import { cn } from '@/lib/utils';
 import { firstImageUrl } from '@/lib/editorjs';
 import { t } from '@/i18n';
@@ -155,15 +156,17 @@ export function RoadmapBoardPage() {
   }
   if (!roadmap) {
     return (
-      <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-        {t('roadmaps.notFound')}{' '}
-        <Link
-          to="/roadmaps"
-          className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
-        >
-          {t('roadmaps.title')}
-        </Link>
-      </div>
+      <CenteredPageLayout>
+        <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
+          {t('roadmaps.notFound')}{' '}
+          <Link
+            to="/roadmaps"
+            className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {t('roadmaps.title')}
+          </Link>
+        </div>
+      </CenteredPageLayout>
     );
   }
 
@@ -176,7 +179,13 @@ export function RoadmapBoardPage() {
   function save(next: RoadmapItem[]) {
     replaceItems.mutate({ id: roadmap!.id, items: next });
   }
-  const openItem = (id: string) => navigate(`/roadmaps/${roadmap!.id}/items/${id}`);
+  /** Open by ref (`…/items/RM-6HCUHKX`) — callers hand us the uuid they're
+   *  holding, so the ref is looked up here rather than at every call site.
+   *  Falls back to the uuid for items minted before refs existed. */
+  const openItem = (id: string) => {
+    const ref = items.find((i) => i.id === id)?.shortId || id;
+    navigate(`/roadmaps/${roadmap!.id}/items/${ref}`);
+  };
   /** Create-and-open: a new "Untitled" item is added to the column and its page
    *  opens immediately to fill in — no dialog. */
   function createItem(phase: string) {

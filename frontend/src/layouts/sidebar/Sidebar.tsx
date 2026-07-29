@@ -828,17 +828,23 @@ function TeamNavItem({
  *  shows its concrete kind (bug vs task) via `issueKind`. */
 function favouriteIcon(fav: FavouriteDto): IconName {
   if (fav.kind === FavouriteKind.ROADMAP_ITEM) return 'roadmap';
+  // The same glyph the Docs nav item uses, so a pinned doc reads as a doc.
+  if (fav.kind === FavouriteKind.DOC) return 'book';
   return fav.issueKind === 'bug' ? 'bug' : 'tasks';
 }
 
 /** Where a pinned entity opens. A roadmap item deep-links to its board + dialog;
- *  an issue opens at `/issues/<ref>`, whichever kind it is. */
+ *  an issue opens at `/issues/<ref>`, whichever kind it is; a doc opens by its
+ *  stored uuid, which the workspace resolves and then rewrites to the canonical
+ *  `/docs/DOC-…/<page-slug>`. */
 function favouriteHref(fav: FavouriteDto): string {
   switch (fav.kind) {
     case FavouriteKind.ISSUE:
       return `/issues/${fav.refId}`;
     case FavouriteKind.ROADMAP_ITEM:
       return fav.roadmapId ? `/roadmaps/${fav.roadmapId}/items/${fav.refId}` : '/roadmaps';
+    case FavouriteKind.DOC:
+      return `/docs/${fav.refId}`;
     default:
       return '/';
   }

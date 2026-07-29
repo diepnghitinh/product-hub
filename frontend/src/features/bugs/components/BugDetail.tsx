@@ -37,6 +37,7 @@ import { CyclePropField } from '@/features/cycles/CycleControls';
 import { LabelChips, resolveLabels } from '@/features/labels/LabelChips';
 import { CustomFields } from '@/features/custom-fields/CustomFields';
 import { useBug, useDeleteBug, useSetBugStatus, useUpdateBug } from '../api';
+import { BUG_TEMPLATES } from '../bugTemplates';
 import { SeverityBadge } from './SeverityBadge';
 import { useRelationActions } from '@/features/issues/useRelationActions';
 import { IssueRelations } from '@/features/issues/IssueRelations';
@@ -122,6 +123,9 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header', dense = fal
       users={users}
       onSaveTitle={(title) => save({ title })}
       onSaveDescription={(description) => save({ description })}
+      // Repro-steps shapes, offered on an empty description the way a backlog
+      // item offers User Story / JTBD — a bug without steps can't be fixed.
+      templates={BUG_TEMPLATES}
       menuTarget={menuTarget}
       menuItems={[
         ...(canWrite ? [markAsItem] : []),

@@ -1,18 +1,11 @@
-import type { I18nKey } from '@/i18n/en';
+import type { DescriptionTemplate } from '@/components/DescriptionTemplates';
 
 /**
- * Starter structures for a backlog item's description. Each builds plain HTML —
- * the same format `RichTextEditor` round-trips (see `lib/editorjs`) — using only
- * blocks the editor supports (headings, paragraphs, lists, bold). Applying one
- * fills an empty item so the writer starts from a proven shape instead of a blank
- * page, per the Scrum / JTBD framing this product is built around.
+ * Starter structures for a backlog item's description, per the Scrum / JTBD
+ * framing this product is built around. The shape and the picker are shared with
+ * every other templated editor — see `components/DescriptionTemplates`.
  */
-export interface BacklogTemplate {
-  id: 'user-story' | 'jtbd';
-  labelKey: I18nKey;
-  hintKey: I18nKey;
-  buildHtml: () => string;
-}
+export type BacklogTemplate = DescriptionTemplate;
 
 const userStory = (): string =>
   [

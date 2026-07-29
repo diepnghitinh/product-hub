@@ -8,6 +8,16 @@ export interface CommentDoc {
   bugId: string;
   taskId: string;
   roadmapItemId: string;
+  docId: string;
+  docPageId: string;
+  anchorExact: string;
+  anchorPrefix: string;
+  anchorSuffix: string;
+  anchorStart: number;
+  resolved: boolean;
+  resolvedById: string;
+  resolvedByName: string;
+  resolvedAt: Date | null;
   parentId: string;
   authorId: string;
   authorName: string;
@@ -29,6 +39,26 @@ export const CommentSchema = new Schema<CommentDoc>(
     bugId: { type: String, default: '', index: true },
     taskId: { type: String, default: '', index: true },
     roadmapItemId: { type: String, default: '', index: true },
+    // A doc-page comment. `docPageId` is the subject; `docId` rides along so the
+    // rail's per-page counts are one query against the doc rather than one per page.
+    docId: { type: String, default: '', index: true },
+    docPageId: { type: String, default: '', index: true },
+    // Where in the page the comment points, as a text quote rather than an offset:
+    // the selected text plus a little context either side. Positions shift on every
+    // edit — the quote survives them, and when the quoted text is finally deleted
+    // the comment goes orphaned instead of silently pointing at a different
+    // sentence. `anchorStart` is the plain-text offset at the time of writing, kept
+    // only to break ties when the same phrase appears more than once.
+    anchorExact: { type: String, default: '' },
+    anchorPrefix: { type: String, default: '' },
+    anchorSuffix: { type: String, default: '' },
+    anchorStart: { type: Number, default: -1 },
+    // Resolving hides a thread's highlight from the page and files it under
+    // "Resolved" — set on the root comment; replies follow their root.
+    resolved: { type: Boolean, default: false, index: true },
+    resolvedById: { type: String, default: '' },
+    resolvedByName: { type: String, default: '' },
+    resolvedAt: { type: Date, default: null },
     // '' for a top-level comment; otherwise the id of the comment it replies to.
     parentId: { type: String, default: '', index: true },
     authorId: { type: String, default: '' },

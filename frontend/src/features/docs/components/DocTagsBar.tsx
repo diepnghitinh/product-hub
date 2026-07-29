@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Plus, Tag } from 'lucide-react';
-import { Badge, Button, Dialog, Field, TagInput } from '@/components/ui';
+import { Button, Dialog, Field, TagInput } from '@/components/ui';
 import { t } from '@/i18n';
+import { DocTagChip } from './DocTagChip';
 
 interface DocTagsBarProps {
   tags: string[];
@@ -42,9 +43,7 @@ export function DocTagsBar({ tags, canWrite, saving, onSave }: DocTagsBarProps) 
     <>
       <div className="flex flex-wrap items-center gap-1 px-3 pb-3">
         {tags.map((tag) => (
-          <Badge key={tag} variant="secondary" className="font-normal">
-            {tag}
-          </Badge>
+          <DocTagChip key={tag} tag={tag} />
         ))}
         {canWrite && (
           <button

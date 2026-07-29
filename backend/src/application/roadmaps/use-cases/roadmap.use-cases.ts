@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
+import { randomRef } from '@module-shared/utils/short-id.util';
 import {
   CreateRoadmapDto,
   ReplaceRoadmapColumnsDto,
@@ -12,9 +13,30 @@ import { RoadmapEntity } from '../domain/entities/roadmap.entity';
 import { RoadmapDifficulty, RoadmapItemStatus } from '../domain/enums/roadmap.enums';
 import {
   DEFAULT_ROADMAP_COLUMNS,
+  ROADMAP_ITEM_REF_PREFIX,
   RoadmapItemData,
 } from '../domain/types/roadmap-item.type';
 import { IRoadmapRepository } from '../repositories/roadmap.repository';
+
+/**
+ * A fresh `RM-…` ref that no item in this roadmap already holds. Items live
+ * embedded in the roadmap document, so "unique" is checked in memory against the
+ * set of refs in play rather than against an index — a collision inside one
+ * roadmap is what would actually break a URL. 31^7 ≈ 27.5 billion, so the retry
+ * loop is a formality; the widened suffix is the backstop if it somehow isn't.
+ */
+function mintItemRef(taken: Set<string>): string {
+  for (let i = 0; i < 5; i++) {
+    const ref = randomRef(ROADMAP_ITEM_REF_PREFIX);
+    if (!taken.has(ref)) {
+      taken.add(ref);
+      return ref;
+    }
+  }
+  const ref = `${ROADMAP_ITEM_REF_PREFIX}-${uuid().replace(/-/g, '').slice(0, 12).toUpperCase()}`;
+  taken.add(ref);
+  return ref;
+}
 
 @Injectable()
 export class CreateRoadmapUseCase
@@ -117,6 +139,12 @@ export class ReplaceRoadmapItemsUseCase
     // existing item's original date (matched by id), and give brand-new items —
     // or legacy ones that never had one — a timestamp now.
     const existingById = new Map(roadmap.items.map((item) => [item.id, item]));
+    // Refs are server-owned for the same reason: an item keeps the ref it was
+    // minted with (so a link handed out stays valid), a new one gets a fresh
+    // ref, and whatever the client sent is ignored — it can't rename a URL.
+    const takenRefs = new Set(
+      roadmap.items.map((item) => item.shortId).filter((ref): ref is string => !!ref),
+    );
     const now = new Date().toISOString();
     const items = dto.items.map((item) => {
       const prev = existingById.get(item.id);
@@ -129,6 +157,7 @@ export class ReplaceRoadmapItemsUseCase
       const isCompleted = item.status === RoadmapItemStatus.DONE;
       return {
         ...item,
+        shortId: prev?.shortId ?? mintItemRef(takenRefs),
         createdAt: prev?.createdAt ?? item.createdAt ?? now,
         startedAt: prev?.startedAt ?? (isStarted ? now : undefined),
         completedAt: prev?.completedAt ?? (isCompleted ? now : undefined),
@@ -182,6 +211,9 @@ export class AddRoadmapItemUseCase
     // item added here sorts alongside hand-made ones instead of at zero.
     const created: RoadmapItemData = {
       id: uuid(),
+      shortId: mintItemRef(
+        new Set(roadmap.items.map((i) => i.shortId).filter((ref): ref is string => !!ref)),
+      ),
       title: item.title,
       description: item.description ?? '',
       phase,

@@ -6,6 +6,7 @@ import { queryClient } from '@/lib/queryClient';
 import { AuthProvider } from '@/lib/auth';
 import { ThemeProvider } from '@/lib/theme';
 import { TooltipProvider, Toaster } from '@/components/ui';
+import { UpdatePrompt } from '@/components/UpdatePrompt';
 import App from '@/App';
 import '@/styles/tailwind.css';
 import '@/styles/report-workspace.css';
@@ -19,6 +20,10 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
             <TooltipProvider delayDuration={200}>
               <App />
               <Toaster />
+              {/* Renders nothing; owns the service worker and raises the
+                  "new version available" toast. Inside <Toaster />'s tree so
+                  the toast it fires has a host to land in. */}
+              <UpdatePrompt />
             </TooltipProvider>
           </AuthProvider>
         </BrowserRouter>

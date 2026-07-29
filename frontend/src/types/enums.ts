@@ -93,6 +93,9 @@ export enum BugStatus {
 export enum InboxKind {
   MENTION = 'mention',
   ASSIGNED_BUG = 'assigned-bug',
+  /** Mentioned in a comment on a doc page. Opens the page, not the inbox's own
+   *  detail pane — a document doesn't fit in a 360px column. */
+  DOC_MENTION = 'doc-mention',
 }
 
 /** Kinds of entity a user can pin to their sidebar (mirrors the backend). A bug
@@ -100,6 +103,9 @@ export enum InboxKind {
 export enum FavouriteKind {
   ROADMAP_ITEM = 'roadmap-item',
   ISSUE = 'issue',
+  /** The doc, not one of its pages — pinning a doc means "this handbook", and
+   *  it opens where the hub would have taken you. */
+  DOC = 'doc',
 }
 
 /** Entities that can carry reactions (mirrors the backend). Bugs and tasks are
@@ -422,11 +428,13 @@ export const DEFAULT_BUG_STATUSES: BugStatusConfig[] = BUG_STATUSES.map((key) =>
 export const INBOX_KIND_LABEL: Record<InboxKind, string> = {
   [InboxKind.MENTION]: t('enum.inboxKind.mention'),
   [InboxKind.ASSIGNED_BUG]: t('enum.inboxKind.assigned'),
+  [InboxKind.DOC_MENTION]: t('enum.inboxKind.docMention'),
 };
 
 export const FAVOURITE_KIND_LABEL: Record<FavouriteKind, string> = {
   [FavouriteKind.ROADMAP_ITEM]: t('enum.favouriteKind.roadmapItem'),
   [FavouriteKind.ISSUE]: t('enum.favouriteKind.issue'),
+  [FavouriteKind.DOC]: t('enum.favouriteKind.doc'),
 };
 
 export const ROADMAP_PHASES: RoadmapPhase[] = [
@@ -721,6 +729,14 @@ export enum CycleStatus {
   UPCOMING = 'upcoming',
   ACTIVE = 'active',
   COMPLETED = 'completed',
+}
+
+/** Who mints a team's cycles. `auto` is the default and the original behaviour;
+ *  in `manual` the rhythm fields below go inert and the team plans each cycle by
+ *  hand. Either way the *end* of a cycle stays automatic. */
+export enum CycleMode {
+  AUTO = 'auto',
+  MANUAL = 'manual',
 }
 
 /** `?cycle=` / cycleId filter sentinels the API resolves server-side, so saved
