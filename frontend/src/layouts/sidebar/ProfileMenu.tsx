@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Popover from '@radix-ui/react-popover';
-import { LogOut, Moon, Settings, Sun, User, Users, type LucideIcon } from 'lucide-react';
+import { LogOut, Moon, Settings, Sun, User, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useTheme } from '@/lib/theme';
 import { Separator } from '@/components/ui';
 import { UserAvatar } from '@/components/UserAvatar';
+import { PrefRow } from '@/layouts/sidebar/prefs';
 import { cn } from '@/lib/utils';
 import { ROLE_LABEL } from '@/types/enums';
 import { getLocale, LOCALES, setLocale, t } from '@/i18n';
@@ -15,69 +16,19 @@ const ROW =
   'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-popover-foreground outline-none transition-colors hover:bg-accent focus-visible:bg-accent';
 
 /**
- * A labelled segmented switch — the menu's control for a preference with a
- * handful of mutually exclusive values (theme, language). Laid out side by side
- * rather than behind a dropdown: the options are few, and seeing the alternative
- * is what makes the setting discoverable at all inside a menu.
- *
- * Generic over the value so `onChange` stays typed per use (`Theme`, `Locale`) —
- * the caller passes its own setter directly with no cast.
- */
-function Segmented<T extends string>({
-  label,
-  hint,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  /** Shown under the switch — for a choice whose consequence isn't obvious from
-   *  pressing it (language reloads the page; the theme just changes). */
-  hint?: string;
-  value: T;
-  options: { value: T; label: string; Icon?: LucideIcon }[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="p-3">
-      <p className="mb-2 text-xs font-medium text-muted-foreground">{label}</p>
-      <div className="inline-flex w-full rounded-lg bg-muted p-1" role="group" aria-label={label}>
-        {options.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            aria-pressed={value === opt.value}
-            className={cn(
-              'flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
-              value === opt.value
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {opt.Icon && <opt.Icon className="size-4 shrink-0" />}
-            <span className="truncate">{opt.label}</span>
-          </button>
-        ))}
-      </div>
-      {hint && <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{hint}</p>}
-    </div>
-  );
-}
-
-/**
  * The signed-in user's menu, anchored to the sidebar footer. A Radix Popover
- * (not the flat `Menu`) so it can hold real sections — an identity header, an
- * appearance switch, link rows and a destructive sign-out — the way the design
- * concept lays them out. Opens upward, since it lives at the bottom of the rail.
+ * (not the flat `Menu`) so it can hold real sections — an identity header, the
+ * per-browser preferences, link rows and a destructive sign-out — the way the
+ * design concept lays them out. Opens upward, since it lives at the bottom.
  *
  * Owns the footer chrome itself (border + padding) and renders nothing when
- * signed out, so `Sidebar` just drops it in.
+ * signed out, so both sidebars just drop it in.
  */
 export function ProfileMenu({
   collapsed,
   onCloseMobile,
 }: {
+  /** Collapsed to the icon rail: label hidden from `md` up, where it narrows. */
   collapsed: boolean;
   onCloseMobile: () => void;
 }) {
@@ -115,7 +66,9 @@ export function ProfileMenu({
         <Popover.Trigger asChild>
           <button
             type="button"
-            aria-label={t('nav.menu')}
+            /* Not `nav.menu` — that's the topbar's hamburger, and two controls
+               answering to "Menu" is ambiguous to anyone navigating by name. */
+            aria-label={t('profile.accountMenu')}
             className={cn(
               'flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring',
               collapsed && 'md:justify-center',
@@ -128,7 +81,9 @@ export function ProfileMenu({
               className="size-7"
               fallbackClassName="text-[10px]"
             />
-            <span className={cn('flex min-w-0 flex-col leading-tight', collapsed && 'md:hidden')}>
+            <span
+              className={cn('flex min-w-0 flex-col leading-tight', collapsed && 'md:hidden')}
+            >
               <span className="truncate text-[13px] font-medium text-foreground">{user.name}</span>
               <span className="truncate text-[11px] text-muted-foreground">
                 {ROLE_LABEL[user.role]}
@@ -161,31 +116,31 @@ export function ProfileMenu({
 
             <Separator />
 
-            {/* The two browser-level preferences, together: how the app looks and
-                what language it reads in. Neither is an account field — both are
-                per-browser, so they live here rather than on the profile page. */}
-            <Segmented
-              label={t('profile.appearance')}
-              value={theme}
-              onChange={setTheme}
-              options={[
-                { value: 'light', label: t('theme.light'), Icon: Sun },
-                { value: 'dark', label: t('theme.dark'), Icon: Moon },
-              ]}
-            />
-
-            <Separator />
-
-            {/* Each language is written in its own words (한국어, not "Korean"),
-                so the row a reader is looking for is legible to them even while
-                the rest of the menu is in a language they don't read. */}
-            <Segmented
-              label={t('profile.language')}
-              hint={t('profile.languageHint')}
-              value={getLocale()}
-              onChange={setLocale}
-              options={LOCALES.map((l) => ({ value: l.value, label: l.label }))}
-            />
+            {/* The browser-level preferences, one line each: how the app looks
+                and what language it reads in. Neither is an account field, so
+                neither belongs on the profile page. */}
+            <div className="py-1.5">
+              <PrefRow
+                label={t('profile.appearance')}
+                value={theme}
+                onChange={setTheme}
+                iconOnly
+                options={[
+                  { value: 'light', label: t('theme.light'), glyph: <Sun className="size-3.5" /> },
+                  { value: 'dark', label: t('theme.dark'), glyph: <Moon className="size-3.5" /> },
+                ]}
+              />
+              {/* Each language is written in its own words (한국어, not "Korean"),
+                  so the option a reader is looking for is legible to them even
+                  while the rest of the menu is in a language they don't read. */}
+              <PrefRow
+                label={t('profile.language')}
+                hint={t('profile.languageHint')}
+                value={getLocale()}
+                onChange={setLocale}
+                options={LOCALES.map((l) => ({ value: l.value, label: l.label }))}
+              />
+            </div>
 
             <Separator />
 

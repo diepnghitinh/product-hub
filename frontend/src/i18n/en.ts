@@ -27,6 +27,7 @@ export const en = {
   'nav.menu': 'Menu',
   'nav.create': 'Create new',
   'nav.newTeam': 'New space',
+
   'theme.toggle': 'Toggle light / dark',
   'theme.light': 'Light',
   'theme.dark': 'Dark',
@@ -779,6 +780,7 @@ export const en = {
   // Profile menu — the signed-in user's avatar menu + My Profile page
   'profile.myProfile': 'My Profile',
   'profile.managePeople': 'Manage People',
+  'profile.accountMenu': 'Account menu',
   'profile.appearance': 'Appearance',
   'profile.logout': 'Log out',
   'profile.passwordHint': 'Update the password you use to sign in.',
@@ -955,9 +957,14 @@ export const en = {
   'cycles.cadenceAutoHint': 'Cycles start, end and repeat on the schedule below — nobody plans them.',
   'cycles.cadenceManual': 'Manual',
   'cycles.cadenceManualHint':
-    'You plan each cycle yourself on the team’s Cycles page. The rhythm settings below stop applying.',
+    'You plan each cycle yourself, right below. The rhythm settings stop applying.',
   'cycles.manualNote':
-    'Cycles are planned by hand on this team’s Cycles page. Switching back to the automatic rhythm keeps everything already planned.',
+    'Switching back to the automatic rhythm keeps everything already planned.',
+  'cycles.planned': 'Planned cycles',
+  'cycles.plannedHint':
+    'This team’s calendar. Adding, editing or deleting a cycle here takes effect straight away.',
+  'cycles.plannedSaveFirst':
+    'Save the cadence first — then this team’s cycles are planned here.',
   'cycles.length': 'Cycle length',
   'cycles.cooldown': 'Cooldown',
   'cycles.cooldownRowHint': 'A gap between cycles with no current cycle — a catch-up week.',
