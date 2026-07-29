@@ -64,6 +64,7 @@ import {
   useUpdateTeamCustomFields,
 } from '@/features/teams/api';
 import { useUpdateCycleConfig } from '@/features/cycles/api';
+import { TeamCyclePlanner } from '@/features/cycles/components/TeamCyclePlanner';
 import type { TeamDto } from '@/types/dto';
 import type { CustomFieldConfig, TaskLabelConfig } from '@/types/enums';
 import { CloudStorageSection } from './CloudStorageSection';
@@ -389,17 +390,23 @@ const CYCLE_WEEK_LABEL: Record<number, string> = {
 };
 
 /**
- * A team's sprint cadence. Config only — this page never creates or closes a
- * cycle itself.
+ * A team's sprint cadence — and, on a manual team, the cycles themselves.
  *
  * **Automatic** is the rhythm: enabling seeds the current + 2 upcoming cycles
  * server-side, the lazy scheduler rolls them forever, and disabling deletes the
- * upcoming ones (past cycles stay readable). Rhythm edits regenerate them.
+ * upcoming ones (past cycles stay readable). Rhythm edits regenerate them, so
+ * there is deliberately nothing to create by hand here.
  *
- * **Manual** stops generation and hands the calendar to the team, which plans
- * each cycle on its Cycles page. Every rhythm control below then goes inert
- * (kept, not cleared, so switching back restores the old rhythm). Ending a cycle
- * stays automatic in both: stats freeze and unfinished work rolls over.
+ * **Manual** stops generation and hands the calendar to the team. Every rhythm
+ * control then goes inert (kept, not cleared, so switching back restores the old
+ * rhythm) and `TeamCyclePlanner` takes their place: choosing the cadence and
+ * planning the first cycle happen in one sitting, instead of sending someone off
+ * to the Cycles page to find out where cycles come from. Ending a cycle stays
+ * automatic in both: stats freeze and unfinished work rolls over.
+ *
+ * The rhythm rows are a draft saved by the footer button; the planner's own
+ * actions save immediately, which is why it reads the *saved* team rather than
+ * this editor's draft.
  */
 function TeamCyclesEditor({ team }: { team: TeamDto }) {
   const save = useUpdateCycleConfig();
@@ -595,6 +602,10 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
             />
           </div>
         </div>
+        {/* Shown the moment Manual is picked — including before the cadence is
+            saved, where the planner says so instead of offering a button the
+            API would reject. An automatic team has no calendar to plan. */}
+        {!off && manual && <TeamCyclePlanner team={team} />}
       </CardContent>
       <CardFooter className="justify-between gap-4">
         {/* The rebuild warning is an automatic-team fact; a manual team is told

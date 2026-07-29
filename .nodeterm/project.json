@@ -1,70 +1,53 @@
 {
   "version": 1,
-  "rev": 484,
-  "savedAt": "2026-07-29T08:48:16.567Z",
+  "rev": 498,
+  "savedAt": "2026-07-29T15:09:38.878Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 677.630973107621,
-    "y": 2391.4555375650593,
+    "x": 836.630973107621,
+    "y": 2167.4555375650593,
     "zoom": 0.968709487914002
   },
   "nodes": [
     {
-      "id": "term-ms5jkaag-1",
+      "id": "term-ms5v5qy5-4",
       "kind": "terminal",
       "position": {
-        "x": -453.78552605198195,
-        "y": -2561.759391839777
+        "x": -728.0240652958591,
+        "y": -1974.9960736605326
       },
       "size": {
         "width": 600,
         "height": 400
       },
-      "title": "Cho phép bôi và comment vào paragraph",
+      "title": "Thêm tùy chọn layout cho sidemenu",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,
       "tags": [],
+      "collapsed": false,
       "cwd": ".",
       "agentId": "claude"
     },
     {
-      "id": "term-ms5jlze7-2",
+      "id": "term-ms5v99ru-5",
       "kind": "terminal",
       "position": {
-        "x": 202.33330990984382,
-        "y": -2560.033788091893
+        "x": -6.445502557497321,
+        "y": -2163.907199527658
       },
       "size": {
         "width": 600,
         "height": 400
       },
-      "title": "Implement service worker update notification",
+      "title": "Thêm nút tạo cycle manual trong team settings",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,
       "tags": [],
-      "cwd": ".",
-      "agentId": "claude"
-    },
-    {
-      "id": "term-ms5quf2n-3",
-      "kind": "terminal",
-      "position": {
-        "x": -448.7865814321583,
-        "y": -2089.882241484112
-      },
-      "size": {
-        "width": 600,
-        "height": 400
-      },
-      "title": "Fix editor menu display outside line start",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
+      "collapsed": false,
       "cwd": ".",
       "agentId": "claude"
     }

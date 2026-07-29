@@ -1,7 +1,6 @@
 import { Fragment, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Pencil, Plus, Settings2, Target, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
 import { Badge, Button, ProgressBar, Spinner } from '@/components/ui';
 import { ListSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
@@ -13,7 +12,8 @@ import { CycleMode, CycleStatus } from '@/types/enums';
 import type { CycleDto } from '@/types/dto';
 import { useTeams } from '@/features/teams/api';
 import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
-import { useCreateCycle, useCycles, useDeleteCycle, useUpdateCycle, type CycleInput } from './api';
+import { useCycles } from './api';
+import { usePlanCycles } from './usePlanCycles';
 import { CycleFormDialog } from './components/CycleFormDialog';
 import { CycleInsightsDrawer } from './CycleInsights';
 import { addDays, cycleName, cycleStatusBadge, cycleTimeHint, dayDiff, shortDay } from './dates';
@@ -35,16 +35,12 @@ export function TeamCyclesPage() {
   const { canManageDelivery } = useAuth();
   // The cycle whose insights drawer is open ('' = closed).
   const [insightsId, setInsightsId] = useState('');
-  // The form dialog: closed, open on a cycle (edit), or open on nothing (create).
-  const [form, setForm] = useState<{ open: boolean; cycle?: CycleDto }>({ open: false });
-  const [formError, setFormError] = useState<string | null>(null);
 
   // Same resolution as TeamBoardPage: the route accepts an id or a team key.
   const team = (teams ?? []).find((x) => x.id === teamId || x.key === teamId);
   const { data: cycles, isLoading: cyclesLoading } = useCycles(team?.id);
-  const create = useCreateCycle();
-  const update = useUpdateCycle();
-  const remove = useDeleteCycle();
+  // Hand-planning behaves the same here as in team settings — one hook owns it.
+  const plan = usePlanCycles(team?.id);
 
   if (teamsLoading) {
     return (
@@ -79,35 +75,6 @@ export function TeamCyclesPage() {
   const canPlan =
     canManageDelivery && team.cyclesEnabled && team.cycleMode === CycleMode.MANUAL;
 
-  /** One save path for both create and edit — the dialog can't tell which it is
-   *  from the outside, and a server rejection (an overlap) belongs in it. */
-  async function submitForm(values: CycleInput) {
-    setFormError(null);
-    try {
-      if (form.cycle) {
-        await update.mutateAsync({ teamId: team!.id, cycleId: form.cycle.id, ...values });
-      } else {
-        await create.mutateAsync({ teamId: team!.id, input: values });
-      }
-      setForm({ open: false });
-    } catch (err) {
-      // The dialog stays open holding the entered dates — the usual rejection is
-      // an overlap with another cycle, which is fixed by nudging them, not by
-      // starting over.
-      setFormError((err as Error).message);
-    }
-  }
-
-  async function deleteCycle(cycle: CycleDto) {
-    if (!confirm(t('cycles.deleteConfirm').replace('{name}', cycleName(cycle)))) return;
-    try {
-      await remove.mutateAsync({ teamId: team!.id, cycleId: cycle.id });
-      toast.success(t('cycles.deleted'));
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  }
-
   return (
     <IssueBoardLayout
       title={team.name}
@@ -123,7 +90,7 @@ export function TeamCyclesPage() {
               </Link>
             </Button>
             {canPlan && (
-              <Button size="sm" onClick={() => setForm({ open: true })}>
+              <Button size="sm" onClick={plan.openCreate}>
                 <Plus className="mr-1.5 size-4" />
                 {t('cycles.newCycle')}
               </Button>
@@ -148,7 +115,7 @@ export function TeamCyclesPage() {
               {canPlan ? t('cycles.emptyManualHint') : t('cycles.emptyHint')}
             </p>
             {canPlan ? (
-              <Button size="sm" className="mt-4" onClick={() => setForm({ open: true })}>
+              <Button size="sm" className="mt-4" onClick={plan.openCreate}>
                 <Plus className="mr-1.5 size-4" />
                 {t('cycles.newCycle')}
               </Button>
@@ -173,8 +140,8 @@ export function TeamCyclesPage() {
                     teamId={team.id}
                     canManageDelivery={canManageDelivery}
                     onOpenGoal={() => setInsightsId(c.id)}
-                    onEdit={canPlan ? () => setForm({ open: true, cycle: c }) : undefined}
-                    onDelete={canPlan ? () => deleteCycle(c) : undefined}
+                    onEdit={canPlan ? () => plan.openEdit(c) : undefined}
+                    onDelete={canPlan ? () => plan.deleteCycle(c) : undefined}
                   />
                   {gapDays > 0 && next && (
                     <div className="flex items-center gap-3 px-1 text-xs text-muted-foreground">
@@ -205,16 +172,13 @@ export function TeamCyclesPage() {
       />
 
       <CycleFormDialog
-        open={form.open}
-        onClose={() => {
-          setForm({ open: false });
-          setFormError(null);
-        }}
-        cycle={form.cycle}
+        open={plan.form.open}
+        onClose={plan.close}
+        cycle={plan.form.cycle}
         cycles={rows}
-        submitting={create.isPending || update.isPending}
-        error={formError}
-        onSubmit={submitForm}
+        submitting={plan.submitting}
+        error={plan.error}
+        onSubmit={plan.submit}
       />
     </IssueBoardLayout>
   );

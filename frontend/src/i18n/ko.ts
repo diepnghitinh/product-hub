@@ -35,6 +35,7 @@ export const ko: Record<I18nKey, string> = {
   'nav.menu': '메뉴',
   'nav.create': '새로 만들기',
   'nav.newTeam': '새 스페이스',
+
   'theme.toggle': '라이트 / 다크 전환',
   'theme.light': '라이트',
   'theme.dark': '다크',
@@ -783,6 +784,7 @@ export const ko: Record<I18nKey, string> = {
   // Profile menu — the signed-in user's avatar menu + My Profile page
   'profile.myProfile': '내 프로필',
   'profile.managePeople': '구성원 관리',
+  'profile.accountMenu': '계정 메뉴',
   'profile.appearance': '화면 테마',
   'profile.logout': '로그아웃',
   'profile.passwordHint': '로그인에 사용하는 비밀번호를 변경합니다.',
@@ -960,9 +962,11 @@ export const ko: Record<I18nKey, string> = {
   'cycles.cadenceAutoHint': '아래 일정에 따라 사이클이 스스로 시작하고 끝나고 반복됩니다.',
   'cycles.cadenceManual': '직접 계획',
   'cycles.cadenceManualHint':
-    '팀의 사이클 페이지에서 직접 하나씩 계획합니다. 아래 리듬 설정은 적용되지 않습니다.',
-  'cycles.manualNote':
-    '사이클은 이 팀의 사이클 페이지에서 직접 만듭니다. 자동 리듬으로 되돌려도 이미 계획한 사이클은 그대로 남습니다.',
+    '바로 아래에서 사이클을 직접 하나씩 계획합니다. 리듬 설정은 적용되지 않습니다.',
+  'cycles.manualNote': '자동 리듬으로 되돌려도 이미 계획한 사이클은 그대로 남습니다.',
+  'cycles.planned': '계획한 사이클',
+  'cycles.plannedHint': '이 팀의 일정입니다. 여기서 사이클을 추가·수정·삭제하면 바로 반영됩니다.',
+  'cycles.plannedSaveFirst': '진행 방식을 먼저 저장하면 여기에서 이 팀의 사이클을 계획할 수 있습니다.',
   'cycles.length': '사이클 길이',
   'cycles.cooldown': '쿨다운',
   'cycles.cooldownRowHint': '사이클 사이의 빈 기간 — 현재 사이클이 없는 정리 주간입니다.',
