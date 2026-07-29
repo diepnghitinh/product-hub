@@ -1,16 +1,22 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
+import { ICommentRepository } from '@application/activity/repositories/comment.repository';
 import { CreateDocPageDto, ReorderDocPagesDto, UpdateDocPageDto } from '../dtos/doc.dtos';
 import { DocPageEntity } from '../domain/entities/doc-page.entity';
 import { IDocRepository } from '../repositories/doc.repository';
 import { IDocPageRepository } from '../repositories/doc-page.repository';
 import { IDocPageVersionRepository } from '../repositories/doc-page-version.repository';
 
-/** A page plus the doc it lives in — the linked-docs list needs both titles. */
+/**
+ * A page plus the doc it lives in — the linked-docs list needs the doc's title
+ * to label the row and its ref to build the link, since a doc's URL is addressed
+ * by ref rather than id.
+ */
 export interface LinkedDocPage {
   page: DocPageEntity;
   docTitle: string;
+  docRef: string;
 }
 
 interface Author {
@@ -196,6 +202,7 @@ export class DeleteDocPageUseCase
     @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
     @Inject(IDocPageVersionRepository) private readonly versions: IDocPageVersionRepository,
+    @Inject(ICommentRepository) private readonly comments: ICommentRepository,
   ) {}
 
   /** Resolves to the ids that were removed — the page and everything under it. */
@@ -219,6 +226,8 @@ export class DeleteDocPageUseCase
     // History follows its page — a version of a page that no longer exists is
     // unreachable by any route, so it would just accumulate.
     await this.versions.deleteByPages(ids);
+    // So do its comment threads: they're anchored to text that no longer exists.
+    await this.comments.deleteByDocPages(tenantId, ids);
     doc.touch();
     await this.docs.update(doc);
     return Result.ok(ids);
@@ -308,15 +317,18 @@ export class GetLinkedDocPagesUseCase
     if (!pages.length) return Result.ok([]);
     // One lookup per doc, not per page — a record usually links pages of the
     // same doc, and a tenant's doc list is small.
-    const titles = new Map<string, string>();
+    const docs = new Map<string, { title: string; ref: string }>();
     for (const docId of new Set(pages.map((p) => p.docId))) {
       const doc = await this.docs.findById(docId);
-      if (doc && doc.tenantId === tenantId) titles.set(docId, doc.title);
+      if (doc && doc.tenantId === tenantId) docs.set(docId, { title: doc.title, ref: doc.ref });
     }
     return Result.ok(
       pages
-        .filter((p) => titles.has(p.docId))
-        .map((page) => ({ page, docTitle: titles.get(page.docId) as string })),
+        .filter((p) => docs.has(p.docId))
+        .map((page) => {
+          const doc = docs.get(page.docId) as { title: string; ref: string };
+          return { page, docTitle: doc.title, docRef: doc.ref };
+        }),
     );
   }
 }

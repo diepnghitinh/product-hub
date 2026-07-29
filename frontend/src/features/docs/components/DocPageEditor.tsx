@@ -1,17 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, History, Link2, Loader2, X } from 'lucide-react';
-import { Button, RichTextEditor, SymbolPicker } from '@/components/ui';
+import { Check, History, Link2, Loader2, Paintbrush, X } from 'lucide-react';
+import { Button, Drawer, RichText, RichTextEditor, SymbolPicker } from '@/components/ui';
 import { MediaUploader } from '@/components/MediaUploader';
 import { TeamSymbol, TEAM_SYMBOL_NAMES } from '@/components/TeamSymbol';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
+import { useAuth } from '@/lib/auth';
+import { contentRoot, describeRange, type TextAnchor } from '@/lib/textAnchor';
 import { DocLinkKind, IssueKind, TEAM_COLORS } from '@/types/enums';
 import type { DocAttachment, DocLink, DocPageDto } from '@/types/dto';
-import { useDoc, useUpdateDocPage } from '../api';
+import { useDoc, useDocComments, useUpdateDocPage } from '../api';
 import { pageStyleOf, typographyAttrs, widthClass, type DocPageStyle } from '../pageStyle';
 import { DocAttachments } from './DocAttachments';
+import { DocComments } from './DocComments';
+import {
+  DocCommentLayer,
+  PENDING_ID,
+  SelectionCommentButton,
+  threadAtPoint,
+  useAnchorLayout,
+  useSelectionPrompt,
+  type AnchoredThread,
+} from './DocCommentLayer';
 import { DocLinkDialog } from './DocLinkDialog';
 import { DocPageStyles } from './DocPageStyles';
 import { DocVersionHistory } from './DocVersionHistory';
@@ -19,9 +31,11 @@ import { DocVersionHistory } from './DocVersionHistory';
 interface DocPageEditorProps {
   page: DocPageDto;
   canWrite: boolean;
-  /** Page Styles opens from the doc's ⋯ menu, which lives a level up. */
-  stylesOpen?: boolean;
-  onStylesClose?: () => void;
+  /** The comments rail, toggled from the header a level up. */
+  commentsOpen?: boolean;
+  onCommentsOpenChange?: (open: boolean) => void;
+  /** A thread to open on arrival — an inbox mention links straight to one. */
+  focusCommentId?: string | null;
 }
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved';
@@ -57,8 +71,9 @@ function linkHref(link: DocLink): string {
 export function DocPageEditor({
   page,
   canWrite,
-  stylesOpen = false,
-  onStylesClose,
+  commentsOpen = false,
+  onCommentsOpenChange,
+  focusCommentId,
 }: DocPageEditorProps) {
   const update = useUpdateDocPage();
   // Already loaded by the workspace around us — read from cache, for the one
@@ -76,6 +91,9 @@ export function DocPageEditor({
   // under the pointer instead of after the round trip.
   const [style, setStyle] = useState<DocPageStyle>(() => pageStyleOf(page));
   const [status, setStatus] = useState<SaveState>('idle');
+  // Owned here, not passed down from the workspace: the button that opens it
+  // now rides the page heading, so trigger and drawer live in one component.
+  const [stylesOpen, setStylesOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   /**
@@ -84,6 +102,103 @@ export function DocPageEditor({
    * what restoring a version does — is to remount it under a fresh key.
    */
   const [seed, setSeed] = useState({ nonce: 0, html: page.content });
+
+  // ── Comments ──────────────────────────────────────────────────────────────
+  // Every signed-in role except Guest, mirroring the backend's @Roles on these
+  // routes — a developer can't edit a doc's body but can absolutely argue with it.
+  const { canEditDelivery: canComment } = useAuth();
+  const { data: comments } = useDocComments(page.docId, page.id);
+  /** The box the highlights are measured and painted in. */
+  const [box, setBox] = useState<HTMLDivElement | null>(null);
+  /** Where the prose lives inside it — editor or read-only render. */
+  const [content, setContent] = useState<HTMLDivElement | null>(null);
+  const [activeComment, setActiveComment] = useState<string | null>(null);
+  const [draftAnchor, setDraftAnchor] = useState<TextAnchor | null>(null);
+  const openComments = useCallback(
+    (open: boolean) => onCommentsOpenChange?.(open),
+    [onCommentsOpenChange],
+  );
+
+  const roots = useMemo(
+    () => (comments ?? []).filter((c) => !c.parentId && !!c.anchorExact),
+    [comments],
+  );
+  const threads = useMemo<AnchoredThread[]>(() => {
+    const list = roots.map((c) => ({
+      id: c.id,
+      anchor: {
+        exact: c.anchorExact,
+        prefix: c.anchorPrefix,
+        suffix: c.anchorSuffix,
+        start: c.anchorStart,
+      },
+    }));
+    // The draft rides along so you can see the passage you picked while writing.
+    if (draftAnchor) list.push({ id: PENDING_ID, anchor: draftAnchor });
+    return list;
+  }, [roots, draftAnchor]);
+  // Resolved threads are still measured — that's what keeps them in page order
+  // in the rail — but they leave no mark on the page.
+  const resolvedIds = useMemo(
+    () => roots.filter((c) => c.resolved).map((c) => c.id),
+    [roots],
+  );
+
+  const layout = useAnchorLayout({
+    container: box,
+    content,
+    threads,
+    revision: seed.nonce,
+  });
+  // While editing, "Comment" is a button in Editor.js's own inline toolbar; a
+  // second floating one would land on top of it.
+  const [prompt, clearPrompt] = useSelectionPrompt(box, content, canComment && !canWrite);
+
+  const wide = useWideEnough();
+
+  const startComment = useCallback(
+    (anchor: TextAnchor) => {
+      setDraftAnchor(anchor);
+      setActiveComment(null);
+      clearPrompt();
+      openComments(true);
+      window.getSelection()?.removeAllRanges();
+    },
+    [clearPrompt, openComments],
+  );
+
+  /** The editor's inline "Comment" button hands over the live selection —
+   *  describe it against the same DOM the highlights are measured in. */
+  const commentOnRange = useCallback(
+    (range: Range) => {
+      const root = contentRoot(content);
+      if (!root) return;
+      const anchor = describeRange(root, range);
+      if (anchor) startComment(anchor);
+    },
+    [content, startComment],
+  );
+
+  /** Clicking a highlighted passage opens its thread. Hit-tested against the
+   *  measured boxes rather than made clickable, so the highlight never eats the
+   *  drag that selects text or the click that places the caret. */
+  function pickThread(e: MouseEvent<HTMLDivElement>) {
+    if (!box) return;
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) return;
+    const rect = box.getBoundingClientRect();
+    const id = threadAtPoint(layout, e.clientX - rect.left, e.clientY - rect.top);
+    if (!id) return;
+    setActiveComment(id);
+    openComments(true);
+  }
+
+  // Landing from a mention: open the rail on that thread.
+  useEffect(() => {
+    if (!focusCommentId) return;
+    setActiveComment(focusCommentId);
+    openComments(true);
+  }, [focusCommentId, openComments]);
 
   // Fields edited since the last write. A ref, not state: the debounce reads it
   // when it fires, and re-rendering on every keystroke would fight the editor.
@@ -212,8 +327,59 @@ export function DocPageEditor({
   const filesOn = style.showAttachments && (canWrite || files.length > 0);
   const typo = typographyAttrs(style);
 
+  /**
+   * The two controls that change how the page *looks*, gathered in one row so
+   * they read as the same class of thing. Rendered against the heading when
+   * there is one and revealed on hover; on their own line when the title is
+   * switched off, where there is nothing to hover and they stay visible.
+   */
+  const pageActions =
+    showAddCover || canWrite ? (
+      <>
+        {showAddCover && (
+          <MediaUploader
+            accept="image/*"
+            multiple={false}
+            variant="ghost"
+            label={t('docs.addCover')}
+            className="text-muted-foreground"
+            onUploaded={(m) => {
+              setCoverUrl(m.url);
+              saveNow({ coverUrl: m.url });
+            }}
+          />
+        )}
+        {canWrite && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="text-muted-foreground"
+            onClick={() => setStylesOpen(true)}
+          >
+            <Paintbrush className="mr-1.5 size-4" aria-hidden />
+            {t('docs.pageStyles')}
+          </Button>
+        )}
+      </>
+    ) : null;
+
+  const rail = comments ? (
+    <DocComments
+      docId={page.docId}
+      pageId={page.id}
+      comments={comments}
+      tops={layout.tops}
+      orphaned={layout.orphaned}
+      activeId={activeComment}
+      onActivate={setActiveComment}
+      pending={draftAnchor}
+      onCancelPending={() => setDraftAnchor(null)}
+    />
+  ) : null;
+
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    <div className="flex min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-y-auto">
       {coverUrl && style.showCover ? (
         <div className="group relative h-32 w-full overflow-hidden bg-muted sm:h-44">
           <img src={coverUrl} alt="" className="size-full object-cover" />
@@ -304,37 +470,19 @@ export function DocPageEditor({
               placeholder={t('docs.untitled')}
               className="min-w-0 flex-1 border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/60 sm:text-3xl"
             />
-            {showAddCover && (
-              <MediaUploader
-                accept="image/*"
-                multiple={false}
-                variant="ghost"
-                label={t('docs.addCover')}
-                className="shrink-0 text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
-                onUploaded={(m) => {
-                  setCoverUrl(m.url);
-                  saveNow({ coverUrl: m.url });
-                }}
-              />
+            {pageActions && (
+              <div className="flex shrink-0 items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100">
+                {pageActions}
+              </div>
             )}
           </div>
         ) : (
-          // No title to hang it on, so the cover button keeps a line of its own.
-          showAddCover && (
-            <div className="flex items-center gap-2">
-              <MediaUploader
-                accept="image/*"
-                multiple={false}
-                variant="ghost"
-                label={t('docs.addCover')}
-                className="text-muted-foreground"
-                onUploaded={(m) => {
-                  setCoverUrl(m.url);
-                  saveNow({ coverUrl: m.url });
-                }}
-              />
-            </div>
-          )
+          // No heading to hang them on — and nothing to hover — so the same row
+          // keeps a line of its own and stays visible. Page Styles has to be
+          // reachable here too: it is the only way back to "show title", and
+          // hiding it along with the title would strand the page with no way to
+          // bring the heading back.
+          pageActions && <div className="flex items-center">{pageActions}</div>
         )}
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -417,19 +565,37 @@ export function DocPageEditor({
           </div>
         )}
 
-        <div className={cn('mt-4', !canWrite && 'pointer-events-none opacity-90')}>
-          <RichTextEditor
-            key={seed.nonce}
-            value={seed.html}
-            images
-            diagrams
-            minHeight={360}
-            placeholder={t('docs.write')}
-            onChange={(html) => queue({ content: html })}
-            // A doc page *is* the document — the skin drops the frame + focus
-            // ring and reads at body size (see rich-text-editor.css).
-            className="doc-page"
-          />
+        {/* The body, and the comment highlights behind it. The layer is a
+            sibling at z-0 with the prose lifted to z-1, so a highlight paints
+            *under* the text — nothing is ever injected into the content itself. */}
+        <div ref={setBox} className="relative mt-4">
+          <DocCommentLayer layout={layout} activeId={activeComment} hiddenIds={resolvedIds} />
+          <div ref={setContent} className="relative z-[1]" onClick={pickThread}>
+            {canWrite ? (
+              <RichTextEditor
+                key={seed.nonce}
+                value={seed.html}
+                images
+                diagrams
+                minHeight={360}
+                placeholder={t('docs.write')}
+                onChange={(html) => queue({ content: html })}
+                onComment={canComment ? (range) => commentOnRange(range) : undefined}
+                commentLabel={t('docs.comments.add')}
+                // A doc page *is* the document — the skin drops the frame + focus
+                // ring and reads at body size (see rich-text-editor.css).
+                className="doc-page"
+              />
+            ) : (
+              // A reader gets the read-only renderer, not a disabled editor:
+              // it's the same markup the public share view paints, and — the
+              // point of it — the text can actually be selected, which is where
+              // commenting starts. `doc-page-read` is what keeps the block
+              // rhythm the same as the author's, so both see one document.
+              <RichText html={page.content} className="doc-page-read" />
+            )}
+          </div>
+          {prompt && <SelectionCommentButton prompt={prompt} onPick={startComment} />}
         </div>
       </div>
 
@@ -461,15 +627,50 @@ export function DocPageEditor({
       {canWrite && (
         <DocPageStyles
           open={stylesOpen}
-          onClose={() => onStylesClose?.()}
+          onClose={() => setStylesOpen(false)}
           style={style}
           onChange={changeStyle}
           // Nothing to apply it to on a one-page doc, so the action isn't offered.
           onApplyToAll={otherPages.length > 0 ? applyTypographyToAll : undefined}
         />
       )}
+      </div>
+
+      {/* One toggle, two shapes: docked beside the page where there's room for
+          both, a sheet over it where there isn't. */}
+      {rail && commentsOpen && wide && (
+        <aside className="flex w-[340px] shrink-0 flex-col border-l bg-muted/10">{rail}</aside>
+      )}
+      {rail && !wide && (
+        <Drawer
+          open={commentsOpen}
+          onClose={() => openComments(false)}
+          title={t('docs.comments.title')}
+          widthClassName="sm:max-w-md"
+        >
+          <div className="flex min-h-0 flex-1 flex-col">{rail}</div>
+        </Drawer>
+      )}
     </div>
   );
+}
+
+/**
+ * Whether the comments rail has room to dock. The page needs the whole width on
+ * a phone, so below this the same panel opens as a sheet instead.
+ */
+function useWideEnough(query = '(min-width: 1024px)') {
+  const [wide, setWide] = useState(
+    () => typeof window === 'undefined' || window.matchMedia(query).matches,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const onChange = () => setWide(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, [query]);
+  return wide;
 }
 
 /** The autosave indicator — the only feedback there is, since there's no button. */

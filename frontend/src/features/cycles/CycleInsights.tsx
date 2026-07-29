@@ -25,7 +25,7 @@ import { CycleStatus } from '@/types/enums';
 import type { CycleBurndownDto, CycleBurndownGroup, CycleDto, TeamDto } from '@/types/dto';
 import { useProjects } from '@/features/projects/api';
 import { useCycleBurndown, useCycles, useFocusedCycle, useUpdateCycle } from './api';
-import { cycleStatusBadge, cycleTimeHint, shortDay } from './dates';
+import { cycleName, cycleStatusBadge, cycleTimeHint, shortDay } from './dates';
 import { CycleBurnupChart, StatSwatch } from './CycleBurnupChart';
 import { CycleIcon } from './CycleIcon';
 
@@ -141,9 +141,7 @@ export function CycleInsightsDrawer({
       headerActions={
         <div className="flex items-center gap-2 pl-1">
           <CycleIcon className="text-muted-foreground" />
-          <span className="text-sm font-semibold">
-            {t('cycles.cycle')} {current?.number ?? ''}
-          </span>
+          <span className="text-sm font-semibold">{current ? cycleName(current) : ''}</span>
           {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
         </div>
       }

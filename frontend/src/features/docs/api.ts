@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
+import { apiDelete, apiDownload, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
+import { getLocale } from '@/i18n';
 import type {
+  CommentDto,
   DocAttachment,
   DocDto,
   DocLink,
+  DocPageCommentCount,
   DocPageDto,
   DocPageSummary,
   DocPageVersion,
@@ -16,12 +19,19 @@ export function useDocs() {
   return useQuery({ queryKey: ['docs'], queryFn: () => apiGet<DocDto[]>('/docs') });
 }
 
-/** A doc + its page tree (no bodies — the rail only needs titles). */
-export function useDoc(id: string | undefined) {
+/**
+ * A doc + its page tree (no bodies — the rail only needs titles).
+ *
+ * `idOrRef` is whatever the URL carried: a `DOC-6HCUHKX` ref for a link made
+ * today, the uuid for one made before refs existed. The server resolves both, so
+ * this key is *not* reliably the doc's id — anything writing to this cache must
+ * match by prefix and compare `data.id`, never assume `['doc', uuid]`.
+ */
+export function useDoc(idOrRef: string | undefined) {
   return useQuery({
-    queryKey: ['doc', id],
-    queryFn: () => apiGet<DocDto>(`/docs/${id}`),
-    enabled: !!id,
+    queryKey: ['doc', idOrRef],
+    queryFn: () => apiGet<DocDto>(`/docs/${idOrRef}`),
+    enabled: !!idOrRef,
   });
 }
 
@@ -148,7 +158,9 @@ export function useUpdateDocPage() {
     }) => apiPatch<DocPageDto>(`/docs/${docId}/pages/${pageId}`, input),
     onSuccess: (page) => {
       qc.setQueryData<DocPageDto>(['doc-page', page.docId, page.id], page);
-      qc.invalidateQueries({ queryKey: ['doc', page.docId] });
+      // Prefix, not ['doc', docId]: the doc is cached under whatever key the URL
+      // used, which is its ref rather than its uuid on a modern link.
+      qc.invalidateQueries({ queryKey: ['doc'] });
       qc.invalidateQueries({ queryKey: ['docs'] });
       qc.invalidateQueries({ queryKey: ['doc-links'] });
     },
@@ -167,6 +179,27 @@ export function useDeleteDocPage() {
       qc.invalidateQueries({ queryKey: ['doc-links'] });
       invalidate();
     },
+  });
+}
+
+/**
+ * Download one page as a PDF.
+ *
+ * The paper is rendered on the server by a real browser, so what lands in the
+ * file is the page as it reads here — same typography, same diagrams — not a
+ * screenshot of this tab and not something the print dialog reinterpreted. A
+ * mutation rather than a query because it's an action with no cached result:
+ * `isPending` is what greys the menu item while Chrome is drawing.
+ *
+ * The locale rides along for the handful of words the server adds around the
+ * body ("Updated by", "Attachments").
+ */
+export function useExportDocPagePdf() {
+  return useMutation({
+    mutationFn: ({ docId, pageId, title }: { docId: string; pageId: string; title: string }) =>
+      apiDownload(`/docs/${docId}/pages/${pageId}/pdf`, `${title || 'document'}.pdf`, {
+        locale: getLocale(),
+      }),
   });
 }
 
@@ -242,9 +275,106 @@ export function useRestoreDocPageVersion() {
     onSuccess: (page) => {
       qc.setQueryData<DocPageDto>(['doc-page', page.docId, page.id], page);
       qc.invalidateQueries({ queryKey: ['doc-page-versions', page.docId, page.id] });
-      qc.invalidateQueries({ queryKey: ['doc', page.docId] });
+      // Prefix — see the note on `useDoc`: the cache key may be the doc's ref.
+      qc.invalidateQueries({ queryKey: ['doc'] });
       qc.invalidateQueries({ queryKey: ['docs'] });
     },
+  });
+}
+
+// ── Comments ─────────────────────────────────────────────────────────────────
+
+/** What a new thread is about. Absent on a reply, and on a page-level note. */
+export interface DocCommentAnchor {
+  anchorExact?: string;
+  anchorPrefix?: string;
+  anchorSuffix?: string;
+  anchorStart?: number;
+}
+
+export interface CreateDocCommentInput extends DocCommentAnchor {
+  body: string;
+  mentions?: string[];
+  images?: string[];
+  /** When set, post as a reply to this thread's top-level comment. */
+  parentId?: string;
+}
+
+/** Every comment on one page, oldest first — resolved ones included, since the
+ *  sidebar offers them behind a filter rather than hiding them for good. */
+export function useDocComments(docId: string | undefined, pageId: string | undefined) {
+  return useQuery({
+    queryKey: ['doc-comments', docId, pageId],
+    queryFn: () => apiGet<CommentDto[]>(`/docs/${docId}/pages/${pageId}/comments`),
+    enabled: !!docId && !!pageId,
+  });
+}
+
+/** Open-thread counts for every page of a doc, for the rail's badges. One
+ *  aggregate rather than a request per page. */
+export function useDocCommentCounts(docId: string | undefined) {
+  return useQuery({
+    queryKey: ['doc-comment-counts', docId],
+    queryFn: () => apiGet<DocPageCommentCount[]>(`/docs/${docId}/comment-counts`),
+    enabled: !!docId,
+  });
+}
+
+/**
+ * Anything that changes a thread refreshes the page's list and the doc's badges.
+ * The inbox goes too: a doc mention lands there the same way a bug mention does.
+ */
+function useCommentInvalidate(docId: string | undefined, pageId: string | undefined) {
+  const qc = useQueryClient();
+  return () => {
+    qc.invalidateQueries({ queryKey: ['doc-comments', docId, pageId] });
+    qc.invalidateQueries({ queryKey: ['doc-comment-counts', docId] });
+    qc.invalidateQueries({ queryKey: ['inbox'] });
+  };
+}
+
+export function useCreateDocComment(docId: string | undefined, pageId: string | undefined) {
+  const invalidate = useCommentInvalidate(docId, pageId);
+  return useMutation({
+    mutationFn: (input: CreateDocCommentInput) =>
+      apiPost<CommentDto>(`/docs/${docId}/pages/${pageId}/comments`, input),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateDocComment(docId: string | undefined, pageId: string | undefined) {
+  const invalidate = useCommentInvalidate(docId, pageId);
+  return useMutation({
+    mutationFn: ({
+      commentId,
+      input,
+    }: {
+      commentId: string;
+      input: { body?: string; mentions?: string[]; images?: string[] };
+    }) => apiPatch<CommentDto>(`/docs/${docId}/pages/${pageId}/comments/${commentId}`, input),
+    onSuccess: invalidate,
+  });
+}
+
+/** Tick a thread off, or bring it back. Resolving a reply resolves its root. */
+export function useResolveDocComment(docId: string | undefined, pageId: string | undefined) {
+  const invalidate = useCommentInvalidate(docId, pageId);
+  return useMutation({
+    mutationFn: ({ commentId, resolved }: { commentId: string; resolved: boolean }) =>
+      apiPost<CommentDto>(`/docs/${docId}/pages/${pageId}/comments/${commentId}/resolve`, {
+        resolved,
+      }),
+    onSuccess: invalidate,
+  });
+}
+
+/** Deleting a thread's first comment takes its replies with it. */
+export function useDeleteDocComment(docId: string | undefined, pageId: string | undefined) {
+  const invalidate = useCommentInvalidate(docId, pageId);
+  return useMutation({
+    mutationFn: (commentId: string) =>
+      apiDelete<{ ok: true }>(`/docs/${docId}/pages/${pageId}/comments/${commentId}`),
+    onSuccess: invalidate,
   });
 }
 
@@ -266,15 +396,22 @@ export function useReorderDocPages() {
       /** The whole tree as it should look after the drop (optimistic paint). */
       next?: DocPageSummary[];
     }) => apiPut<DocPageSummary[]>(`/docs/${docId}/pages`, { pages }),
+    // The doc's cache key is whatever the URL carried (ref *or* uuid), so the
+    // entry to patch is found by prefix and matched on the payload's own id —
+    // guessing `['doc', docId]` would silently miss and the drag would snap back.
     onMutate: async ({ docId, next }) => {
       if (!next) return {};
-      await qc.cancelQueries({ queryKey: ['doc', docId] });
-      const prev = qc.getQueryData<DocDto>(['doc', docId]);
-      qc.setQueryData<DocDto>(['doc', docId], (old) => (old ? { ...old, pages: next } : old));
+      await qc.cancelQueries({ queryKey: ['doc'] });
+      const prev = qc
+        .getQueriesData<DocDto>({ queryKey: ['doc'] })
+        .filter(([, data]) => data?.id === docId);
+      prev.forEach(([key]) =>
+        qc.setQueryData<DocDto>(key, (old) => (old ? { ...old, pages: next } : old)),
+      );
       return { prev };
     },
-    onError: (_err, { docId }, ctx) => {
-      if (ctx?.prev) qc.setQueryData(['doc', docId], ctx.prev);
+    onError: (_err, _vars, ctx) => {
+      ctx?.prev?.forEach(([key, data]) => qc.setQueryData(key, data));
     },
     onSettled: invalidate,
   });

@@ -18,11 +18,15 @@ import { ShareLinkDialog } from '@/components/ShareLinkDialog';
 import { TeamSymbol, TEAM_SYMBOL_NAMES } from '@/components/TeamSymbol';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { CenteredPageLayout } from '@/layouts/shared';
+import { FavouriteButton } from '@/features/favourites/FavouriteButton';
+import { isFavourited, useFavourites } from '@/features/favourites/api';
 import { timeAgo } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
-import { TEAM_COLORS } from '@/types/enums';
+import { FavouriteKind, TEAM_COLORS } from '@/types/enums';
 import type { DocDto } from '@/types/dto';
 import { useCreateDoc, useDeleteDoc, useDocs, useSetDocSharing, useUpdateDoc } from './api';
+import { docPath } from './slug';
 
 const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]';
 
@@ -38,6 +42,9 @@ export function DocsHubPage() {
   const navigate = useNavigate();
   const { canWrite, canManageDelivery } = useAuth();
   const { data, isLoading } = useDocs();
+  // Shared cache with the sidebar — read here only to decide which stars stay
+  // visible without a hover.
+  const { data: favourites } = useFavourites();
   const create = useCreateDoc();
   const update = useUpdateDoc();
   const remove = useDeleteDoc();
@@ -119,7 +126,7 @@ export function DocsHubPage() {
           onSuccess: (doc) => {
             setOpen(false);
             // A new doc is created with its first page — go straight to writing.
-            navigate(`/docs/${doc.id}`);
+            navigate(docPath(doc));
           },
         },
       );
@@ -211,9 +218,11 @@ export function DocsHubPage() {
               <article
                 key={doc.id}
                 className="group relative flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:border-foreground/20"
-                onClick={() => navigate(`/docs/${doc.id}`)}
+                onClick={() => navigate(docPath(doc))}
               >
-                <div className="flex items-start gap-2.5 pr-8">
+                {/* Right padding clears the action cluster in the corner — two
+                    controls wide now that the pin sits beside the ⋯ menu. */}
+                <div className="flex items-start gap-2.5 pr-14">
                   <span className="mt-px grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
                     <TeamSymbol name={doc.icon || 'book'} size={16} color={doc.color ?? undefined} />
                   </span>
@@ -239,25 +248,41 @@ export function DocsHubPage() {
                   <span>{timeAgo(doc.updatedAt)}</span>
                 </div>
 
-                {items.length > 0 && (
-                  // Always visible on touch, where there's no hover to reveal it.
-                  <span
-                    className="absolute right-2 top-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
-                    onClick={(e) => e.stopPropagation()} // don't open the doc
-                  >
-                    <Menu
-                      align="right"
-                      items={items}
-                      triggerClassName="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      trigger={
-                        <>
-                          <MoreHorizontal className="size-4" aria-hidden />
-                          <span className="sr-only">{t('common.more')}</span>
-                        </>
-                      }
-                    />
-                  </span>
-                )}
+                {/* Card actions — pin, then the ⋯ menu. Revealed on hover, and
+                    always visible on touch, where there's no hover to reveal
+                    them. A *pinned* star stays visible whatever the pointer is
+                    doing: the hub should say at a glance which docs are already
+                    in your sidebar. */}
+                <span
+                  className="absolute right-2 top-2 flex items-center gap-0.5"
+                  onClick={(e) => e.stopPropagation()} // don't open the doc
+                >
+                  <FavouriteButton
+                    kind={FavouriteKind.DOC}
+                    refId={doc.id}
+                    title={doc.title}
+                    size={15}
+                    className={cn(
+                      'size-7 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100',
+                      !isFavourited(favourites, FavouriteKind.DOC, doc.id) && 'opacity-0',
+                    )}
+                  />
+                  {items.length > 0 && (
+                    <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100">
+                      <Menu
+                        align="right"
+                        items={items}
+                        triggerClassName="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        trigger={
+                          <>
+                            <MoreHorizontal className="size-4" aria-hidden />
+                            <span className="sr-only">{t('common.more')}</span>
+                          </>
+                        }
+                      />
+                    </span>
+                  )}
+                </span>
               </article>
             );
           })}

@@ -1,5 +1,14 @@
 import { useMemo, useState, type DragEvent } from 'react';
-import { ChevronRight, FileText, MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import {
+  ChevronRight,
+  FileText,
+  MessageSquare,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import { Button, Input, Menu, type MenuItem } from '@/components/ui';
 import { TeamSymbol } from '@/components/TeamSymbol';
 import { cn } from '@/lib/utils';
@@ -19,6 +28,9 @@ interface DocPageTreeProps {
   activeId: string | undefined;
   onSelect: (pageId: string) => void;
   canWrite: boolean;
+  /** Unresolved comment threads per page id — a page with a conversation open on
+   *  it says so, so a reply isn't only found by opening every page. */
+  openComments?: Record<string, number>;
   onAdd: (parentId: string) => void;
   /** Commits an inline rename. Only called with a title that actually changed. */
   onRename: (page: DocPageSummary, title: string) => void;
@@ -56,6 +68,7 @@ export function DocPageTree({
   activeId,
   onSelect,
   canWrite,
+  openComments,
   onAdd,
   onRename,
   onDelete,
@@ -265,6 +278,18 @@ export function DocPageTree({
                           {page.title || t('docs.untitled')}
                         </span>
                       </button>
+                    )}
+
+                    {/* Open threads on this page. Sits outside the title button so
+                        it stays put while the title truncates around it. */}
+                    {(openComments?.[page.id] ?? 0) > 0 && !isEditing && (
+                      <span
+                        title={t('docs.comments.openOnPage')}
+                        className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary"
+                      >
+                        <MessageSquare className="size-2.5" aria-hidden />
+                        {openComments?.[page.id]}
+                      </span>
                     )}
 
                     {canWrite && !isEditing && (

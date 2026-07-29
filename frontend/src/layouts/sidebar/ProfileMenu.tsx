@@ -1,18 +1,69 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Popover from '@radix-ui/react-popover';
-import { LogOut, Moon, Settings, Sun, User, Users } from 'lucide-react';
+import { LogOut, Moon, Settings, Sun, User, Users, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { useTheme, type Theme } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 import { Separator } from '@/components/ui';
 import { UserAvatar } from '@/components/UserAvatar';
 import { cn } from '@/lib/utils';
 import { ROLE_LABEL } from '@/types/enums';
-import { t } from '@/i18n';
+import { getLocale, LOCALES, setLocale, t } from '@/i18n';
 
 /** A row in the menu's link list — the same rhythm as the sidebar's own rows. */
 const ROW =
   'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-popover-foreground outline-none transition-colors hover:bg-accent focus-visible:bg-accent';
+
+/**
+ * A labelled segmented switch — the menu's control for a preference with a
+ * handful of mutually exclusive values (theme, language). Laid out side by side
+ * rather than behind a dropdown: the options are few, and seeing the alternative
+ * is what makes the setting discoverable at all inside a menu.
+ *
+ * Generic over the value so `onChange` stays typed per use (`Theme`, `Locale`) —
+ * the caller passes its own setter directly with no cast.
+ */
+function Segmented<T extends string>({
+  label,
+  hint,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  /** Shown under the switch — for a choice whose consequence isn't obvious from
+   *  pressing it (language reloads the page; the theme just changes). */
+  hint?: string;
+  value: T;
+  options: { value: T; label: string; Icon?: LucideIcon }[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="p-3">
+      <p className="mb-2 text-xs font-medium text-muted-foreground">{label}</p>
+      <div className="inline-flex w-full rounded-lg bg-muted p-1" role="group" aria-label={label}>
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            aria-pressed={value === opt.value}
+            className={cn(
+              'flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
+              value === opt.value
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {opt.Icon && <opt.Icon className="size-4 shrink-0" />}
+            <span className="truncate">{opt.label}</span>
+          </button>
+        ))}
+      </div>
+      {hint && <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
 
 /**
  * The signed-in user's menu, anchored to the sidebar footer. A Radix Popover
@@ -110,36 +161,31 @@ export function ProfileMenu({
 
             <Separator />
 
-            {/* Appearance — a segmented Light / Dark switch on the current theme. */}
-            <div className="p-3">
-              <p className="mb-2 text-xs font-medium text-muted-foreground">
-                {t('profile.appearance')}
-              </p>
-              <div className="inline-flex w-full rounded-lg bg-muted p-1">
-                {(
-                  [
-                    { value: 'light', label: t('theme.light'), Icon: Sun },
-                    { value: 'dark', label: t('theme.dark'), Icon: Moon },
-                  ] as { value: Theme; label: string; Icon: typeof Sun }[]
-                ).map(({ value, label, Icon }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setTheme(value)}
-                    aria-pressed={theme === value}
-                    className={cn(
-                      'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring',
-                      theme === value
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    <Icon className="size-4" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* The two browser-level preferences, together: how the app looks and
+                what language it reads in. Neither is an account field — both are
+                per-browser, so they live here rather than on the profile page. */}
+            <Segmented
+              label={t('profile.appearance')}
+              value={theme}
+              onChange={setTheme}
+              options={[
+                { value: 'light', label: t('theme.light'), Icon: Sun },
+                { value: 'dark', label: t('theme.dark'), Icon: Moon },
+              ]}
+            />
+
+            <Separator />
+
+            {/* Each language is written in its own words (한국어, not "Korean"),
+                so the row a reader is looking for is legible to them even while
+                the rest of the menu is in a language they don't read. */}
+            <Segmented
+              label={t('profile.language')}
+              hint={t('profile.languageHint')}
+              value={getLocale()}
+              onChange={setLocale}
+              options={LOCALES.map((l) => ({ value: l.value, label: l.label }))}
+            />
 
             <Separator />
 

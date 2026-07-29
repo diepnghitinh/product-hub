@@ -12,6 +12,24 @@ export enum TeamIssueType {
 
 export const TEAM_ISSUE_TYPES: TeamIssueType[] = [TeamIssueType.BUG, TeamIssueType.TASK];
 
+/**
+ * How a team's cycles come into being. Lives here rather than in cycle.enums so
+ * `cycle.enums` can keep importing `TeamIssueType` without a cycle between the
+ * two modules.
+ */
+export enum CycleMode {
+  /** The scheduler mints them from the team's rhythm — the original behaviour. */
+  AUTO = 'auto',
+  /**
+   * The team plans each cycle by hand. Nothing is generated and the rhythm
+   * fields go inert, but the *end* of a cycle is still automatic: stats freeze
+   * and unfinished issues roll over exactly as they do on an auto team.
+   */
+  MANUAL = 'manual',
+}
+
+export const CYCLE_MODES: CycleMode[] = [CycleMode.AUTO, CycleMode.MANUAL];
+
 
 /** A team with no icon set falls back to the symbol for the list it owns. */
 export function defaultIconFor(issueType: TeamIssueType): string {

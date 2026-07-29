@@ -12,7 +12,7 @@
 // saved into the document, and `.report-workspace` redefines the colour tokens
 // a popup rendered inside it would inherit.
 import { initials } from '@/lib/format';
-import type { SlashPerson } from './CellSlashMenu';
+import type { SlashPerson } from './SlashMenu';
 
 /**
  * `@` counts at the start of a block or after a space — never mid-word, so an

@@ -202,7 +202,9 @@ export function PublicDocPage() {
                 className="mt-4 border-y py-2.5"
               />
             )}
-            <RichText html={page?.content ?? ''} className="mt-6" />
+            {/* `doc-page-read` gives the reader the block rhythm Editor.js gives
+                the author — the same page, not a denser copy of it. */}
+            <RichText html={page?.content ?? ''} className="doc-page-read mt-6" />
           </article>
         </div>
       </div>

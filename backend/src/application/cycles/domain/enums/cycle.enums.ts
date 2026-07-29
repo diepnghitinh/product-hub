@@ -35,6 +35,9 @@ export function completedStatusKeysFor(issueType: TeamIssueType): string[] {
  *  sprint goal + a few notes, short enough to keep it a note, not a document. */
 export const CYCLE_DESCRIPTION_MAX = 2000;
 
+/** Max length of a cycle's name — a label, not a sentence. */
+export const CYCLE_NAME_MAX = 80;
+
 /** Config bounds (shared by the DTO and the entity guard). */
 export const CYCLE_LENGTH_WEEKS_MIN = 1;
 export const CYCLE_LENGTH_WEEKS_MAX = 4;

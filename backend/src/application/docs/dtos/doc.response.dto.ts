@@ -75,6 +75,8 @@ export class DocPageResponseDto {
 /** Flat doc shape. `pages` is filled on a single-doc read and empty in the list. */
 export class DocResponseDto {
   @ApiProperty() id: string;
+  /** URL handle, `DOC-6HCUHKX`. '' on docs created before refs existed. */
+  @ApiProperty({ example: 'DOC-6HCUHKX' }) ref: string;
   @ApiProperty() tenantId: string;
   @ApiProperty() title: string;
   @ApiProperty() icon: string;
@@ -97,6 +99,8 @@ export class DocResponseDto {
  */
 export class LinkedDocPageDto {
   @ApiProperty() docId: string;
+  @ApiProperty({ description: "The doc's short ref — what the link is addressed by" })
+  docRef: string;
   @ApiProperty() docTitle: string;
   @ApiProperty() pageId: string;
   @ApiProperty() pageTitle: string;

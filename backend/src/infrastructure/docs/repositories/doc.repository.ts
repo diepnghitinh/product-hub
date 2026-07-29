@@ -20,6 +20,7 @@ export class DocRepository
     const result = DocEntity.create(
       {
         tenantId: doc.tenantId,
+        ref: doc.ref ?? '',
         title: doc.title,
         icon: doc.icon ?? '',
         color: doc.color ?? null,
@@ -42,6 +43,7 @@ export class DocRepository
     return {
       _id: doc.id.toString(),
       tenantId: doc.tenantId,
+      ref: doc.ref,
       title: doc.title,
       icon: doc.icon,
       color: doc.color,
@@ -59,6 +61,26 @@ export class DocRepository
   async findById(id: string): Promise<DocEntity | null> {
     const doc = await this.model.findById(id).lean<DocDoc>().exec();
     return doc ? this.toDomain(doc) : null;
+  }
+
+  /**
+   * A ref is uppercase and hyphenated (`DOC-6HCUHKX`), a uuid is neither, so the
+   * shape tells them apart — no need to try both queries. Refs are matched
+   * case-insensitively: they get typed by hand and pasted out of chat.
+   */
+  async findByIdOrRef(tenantId: string, idOrRef: string): Promise<DocEntity | null> {
+    const key = (idOrRef ?? '').trim();
+    if (!key) return null;
+    const isRef = /^[A-Za-z]+-[A-Za-z0-9]+$/.test(key) && key.length < 36;
+    const doc = await this.model
+      .findOne(isRef ? { tenantId, ref: key.toUpperCase() } : { _id: key, tenantId })
+      .lean<DocDoc>()
+      .exec();
+    return doc ? this.toDomain(doc) : null;
+  }
+
+  async refExists(tenantId: string, ref: string): Promise<boolean> {
+    return (await this.model.countDocuments({ tenantId, ref }).exec()) > 0;
   }
 
   async findByPublicToken(token: string): Promise<DocEntity | null> {

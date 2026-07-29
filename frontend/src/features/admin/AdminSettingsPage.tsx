@@ -27,6 +27,9 @@ import {
   DatePicker,
   Dialog,
   Input,
+  Label,
+  RadioGroup,
+  RadioGroupItem,
   SaveButton,
   Select,
   Switch,
@@ -44,6 +47,7 @@ import {
   CustomFieldType,
   CYCLE_COOLDOWN_WEEKS,
   CYCLE_LENGTH_WEEKS,
+  CycleMode,
   defaultStatusesFor,
   defaultTeamIcon,
   fieldTypeHasOptions,
@@ -385,16 +389,23 @@ const CYCLE_WEEK_LABEL: Record<number, string> = {
 };
 
 /**
- * A team's automatic sprint rhythm. Config only — cycles themselves are never
- * created or closed by hand: enabling seeds the current + 2 upcoming cycles
+ * A team's sprint cadence. Config only — this page never creates or closes a
+ * cycle itself.
+ *
+ * **Automatic** is the rhythm: enabling seeds the current + 2 upcoming cycles
  * server-side, the lazy scheduler rolls them forever, and disabling deletes the
- * upcoming ones (past cycles stay readable). Rhythm edits regenerate the
- * upcoming cycles; the active one finishes as planned.
+ * upcoming ones (past cycles stay readable). Rhythm edits regenerate them.
+ *
+ * **Manual** stops generation and hands the calendar to the team, which plans
+ * each cycle on its Cycles page. Every rhythm control below then goes inert
+ * (kept, not cleared, so switching back restores the old rhythm). Ending a cycle
+ * stays automatic in both: stats freeze and unfinished work rolls over.
  */
 function TeamCyclesEditor({ team }: { team: TeamDto }) {
   const save = useUpdateCycleConfig();
   const seed = () => ({
     cyclesEnabled: team.cyclesEnabled,
+    cycleMode: team.cycleMode,
     cycleLengthWeeks: team.cycleLengthWeeks,
     cycleCooldownWeeks: team.cycleCooldownWeeks,
     cycleStartDate: team.cycleStartDate,
@@ -408,6 +419,7 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- seed reads exactly these
     [
       team.cyclesEnabled,
+      team.cycleMode,
       team.cycleLengthWeeks,
       team.cycleCooldownWeeks,
       team.cycleStartDate,
@@ -420,12 +432,18 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
   // unchanged config can't touch the team's already-created cycles.
   const base = seed();
   const dirty = !deepEqual(cfg, base);
+  const manual = cfg.cycleMode === CycleMode.MANUAL;
   // A length / cooldown / start-date change on a team that was AND stays enabled
-  // triggers the server-side full rebuild — every cycle, frozen history included,
-  // is wiped and regenerated from the new schedule. Confirm first: it's irreversible.
+  // AND automatic triggers the server-side full rebuild — every cycle, frozen
+  // history included, is wiped and regenerated from the new schedule. Confirm
+  // first: it's irreversible. The rhythm is inert in manual mode, so a team
+  // switching to it (or already on it) never rebuilds — matching the backend,
+  // which requires auto on both sides of the save.
   const willRebuild =
     team.cyclesEnabled &&
     cfg.cyclesEnabled &&
+    team.cycleMode !== CycleMode.MANUAL &&
+    !manual &&
     (cfg.cycleLengthWeeks !== base.cycleLengthWeeks ||
       cfg.cycleCooldownWeeks !== base.cycleCooldownWeeks ||
       (cfg.cycleStartDate ?? null) !== (base.cycleStartDate ?? null));
@@ -436,12 +454,15 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
     return save.mutateAsync({ id: team.id, input: cfg });
   }
   const off = !cfg.cyclesEnabled;
-  // Dim + disable the rhythm rows while cycles are off — the values persist
-  // server-side, so re-enabling picks the old rhythm back up.
-  const rowCls = cn(
-    'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-3 sm:px-4 transition-opacity',
-    off && 'opacity-50',
-  );
+  // Dim + disable the rhythm rows while cycles are off OR run by hand — the
+  // values persist server-side either way, so switching back picks the old
+  // rhythm up again.
+  const inert = off || manual;
+  const ROW = 'flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-3 sm:px-4 transition-opacity';
+  const rowCls = cn(ROW, inert && 'opacity-50');
+  // Rollover is NOT part of the rhythm: a manual team's cycles still end by
+  // themselves, so where unfinished work goes is still a live choice there.
+  const rolloverRowCls = cn(ROW, off && 'opacity-50');
 
   return (
     <Card>
@@ -462,11 +483,66 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
               aria-label={t('cycles.enable')}
             />
           </div>
+          {/* The cadence choice sits directly under the on/off switch, because
+              it decides whether anything below it applies at all. */}
+          <div
+            className={cn(
+              'flex flex-col gap-3 p-3 transition-opacity sm:px-4',
+              off && 'opacity-50',
+            )}
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium">{t('cycles.cadence')}</p>
+              <p className="text-xs text-muted-foreground">{t('cycles.cadenceHint')}</p>
+            </div>
+            <RadioGroup
+              className="gap-3 sm:grid-cols-2"
+              disabled={off}
+              value={cfg.cycleMode}
+              onValueChange={(v) => set({ cycleMode: v as CycleMode })}
+              aria-label={t('cycles.cadence')}
+            >
+              {[
+                {
+                  value: CycleMode.AUTO,
+                  label: t('cycles.cadenceAuto'),
+                  hint: t('cycles.cadenceAutoHint'),
+                },
+                {
+                  value: CycleMode.MANUAL,
+                  label: t('cycles.cadenceManual'),
+                  hint: t('cycles.cadenceManualHint'),
+                },
+              ].map((opt) => (
+                <Label
+                  key={opt.value}
+                  htmlFor={`cadence-${opt.value}`}
+                  className={cn(
+                    'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                    !off && 'hover:bg-accent/40',
+                    cfg.cycleMode === opt.value && 'border-primary bg-primary/5',
+                  )}
+                >
+                  <RadioGroupItem
+                    value={opt.value}
+                    id={`cadence-${opt.value}`}
+                    className="mt-0.5"
+                  />
+                  <span className="min-w-0 flex-1 space-y-0.5">
+                    <span className="block text-sm font-medium">{opt.label}</span>
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      {opt.hint}
+                    </span>
+                  </span>
+                </Label>
+              ))}
+            </RadioGroup>
+          </div>
           <div className={rowCls}>
             <p className="text-sm font-medium">{t('cycles.length')}</p>
             <Select
               className="w-40"
-              disabled={off}
+              disabled={inert}
               value={String(cfg.cycleLengthWeeks)}
               onValueChange={(v) => set({ cycleLengthWeeks: Number(v) })}
               options={CYCLE_LENGTH_WEEKS.map((n) => ({
@@ -483,7 +559,7 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
             </div>
             <Select
               className="w-40"
-              disabled={off}
+              disabled={inert}
               value={String(cfg.cycleCooldownWeeks)}
               onValueChange={(v) => set({ cycleCooldownWeeks: Number(v) })}
               options={CYCLE_COOLDOWN_WEEKS.map((n) => ({
@@ -500,13 +576,13 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
             </div>
             <DatePicker
               className="w-44"
-              disabled={off}
+              disabled={inert}
               value={cfg.cycleStartDate ?? ''}
               onChange={(v) => set({ cycleStartDate: v || null })}
               placeholder={t('cycles.startDatePlaceholder')}
             />
           </div>
-          <div className={rowCls}>
+          <div className={rolloverRowCls}>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">{t('cycles.autoRollover')}</p>
               <p className="text-xs text-muted-foreground">{t('cycles.autoRolloverHint')}</p>
@@ -521,7 +597,11 @@ function TeamCyclesEditor({ team }: { team: TeamDto }) {
         </div>
       </CardContent>
       <CardFooter className="justify-between gap-4">
-        <p className="text-xs text-muted-foreground">{t('cycles.rhythmChangeNote')}</p>
+        {/* The rebuild warning is an automatic-team fact; a manual team is told
+            where its cycles are actually created instead. */}
+        <p className="text-xs text-muted-foreground">
+          {manual ? t('cycles.manualNote') : t('cycles.rhythmChangeNote')}
+        </p>
         <SaveButton onSave={onSave} disabled={!dirty}>
           {t('cycles.save')}
         </SaveButton>

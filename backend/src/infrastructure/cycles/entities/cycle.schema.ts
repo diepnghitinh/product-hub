@@ -6,6 +6,7 @@ export interface CycleDoc {
   tenantId: string;
   teamId: string;
   number: number;
+  name?: string;
   startDate: string;
   endDate: string;
   description: string | null;
@@ -25,6 +26,9 @@ export const CycleSchema = new Schema<CycleDoc>(
     tenantId: { type: String, required: true, index: true },
     teamId: { type: String, required: true, index: true },
     number: { type: Number, required: true },
+    // Absent on every auto-generated cycle and on everything predating manual
+    // mode; the display falls back to 'Cycle N'.
+    name: { type: String, default: '' },
     // ISO YYYY-MM-DD, inclusive — the issue date convention, sortable as strings.
     startDate: { type: String, required: true },
     endDate: { type: String, required: true },

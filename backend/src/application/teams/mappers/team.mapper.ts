@@ -15,6 +15,7 @@ export class TeamMapper {
       labels: team.labels,
       customFields: team.customFields,
       cyclesEnabled: team.cyclesEnabled,
+      cycleMode: team.cycleMode,
       cycleLengthWeeks: team.cycleLengthWeeks,
       cycleCooldownWeeks: team.cycleCooldownWeeks,
       cycleStartDay: team.cycleStartDay,

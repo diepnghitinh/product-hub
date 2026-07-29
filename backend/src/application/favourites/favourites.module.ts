@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { InfrastructureUsersModule } from '@infrastructure/users/users.module';
 import { InfrastructureIssuesModule } from '@infrastructure/issues/issues.module';
 import { InfrastructureRoadmapsModule } from '@infrastructure/roadmaps/roadmaps.module';
+import { InfrastructureDocsModule } from '@infrastructure/docs/docs.module';
 import {
   AddFavouriteUseCase,
   GetFavouritesUseCase,
@@ -17,6 +18,7 @@ const useCases = [GetFavouritesUseCase, AddFavouriteUseCase, RemoveFavouriteUseC
     InfrastructureUsersModule,
     InfrastructureIssuesModule,
     InfrastructureRoadmapsModule,
+    InfrastructureDocsModule,
   ],
   providers: [...useCases],
   exports: [...useCases],

@@ -77,6 +77,7 @@ export class DocMapper {
   static toResponseDto(doc: DocEntity, pages: DocPageEntity[] = []): DocResponseDto {
     return {
       id: doc.id.toString(),
+      ref: doc.ref,
       tenantId: doc.tenantId,
       title: doc.title,
       icon: doc.icon,
@@ -117,9 +118,10 @@ export class DocMapper {
     return { ...this.toVersionSummaryDto(version), content: version.content };
   }
 
-  static toLinkedPageDto(page: DocPageEntity, docTitle: string): LinkedDocPageDto {
+  static toLinkedPageDto(page: DocPageEntity, docTitle: string, docRef: string): LinkedDocPageDto {
     return {
       docId: page.docId,
+      docRef,
       docTitle,
       pageId: page.id.toString(),
       pageTitle: page.title,

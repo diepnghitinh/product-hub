@@ -1,6 +1,6 @@
 import { Schema } from 'mongoose';
 import { v4 as uuid } from 'uuid';
-import { TeamIssueType, TeamStatusConfig } from '@application/teams/domain/enums/team.enums';
+import { CycleMode, TeamIssueType, TeamStatusConfig } from '@application/teams/domain/enums/team.enums';
 import { TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import { CustomFieldConfig } from '@application/teams/domain/enums/custom-field.enums';
 import { TEAM_ICONS } from '@application/teams/domain/enums/team-icons';
@@ -17,6 +17,7 @@ export interface TeamDoc {
   labels?: TaskLabelConfig[];
   customFields?: CustomFieldConfig[];
   cyclesEnabled?: boolean;
+  cycleMode?: string;
   cycleLengthWeeks?: number;
   cycleCooldownWeeks?: number;
   cycleStartDay?: number;
@@ -61,6 +62,8 @@ export const TeamSchema = new Schema<TeamDoc>(
     // Cycle rhythm (features/cycles.md). Optional: pre-cycles teams resolve the
     // defaults in the entity, exactly like `icon`.
     cyclesEnabled: { type: Boolean, default: false },
+    // Absent = 'auto': every team that existed before manual mode ran the rhythm.
+    cycleMode: { type: String, default: CycleMode.AUTO },
     cycleLengthWeeks: { type: Number, default: 2 },
     cycleCooldownWeeks: { type: Number, default: 0 },
     cycleStartDay: { type: Number, default: 1 },

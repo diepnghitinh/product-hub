@@ -3,9 +3,12 @@
 // round-trip as a single paragraph, and nothing else in the app has to change.
 // Ported from old-report/lib/editorjs.ts.
 
-// @editorjs/list v2 stores each item as an object with nested children.
+// @editorjs/list v2 stores each item as an object with nested children, and the
+// tick state of a checklist item under `meta`.
 // Legacy data (and our HTML round-trip) may still produce plain strings.
-export type ListItem = string | { content?: string; items?: ListItem[] };
+export type ListItem =
+  | string
+  | { content?: string; items?: ListItem[]; meta?: { checked?: boolean } };
 
 export type HtmlEditorBlock =
   | { type: 'paragraph'; data: { text: string } }
@@ -18,6 +21,14 @@ export type HtmlEditorBlock =
       };
     }
   | { type: 'code'; data: { code: string } }
+  | { type: 'quote'; data: { text: string } }
+  | {
+      // A disclosure block: headline always visible, body folded away behind it.
+      // Stored as `<details>`, so a read view opens it with no script of its own.
+      type: 'toggle';
+      data: { summary: string; text: string; open?: boolean };
+    }
+  | { type: 'divider'; data: Record<string, never> }
   | {
       // A Mermaid diagram. Only the source is stored — the picture is drawn at
       // render time, so a diagram stays editable text rather than a flat image.
@@ -27,7 +38,12 @@ export type HtmlEditorBlock =
   | {
       type: 'table';
       data: {
+        // Headers, stored as the semantics they are: `withHeadings` makes the
+        // first row `<th scope="col">`, `withHeadingsColumn` makes the first cell
+        // of every other row `<th scope="row">`. Independent — a table can have
+        // either, both, or neither.
         withHeadings: boolean;
+        withHeadingsColumn?: boolean;
         content: string[][];
         // Sizes set by dragging a column/row edge (`ResizableTableTool`), stored
         // as the markup a table already has for the job: `colWidths` become a
@@ -115,6 +131,17 @@ function parseLength(value: string | null | undefined, unit: '%' | 'px'): number
 export const MERMAID_BLOCK_CLASS = 'mermaid-block';
 export const MERMAID_SOURCE_CLASS = 'mermaid-source';
 
+/**
+ * A checklist is a `<ul>` wearing this class, its items ticked with
+ * `data-checked`. Not a new convention: it's what the `/` menu inside a table
+ * cell has always inserted, so a to-do written in a cell and one written as a
+ * block are the same markup, painted by one CSS rule in both views.
+ */
+export const CHECK_LIST_CLASS = 'rte-check';
+/** Wrapper + body classes for a toggle — see `ToggleTool`. */
+export const TOGGLE_CLASS = 'rte-toggle';
+export const TOGGLE_BODY_CLASS = 'rte-toggle__body';
+
 const HEADER_TAG = /^h([1-6])$/;
 const INLINE_TAGS = new Set([
   'a',
@@ -150,18 +177,25 @@ const isListTag = (el: Element): boolean => {
 
 // Parse <li> children into @editorjs/list v2 items, splitting each item's
 // inline content from any nested <ul>/<ol> so nesting survives the round trip.
-function parseListItems(listEl: Element): ListItem[] {
+// `meta` is always present, even when empty: the list tool reads `meta.checked`
+// off every item of a checklist, and an item without one renders unticked and
+// then throws away the tick on the next save.
+function parseListItems(listEl: Element, checklist: boolean): ListItem[] {
   return Array.from(listEl.children)
     .filter((c) => c.tagName.toLowerCase() === 'li')
     .map((li) => {
       const items = Array.from(li.children)
         .filter(isListTag)
-        .flatMap((nested) => parseListItems(nested));
+        .flatMap((nested) => parseListItems(nested, checklist));
       const clone = li.cloneNode(true) as Element;
       Array.from(clone.children)
         .filter(isListTag)
         .forEach((c) => clone.removeChild(c));
-      return { content: clone.innerHTML.trim(), items };
+      return {
+        content: clone.innerHTML.trim(),
+        items,
+        meta: checklist ? { checked: li.getAttribute('data-checked') === 'true' } : {},
+      };
     });
 }
 
@@ -215,7 +249,7 @@ export function htmlToPlainText(html: string): string {
 
 /** A tag the editor actually emits — not any `<` someone typed in a sentence. */
 const RICH_TAG =
-  /<(p|div|br|ul|ol|li|h[1-6]|pre|code|blockquote|table|span|b|strong|i|em|u|mark|a)\b[^>]*>/i;
+  /<(p|div|br|ul|ol|li|h[1-6]|pre|code|blockquote|table|span|b|strong|i|em|u|mark|a|hr|details|summary)\b[^>]*>/i;
 /** `&amp;` / `&lt;` / `&#39;` — text that has been through an HTML escaper. */
 const HTML_ENTITY = /&(?:[a-z]+|#\d+|#x[0-9a-f]+);/i;
 
@@ -283,11 +317,41 @@ export function htmlToBlocks(html: string): HtmlEditorBlock[] {
     }
     if (tag === 'ul' || tag === 'ol') {
       flush();
+      const checklist = tag === 'ul' && el.classList.contains(CHECK_LIST_CLASS);
       blocks.push({
         type: 'list',
         data: {
-          style: tag === 'ol' ? 'ordered' : 'unordered',
-          items: parseListItems(el),
+          style: tag === 'ol' ? 'ordered' : checklist ? 'checklist' : 'unordered',
+          items: parseListItems(el, checklist),
+        },
+      });
+      continue;
+    }
+    if (tag === 'blockquote') {
+      flush();
+      blocks.push({ type: 'quote', data: { text: el.innerHTML.trim() } });
+      continue;
+    }
+    if (tag === 'hr') {
+      flush();
+      blocks.push({ type: 'divider', data: {} });
+      continue;
+    }
+    if (tag === 'details') {
+      flush();
+      // Everything that isn't the headline is the body — read from a clone, so a
+      // page written before the body had its own wrapper still opens with its
+      // content rather than losing it to an empty `<div>` lookup.
+      const summary = el.querySelector('summary');
+      const clone = el.cloneNode(true) as Element;
+      clone.querySelector('summary')?.remove();
+      const body = clone.querySelector(`.${TOGGLE_BODY_CLASS}`) ?? clone;
+      blocks.push({
+        type: 'toggle',
+        data: {
+          summary: summary?.innerHTML.trim() ?? '',
+          text: body.innerHTML.trim(),
+          open: el.hasAttribute('open'),
         },
       });
       continue;
@@ -303,15 +367,26 @@ export function htmlToBlocks(html: string): HtmlEditorBlock[] {
     if (tag === 'table') {
       flush();
       const rowEls = Array.from(el.querySelectorAll('tr'));
-      const content = rowEls.map((tr) =>
-        Array.from(tr.children)
-          .filter((c) => {
-            const t = c.tagName.toLowerCase();
-            return t === 'td' || t === 'th';
-          })
-          .map((cell) => cell.innerHTML),
-      );
-      const hasTh = !!el.querySelector('thead th, tr:first-child th');
+      const cellsOf = (tr: Element) =>
+        Array.from(tr.children).filter((c) => {
+          const t = c.tagName.toLowerCase();
+          return t === 'td' || t === 'th';
+        });
+      const content = rowEls.map((tr) => cellsOf(tr).map((cell) => cell.innerHTML));
+      // A header *row* means the whole first row is `th` — testing for "any `th`
+      // in the first row" would read a header *column* as a header row too, since
+      // that column's `th` is the first row's first cell.
+      const firstRow = rowEls[0] ? cellsOf(rowEls[0]) : [];
+      const hasTh =
+        !!el.querySelector('thead th') ||
+        (firstRow.length > 0 && firstRow.every((c) => c.tagName === 'TH'));
+      // …and a header column means every *body* row starts with one. With no body
+      // rows there's nothing to generalise from, so fall back to the explicit
+      // `scope` — which is what this writes, and what hand-authored HTML uses.
+      const bodyRows = hasTh ? rowEls.slice(1) : rowEls;
+      const hasThColumn = bodyRows.length
+        ? bodyRows.every((tr) => cellsOf(tr)[0]?.tagName === 'TH')
+        : !!el.querySelector('th[scope="row"]');
       // Sizes come back off the `<colgroup>` and the rows' own heights. A
       // partial or hand-written colgroup is ignored rather than half-applied:
       // one missing width would mis-size every column after it.
@@ -323,6 +398,7 @@ export function htmlToBlocks(html: string): HtmlEditorBlock[] {
         type: 'table',
         data: {
           withHeadings: hasTh,
+          ...(hasThColumn ? { withHeadingsColumn: true } : {}),
           content,
           ...(colWidths.length > 1 && colWidths.every((w) => w > 0) ? { colWidths } : {}),
           ...(rowHeights.some((h) => h > 0) ? { rowHeights } : {}),
@@ -391,7 +467,12 @@ export function htmlToBlocks(html: string): HtmlEditorBlock[] {
   return blocks;
 }
 
-function renderListItems(items: ListItem[] | undefined, tag: 'ol' | 'ul'): string {
+function renderListItems(
+  items: ListItem[] | undefined,
+  tag: 'ol' | 'ul',
+  checklist: boolean,
+): string {
+  const open = checklist ? `<ul class="${CHECK_LIST_CLASS}">` : `<${tag}>`;
   return (items ?? [])
     .map((item) => {
       // Legacy @editorjs/list v1 data stored items as plain strings.
@@ -399,9 +480,12 @@ function renderListItems(items: ListItem[] | undefined, tag: 'ol' | 'ul'): strin
       const content = item?.content ?? '';
       const children = Array.isArray(item?.items) ? item.items : [];
       const nested = children.length
-        ? `<${tag}>${renderListItems(children, tag)}</${tag}>`
+        ? `${open}${renderListItems(children, tag, checklist)}</${tag}>`
         : '';
-      return `<li>${content}${nested}</li>`;
+      // The tick rides on the item, where the CSS and the table's own checklist
+      // both already look for it.
+      const checked = checklist ? ` data-checked="${item?.meta?.checked ? 'true' : 'false'}"` : '';
+      return `<li${checked}>${content}${nested}</li>`;
     })
     .join('');
 }
@@ -412,11 +496,29 @@ function renderBlock(b: HtmlEditorBlock): string {
     return `<h${level}>${b.data.text ?? ''}</h${level}>`;
   }
   if (b.type === 'list') {
+    const checklist = b.data.style === 'checklist';
     const tag = b.data.style === 'ordered' ? 'ol' : 'ul';
-    return `<${tag}>${renderListItems(b.data.items, tag)}</${tag}>`;
+    const open = checklist ? `<ul class="${CHECK_LIST_CLASS}">` : `<${tag}>`;
+    return `${open}${renderListItems(b.data.items, tag, checklist)}</${tag}>`;
   }
   if (b.type === 'code') {
     return `<pre><code>${escapeHtml(b.data.code ?? '')}</code></pre>`;
+  }
+  if (b.type === 'quote') {
+    const text = b.data.text ?? '';
+    return text.trim() ? `<blockquote>${text}</blockquote>` : '';
+  }
+  if (b.type === 'divider') {
+    return '<hr>';
+  }
+  if (b.type === 'toggle') {
+    const summary = b.data.summary ?? '';
+    const text = b.data.text ?? '';
+    if (!summary.trim() && !text.trim()) return '';
+    // `open` is the author's choice and is stored as the attribute the browser
+    // reads, so a reader opens the page folded exactly as it was written.
+    const open = b.data.open ? ' open' : '';
+    return `<details class="${TOGGLE_CLASS}"${open}><summary>${summary}</summary><div class="${TOGGLE_BODY_CLASS}">${text}</div></details>`;
   }
   if (b.type === 'mermaid') {
     // Decoded first: the source arrives from Editor.js's sanitizer already
@@ -443,11 +545,22 @@ function renderBlock(b: HtmlEditorBlock): string {
     const open = widths.length
       ? '<table style="table-layout:fixed;width:100%">'
       : '<table>';
+    // A header cell is written as a real `<th>` with a `scope`, not as a styled
+    // `<td>`: it's what a screen reader needs to announce "Revenue, Q3" instead
+    // of reading a grid of loose numbers, and it's what tells this same function's
+    // reader half which header it was on the way back in.
+    const headColumn = !!b.data.withHeadingsColumn;
     const renderRow = (cells: string[], useTh: boolean, index: number) => {
       const h = heights[index] ?? 0;
       const style = h > 0 ? ` style="height:${h}px"` : '';
-      const tag = useTh ? 'th' : 'td';
-      return `<tr${style}>${cells.map((c) => `<${tag}>${c ?? ''}</${tag}>`).join('')}</tr>`;
+      const cell = (c: string, col: number) => {
+        // The corner cell belongs to the header row *and* the header column;
+        // `scope="col"` wins, because that's the heading it labels.
+        if (useTh) return `<th scope="col">${c ?? ''}</th>`;
+        if (headColumn && col === 0) return `<th scope="row">${c ?? ''}</th>`;
+        return `<td>${c ?? ''}</td>`;
+      };
+      return `<tr${style}>${cells.map(cell).join('')}</tr>`;
     };
     if (withHeadings) {
       const [head, ...body] = rows;

@@ -10,6 +10,7 @@ import {
 import { t } from '@/i18n';
 import { CycleStatus, type TeamStatusConfig } from '@/types/enums';
 import type { CycleDto } from '@/types/dto';
+import { cycleName } from '@/features/cycles/dates';
 import { useBulkIssueAction, type BulkIssueAction } from './bulk.api';
 import type { IssueSelection } from './useIssueSelection';
 
@@ -50,7 +51,7 @@ export function buildCycleOptions(cycles: CycleDto[] | undefined): BulkOption[] 
     { value: '', label: t('cycles.noCycle') },
     ...[...active, ...upcoming].map((c) => ({
       value: c.id,
-      label: `${t('cycles.cycle')} ${c.number} · ${
+      label: `${cycleName(c)} · ${
         c.status === CycleStatus.ACTIVE ? t('cycles.current') : t('cycles.upcoming')
       }`,
     })),

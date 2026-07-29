@@ -1,5 +1,5 @@
 import { TeamEntity } from '@application/teams/domain/entities/team.entity';
-import { TeamIssueType } from '@application/teams/domain/enums/team.enums';
+import { CycleMode, TeamIssueType } from '@application/teams/domain/enums/team.enums';
 import { IIssueRepository } from '@application/issues/repositories/issue.repository';
 import { CycleEntity } from '../domain/entities/cycle.entity';
 import { CycleRollup, CycleStatus, CYCLE_FILTER_NO_MATCH } from '../domain/enums/cycle.enums';
@@ -36,6 +36,17 @@ class FakeCycleRepo implements ICycleRepository {
     if (!cycle) return false;
     cycle.setDescription(description);
     return true;
+  };
+
+  saveSchedule = async (cycle: CycleEntity) => {
+    // The entity is the stored row here, so `reschedule` has already applied.
+    return this.rows.includes(cycle);
+  };
+
+  deleteById = async (tenantId: string, id: string) => {
+    const before = this.rows.length;
+    this.rows = this.rows.filter((c) => !(c.tenantId === tenantId && c.id.toString() === id));
+    return this.rows.length < before;
   };
 
   deleteUpcoming = async (tenantId: string, teamId: string, today: string) => {
@@ -256,6 +267,80 @@ describe('CycleSchedulerService', () => {
       expect.any(String),
       ['resolved', 'closed'],
     );
+  });
+
+  describe('manual mode', () => {
+    /** Insert a hand-planned cycle straight into the store, the way the create
+     *  use-case would — the scheduler must never mint one of these itself. */
+    const plan = (team: TeamEntity, number: number, startDate: string, endDate: string) => {
+      const cycle = CycleEntity.create({
+        tenantId: 't1',
+        teamId: team.id.toString(),
+        number,
+        startDate,
+        endDate,
+      }).getValue();
+      cycles.rows.push(cycle);
+      return cycle;
+    };
+
+    it('generates nothing — an empty manual team stays empty', async () => {
+      const team = makeTeam({ cycleMode: CycleMode.MANUAL });
+      expect(await scheduler.ensureCyclesCurrent(team, today)).toHaveLength(0);
+    });
+
+    it('does not top up upcoming cycles around a hand-planned one', async () => {
+      const team = makeTeam({ cycleMode: CycleMode.MANUAL });
+      plan(team, 1, '2026-07-20', '2026-08-02');
+
+      const all = await scheduler.ensureCyclesCurrent(team, today);
+      expect(all.map((c) => c.number)).toEqual([1]);
+      expect(all.filter((c) => c.statusOn(today) === CycleStatus.UPCOMING)).toHaveLength(0);
+    });
+
+    it('still closes a past-due manual cycle — the end stays automatic', async () => {
+      const team = makeTeam({ cycleMode: CycleMode.MANUAL });
+      const first = plan(team, 1, '2026-07-20', '2026-08-02');
+      issues.cycleRollups.mockResolvedValue({
+        [first.id.toString()]: {
+          scopeCount: 4,
+          scopePoints: 9,
+          completedCount: 1,
+          completedPoints: 2,
+          unfinishedIds: ['i-2'],
+        },
+      });
+
+      const after = await scheduler.ensureCyclesCurrent(team, '2026-08-03');
+      expect(after[0].isClosed).toBe(true);
+      expect(after[0].scopeCount).toBe(4);
+    });
+
+    it('rolls unfinished work into the soonest cycle by DATE, not the lowest number', async () => {
+      const team = makeTeam({ cycleMode: CycleMode.MANUAL });
+      const first = plan(team, 1, '2026-07-06', '2026-07-19');
+      // Planned out of order: cycle 3's window runs before cycle 2's, so number
+      // order would pick the wrong target.
+      plan(team, 2, '2026-08-10', '2026-08-23');
+      const next = plan(team, 3, '2026-07-20', '2026-08-02');
+
+      await scheduler.ensureCyclesCurrent(team, today);
+      expect(issues.moveUnfinishedIssues).toHaveBeenCalledWith(
+        't1',
+        [first.id.toString()],
+        next.id.toString(),
+        ['done'],
+      );
+    });
+
+    it('the last manual cycle ends with nothing to roll into — work drops to no-cycle', async () => {
+      const team = makeTeam({ cycleMode: CycleMode.MANUAL });
+      const only = plan(team, 1, '2026-07-06', '2026-07-19');
+      await scheduler.ensureCyclesCurrent(team, today);
+      expect(issues.moveUnfinishedIssues).toHaveBeenCalledWith('t1', [only.id.toString()], '', [
+        'done',
+      ]);
+    });
   });
 
   describe('resolveCycleFilter', () => {

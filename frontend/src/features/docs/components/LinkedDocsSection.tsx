@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
 import { useLinkedDocs } from '../api';
+import { docPath } from '../slug';
 
 interface LinkedDocsSectionProps {
   /** The issue / roadmap item this record is. */
@@ -34,7 +35,10 @@ export function LinkedDocsSection({ refId, className }: LinkedDocsSectionProps) 
         {pages.map((p) => (
           <li key={p.pageId}>
             <Link
-              to={`/docs/${p.docId}/${p.pageId}`}
+              to={docPath(
+                { id: p.docId, ref: p.docRef },
+                { id: p.pageId, title: p.pageTitle },
+              )}
               className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-2 transition-colors hover:border-primary hover:bg-accent"
             >
               <TeamSymbol

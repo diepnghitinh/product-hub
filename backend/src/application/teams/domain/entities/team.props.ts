@@ -1,7 +1,7 @@
 import { UniqueEntityID } from '@core/domain';
 import { TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import { CustomFieldConfig } from '../enums/custom-field.enums';
-import { TeamIssueType, TeamStatusConfig } from '../enums/team.enums';
+import { CycleMode, TeamIssueType, TeamStatusConfig } from '../enums/team.enums';
 
 export interface TeamProps {
   id: UniqueEntityID;
@@ -41,7 +41,13 @@ export interface TeamProps {
    * settings were left.
    */
   cyclesEnabled: boolean;
-  /** 1–4 weeks per cycle. */
+  /**
+   * Who mints the cycles: the scheduler ({@link CycleMode.AUTO}, the default) or
+   * the team by hand ({@link CycleMode.MANUAL}). In manual mode every rhythm
+   * field below is inert — kept, not cleared, so switching back restores them.
+   */
+  cycleMode: CycleMode;
+  /** 1–4 weeks per cycle. Auto mode only. */
   cycleLengthWeeks: number;
   /** 0–2 weeks between cycles — a gap with no current cycle at all. */
   cycleCooldownWeeks: number;

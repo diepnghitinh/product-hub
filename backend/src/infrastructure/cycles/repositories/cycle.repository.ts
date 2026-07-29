@@ -17,6 +17,7 @@ export class CycleRepository implements ICycleRepository {
         tenantId: doc.tenantId,
         teamId: doc.teamId,
         number: doc.number,
+        name: doc.name ?? '',
         startDate: doc.startDate,
         endDate: doc.endDate,
         description: doc.description ?? null,
@@ -56,6 +57,7 @@ export class CycleRepository implements ICycleRepository {
         tenantId: cycle.tenantId,
         teamId: cycle.teamId,
         number: cycle.number,
+        name: cycle.name,
         startDate: cycle.startDate,
         endDate: cycle.endDate,
         description: cycle.description,
@@ -103,6 +105,21 @@ export class CycleRepository implements ICycleRepository {
       .updateOne({ _id: id, tenantId }, { $set: { description } })
       .exec();
     return (res.matchedCount ?? 0) > 0;
+  }
+
+  async saveSchedule(cycle: CycleEntity): Promise<boolean> {
+    const res = await this.model
+      .updateOne(
+        { _id: cycle.id.toString(), tenantId: cycle.tenantId },
+        { $set: { name: cycle.name, startDate: cycle.startDate, endDate: cycle.endDate } },
+      )
+      .exec();
+    return (res.matchedCount ?? 0) > 0;
+  }
+
+  async deleteById(tenantId: string, id: string): Promise<boolean> {
+    const res = await this.model.deleteOne({ _id: id, tenantId }).exec();
+    return (res.deletedCount ?? 0) > 0;
   }
 
   async deleteUpcoming(tenantId: string, teamId: string, today: string): Promise<string[]> {

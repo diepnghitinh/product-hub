@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { InfrastructureActivityModule } from '@infrastructure/activity/activity.module';
 import { InfrastructureIssuesModule } from '@infrastructure/issues/issues.module';
 import { InfrastructureRoadmapsModule } from '@infrastructure/roadmaps/roadmaps.module';
+import { InfrastructureDocsModule } from '@infrastructure/docs/docs.module';
 import { InfrastructureWebhooksModule } from '@infrastructure/webhooks/webhooks.module';
 import {
   GetIssueCommentsUseCase,
@@ -12,6 +13,12 @@ import {
   CreateRoadmapItemCommentUseCase,
   UpdateRoadmapItemCommentUseCase,
   DeleteRoadmapItemCommentUseCase,
+  GetDocCommentsUseCase,
+  GetDocCommentCountsUseCase,
+  CreateDocCommentUseCase,
+  UpdateDocCommentUseCase,
+  ResolveDocCommentUseCase,
+  DeleteDocCommentUseCase,
 } from './use-cases';
 
 const useCases = [
@@ -23,6 +30,12 @@ const useCases = [
   CreateRoadmapItemCommentUseCase,
   UpdateRoadmapItemCommentUseCase,
   DeleteRoadmapItemCommentUseCase,
+  GetDocCommentsUseCase,
+  GetDocCommentCountsUseCase,
+  CreateDocCommentUseCase,
+  UpdateDocCommentUseCase,
+  ResolveDocCommentUseCase,
+  DeleteDocCommentUseCase,
 ];
 
 @Module({
@@ -30,6 +43,9 @@ const useCases = [
     InfrastructureActivityModule,
     InfrastructureIssuesModule,
     InfrastructureRoadmapsModule,
+    // Doc-page comments validate their page before writing. Infra-only, so this
+    // doesn't cycle with ApplicationDocsModule reading comments back the other way.
+    InfrastructureDocsModule,
     InfrastructureWebhooksModule,
   ],
   providers: [...useCases],

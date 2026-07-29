@@ -1,8 +1,16 @@
 import { UniqueEntityID } from '@core/domain';
 
+/** The ref prefix for a doc — `DOC-6HCUHKX`, alongside `TSK-`/`BUG-`/`RM-`. */
+export const DOC_REF_PREFIX = 'DOC';
+
 export interface DocProps {
   id: UniqueEntityID;
   tenantId: string;
+  /** Human-friendly ref used in the URL and quoted in conversation (`DOC-6HCUHKX`).
+   *  The uuid `id` stays the real identity — everything that stores a doc id
+   *  (pages, versions, comments, links) keys off it. Empty for docs created
+   *  before refs existed, until the `backfill:doc-refs` script runs. */
+  ref: string;
   title: string;
   /** Symbol shown beside the doc (a `TEAM_ICONS` name); '' falls back to the default. */
   icon: string;

@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPatch } from '@/lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api';
 import {
   CYCLE_FILTER_CURRENT,
   CYCLE_FILTER_NONE,
   CYCLE_FILTER_UPCOMING,
+  CycleMode,
   CycleStatus,
 } from '@/types/enums';
 import type { CycleBurndownDto, CycleDto, TeamDto } from '@/types/dto';
@@ -13,12 +14,24 @@ import type { CycleBurndownDto, CycleDto, TeamDto } from '@/types/dto';
  *  0–2, start day 1=Monday…7=Sunday, start date an ISO `YYYY-MM-DD` or null). */
 export interface CycleConfigInput {
   cyclesEnabled?: boolean;
+  /** `manual` stops generation and hands the calendar to the team; switching
+   *  either way never deletes existing cycles. */
+  cycleMode?: CycleMode;
   cycleLengthWeeks?: number;
   cycleCooldownWeeks?: number;
   cycleStartDay?: number;
   /** Explicit loop anchor (YYYY-MM-DD); null clears it back to the weekday. */
   cycleStartDate?: string | null;
   cycleAutoRollover?: boolean;
+}
+
+/** The editable half of a hand-planned cycle — what the create/edit dialog owns.
+ *  Both dates are ISO `YYYY-MM-DD`, inclusive. */
+export interface CycleInput {
+  name?: string;
+  startDate: string;
+  endDate: string;
+  description?: string | null;
 }
 
 /**
@@ -102,11 +115,28 @@ export function useResolvedCycleId(
   return param;
 }
 
+/** Plan a cycle by hand. Manual-cadence teams only — the API rejects it on an
+ *  auto team, whose calendar the scheduler owns. Overlapping another cycle's
+ *  dates is also rejected (two cycles covering one day would both read
+ *  "current"), and that error is the dialog's to surface. */
+export function useCreateCycle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, input }: { teamId: string; input: CycleInput }) =>
+      apiPost<CycleDto>(`/teams/${teamId}/cycles`, input),
+    onSuccess: (_cycle, { teamId }) => {
+      qc.invalidateQueries({ queryKey: ['cycles', teamId] });
+    },
+  });
+}
+
 /**
- * Set (or clear) a single cycle's goal/notes (the sprint goal). `description` is
- * always sent — a string sets it, `null` clears it. Invalidates the team's cycle
- * list so the insights drawer (which reads the cycle from that list) re-renders
- * with the saved text; the burn-up isn't affected, so it's left alone.
+ * Edit a single cycle. `description` sets (or, as `null`, clears) the sprint
+ * goal on any team; `name`/`startDate`/`endDate` re-schedule a hand-planned one
+ * and are rejected on an auto team. Only the fields passed are sent, so the goal
+ * editor can't accidentally move the dates. Invalidates the team's cycle list so
+ * the insights drawer (which reads the cycle from that list) re-renders with the
+ * saved text; the burn-up isn't affected, so it's left alone.
  */
 export function useUpdateCycle() {
   const qc = useQueryClient();
@@ -114,14 +144,28 @@ export function useUpdateCycle() {
     mutationFn: ({
       teamId,
       cycleId,
-      description,
+      ...patch
     }: {
       teamId: string;
       cycleId: string;
-      description: string | null;
-    }) => apiPatch<CycleDto>(`/teams/${teamId}/cycles/${cycleId}`, { description }),
+    } & Partial<CycleInput>) =>
+      apiPatch<CycleDto>(`/teams/${teamId}/cycles/${cycleId}`, patch),
     onSuccess: (_cycle, { teamId }) => {
       qc.invalidateQueries({ queryKey: ['cycles', teamId] });
+    },
+  });
+}
+
+/** Delete a hand-planned cycle (manual teams only). Its issues drop back to
+ *  no-cycle server-side, so the boards have to re-read too. */
+export function useDeleteCycle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, cycleId }: { teamId: string; cycleId: string }) =>
+      apiDelete<{ ok: true }>(`/teams/${teamId}/cycles/${cycleId}`),
+    onSuccess: (_res, { teamId }) => {
+      qc.invalidateQueries({ queryKey: ['cycles', teamId] });
+      qc.invalidateQueries({ queryKey: ['issues'] });
     },
   });
 }

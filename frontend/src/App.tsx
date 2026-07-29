@@ -10,6 +10,7 @@ import { ProjectLayout } from '@/features/projects/ProjectLayout';
 import { FeatureSummary } from '@/features/projects/FeatureSummary';
 import { ReportView } from '@/features/reports/ReportView';
 import { BugsBoardPage } from '@/features/bugs/BugsBoardPage';
+import { NewBugPage } from '@/features/bugs/NewBugPage';
 import { InboxPage } from '@/features/inbox/InboxPage';
 import { MyIssuesPage } from '@/features/issues/MyIssuesPage';
 import { IssueDetailPage } from '@/features/issues/IssueDetailPage';
@@ -78,6 +79,9 @@ export default function App() {
           {/* A bare /bugs folds into the unified Issues board; a scoped /bugs
               (project/case/report) stays the standalone bug list. */}
           <Route path="/bugs" element={<BugsRoute />} />
+          {/* Reporting a bug is a page, not a modal — same as /tasks/new. The
+              static segment is listed first so it's never read as a bug ref. */}
+          <Route path="/bugs/new" element={<NewBugPage />} />
           <Route path="/bugs/:bugId" element={<IssueRefRedirect />} />
           <Route path="/inbox" element={<InboxPage />} />
           {/* The unified personal work area — tasks + bugs in one board. */}

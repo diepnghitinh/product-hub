@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -11,12 +12,14 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+import { CycleMode } from '@application/teams/domain/enums/team.enums';
 import {
   CYCLE_COOLDOWN_WEEKS_MAX,
   CYCLE_COOLDOWN_WEEKS_MIN,
   CYCLE_DESCRIPTION_MAX,
   CYCLE_LENGTH_WEEKS_MAX,
   CYCLE_LENGTH_WEEKS_MIN,
+  CYCLE_NAME_MAX,
   CycleStatus,
 } from '../domain/enums/cycle.enums';
 
@@ -27,6 +30,17 @@ export class UpdateTeamCycleConfigDto {
   @IsOptional()
   @IsBoolean()
   cyclesEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    enum: CycleMode,
+    default: CycleMode.AUTO,
+    description:
+      "'auto' generates cycles from the rhythm fields below; 'manual' stops generating " +
+      'and lets the team plan each cycle. Switching never deletes existing cycles.',
+  })
+  @IsOptional()
+  @IsEnum(CycleMode)
+  cycleMode?: CycleMode;
 
   @ApiPropertyOptional({ minimum: CYCLE_LENGTH_WEEKS_MIN, maximum: CYCLE_LENGTH_WEEKS_MAX, default: 2 })
   @IsOptional()
@@ -76,19 +90,75 @@ export class UpdateTeamCycleConfigDto {
 }
 
 /**
- * Edit a single cycle's goal/notes. `description` must be present (so intent is
- * always explicit) — a string sets it, `null` clears it. Plain text only.
+ * Edit a single cycle. Every field optional — the goal is editable on any team,
+ * the name and dates only on a manual one (the scheduler owns an auto team's
+ * windows). Sending `description` explicitly is how it's cleared: `null` unsets
+ * it, omitting it leaves it alone.
  */
 export class UpdateCycleDto {
-  @ApiProperty({
+  @ApiPropertyOptional({
     nullable: true,
     maxLength: CYCLE_DESCRIPTION_MAX,
     description: "The cycle's goal / notes (plain text); null or empty clears it",
   })
+  @IsOptional()
   @ValidateIf((_, v) => v !== null)
   @IsString()
   @MaxLength(CYCLE_DESCRIPTION_MAX)
-  description!: string | null;
+  description?: string | null;
+
+  @ApiPropertyOptional({
+    maxLength: CYCLE_NAME_MAX,
+    description: "What the team calls this cycle; '' falls back to 'Cycle N'. Manual teams only",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(CYCLE_NAME_MAX)
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'ISO YYYY-MM-DD, inclusive. Manual teams only' })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate must be YYYY-MM-DD' })
+  startDate?: string;
+
+  @ApiPropertyOptional({ description: 'ISO YYYY-MM-DD, inclusive. Manual teams only' })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be YYYY-MM-DD' })
+  endDate?: string;
+}
+
+/**
+ * Plan a cycle by hand. Manual teams only — on an auto team the scheduler owns
+ * the calendar, and letting both write it is how you get two "current" cycles.
+ */
+export class CreateCycleDto {
+  @ApiProperty({ description: 'ISO YYYY-MM-DD, inclusive' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'startDate must be YYYY-MM-DD' })
+  startDate!: string;
+
+  @ApiProperty({ description: 'ISO YYYY-MM-DD, inclusive — on or after startDate' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'endDate must be YYYY-MM-DD' })
+  endDate!: string;
+
+  @ApiPropertyOptional({
+    maxLength: CYCLE_NAME_MAX,
+    description: "What the team calls it; omit to show 'Cycle N'",
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(CYCLE_NAME_MAX)
+  name?: string;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    maxLength: CYCLE_DESCRIPTION_MAX,
+    description: 'The sprint goal, set at planning time',
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(CYCLE_DESCRIPTION_MAX)
+  description?: string | null;
 }
 
 /** Flat cycle shape. Scope/completed are live rollups while upcoming/active and
@@ -105,6 +175,9 @@ export class CycleResponseDto {
 
   @ApiProperty({ description: 'Auto-incremented per team: Cycle 1, 2, 3…' })
   number: number;
+
+  @ApiProperty({ description: "The team's name for it; '' means show 'Cycle N'" })
+  name: string;
 
   @ApiProperty({ description: 'ISO YYYY-MM-DD, inclusive' })
   startDate: string;

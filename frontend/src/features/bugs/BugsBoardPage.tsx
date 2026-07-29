@@ -30,7 +30,6 @@ import {
 } from '@/types/enums';
 import type { TaskLabelConfig } from '@/types/enums';
 import type { BugDto, TeamDto } from '@/types/dto';
-import { CreateBugDialog } from './components/CreateBugDialog';
 import { useBugs, useDeleteBug, useSetBugStatus } from './api';
 import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
 import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
@@ -124,10 +123,6 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
     else next.set('view', v);
     setParams(next, { replace: true });
   };
-  const [createOpen, setCreateOpen] = useState(false);
-  // The column '+ Add' was clicked in — the new bug opens there.
-  const [createStatus, setCreateStatus] = useState<string | undefined>();
-
   // Cycle scope rides in ?cycle= (an id or current/upcoming/none — the API
   // resolves the sentinels against this team, so the sidebar's saved links stay
   // valid as cycles roll). Only meaningful on a team board.
@@ -144,6 +139,24 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   // The scoped cycle as a DTO — drives the board's cycle banner; when it's set,
   // the banner carries the rhythm, so the toolbar's ambient chip stands down.
   const focusedCycle = useFocusedCycle(shareTeam, cycleParam);
+
+  // Reporting opens the full New bug page — carrying the board's team, the column
+  // when added from one, the board's cycle scope, and whatever this board is
+  // scoped to (project / test case / report), so the draft opens pre-set exactly
+  // there. A cycle-filtered board creates INTO that cycle — otherwise the new
+  // card instantly vanishes from the filtered view.
+  const newBugHref = (status?: string) => {
+    const p = new URLSearchParams();
+    if (status) p.set('status', status);
+    if (teamId) p.set('teamId', teamId);
+    if (resolvedCycleId) p.set('cycleId', resolvedCycleId);
+    if (projectId) p.set('projectId', projectId);
+    if (caseId) p.set('caseId', caseId);
+    if (caseName) p.set('case', caseName);
+    if (reportId) p.set('reportId', reportId);
+    const qs = p.toString();
+    return `/bugs/new${qs ? `?${qs}` : ''}`;
+  };
 
   const setStatus = useSetBugStatus();
   const remove = useDeleteBug();
@@ -281,7 +294,9 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
       actions={
         (canWrite && !teamId) || (shareTeam && canManageDelivery) ? (
           <div className="flex items-center gap-2">
-            {canWrite && !teamId && <Button onClick={() => setCreateOpen(true)}>+ {t('bugs.new')}</Button>}
+            {canWrite && !teamId && (
+              <Button onClick={() => navigate(newBugHref())}>+ {t('bugs.new')}</Button>
+            )}
             {shareTeam && canManageDelivery && <TeamShareMenu team={shareTeam} />}
           </div>
         ) : undefined
@@ -299,7 +314,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
         <div className="mx-4 rounded-xl border border-dashed p-8 text-center md:mx-8">
           <p className="text-muted-foreground">{t('bugs.empty')}</p>
           {canWrite && (
-            <Button size="sm" className="mt-3" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" className="mt-3" onClick={() => navigate(newBugHref())}>
               {teamId ? t('issues.add') : t('bugs.new')}
             </Button>
           )}
@@ -331,14 +346,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
                 )
               : undefined
           }
-          onColumnAdd={
-            canWrite
-              ? (col) => {
-                  setCreateStatus(col.key);
-                  setCreateOpen(true);
-                }
-              : undefined
-          }
+          onColumnAdd={canWrite ? (col) => navigate(newBugHref(col.key)) : undefined}
           addLabel={teamId ? t('issues.add') : t('bugs.addToColumn')}
         />
       ) : view === 'list' ? (
@@ -374,22 +382,6 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
         />
       )}
 
-      {createOpen && (
-        <CreateBugDialog
-          open={createOpen}
-          onClose={() => {
-            setCreateOpen(false);
-            setCreateStatus(undefined);
-          }}
-          defaultStatus={createStatus}
-          teamId={teamId}
-          defaultCycleId={resolvedCycleId}
-          defaultProjectId={projectId}
-          defaultCaseId={caseId}
-          defaultCaseLabel={caseName}
-          defaultReportId={reportId}
-        />
-      )}
     </IssueBoardLayout>
   );
 }

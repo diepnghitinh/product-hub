@@ -118,6 +118,32 @@
    when you type in it, so neither should it once saved. */
 :is(.rich-text-editor, .rich-text-content) th {
   text-align: left;
+  /* The stock editor header row is 600, not the browser's `bold` (700). */
+  font-weight: 600;
+}
+
+/* Header row and header column, in the stored HTML. The look is the stock
+   tool's, transcribed: weight, plus a doubled gridline where the headers stop
+   and the data starts. No fill and no new colour — the same `--border` every
+   other cell edge already uses, so a header reads as structure rather than as a
+   second palette. `scope` is what says which header a `th` is (see
+   `blocksToHtml`), which is the same attribute a screen reader goes by. */
+.rich-text-content th[scope='col'] {
+  border-bottom-width: 2px;
+}
+.rich-text-content th[scope='row'] {
+  border-right-width: 2px;
+}
+
+/* …and the same, live in the editor. The row half is the stock tool's own rule;
+   this is its mirror image — the tool has no concept of a header column, so the
+   class comes from `ResizableTableTool` and the styling has to as well.
+   `--color-border` rather than `hsl(var(--border))`: it's the variable the table
+   already resolves for every other gridline, so this edge can never disagree
+   with the one right next to it. */
+.rich-text-editor .tc-table.rte-table--headcol .tc-row > .tc-cell:first-child {
+  font-weight: 600;
+  border-right: 2px solid var(--color-border);
 }
 
 /* The brand purple, resolved for whichever scope the editor is painted in.
@@ -140,6 +166,16 @@
    stock equal-column track list. */
 .rich-text-editor .tc-table.rte-table--sized .tc-row {
   grid-template-columns: var(--rte-cols);
+}
+
+/* A cell is a grid item, and a grid item refuses to shrink below its own
+   min-content — so one long URL would drag its column past the width it was
+   given and start the wrapper scrolling sideways. `min-width: 0` lets the track
+   hold, and the break wraps the word inside it. Same rule the stored `<td>`
+   already gets, so "fit to width" means the same thing in both views. */
+.rich-text-editor .tc-cell {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 /* Column handles live in an overlay on `.tc-wrap`: `.tc-table`'s children are
@@ -402,6 +438,28 @@
 .rich-text-editor.doc-page:focus-within {
   border-color: transparent;
   box-shadow: none;
+}
+
+/* The reader's half of `.doc-page` — `<RichText className="doc-page-read" />`,
+   used by the in-app read view and the public share view.
+
+   Editor.js pads every block by 0.4em and the editor reads at line-height 1.6;
+   the read-only renderer has neither, so the *same page* breathes for whoever
+   can edit it and runs together for everyone else. Only docs get this: a whole
+   document's rhythm is the point here, where an issue description is a snippet.
+   `> *` is exactly block level — each Editor.js block saves as one top-level
+   element. */
+.rich-text-content.doc-page-read {
+  line-height: 1.6;
+  font-size: var(--doc-font-size, 1rem);
+}
+/* `padding-block`, not `padding: 0.4em 0` — the shorthand also set padding-left
+   to zero, and at (0,2,0) it outranked every list class, so a checklist's boxes
+   were drawn outside the column (fine on a wide page, clipped off the left edge
+   on a phone) and a bullet list lost its indent. Only the vertical rhythm was
+   ever the point here. */
+.rich-text-content.doc-page-read > * {
+  padding-block: 0.4em;
 }
 
 /* ── Page Styles ───────────────────────────────────────────────────────────
@@ -758,4 +816,119 @@ figure.mermaid-block[data-mermaid-error='true'] .mermaid-render {
   background: hsl(var(--accent));
   color: hsl(var(--muted-foreground));
   font-size: 0.75rem;
+}
+
+/* ── Document structure: headings, quote, toggle, divider ────────────────────
+
+   Matched in the read-only renderer (`.rich-text-content`) as well as in the
+   editor, for the reason the inline tools are: structure that only exists while
+   you're writing is a different document to whoever reads it. */
+
+/* Tailwind's preflight resets every heading to body size and weight, and the app
+   loads no typography plugin — so without this an H1 and an H4 are the same line
+   of bold text, and a four-level heading picker would be a lie. Sized in `em`,
+   so a doc's own font-size (Page Styles) carries the headings with the prose. */
+:is(.rich-text-editor, .rich-text-content) :is(h1, h2, h3, h4, h5, h6) {
+  font-weight: 600;
+  line-height: 1.3;
+}
+:is(.rich-text-editor, .rich-text-content) h1 {
+  font-size: 1.75em;
+}
+:is(.rich-text-editor, .rich-text-content) h2 {
+  font-size: 1.4em;
+}
+:is(.rich-text-editor, .rich-text-content) h3 {
+  font-size: 1.15em;
+}
+:is(.rich-text-editor, .rich-text-content) :is(h4, h5, h6) {
+  font-size: 1em;
+}
+
+/* Lists, once they're saved HTML. The editor's list tool ships its own markup
+   and draws its own bullets, so this only has to cover what comes back out:
+   bare `<ul>`/`<ol>`, which Tailwind's preflight leaves with no marker and no
+   indent — a numbered list read as a flat stack of unnumbered lines everywhere
+   but the editor. `:not([class])` is the whole trick: the classed lists
+   (`.rte-check`, `.rte-list`) already say what they want and are left alone. */
+:is(.rich-text-editor, .rich-text-content) :is(ul, ol):not([class]) {
+  margin: 0.2em 0;
+  padding-left: 1.4em;
+}
+:is(.rich-text-editor, .rich-text-content) ul:not([class]) {
+  list-style: disc;
+}
+:is(.rich-text-editor, .rich-text-content) ol:not([class]) {
+  list-style: decimal;
+}
+/* A list inside a list steps down a marker, the way a printed outline does. */
+:is(.rich-text-editor, .rich-text-content) :is(ul, ol) ul:not([class]) {
+  list-style: circle;
+}
+
+/* Quote — an indented passage with a rule down its edge (QuoteTool). */
+:is(.rich-text-editor, .rich-text-content) blockquote {
+  margin: 0.2em 0;
+  padding: 0.05em 0 0.05em 0.9em;
+  border-left: 3px solid hsl(var(--muted-foreground) / 0.4);
+}
+
+/* Divider (DividerTool). `hr` is the stored form; the wrapper is the editor's,
+   giving a 1px line a target big enough to click and select. */
+:is(.rich-text-editor, .rich-text-content) hr {
+  border: 0;
+  border-top: 1px solid hsl(var(--muted-foreground) / 0.3);
+  margin: 0.6em 0;
+}
+.rich-text-editor .rte-divider {
+  padding: 0.2em 0;
+  cursor: pointer;
+}
+
+/* Toggle (ToggleTool) — stored as `<details>`, so the read view folds and
+   unfolds it with no script. Only the chevron is styled here; the open/close
+   behaviour is the browser's. */
+:is(.rich-text-editor, .rich-text-content) .rte-toggle > summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35em;
+  list-style: none;
+  cursor: default;
+}
+:is(.rich-text-editor, .rich-text-content) .rte-toggle > summary::-webkit-details-marker {
+  display: none;
+}
+/* The chevron *is* the toggle target — clicking the headline places the caret
+   instead (see ToggleTool), so fixing a typo doesn't fold the block away. */
+:is(.rich-text-editor, .rich-text-content) .rte-toggle > summary::before {
+  content: '';
+  flex: none;
+  width: 0.4em;
+  height: 0.4em;
+  margin: 0.45em 0.2em 0 0.15em;
+  border-right: 2px solid hsl(var(--muted-foreground));
+  border-bottom: 2px solid hsl(var(--muted-foreground));
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+  cursor: pointer;
+}
+:is(.rich-text-editor, .rich-text-content) .rte-toggle[open] > summary::before {
+  transform: rotate(45deg);
+}
+:is(.rich-text-editor, .rich-text-content) .rte-toggle__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* The body lines up under the headline's first letter, not under its chevron. */
+:is(.rich-text-editor, .rich-text-content) .rte-toggle__body {
+  padding-left: 1.1em;
+}
+
+/* Placeholders for the blocks that build their own contenteditable — the same
+   affordance an empty paragraph gets, and editor-only: stored HTML carries no
+   placeholder to show. */
+.rich-text-editor :is(.rte-quote, .rte-toggle__title, .rte-toggle__body):empty::before {
+  content: attr(data-placeholder);
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
 }

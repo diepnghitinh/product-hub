@@ -7,6 +7,12 @@ export interface CycleProps {
   teamId: string;
   /** Auto-incremented per team: Cycle 1, 2, 3… Unique per (teamId, number). */
   number: number;
+  /**
+   * What the team calls this cycle — 'Checkout polish', 'Hardening week'. `''`
+   * when unnamed, which is the norm on an auto team: the display falls back to
+   * 'Cycle N', so the number is always the identity and the name only ever adds.
+   */
+  name: string;
   /** ISO `YYYY-MM-DD`, inclusive — the same date-only convention as issues. */
   startDate: string;
   endDate: string;

@@ -28,7 +28,6 @@ import {
 import type { BugDto, IssueDto, TaskDto } from '@/types/dto';
 import { TaskCard } from '@/features/tasks/MyTasksPage';
 import { BugCard } from '@/features/bugs/BugsBoardPage';
-import { CreateBugDialog } from '@/features/bugs/components/CreateBugDialog';
 import { useDeleteIssue, useIssues, useSetIssueStatus } from './api';
 
 /** The two kinds the board can show, in switch order. */
@@ -130,17 +129,12 @@ export function MyIssuesPage() {
   const setStatus = useSetIssueStatus();
   const remove = useDeleteIssue();
 
-  // Bug creation opens the dialog; a task opens the full New task page (both land
-  // in the default team — this board has no single team of its own).
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createStatus, setCreateStatus] = useState<string | undefined>();
+  // Both kinds open their own full create page, carrying the column when added
+  // from one. Neither carries a team: this board spans teams, so a new issue
+  // lands in the workspace default — which is what it already did.
   const openCreate = (status?: string) => {
-    if (isBug) {
-      setCreateStatus(status);
-      setCreateOpen(true);
-    } else {
-      navigate(status ? `/tasks/new?status=${encodeURIComponent(status)}` : '/tasks/new');
-    }
+    const base = isBug ? '/bugs/new' : '/tasks/new';
+    navigate(status ? `${base}?status=${encodeURIComponent(status)}` : base);
   };
 
   // Only needed to label the filter options.
@@ -293,17 +287,6 @@ export function MyIssuesPage() {
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6 pt-1', BOARD_GUTTER)}>
           <IssueTimelineView items={items} issueType={isBug ? TeamIssueType.BUG : TeamIssueType.TASK} />
         </div>
-      )}
-
-      {createOpen && (
-        <CreateBugDialog
-          open={createOpen}
-          onClose={() => {
-            setCreateOpen(false);
-            setCreateStatus(undefined);
-          }}
-          defaultStatus={createStatus}
-        />
       )}
     </IssueBoardLayout>
   );

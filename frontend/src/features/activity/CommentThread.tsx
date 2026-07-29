@@ -344,7 +344,7 @@ const escapeHtml = (s: string) =>
  * had an editor, so an old one is escaped and split a paragraph per line — feeding
  * it through as-is would swallow its line breaks and read `<` as markup.
  */
-function toEditorValue(body: string): string {
+export function toEditorValue(body: string): string {
   if (isRichHtml(body)) return body;
   return body
     .split('\n')

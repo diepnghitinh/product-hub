@@ -16,7 +16,7 @@ import { FavouriteKind } from './favourite-kind.enum';
  */
 export interface FavouriteRef {
   kind: FavouriteKind;
-  /** Id of the referenced entity (issue id, or roadmap item id). */
+  /** Id of the referenced entity (issue id, roadmap item id, or doc id). */
   refId: string;
   /** Snapshot of the entity's title at pin time. */
   title: string;
