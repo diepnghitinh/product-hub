@@ -1,53 +1,51 @@
 {
   "version": 1,
-  "rev": 498,
-  "savedAt": "2026-07-29T15:09:38.878Z",
+  "rev": 507,
+  "savedAt": "2026-07-30T01:32:01.290Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 836.630973107621,
-    "y": 2167.4555375650593,
+    "x": 1128.630973107621,
+    "y": 2410.5805375650593,
     "zoom": 0.968709487914002
   },
   "nodes": [
     {
-      "id": "term-ms5v5qy5-4",
+      "id": "term-ms6tz8k1-1",
       "kind": "terminal",
       "position": {
-        "x": -728.0240652958591,
-        "y": -1974.9960736605326
+        "x": -233.5517740917457,
+        "y": -2231.135817407967
       },
       "size": {
         "width": 600,
         "height": 400
       },
-      "title": "Thêm tùy chọn layout cho sidemenu",
+      "title": "Thêm lựa chọn hiển thị docs của người dùng",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,
       "tags": [],
-      "collapsed": false,
       "cwd": ".",
       "agentId": "claude"
     },
     {
-      "id": "term-ms5v99ru-5",
+      "id": "term-ms6u8b2m-2",
       "kind": "terminal",
       "position": {
-        "x": -6.445502557497321,
-        "y": -2163.907199527658
+        "x": -913.838287460244,
+        "y": -2224.942010002487
       },
       "size": {
         "width": 600,
         "height": 400
       },
-      "title": "Thêm nút tạo cycle manual trong team settings",
+      "title": "Claude Code",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,
       "tags": [],
-      "collapsed": false,
       "cwd": ".",
       "agentId": "claude"
     }

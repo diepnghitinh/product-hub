@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { t } from '@/i18n';
@@ -46,6 +46,23 @@ export function useLightbox() {
   return { open, close, node };
 }
 
+/**
+ * Every image inside `root`, in document order, as lightbox entries — plus a way
+ * to look up where a given one sits in that list. Shared so "click an image" and
+ * "zoom this image" both open the *same* gallery: the reader can always arrow
+ * through the rest of the block from wherever they started.
+ */
+export function collectImages(root: HTMLElement) {
+  const nodes = Array.from(root.querySelectorAll('img')).filter(
+    (n) => n.currentSrc || n.getAttribute('src'),
+  );
+  const images: LightboxImage[] = nodes.map((n) => ({
+    src: n.currentSrc || n.src,
+    alt: n.getAttribute('alt') || undefined,
+  }));
+  return { images, indexOf: (img: HTMLImageElement) => Math.max(0, nodes.indexOf(img)) };
+}
+
 function LightboxOverlay({
   state,
   onIndex,
@@ -59,6 +76,29 @@ function LightboxOverlay({
   const count = images.length;
   const many = count > 1;
   const current = images[index];
+
+  /**
+   * Where focus — and the caret — was when the viewer opened, captured during
+   * this first render, before Radix's focus scope moves it away.
+   *
+   * A modal Radix dialog deliberately hands focus back to its *trigger* on close,
+   * and a viewer opened imperatively has none, so focus would land on `<body>`:
+   * zoom an image while writing and the next keystroke goes nowhere. Restoring the
+   * range as well as the element is what makes a contenteditable resume mid-word.
+   */
+  // `undefined` = not captured yet; `null` = nothing worth restoring. Anything
+  // else and a re-render would re-read focus, which by then is the viewer's own.
+  const restore = useRef<{ el: HTMLElement; range: Range | null } | null | undefined>(undefined);
+  if (restore.current === undefined) {
+    const el = document.activeElement as HTMLElement | null;
+    const selection = window.getSelection();
+    const inside =
+      selection && selection.rangeCount > 0 && el?.contains?.(selection.anchorNode as Node);
+    restore.current =
+      el && el !== document.body
+        ? { el, range: inside ? selection.getRangeAt(0).cloneRange() : null }
+        : null;
+  }
 
   const go = useCallback(
     (delta: number) => onIndex((index + delta + count) % count),
@@ -99,6 +139,17 @@ function LightboxOverlay({
         <DialogPrimitive.Content
           aria-describedby={undefined}
           onClick={onClose}
+          onCloseAutoFocus={(e) => {
+            const saved = restore.current;
+            if (!saved?.el.isConnected) return; // nothing to go back to
+            // Radix's own handler is skipped once this one prevents the default.
+            e.preventDefault();
+            saved.el.focus({ preventScroll: true });
+            if (!saved.range) return;
+            const selection = window.getSelection();
+            selection?.removeAllRanges();
+            selection?.addRange(saved.range);
+          }}
           className="fixed inset-0 z-[60] flex items-center justify-center p-4 focus:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:p-10"
         >
           <DialogPrimitive.Title className="sr-only">

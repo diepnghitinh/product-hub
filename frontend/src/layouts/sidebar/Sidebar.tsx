@@ -161,8 +161,9 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                       <NavParentItem
                         key={item.path}
                         item={item}
-                        open={isOpen(item.path)}
-                        onToggle={() => toggleGroup(item.path)}
+                        // Standing on any of its views keeps the group open.
+                        open={isOpen(item.path, item.children.map((c) => c.path))}
+                        onToggle={() => toggleGroup(item.path, item.children!.map((c) => c.path))}
                         onNavigate={onCloseMobile}
                       />
                     ) : (

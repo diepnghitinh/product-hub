@@ -26,6 +26,7 @@ import type { SlashPerson } from '@/lib/editor/SlashMenu';
 import { t } from '@/i18n';
 import '@/styles/rich-text-editor.css';
 import { useExternalLink } from './ExternalLink';
+import { useImageZoom } from './ImageZoom';
 
 export interface RichTextEditorProps {
   /** Stored value as HTML (converted to/from Editor.js blocks internally). */
@@ -233,6 +234,10 @@ export function RichTextEditor({
   const commentOnRef = useRef(!!onComment);
   const commentLabelRef = useRef(commentLabel);
   const links = useExternalLink();
+  // Hover an image while writing → a magnifier over its corner opens the same
+  // lightbox the read view does. A click can't be used here: in a contenteditable
+  // it belongs to the caret.
+  const imageZoom = useImageZoom(holderRef);
   // People the `@` and cell `/` menus can mention. Read through a ref because
   // the editor is built once on mount, well before this query resolves; the
   // query key is shared with every other member list, so it costs one request.
@@ -489,6 +494,7 @@ export function RichTextEditor({
         onClick={onLinkClick}
         className={`rich-text-editor${className ? ` ${className}` : ''}`}
       />
+      {imageZoom.node}
       {links.node}
     </>
   );

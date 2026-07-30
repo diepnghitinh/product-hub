@@ -39,6 +39,8 @@ export interface CreateBugInput {
   caseId?: string;
   caseLabel?: string;
   reportId?: string;
+  /** Everyone on it, primary first (`[]` unassigns); wins over `assigneeId`. */
+  assigneeIds?: string[];
   assigneeId?: string;
   /** Start of the work window, ISO `YYYY-MM-DD`. */
   startDate?: string;
@@ -64,6 +66,8 @@ export interface UpdateBugInput {
   caseId?: string;
   caseLabel?: string;
   reportId?: string;
+  /** Everyone on it, primary first (`[]` unassigns); wins over `assigneeId`. */
+  assigneeIds?: string[];
   assigneeId?: string;
   /** Commit to a team cycle ('' leaves it; only the bug's own team's
    *  current/upcoming cycles are accepted server-side). */

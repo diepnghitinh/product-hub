@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
   IsIn,
@@ -44,7 +45,19 @@ export class CreateIssueDto {
   @MaxLength(40)
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Assignee user id' })
+  @ApiPropertyOptional({
+    description:
+      'Everyone to put on the issue, primary first. Takes precedence over `assigneeId`.',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  assigneeIds?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Single assignee user id — shorthand for a one-person `assigneeIds`',
+  })
   @IsOptional()
   @IsString()
   assigneeId?: string;

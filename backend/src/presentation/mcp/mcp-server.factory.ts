@@ -186,7 +186,10 @@ export class McpServerFactory {
             .string()
             .optional()
             .describe("Status key or column label; defaults to the board's first column"),
-          assignee: z.string().optional().describe('Person name or email'),
+          assignee: z
+            .string()
+            .optional()
+            .describe('Person name or email; several, comma-separated, to share the issue'),
           severity: z.nativeEnum(BugSeverity).optional().describe('Bugs only'),
           estimate: z.number().min(0).optional().describe('Story points — tasks only'),
           startDate: z.string().optional().describe('YYYY-MM-DD'),
@@ -229,6 +232,7 @@ export class McpServerFactory {
           confidence: z.number().min(1).max(5).optional(),
           effort: z.number().min(1).max(5).optional(),
           startDate: z.string().optional().describe('YYYY-MM-DD'),
+          endDate: z.string().optional().describe('YYYY-MM-DD'),
         },
       },
       (dto) =>
@@ -295,7 +299,7 @@ export class McpServerFactory {
     return [
       `${i.shortId} · ${i.title}`,
       `  ${i.kind} · ${i.teamName || 'no team'} · ${i.status}` +
-        (i.assigneeName ? ` · ${i.assigneeName}` : '') +
+        (i.assigneeNames.length ? ` · ${i.assigneeNames.join(', ')}` : '') +
         (i.severity ? ` · ${i.severity}` : ''),
       `  ${this.url(i.link)}`,
     ].join('\n');

@@ -19,6 +19,7 @@ export class RoadmapMapper {
         shortId: item.shortId ?? '',
         imageUrl: item.imageUrl ?? '',
         startDate: item.startDate ?? '',
+        endDate: item.endDate ?? '',
         assignees: item.assignees ?? [],
         milestoneId: item.milestoneId ?? '',
         objectiveId: item.objectiveId ?? '',

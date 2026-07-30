@@ -31,19 +31,30 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/', labelKey: 'nav.home', icon: 'home', end: true },
       {
-        // Collapsible: the parent toggles open; the three children are the views.
-        // "Assigned to me" is now the unified Issues board (tasks + bugs); Today
-        // and Personal stay task-only views, nested under the same Issues area.
-        path: '/issues',
-        labelKey: 'nav.issues',
+        // My Tasks — the daily queue, and the only *personal* thing here, which
+        // is why it's the one collapsible parent: the three views under it are
+        // all "mine", cut three ways. Its own path is its first child's, so the
+        // collapsed icon rail (which can't nest) still lands somewhere useful.
+        path: '/issues/me',
+        labelKey: 'nav.tasks',
         icon: 'user-check',
         children: [
-          { path: '/issues', labelKey: 'nav.assignedToMe', icon: 'tasks', avatar: true, end: true },
+          {
+            path: '/issues/me',
+            labelKey: 'nav.assignedToMe',
+            icon: 'tasks',
+            avatar: true,
+            end: true,
+          },
           { path: '/issues/today', labelKey: 'nav.today', icon: 'calendar' },
-          { path: '/issues/personal', labelKey: 'nav.personalList', icon: 'list' },
+          { path: '/issues/personal', labelKey: 'nav.personalList', icon: 'user-list' },
         ],
       },
-      // Sits right under Issues: whose queue is what — mine, then my team's.
+      // Level 0, beside My Team — these three are the app's scopes, and reading
+      // them down the rail widens: my work, everyone's work, my team's people.
+      // `end` keeps this row dark while you're on one of My Tasks' /issues/*
+      // views; it stays the parent crumb for an issue's own page (`findNavItem`).
+      { path: '/issues', labelKey: 'nav.allIssues', icon: 'checks', end: true },
       { path: '/my-team', labelKey: 'nav.myTeam', icon: 'people' },
       { path: '/inbox', labelKey: 'nav.inbox', icon: 'inbox', badge: 'inbox' },
     ],
@@ -84,15 +95,21 @@ export const PROFILE_NAV_ITEMS: NavItem[] = [
  * icon and its parent link. Longest match wins, so `/admin/settings` beats a
  * hypothetical `/admin`. Not every route has one: Bugs, Tasks and a team's board
  * hang off the dynamic Teams list, so those pages name their own parent.
+ *
+ * Children come before the parent that lists them: a group's row may share its
+ * first child's path (My Tasks does), and the row the user actually clicked is
+ * the more specific answer. `end` is a *highlight* rule for the sidebar's
+ * NavLink, not a parenting one — All Issues is `end` so it stays dark on
+ * `/issues/me`, yet it's still the crumb an issue's own page hangs under.
  */
 export function findNavItem(pathname: string): NavItem | undefined {
   const all = [
-    ...NAV_GROUPS.flatMap((g) => g.items.flatMap((i) => [i, ...(i.children ?? [])])),
+    ...NAV_GROUPS.flatMap((g) => g.items.flatMap((i) => [...(i.children ?? []), i])),
     ...PROFILE_NAV_ITEMS,
   ];
   const exact = all.find((i) => i.path === pathname);
   if (exact) return exact;
   return all
-    .filter((i) => !i.end && pathname.startsWith(`${i.path}/`))
+    .filter((i) => pathname.startsWith(`${i.path}/`))
     .sort((a, b) => b.path.length - a.path.length)[0];
 }

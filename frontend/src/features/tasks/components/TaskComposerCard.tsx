@@ -9,6 +9,7 @@ import {
   Select,
   Textarea,
 } from '@/components/ui';
+import { AssigneeField } from '@/components/AssigneeField';
 import { t } from '@/i18n';
 import { TeamSymbol } from '@/components/TeamSymbol';
 import { useTeamStatuses } from '@/features/teams/api';
@@ -28,7 +29,8 @@ export interface TaskDraft {
   title: string;
   description?: string;
   status?: string;
-  assigneeId?: string;
+  /** Everyone to put on it — the composer's picker takes several. */
+  assigneeIds?: string[];
   startDate?: string;
   endDate?: string;
   estimate?: number;
@@ -68,7 +70,6 @@ export interface TeamOption {
 export function TaskComposerCard({
   teams,
   defaultTeamId,
-  users,
   pending,
   onCreate,
   onCancel,
@@ -81,7 +82,6 @@ export function TaskComposerCard({
   teams?: TeamOption[];
   /** The team selected initially — the only team, or the workspace default. */
   defaultTeamId: string;
-  users: { id: string; name: string }[];
   pending: boolean;
   onCreate: (input: TaskDraft, done: () => void) => void;
   onCancel: () => void;
@@ -103,7 +103,7 @@ export function TaskComposerCard({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<string | undefined>();
-  const [assigneeId, setAssigneeId] = useState('');
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [estimate, setEstimate] = useState(0);
@@ -118,7 +118,7 @@ export function TaskComposerCard({
         title: title.trim(),
         description: description.trim() || undefined,
         status: effectiveStatus || undefined,
-        assigneeId: assigneeId || undefined,
+        assigneeIds,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
         // Each kind sends only its own field, so switching teams mid-compose
@@ -200,15 +200,13 @@ export function TaskComposerCard({
           className="h-8 w-[140px]"
           aria-label={t('tasks.status')}
         />
-        <Combobox
-          value={assigneeId}
-          onChange={setAssigneeId}
+        <AssigneeField
+          multiple
+          value={assigneeIds}
+          onChange={setAssigneeIds}
           placeholder={t('tasks.assignee')}
           className="h-8 w-[150px]"
-          options={[
-            { value: '', label: t('tasks.unassigned') },
-            ...users.map((u) => ({ value: u.id, label: u.name })),
-          ]}
+          aria-label={t('tasks.assignee')}
         />
         <DateRangePicker
           start={startDate}

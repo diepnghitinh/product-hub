@@ -8,6 +8,7 @@ import { todayISO } from '@application/cycles/domain/cycle-dates';
 import { UpdateIssueDto } from '../dtos/update-issue.dto';
 import { IssueEntity } from '../domain/entities/issue.entity';
 import { IIssueRepository } from '../repositories/issue.repository';
+import { resolveIssueAssignees } from './resolve-assignees';
 
 export interface UpdateIssueRequest {
   id: string;
@@ -34,16 +35,16 @@ export class UpdateIssueUseCase
     // A personal task can only be edited by its owner (or an admin).
     if (!issue.isVisibleTo(requesterId, isAdmin)) return Result.fail('Issue not found');
 
-    if (dto.assigneeId !== undefined) {
-      if (dto.assigneeId === '') {
-        issue.assign('', '');
-      } else {
-        const assignee = await this.users.findById(dto.assigneeId);
-        if (!assignee || assignee.tenantId !== tenantId) {
-          return Result.fail('Assignee not found');
-        }
-        issue.assign(assignee.id.toString(), assignee.name);
-      }
+    // Either shape replaces the whole list: `assigneeIds` is the list itself,
+    // `assigneeId` the one-person shorthand ('' unassigns) that the bulk bar, MCP
+    // and older clients still send.
+    const wanted =
+      dto.assigneeIds ??
+      (dto.assigneeId !== undefined ? (dto.assigneeId ? [dto.assigneeId] : []) : undefined);
+    if (wanted !== undefined) {
+      const resolved = await resolveIssueAssignees(this.users, tenantId, wanted);
+      if (resolved.isFailure) return Result.fail(resolved.error as string);
+      issue.setAssignees(resolved.getValue());
     }
 
     if (dto.cycleId !== undefined && dto.cycleId !== issue.cycleId) {

@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { t } from '@/i18n';
 import { formatDate } from '@/lib/format';
 import { GanttChart, firstEpoch, isEpoch, toEpoch, type GanttRow } from '@/components/GanttChart';
 import { useTeamStatusesLookup } from '@/features/teams/api';
 import { TeamIssueType, type TeamStatusConfig } from '@/types/enums';
+import { IssuePeekDrawer, type IssuePeek } from './IssuePeekDrawer';
 
 /**
  * The subset of a task/bug a timeline row needs. Both `TaskDto` and `BugDto`
@@ -30,8 +32,8 @@ interface IssueTimelineViewProps {
    *  fetch — for a caller (e.g. a public board) that already has its one team's
    *  statuses in hand. */
   statusesFor?: (teamId: string | undefined, issueType: TeamIssueType) => TeamStatusConfig[];
-  /** Overrides a row's click target with a callback (e.g. open a dialog) instead
-   *  of linking to the protected `/tasks|bugs/:id` route — for a public board. */
+  /** Overrides what a row opens (e.g. the public board's read-only dialog) instead
+   *  of this view's own peek drawer, which needs an account. */
   onOpenItem?: (item: IssueTimelineItem) => void;
 }
 
@@ -47,6 +49,11 @@ function anchor(i: IssueTimelineItem): number {
  * team status. An issue with only one of the two dates shows a **diamond** on
  * that date; an issue with neither is listed but not placed. A thin adapter over
  * the shared `<GanttChart>` — the same surface the roadmap timeline uses.
+ *
+ * Clicking a row **peeks** it in a drawer rather than navigating, for the reason
+ * the roadmap timeline does: leaving the chart to read one issue and coming back
+ * loses your place on the axis, and a timeline is about the rows *around* the one
+ * you're reading. The drawer carries its own "open full page" link.
  */
 export function IssueTimelineView({
   items,
@@ -59,7 +66,14 @@ export function IssueTimelineView({
   // when the caller supplies its own lookup.
   const statusesForHook = useTeamStatusesLookup(!statusesForOverride);
   const statusesFor = statusesForOverride ?? statusesForHook;
-  const base = issueType === TeamIssueType.BUG ? 'bugs' : 'tasks';
+  const [peek, setPeek] = useState<IssuePeek | null>(null);
+
+  // One detail URL for both kinds — the ref names its own kind, so nothing here
+  // branches on task vs bug to build a link.
+  const open =
+    onOpenItem ??
+    ((issue: IssueTimelineItem) =>
+      setPeek({ id: issue.id, issueType, href: `/issues/${issue.shortId || issue.id}` }));
 
   // Dated first (soonest at the top), undated last — a stable, useful order.
   const ordered = [...items].sort((a, b) => {
@@ -81,7 +95,7 @@ export function IssueTimelineView({
       label: issue.title,
       sublabel: issue.shortId ? `${issue.shortId} · ${statusLabel}` : statusLabel,
       dotColor: color,
-      ...(onOpenItem ? { onClick: () => onOpenItem(issue) } : { href: `/${base}/${issue.shortId || issue.id}` }),
+      onClick: () => open(issue),
     };
 
     if (isEpoch(start) && isEpoch(end)) {
@@ -98,23 +112,28 @@ export function IssueTimelineView({
   });
 
   return (
-    <GanttChart
-      rows={rows}
-      isLoading={isLoading}
-      labelHeader={t('boards.timelineIssue')}
-      empty={{ title: t('boards.timelineEmpty'), hint: t('boards.timelineEmptyHint') }}
-      legend={
-        <>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-6 rounded-full bg-muted-foreground" aria-hidden />
-            {t('boards.timelineLegendBar')}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="size-2.5 rotate-45 rounded-[2px] bg-muted-foreground" aria-hidden />
-            {t('boards.timelineLegendMarker')}
-          </span>
-        </>
-      }
-    />
+    <>
+      <GanttChart
+        rows={rows}
+        isLoading={isLoading}
+        labelHeader={t('boards.timelineIssue')}
+        empty={{ title: t('boards.timelineEmpty'), hint: t('boards.timelineEmptyHint') }}
+        legend={
+          <>
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-6 rounded-full bg-muted-foreground" aria-hidden />
+              {t('boards.timelineLegendBar')}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 rotate-45 rounded-[2px] bg-muted-foreground" aria-hidden />
+              {t('boards.timelineLegendMarker')}
+            </span>
+          </>
+        }
+      />
+      {/* Never opened when the caller passed `onOpenItem` — a public board has no
+          account to fetch a detail with, and opens its own dialog instead. */}
+      <IssuePeekDrawer peek={peek} onClose={() => setPeek(null)} />
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import { Dialog, DotLabel } from '@/components/ui';
+import { AssigneeBadge } from '@/components/AssigneeBadge';
 import { t } from '@/i18n';
 import { IssueDetailMain } from '@/features/issues/IssueDetailMain';
 import { BUG_SEVERITY_COLOR, BUG_SEVERITY_LABEL, TeamIssueType } from '@/types/enums';
@@ -44,7 +45,7 @@ export function PublicIssueDialog({
             {BUG_SEVERITY_LABEL[bug.severity]}
           </DotLabel>
         )}
-        <span className="text-muted-foreground">{item.assigneeName || t('tasks.unassigned')}</span>
+        <AssigneeBadge assignees={item.assignees} unassignedLabel={t('tasks.unassigned')} />
       </div>
       <IssueDetailMain
         key={item.id}

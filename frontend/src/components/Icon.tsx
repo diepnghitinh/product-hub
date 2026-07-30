@@ -10,14 +10,14 @@ export type IconName =
   | 'tasks'
   | 'user-check'
   | 'calendar'
-  | 'list'
+  | 'user-list'
   | 'people'
   | 'settings'
   | 'chevron-left'
   | 'chevron-right'
   | 'menu'
   | 'logout'
-  | 'grid'
+  | 'checks'
   | 'close'
   // Team symbols — pickable per team, see TEAM_ICONS in types/enums.
   | 'code'
@@ -40,6 +40,19 @@ export type IconName =
   | 'package'
   | 'globe'
   | 'headphones';
+
+/**
+ * The figure "My Tasks" and its "Personal List" child share, so the parent row
+ * and the child read as the same person wearing a different mark. It is drawn as
+ * one continuous line — an open head ring whose stroke leaves the lower left as a
+ * swoosh and flattens into a base — rather than Feather's closed head + shoulder
+ * arc, which is why it isn't built from the `people` glyph. Deliberately has no
+ * right-hand shoulder: the empty quadrant is what leaves room for the check or
+ * the list to tuck in underneath the head.
+ */
+const PERSON = (
+  <path d="M14.9 9.5A5.4 5.4 0 1 0 6 11.5C5 13.5 1.9 15.8 1.9 19.9Q1.9 21.3 3.3 21.3H9" />
+);
 
 /* Feather/Lucide-style line icons — stroke via currentColor, like ThemeToggle. */
 const PATHS: Record<IconName, ReactNode> = {
@@ -92,20 +105,40 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
     </>
   ),
+  /* My Tasks — the person, ticked. The check sits low, beside the body rather
+     than up by the head, so it lands in the quadrant `PERSON` leaves empty. */
   'user-check': (
     <>
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="m16 11 2 2 4-4" />
+      {PERSON}
+      <path d="M15 17l2 1.7 3.5-3.3" />
     </>
   ),
+  /* The dot is the point of this one: it marks *today* inside the month, which
+     is the row it labels. The divider sits close under the top edge, so the two
+     strokes read as one solid header bar at 18px — that's the reference, not a
+     collision. Tabs are loops, not ticks. */
   calendar: (
     <>
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4M8 2v4M3 10h18" />
+      <rect x="3" y="5" width="18" height="16" rx="2.5" />
+      <path d="M3 8h18" />
+      <path d="M5.9 5V3.5a1.5 1.5 0 0 1 3 0V5M14.7 5V3.5a1.5 1.5 0 0 1 3 0V5" />
+      <circle cx="16" cy="16" r="1" />
     </>
   ),
-  list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
+  /* Personal List — the same person against two list rows (bullet + line). Not
+     the bare list lines: the row is a *personal* board, and the figure is what
+     says so next to its "My Tasks" parent. */
+  'user-list': (
+    <>
+      {PERSON}
+      {/* Bullets are `r < strokeWidth/2` circles, so the stroke closes over the
+          centre and they render as solid dots — a thin dash reads too light
+          against the line beside it. */}
+      <circle cx="14.3" cy="15" r="0.6" />
+      <circle cx="14.3" cy="21" r="0.6" />
+      <path d="M18.6 15h2.9M18.6 21h2.9" />
+    </>
+  ),
   settings: (
     <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" />
   ),
@@ -118,12 +151,13 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M16 17l5-5-5-5M21 12H9" />
     </>
   ),
-  grid: (
+  /* Double tick — a list of work items, against the single tick inside `tasks`
+     for one. Two identical ticks a third of a glyph apart, and flat (18 wide by
+     8 tall) so the pair still reads as two at 18px rather than one thick mark. */
+  checks: (
     <>
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
+      <path d="M3 11l5 5 7-8" />
+      <path d="M9 11l5 5 7-8" />
     </>
   ),
   close: <path d="M18 6L6 18M6 6l12 12" />,

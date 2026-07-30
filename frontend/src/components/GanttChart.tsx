@@ -1,4 +1,10 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import {
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 import { Link } from 'react-router-dom';
 import { Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -7,9 +13,39 @@ import { formatDate } from '@/lib/format';
 
 /** One day in ms — exported so adapters can derive fallback end dates (+N days). */
 export const GANTT_DAY = 86_400_000;
-// The left label rail is a fixed 200px. It's written as a literal in the classes
-// (`grid-cols-[200px_1fr]`, `left-[200px]`) because Tailwind can't read a JS
-// constant — so those three occurrences must stay in lockstep by hand.
+
+// ── The label rail ───────────────────────────────────────────────────────────
+// Column 0 is **frozen**: it's `sticky left-0` inside the horizontal scroller, so
+// scrolling the axis never leaves you looking at unlabelled bars. Its width is
+// therefore not a constant any more — it's dragged from the header's right edge
+// and remembered per browser, because what belongs there is a title, and titles
+// run from "Login" to a full user story. Every place that needs the width reads
+// the state (inline styles, not Tailwind classes, which can't take a JS value).
+const RAIL_KEY = 'ph_gantt_rail_w';
+const RAIL_DEFAULT = 200;
+const RAIL_MIN = 120;
+const RAIL_MAX = 520;
+/** How much the timeline track keeps for itself — the chart scrolls below this. */
+const TRACK_MIN = 560;
+/** Keyboard resize step (the rail is a focusable separator). */
+const RAIL_STEP = 16;
+
+const clampRail = (n: number) => Math.min(RAIL_MAX, Math.max(RAIL_MIN, Math.round(n)));
+function readRail(): number {
+  try {
+    const raw = Number(localStorage.getItem(RAIL_KEY));
+    return raw ? clampRail(raw) : RAIL_DEFAULT;
+  } catch {
+    return RAIL_DEFAULT;
+  }
+}
+function writeRail(w: number) {
+  try {
+    localStorage.setItem(RAIL_KEY, String(w));
+  } catch {
+    /* ignore */
+  }
+}
 
 /** ISO date → epoch ms, or NaN when unset/invalid. */
 export const toEpoch = (d?: string | null): number => (d ? new Date(d).getTime() : NaN);
@@ -84,9 +120,10 @@ export interface GanttRow {
   depth?: number;
   /** Leading dot before the label — a status/severity colour. */
   dotColor?: string;
-  /** Click the label (opens a detail); mutually exclusive with `href`. */
+  /** Click **anywhere in the row's rail cell** (opens a detail — usually a peek
+   *  drawer); mutually exclusive with `href`. */
   onClick?: () => void;
-  /** Render the label as a router link instead of a button. */
+  /** Make that whole cell a router link instead of a button. */
   href?: string;
   bar?: GanttBar;
   marker?: GanttMarker;
@@ -99,8 +136,8 @@ export interface GanttRow {
    *
    * The caller must reflect the change immediately (optimistically) — the bar
    * returns to its `bar` prop the moment the drag ends, so a slow round-trip
-   * would look like a snap-back. Drag is pointer-only; the row's label still
-   * links to the detail, which is the keyboard/screen-reader path to the dates.
+   * would look like a snap-back. Drag is pointer-only; the row's rail cell still
+   * opens the detail, which is the keyboard/screen-reader path to the dates.
    */
   onBarChange?: (next: { start: number; end: number }) => void;
 }
@@ -117,17 +154,57 @@ export interface GanttChartProps {
 }
 
 /**
- * A reusable timeline (Gantt) surface: a fixed label rail on the left and a
+ * A reusable timeline (Gantt) surface: a **frozen** label rail on the left and a
  * date axis filling the rest, with a "today" line, weekly/monthly gridlines, and
  * one row per item — each drawn as a span **bar**, a single-date **marker**, or a
  * plain listing when it has no dates. Callers own how rows are derived and
  * coloured (see `RoadmapGanttView` and `IssueTimelineView`); this component owns
  * only the axis, the window maths, and the row chrome.
  *
+ * The rail sticks to the left edge while the axis scrolls under it, and its width
+ * is draggable from the header's right edge (remembered per browser).
+ *
  * A row that supplies `onBarChange` is also **editable**: its bar drags to a new
  * window and its edges resize, snapped to whole days.
  */
 export function GanttChart({ rows, labelHeader, legend, isLoading, empty }: GanttChartProps) {
+  const [railW, setRailW] = useState(readRail);
+  const railDrag = useRef<{ x0: number; w0: number } | null>(null);
+  const [resizing, setResizing] = useState(false);
+
+  const beginRailDrag = (e: ReactPointerEvent<HTMLElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    railDrag.current = { x0: e.clientX, w0: railW };
+    setResizing(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const moveRailDrag = (e: ReactPointerEvent<HTMLElement>) => {
+    const d = railDrag.current;
+    if (!d) return;
+    setRailW(clampRail(d.w0 + (e.clientX - d.x0)));
+  };
+  const endRailDrag = () => {
+    if (!railDrag.current) return;
+    railDrag.current = null;
+    setResizing(false);
+    writeRail(railW);
+  };
+  /** Keyboard resize — the grip is a focusable separator, so arrows move it and
+   *  Home restores the default. Pointer-only would leave it unreachable. */
+  const railKeys = (e: ReactKeyboardEvent<HTMLElement>) => {
+    const step = e.key === 'ArrowLeft' ? -RAIL_STEP : e.key === 'ArrowRight' ? RAIL_STEP : 0;
+    const next = e.key === 'Home' ? RAIL_DEFAULT : step ? clampRail(railW + step) : null;
+    if (next === null) return;
+    e.preventDefault();
+    setRailW(next);
+    writeRail(next);
+  };
+  /** Two columns, sized from the state — used by the header and every row, so
+   *  they can't drift out of lockstep the way the old literals could. */
+  const cols = { gridTemplateColumns: `${railW}px minmax(0,1fr)` };
+
   if (isLoading) {
     return (
       <div className="grid place-items-center py-16">
@@ -171,13 +248,26 @@ export function GanttChart({ rows, labelHeader, legend, isLoading, empty }: Gant
       )}
 
       <div className="overflow-x-auto rounded-xl border bg-card">
-        <div className="min-w-[760px]">
+        <div style={{ minWidth: railW + TRACK_MIN }}>
           {/* Axis header */}
-          <div className="grid grid-cols-[200px_1fr] border-b bg-muted/40">
-            <div className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {labelHeader}
+          <div className="grid border-b" style={cols}>
+            {/* The frozen rail's header — an opaque `bg-card` base under the row's
+                muted tint, since the axis now scrolls *behind* it. */}
+            <div className="sticky left-0 z-30 border-r bg-card">
+              <div className="relative flex h-full items-center bg-muted/40 px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="min-w-0 truncate">{labelHeader}</span>
+                <RailGrip
+                  width={railW}
+                  active={resizing}
+                  onPointerDown={beginRailDrag}
+                  onPointerMove={moveRailDrag}
+                  onPointerUp={endRailDrag}
+                  onPointerCancel={endRailDrag}
+                  onKeyDown={railKeys}
+                />
+              </div>
             </div>
-            <div className="relative h-8">
+            <div className="relative h-8 bg-muted/40">
               {ticks.map((tk, i) => (
                 <div
                   key={i}
@@ -198,7 +288,7 @@ export function GanttChart({ rows, labelHeader, legend, isLoading, empty }: Gant
 
           {/* Body: gridlines + today line sit behind the rows. */}
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-[200px] right-0 z-0">
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-0" style={{ left: railW }}>
               {ticks.map((tk, i) => (
                 <div key={i} className="absolute inset-y-0 w-px bg-border/70" style={{ left: `${tk.x}%` }} />
               ))}
@@ -207,7 +297,7 @@ export function GanttChart({ rows, labelHeader, legend, isLoading, empty }: Gant
 
             <div className="relative z-10">
               {rows.map((row) => (
-                <GanttRowView key={row.id} row={row} pct={pct} spanMs={maxMs - minMs} />
+                <GanttRowView key={row.id} row={row} cols={cols} pct={pct} spanMs={maxMs - minMs} />
               ))}
             </div>
           </div>
@@ -219,56 +309,85 @@ export function GanttChart({ rows, labelHeader, legend, isLoading, empty }: Gant
 
 function GanttRowView({
   row,
+  cols,
   pct,
   spanMs,
 }: {
   row: GanttRow;
+  /** The chart's two column widths — the rail is resizable, so they're shared. */
+  cols: { gridTemplateColumns: string };
   pct: (v: number) => number;
   spanMs: number;
 }) {
   const child = (row.depth ?? 0) > 0;
+  const interactive = !!(row.href || row.onClick);
 
-  // The interactive label text — a link, a button, or (when neither) plain text.
-  const textCls = cn(
-    'min-w-0 flex-1 truncate',
-    child ? 'text-xs text-muted-foreground hover:text-foreground' : 'text-sm font-medium text-foreground',
-  );
-  const text = row.href ? (
-    <Link to={row.href} className={cn(textCls, 'hover:underline')} title={row.label}>
-      {row.label}
-    </Link>
-  ) : row.onClick ? (
-    <button type="button" onClick={row.onClick} className={cn(textCls, 'text-left hover:underline')} title={row.label}>
-      {row.label}
-    </button>
-  ) : (
-    <span className={textCls} title={row.label}>
-      {row.label}
-    </span>
-  );
   const dot = row.dotColor ? (
     <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.dotColor }} aria-hidden />
   ) : null;
+  // The title is plain text now: the *cell* around it is the link/button (see
+  // below), and an anchor inside an anchor isn't a thing. Hover styling therefore
+  // keys off the cell, not the glyph.
+  const title = (
+    <span
+      className={cn(
+        'min-w-0 flex-1 truncate',
+        child ? 'text-xs text-muted-foreground' : 'text-sm font-medium text-foreground',
+        interactive && 'group-hover/rail:underline',
+        interactive && child && 'group-hover/rail:text-foreground',
+      )}
+      title={row.label}
+    >
+      {row.label}
+    </span>
+  );
+  /** A child indents into a single flex row; a top-level row is a flex column so
+   *  it can carry a sublabel line under the title. */
+  const body = child ? (
+    <>
+      {dot}
+      {title}
+    </>
+  ) : (
+    <>
+      <div className="flex min-w-0 items-center gap-2">
+        {dot}
+        {title}
+      </div>
+      {row.sublabel && <span className="truncate text-[11px] text-muted-foreground">{row.sublabel}</span>}
+    </>
+  );
+
+  // **The whole rail cell opens the row**, not just the title glyph. The rail is
+  // resizable and titles truncate, so most of a row is empty space beside its
+  // text — clicking a row in the task list and having nothing happen is the bug
+  // this fixes. One element wraps the lot (link, button, or inert div) rather
+  // than a target per line, so there are no dead gaps left between them.
+  const cellCls = cn(
+    'flex min-w-0 flex-1',
+    child ? 'items-center gap-2 py-1.5 pl-6 pr-3' : 'flex-col justify-center gap-0.5 px-3 py-2',
+    interactive &&
+      'text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+  );
+  const cell = row.href ? (
+    <Link to={row.href} className={cellCls}>
+      {body}
+    </Link>
+  ) : row.onClick ? (
+    <button type="button" onClick={row.onClick} className={cellCls}>
+      {body}
+    </button>
+  ) : (
+    <div className={cellCls}>{body}</div>
+  );
 
   return (
-    <div className="grid grid-cols-[200px_1fr] items-center border-b last:border-0 hover:bg-accent/30">
-      {/* Label rail — a child indents into a single flex row; a top-level row is a
-          flex column so it can carry a sublabel line under the title. */}
-      <div className={cn('flex min-w-0', child ? 'items-center gap-2 py-1.5 pl-6 pr-3' : 'flex-col gap-0.5 px-3 py-2')}>
-        {child ? (
-          <>
-            {dot}
-            {text}
-          </>
-        ) : (
-          <>
-            <div className="flex min-w-0 items-center gap-2">
-              {dot}
-              {text}
-            </div>
-            {row.sublabel && <span className="text-[11px] text-muted-foreground">{row.sublabel}</span>}
-          </>
-        )}
+    <div className="group grid items-center border-b last:border-0 hover:bg-accent/30" style={cols}>
+      {/* Label rail — frozen to the left edge, so it needs an opaque background of
+          its own (the row's hover tint can't show through it, hence `group-hover`)
+          and `self-stretch` to cover the row's full height as bars scroll under. */}
+      <div className="group/rail sticky left-0 z-20 flex self-stretch border-r bg-card group-hover:bg-accent/30">
+        {cell}
       </div>
 
       {/* Timeline track — the drag maths measures this element to turn pixels
@@ -289,6 +408,52 @@ function GanttRowView({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * The rail's resize grip — a narrow hit zone straddling the header's right edge,
+ * showing a brand line while pointed at or dragged. It's an ARIA `separator` with
+ * a value, so the width is reachable by keyboard (arrows, Home) and announced,
+ * not a pointer-only affordance.
+ */
+function RailGrip({
+  width,
+  active,
+  ...handlers
+}: {
+  width: number;
+  active: boolean;
+  onPointerDown: (e: ReactPointerEvent<HTMLElement>) => void;
+  onPointerMove: (e: ReactPointerEvent<HTMLElement>) => void;
+  onPointerUp: () => void;
+  onPointerCancel: () => void;
+  onKeyDown: (e: ReactKeyboardEvent<HTMLElement>) => void;
+}) {
+  return (
+    <span
+      {...handlers}
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={t('boards.resizeColumn')}
+      aria-valuenow={width}
+      aria-valuemin={RAIL_MIN}
+      aria-valuemax={RAIL_MAX}
+      tabIndex={0}
+      title={t('boards.resizeColumn')}
+      // `touch-none` so a drag here resizes instead of scrolling the chart sideways.
+      className="group/grip absolute inset-y-0 -right-1 z-30 w-2 cursor-col-resize touch-none outline-none"
+    >
+      <span
+        className={cn(
+          'absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-primary transition-opacity',
+          active
+            ? 'opacity-100'
+            : 'opacity-0 group-hover/grip:opacity-100 group-focus-visible/grip:opacity-100',
+        )}
+        aria-hidden
+      />
+    </span>
   );
 }
 

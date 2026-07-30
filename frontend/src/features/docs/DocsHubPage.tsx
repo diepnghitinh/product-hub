@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, MoreHorizontal, Share2, Tag, Trash2 } from 'lucide-react';
+import { FileText, MoreHorizontal, Share2, Tag, Trash2, UserRound } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
   Button,
@@ -33,6 +33,52 @@ const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260
 /** Tags are matched case-insensitively, so both sides go through this. */
 const tagKey = (tag: string) => tag.toLowerCase();
 
+/** The two author scopes, in switch order. */
+const SCOPES = [
+  { mine: false, labelKey: 'docs.allDocs', Glyph: FileText },
+  { mine: true, labelKey: 'docs.mine', Glyph: UserRound },
+] as const;
+
+/**
+ * All docs | Created by me. Two segments rather than a lone checkbox: the hub's
+ * default *is* the whole workspace, so it says so out loud instead of leaving an
+ * unchecked box to imply it. Same segmented idiom (and brand fill on the active
+ * segment) as the boards' Kind switch — there's no toggle-group primitive in the
+ * UI kit, so it's two buttons.
+ */
+function AuthorScopeSwitch({
+  mineOnly,
+  onChange,
+}: {
+  mineOnly: boolean;
+  onChange: (mine: boolean) => void;
+}) {
+  return (
+    <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5">
+      {SCOPES.map(({ mine, labelKey, Glyph }) => {
+        const active = mineOnly === mine;
+        return (
+          <button
+            key={labelKey}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(mine)}
+            className={cn(
+              'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              active
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <Glyph className="size-3.5 shrink-0" aria-hidden />
+            <span>{t(labelKey)}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * Every doc in the workspace, as cards. A doc is a container of pages, so a card
  * shows how many it holds and when it last moved — opening one goes to the
@@ -40,7 +86,7 @@ const tagKey = (tag: string) => tag.toLowerCase();
  */
 export function DocsHubPage() {
   const navigate = useNavigate();
-  const { canWrite, canManageDelivery } = useAuth();
+  const { user, canWrite, canManageDelivery } = useAuth();
   const { data, isLoading } = useDocs();
   // Shared cache with the sidebar — read here only to decide which stars stay
   // visible without a hover.
@@ -60,6 +106,8 @@ export function DocsHubPage() {
   const [sharing, setSharingDoc] = useState<DocDto | null>(null);
   /** Lower-cased tag keys, not labels — see `tagKey`. */
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  /** Author scope: false = the whole workspace, true = docs I created. */
+  const [mineOnly, setMineOnly] = useState(false);
 
   const docs = useMemo(() => data ?? [], [data]);
   // Re-read the shared doc from the list so the dialog's switch follows the
@@ -84,13 +132,37 @@ export function DocsHubPage() {
     );
 
   // Filtered here rather than on the server: the hub already holds every doc in
-  // one query, so a round-trip per chip would only be slower.
+  // one query, so a round-trip per chip would only be slower. `createdBy` is the
+  // author's user id (`createdByName` is only for showing), so "mine" is an id
+  // match, not a name match.
   const visible = useMemo(() => {
-    if (!selectedTags.length) return docs;
     const wanted = new Set(selectedTags);
-    // Any of the picked tags matches — the usual "narrow, don't intersect".
-    return docs.filter((doc) => (doc.tags ?? []).some((tag) => wanted.has(tagKey(tag))));
-  }, [docs, selectedTags]);
+    return docs.filter((doc) => {
+      if (mineOnly && doc.createdBy !== user?.id) return false;
+      if (!wanted.size) return true;
+      // Any of the picked tags matches — the usual "narrow, don't intersect".
+      return (doc.tags ?? []).some((tag) => wanted.has(tagKey(tag)));
+    });
+  }, [docs, selectedTags, mineOnly, user?.id]);
+
+  /** Anything narrowing the list — what "Clear all" and the counter key off. */
+  const filtering = mineOnly || selectedTags.length > 0;
+
+  function clearFilters() {
+    setMineOnly(false);
+    setSelectedTags([]);
+  }
+
+  // Which "nothing here" to say. With no filter on, an empty list can only mean
+  // an empty workspace; with one on, name the filter that emptied it so the next
+  // move is obvious. (Tags win the wording when both are on — they're the
+  // narrower cut.)
+  const empty =
+    docs.length === 0
+      ? { title: t('docs.empty'), hint: t('docs.emptyHint') }
+      : selectedTags.length > 0
+        ? { title: t('docs.noTagMatch'), hint: t('docs.noTagMatchHint') }
+        : { title: t('docs.noMineMatch'), hint: t('docs.noMineMatchHint') };
 
   function openCreate() {
     setEditing(null);
@@ -143,29 +215,40 @@ export function DocsHubPage() {
       />
 
       {/*
-        Every tag in the workspace, laid out as chips rather than hidden behind a
-        dropdown: the list doubles as the hub's vocabulary, so you can see what's
-        here before deciding to narrow it. Wraps on a phone.
+        One filter row, read left to right: who wrote it, then what it's about.
+        The author switch is always here — every workspace has an "ours vs mine"
+        split. The tags are whatever the workspace has actually written, laid out
+        as chips rather than hidden behind a dropdown: the list doubles as the
+        hub's vocabulary, so you can see what's here before deciding to narrow it.
+        Wraps on a phone.
       */}
-      {allTags.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-1.5">
-          <Tag className="mr-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-          {allTags.map((tag) => (
-            <DocTagChip
-              key={tagKey(tag)}
-              tag={tag}
-              selected={selectedTags.includes(tagKey(tag))}
-              onClick={() => toggleTag(tag)}
-            />
-          ))}
-          {selectedTags.length > 0 && (
+      {docs.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-1.5 gap-y-2">
+          <AuthorScopeSwitch mineOnly={mineOnly} onChange={setMineOnly} />
+
+          {allTags.length > 0 && (
+            <>
+              <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
+              <Tag className="mr-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+              {allTags.map((tag) => (
+                <DocTagChip
+                  key={tagKey(tag)}
+                  tag={tag}
+                  selected={selectedTags.includes(tagKey(tag))}
+                  onClick={() => toggleTag(tag)}
+                />
+              ))}
+            </>
+          )}
+
+          {filtering && (
             <>
               <span className="ml-1 text-xs tabular-nums text-muted-foreground">
                 {visible.length} / {docs.length}
               </span>
               <button
                 type="button"
-                onClick={() => setSelectedTags([])}
+                onClick={clearFilters}
                 className="rounded-md px-1.5 py-1 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
               >
                 {t('filters.clearAll')}
@@ -180,12 +263,8 @@ export function DocsHubPage() {
       ) : visible.length === 0 ? (
         <div className="rounded-xl border border-dashed p-8 text-center">
           <FileText className="mx-auto mb-3 size-7 text-muted-foreground/60" aria-hidden />
-          <p className="text-sm text-muted-foreground">
-            {docs.length === 0 ? t('docs.empty') : t('docs.noTagMatch')}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground/80">
-            {docs.length === 0 ? t('docs.emptyHint') : t('docs.noTagMatchHint')}
-          </p>
+          <p className="text-sm text-muted-foreground">{empty.title}</p>
+          <p className="mt-1 text-xs text-muted-foreground/80">{empty.hint}</p>
         </div>
       ) : (
         <div className={CARD_GRID}>

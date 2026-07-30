@@ -2,6 +2,16 @@ import { ApiProperty } from '@nestjs/swagger';
 import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 import { BugAttachment, BugSeverity, IssueKind } from '../domain/enums/issue.enums';
 
+/** One person on an issue. Denormalized like a roadmap item's assignees, so a
+ *  board renders avatars and names without a user lookup. */
+export class IssueAssigneeDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  name: string;
+}
+
 /**
  * Flat issue shape — the union of the old Task and Bug responses with a `kind`.
  * Assignee/author/reporter names are denormalized so a list reads without needing
@@ -59,10 +69,16 @@ export class IssueResponseDto {
   })
   carryOverCount: number;
 
-  @ApiProperty()
+  @ApiProperty({
+    type: [IssueAssigneeDto],
+    description: 'Everyone on the issue, primary first (empty = unassigned)',
+  })
+  assignees: IssueAssigneeDto[];
+
+  @ApiProperty({ description: 'Primary assignee id — mirrors assignees[0] ("" = none)' })
   assigneeId: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Primary assignee name — mirrors assignees[0]' })
   assigneeName: string;
 
   @ApiProperty()

@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, LayoutGrid, List } from 'lucide-react';
 import { Badge, Button, Checkbox, Switch } from '@/components/ui';
+import { AssigneeBadge } from '@/components/AssigneeBadge';
 import { BoardSkeleton, ListSkeleton, TimelineSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
@@ -30,11 +31,7 @@ import {
 import { useCycles, useFocusedCycle, useResolvedCycleId } from '@/features/cycles/api';
 import { CycleInsightsButton } from '@/features/cycles/CycleInsights';
 import { useIssueSelection, type IssueSelection } from '@/features/issues/useIssueSelection';
-import {
-  BulkActionBar,
-  buildAssigneeOptions,
-  buildCycleOptions,
-} from '@/features/issues/BulkActionBar';
+import { BulkActionBar, buildCycleOptions } from '@/features/issues/BulkActionBar';
 import { TaskStatus, TeamIssueType, type TaskLabelConfig, type TeamStatusConfig } from '@/types/enums';
 import type { TaskDto, TeamDto } from '@/types/dto';
 import { useDeleteTask, useSetTaskStatus, useTasks } from './api';
@@ -155,7 +152,6 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
   const bulkEnabled = !!teamId && canWrite;
   const cyclesEnabled = !!shareTeam?.cyclesEnabled;
   const { data: cyclesData } = useCycles(cyclesEnabled ? teamId : undefined);
-  const assigneeOptions = buildAssigneeOptions(user, usersData?.items);
   const cycleOptions = cyclesEnabled ? buildCycleOptions(cyclesData) : undefined;
 
   const filterCategories: FilterCategory[] = [
@@ -331,7 +327,6 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
           selection={selection}
           visibleIds={visibleTasks.map((tk) => tk.id)}
           columns={columns}
-          assignees={assigneeOptions}
           cycles={cycleOptions}
         />
       )}
@@ -359,9 +354,7 @@ export function TaskCard({
       titleClassName={done ? 'text-muted-foreground line-through' : undefined}
       labels={<LabelChips keys={task.labelKeys} labels={labels} />}
       metaLeading={
-        <Badge variant="muted" className="max-w-full truncate">
-          {task.assigneeName || t('tasks.unassigned')}
-        </Badge>
+        <AssigneeBadge assignees={task.assignees} unassignedLabel={t('tasks.unassigned')} />
       }
       metaTrailing={
         <>
@@ -467,9 +460,11 @@ function TaskRow({
       {task.shortId && (
         <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{task.shortId}</span>
       )}
-      <Badge variant="muted" className="max-w-[35%] shrink-0 truncate">
-        {task.assigneeName || t('tasks.unassigned')}
-      </Badge>
+      <AssigneeBadge
+        assignees={task.assignees}
+        unassignedLabel={t('tasks.unassigned')}
+        className="max-w-[35%] shrink-0"
+      />
     </>
   );
   // The click target keeps its own rounding/hover; the separator + selected tint

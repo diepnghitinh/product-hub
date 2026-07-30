@@ -79,10 +79,19 @@ export function useNavGroups() {
   }, [openGroups]);
 
   const isUnder = (p: string) => pathname === p || pathname.startsWith(`${p}/`);
+  /**
+   * Where a group sits before anyone touches it: open whenever the route is
+   * inside it. A parent row can live at a different URL from the child you're
+   * standing on (My Tasks is `/issues/me`, but Today is `/issues/today`), so the
+   * children count as "inside" too — otherwise the group would close under you.
+   * Both `isOpen` and `toggleGroup` read it, or the first click after landing on
+   * a child would only re-assert what's already on screen and look like a no-op.
+   */
+  const defaultOpen = (p: string, childPaths: string[]) => [p, ...childPaths].some(isUnder);
   return {
-    isOpen: (p: string) => openGroups[p] ?? isUnder(p),
-    toggleGroup: (p: string) =>
-      setOpenGroups((g) => ({ ...g, [p]: !(g[p] ?? isUnder(p)) })),
+    isOpen: (p: string, childPaths: string[] = []) => openGroups[p] ?? defaultOpen(p, childPaths),
+    toggleGroup: (p: string, childPaths: string[] = []) =>
+      setOpenGroups((g) => ({ ...g, [p]: !(g[p] ?? defaultOpen(p, childPaths)) })),
   };
 }
 

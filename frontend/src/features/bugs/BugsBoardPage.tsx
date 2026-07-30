@@ -2,7 +2,8 @@ import { useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, LayoutGrid, List } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Badge, Button, Checkbox } from '@/components/ui';
+import { Button, Checkbox } from '@/components/ui';
+import { AssigneeBadge } from '@/components/AssigneeBadge';
 import { BoardSkeleton, ListSkeleton, TimelineSkeleton } from '@/components/Skeletons';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
@@ -42,11 +43,7 @@ import {
 import { useCycles, useFocusedCycle, useResolvedCycleId } from '@/features/cycles/api';
 import { CycleInsightsButton } from '@/features/cycles/CycleInsights';
 import { useIssueSelection, type IssueSelection } from '@/features/issues/useIssueSelection';
-import {
-  BulkActionBar,
-  buildAssigneeOptions,
-  buildCycleOptions,
-} from '@/features/issues/BulkActionBar';
+import { BulkActionBar, buildCycleOptions } from '@/features/issues/BulkActionBar';
 
 /** Severity → dot color (shadcn semantic tokens). */
 const SEVERITY_DOT: Record<BugSeverity, string> = {
@@ -76,9 +73,7 @@ export function BugCard({
       title={bug.title}
       labels={<LabelChips keys={bug.labelKeys} labels={labels} />}
       metaLeading={
-        <Badge variant="muted" className="max-w-full truncate">
-          {bug.assigneeName || t('bugs.unassigned')}
-        </Badge>
+        <AssigneeBadge assignees={bug.assignees} unassignedLabel={t('bugs.unassigned')} />
       }
       metaTrailing={
         <>
@@ -175,7 +170,6 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   const bulkEnabled = !!teamId && canWrite;
   const cyclesEnabled = !!shareTeam?.cyclesEnabled;
   const { data: cyclesData } = useCycles(cyclesEnabled ? teamId : undefined);
-  const assigneeOptions = buildAssigneeOptions(user, usersData?.items);
   const cycleOptions = cyclesEnabled ? buildCycleOptions(cyclesData) : undefined;
 
   const { data, isLoading } = useBugs({
@@ -377,7 +371,6 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           selection={selection}
           visibleIds={bugs.map((b) => b.id)}
           columns={columns}
-          assignees={assigneeOptions}
           cycles={cycleOptions}
         />
       )}
@@ -467,9 +460,11 @@ export function BugList({
                         {bug.shortId}
                       </span>
                     )}
-                    <Badge variant="muted" className="max-w-[35%] shrink-0 truncate">
-                      {bug.assigneeName || t('bugs.unassigned')}
-                    </Badge>
+                    <AssigneeBadge
+                      assignees={bug.assignees}
+                      unassignedLabel={t('bugs.unassigned')}
+                      className="max-w-[35%] shrink-0"
+                    />
                   </button>
                 </div>
               ))}

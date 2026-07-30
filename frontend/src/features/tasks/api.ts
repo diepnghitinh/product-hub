@@ -51,6 +51,8 @@ export interface CreateTaskInput {
   roadmapItemId?: string;
   roadmapItemLabel?: string;
   projectId?: string;
+  /** Everyone on it, primary first (`[]` unassigns); wins over `assigneeId`. */
+  assigneeIds?: string[];
   assigneeId?: string;
   /** Start of the work window, ISO `YYYY-MM-DD`. */
   startDate?: string;
@@ -91,6 +93,8 @@ export interface UpdateTaskInput {
   /** @deprecated Legacy alias of `endDate`; prefer `endDate`. */
   dueDate?: string;
   estimate?: number;
+  /** Everyone on it, primary first (`[]` unassigns); wins over `assigneeId`. */
+  assigneeIds?: string[];
   assigneeId?: string;
   /** Commit to a team cycle ('' leaves it; only the task's own team's
    *  current/upcoming cycles are accepted server-side). */

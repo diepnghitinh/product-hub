@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import {
   CalendarRange,
   CircleDot,
-  CircleUser,
   FlaskConical,
   Trash2,
   TriangleAlert,
@@ -11,7 +10,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
-  Combobox,
   DateRangePicker,
   DotLabel,
   Input,
@@ -19,6 +17,7 @@ import {
   Select,
   formatDateRange,
 } from '@/components/ui';
+import { AssigneeField, fallbackNames } from '@/components/AssigneeField';
 import { DetailSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import {
@@ -184,22 +183,14 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header', dense = fal
             </PropField>
 
             <PropField bare label={t('bugs.assignee')}>
-              {isAdmin ? (
-                <Combobox
-                  leadingIcon={<CircleUser />}
-                  value={bug.assigneeId || ''}
-                  onChange={(v) => save({ assigneeId: v })}
-                  placeholder={t('bugs.unassigned')}
-                  options={[
-                    { value: '', label: t('bugs.unassigned') },
-                    ...users.map((u) => ({ value: u.id, label: u.name })),
-                  ]}
-                />
-              ) : (
-                <PropValue icon={<CircleUser />} muted={!bug.assigneeName}>
-                  {bug.assigneeName || t('bugs.unassigned')}
-                </PropValue>
-              )}
+              <AssigneeField
+                multiple
+                value={bug.assignees.map((a) => a.id)}
+                onChange={(ids) => save({ assigneeIds: ids })}
+                readOnly={!isAdmin}
+                fallbackNames={fallbackNames(bug.assignees)}
+                aria-label={t('bugs.assignee')}
+              />
             </PropField>
 
             <PropField bare label={t('bugs.type')}>

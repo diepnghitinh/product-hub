@@ -9,9 +9,13 @@ import { useTeamStatusesLookup } from '@/features/teams/api';
 import { useAuth } from '@/lib/auth';
 import { TeamIssueType } from '@/types/enums';
 import type { RoadmapColumn, RoadmapItem, TaskDto } from '@/types/dto';
+import { useReplaceRoadmapItems } from '../api';
+import { IssuePeekDrawer, type IssuePeek } from '@/features/issues/IssuePeekDrawer';
+import { RoadmapItemPeekDrawer, type RoadmapItemPeek } from './RoadmapItemPeekDrawer';
 
-/** The window a task was dragged to, in the ISO day shape the API stores. */
-export interface TaskDates {
+/** The window a bar was dragged to, in the ISO day shape the API stores. The same
+ *  two fields on a task and on a backlog item, so one drag handler shape serves both. */
+export interface DateWindow {
   startDate: string;
   endDate: string;
 }
@@ -53,13 +57,22 @@ interface RoadmapGanttProps {
   taskStatus?: (task: TaskDto) => { color: string; label: string };
   /** A linked task's detail link; omit → the row isn't a link (public). */
   taskHref?: (task: TaskDto) => string | undefined;
+  /** Peek a linked task in place (a drawer) instead of following `taskHref`.
+   *  Takes precedence over it — the drawer carries its own "open full page" link. */
+  onOpenTask?: (task: TaskDto) => void;
   /**
    * Makes a linked task's bar **draggable** (moves the whole window) and
    * **resizable** (drag an edge to change just that date). Omit — public view,
-   * or no write access — and the timeline is read-only. Only tasks are editable:
-   * an item's bar has no end date of its own to write, it's derived from these.
+   * or no write access — and the task rows are read-only.
    */
-  onTaskDatesChange?: (task: TaskDto, next: TaskDates) => void;
+  onTaskDatesChange?: (task: TaskDto, next: DateWindow) => void;
+  /**
+   * The same for a backlog item's own bar. An item stores its own start/end pair,
+   * so dragging writes them straight back; an item that has never been scheduled
+   * by hand still shows the derived bar until it is dragged, and dragging is what
+   * commits that window. Omit for the public view.
+   */
+  onItemDatesChange?: (item: RoadmapItem, next: DateWindow) => void;
   isLoading?: boolean;
 }
 
@@ -70,10 +83,10 @@ interface RoadmapGanttProps {
  * tasks, their statuses) is injected so the same view serves the authenticated
  * board (with task markers) and the public share page (bars only).
  *
- * A roadmap item carries no end date of its own, so bars are derived from what exists:
- *   • item bar — from its start (startDate › startedAt › createdAt) to the
- *     latest linked task's end date (or its own completedAt, or +2 weeks when
- *     nothing anchors the end), filled to `progress`.
+ * Bars are drawn from whatever dates exist:
+ *   • item bar — from its start (startDate › startedAt › createdAt) to its own
+ *     `endDate` when it has one, else derived: its completedAt, else the latest
+ *     linked task's end date, else +2 weeks. Filled to `progress`.
  *   • task — a solid bar across its own start → end, exactly like the issue
  *     timeline draws it. A task with only one of the two dates falls back to a
  *     diamond on that date; one with neither is listed but not placed.
@@ -88,7 +101,9 @@ export function RoadmapGantt({
   tasksByItem,
   taskStatus,
   taskHref,
+  onOpenTask,
   onTaskDatesChange,
+  onItemDatesChange,
   isLoading,
 }: RoadmapGanttProps) {
   // The "Now" column — by key, falling back to the leftmost (most-immediate) one.
@@ -101,12 +116,14 @@ export function RoadmapGantt({
     const tasks = (tasksByItem?.get(item.id) ?? []).slice().sort(byDate);
     let start = firstEpoch(item.startDate, item.startedAt, item.createdAt);
     if (!isEpoch(start)) start = Date.now();
+    // The item's own end wins when it has one — a window somebody set by hand (or
+    // dragged) is intent, not a guess. Everything after it is the fallback chain.
     const ends = tasks.map(taskEnd).filter(isEpoch);
-    const completed = toEpoch(item.completedAt);
-    let end = isEpoch(completed) ? completed : ends.length ? Math.max(...ends) : start + 14 * GANTT_DAY;
+    let end = firstEpoch(item.endDate, item.completedAt);
+    if (!isEpoch(end)) end = ends.length ? Math.max(...ends) : start + 14 * GANTT_DAY;
     if (end < start) end = start + GANTT_DAY; // guard odd data (e.g. an end before the start)
 
-    rows.push({
+    const itemRow: GanttRow = {
       id: item.id,
       label: item.title || t('roadmaps.untitled'),
       sublabel: `${item.progress}% · ${
@@ -116,7 +133,14 @@ export function RoadmapGantt({
       }`,
       onClick: () => onOpenItem(item.id),
       bar: { start, end, color: barColor, progress: item.progress },
-    });
+    };
+    // Dragging an item's bar commits the window it's showing — including a derived
+    // one, which is the point: the derived bar is the proposal, the drag accepts it.
+    if (onItemDatesChange) {
+      itemRow.onBarChange = (n) =>
+        onItemDatesChange(item, { startDate: isoDay(n.start), endDate: isoDay(n.end) });
+    }
+    rows.push(itemRow);
 
     for (const tk of tasks) {
       const st = taskStatus?.(tk) ?? { color: 'hsl(var(--muted-foreground))', label: tk.status };
@@ -127,7 +151,9 @@ export function RoadmapGantt({
         depth: 1,
         dotColor: st.color,
         label: tk.title,
-        href: taskHref?.(tk),
+        // A peek drawer when one is offered (it carries its own full-page link),
+        // else a plain link to the detail — the public view's only option.
+        ...(onOpenTask ? { onClick: () => onOpenTask(tk) } : { href: taskHref?.(tk) }),
       };
       if (isEpoch(s) && isEpoch(e)) {
         // No `progress`: a task bar is a schedule, not a fill level — the same
@@ -187,7 +213,7 @@ export function RoadmapGantt({
           )}
           {/* Drag isn't discoverable on its own — say it, but only to someone who
               actually has an editable bar in front of them. */}
-          {hasTaskBars && onTaskDatesChange && (
+          {(onItemDatesChange || (hasTaskBars && onTaskDatesChange)) && (
             <span className="flex items-center gap-1.5">
               <MoveHorizontal className="size-3.5" aria-hidden />
               {t('roadmaps.ganttDragHint')}
@@ -204,25 +230,33 @@ interface RoadmapGanttViewProps {
   /** All roadmap items — filtered to the "Now" column by `RoadmapGantt`. */
   items: RoadmapItem[];
   columns: RoadmapColumn[];
-  onOpenItem: (id: string) => void;
 }
 
 /**
  * The authenticated roadmap timeline: fetches the roadmap's linked tasks once and
- * feeds them (plus their team-status colours, detail links and — for anyone who
- * can write — drag-to-reschedule) into `RoadmapGantt`. The public share page
- * renders `RoadmapGantt` directly with no tasks and no editing.
+ * feeds them (plus their team-status colours and — for anyone who can write —
+ * drag-to-reschedule) into `RoadmapGantt`, and owns the two peek drawers a row
+ * opens. The public share page renders `RoadmapGantt` directly with no tasks, no
+ * editing and links instead of drawers.
+ *
+ * Clicking a row **peeks** rather than navigating: leaving the chart to read one
+ * item and coming back loses your place on the axis, and the whole point of a
+ * timeline is the rows around the one you're looking at.
  */
-export function RoadmapGanttView({ roadmapId, items, columns, onOpenItem }: RoadmapGanttViewProps) {
+export function RoadmapGanttView({ roadmapId, items, columns }: RoadmapGanttViewProps) {
   const { canWrite } = useAuth();
   const statusesFor = useTeamStatusesLookup();
   // One query for the whole roadmap; grouped under each item below.
   const { data, isLoading } = useTasks({ roadmapId: [roadmapId] });
   const update = useUpdateTask();
+  const replaceItems = useReplaceRoadmapItems();
+  // What a row click opens — one drawer per kind, only ever one of them at a time.
+  const [taskPeek, setTaskPeek] = useState<IssuePeek | null>(null);
+  const [itemPeek, setItemPeek] = useState<RoadmapItemPeek | null>(null);
   // Dates just dragged, applied over the fetched task until the refetch agrees:
   // the update isn't optimistic, so without this the bar would spring back to
   // where it started for the length of the round-trip.
-  const [pending, setPending] = useState<Record<string, TaskDates>>({});
+  const [pending, setPending] = useState<Record<string, DateWindow>>({});
 
   const fetched = data?.items;
   useEffect(() => {
@@ -252,7 +286,7 @@ export function RoadmapGanttView({ roadmapId, items, columns, onOpenItem }: Road
     tasksByItem.set(tk.roadmapItemId, arr);
   }
 
-  const reschedule = (task: TaskDto, next: TaskDates) => {
+  const reschedule = (task: TaskDto, next: DateWindow) => {
     setPending((p) => ({ ...p, [task.id]: next }));
     update.mutate(
       { id: task.id, input: next },
@@ -267,19 +301,49 @@ export function RoadmapGanttView({ roadmapId, items, columns, onOpenItem }: Road
     );
   };
 
+  /** An item's dates live in the roadmap's items array, which is written whole —
+   *  the same optimistic replace the board's drag uses, so the bar stays where it
+   *  was dropped and rolls back with its own toast if the write fails. */
+  const rescheduleItem = (item: RoadmapItem, next: DateWindow) =>
+    replaceItems.mutate({
+      id: roadmapId,
+      items: items.map((i) => (i.id === item.id ? { ...i, ...next } : i)),
+    });
+
   return (
-    <RoadmapGantt
-      items={items}
-      columns={columns}
-      onOpenItem={onOpenItem}
-      tasksByItem={tasksByItem}
-      isLoading={isLoading}
-      taskStatus={(tk) => {
-        const cfg = statusesFor(tk.teamId, TeamIssueType.TASK).find((c) => c.key === tk.status);
-        return { color: cfg?.color ?? 'hsl(var(--muted-foreground))', label: cfg?.label ?? tk.status };
-      }}
-      taskHref={(tk) => `/issues/${tk.shortId || tk.id}`}
-      onTaskDatesChange={canWrite ? reschedule : undefined}
-    />
+    <>
+      <RoadmapGantt
+        items={items}
+        columns={columns}
+        onOpenItem={(id) => {
+          const it = items.find((i) => i.id === id);
+          setItemPeek({
+            roadmapId,
+            itemId: id,
+            href: `/roadmaps/${roadmapId}/items/${it?.shortId || id}`,
+          });
+        }}
+        tasksByItem={tasksByItem}
+        isLoading={isLoading}
+        taskStatus={(tk) => {
+          // Every row here is a task: the query above is `useTasks`, which is bound
+          // to `kind: task`, so the status comes from the team's *task* columns.
+          const cfg = statusesFor(tk.teamId, TeamIssueType.TASK).find((c) => c.key === tk.status);
+          return { color: cfg?.color ?? 'hsl(var(--muted-foreground))', label: cfg?.label ?? tk.status };
+        }}
+        onOpenTask={(tk) =>
+          setTaskPeek({
+            id: tk.id,
+            issueType: TeamIssueType.TASK,
+            href: `/issues/${tk.shortId || tk.id}`,
+          })
+        }
+        onTaskDatesChange={canWrite ? reschedule : undefined}
+        onItemDatesChange={canWrite ? rescheduleItem : undefined}
+      />
+
+      <IssuePeekDrawer peek={taskPeek} onClose={() => setTaskPeek(null)} />
+      <RoadmapItemPeekDrawer peek={itemPeek} onClose={() => setItemPeek(null)} />
+    </>
   );
 }

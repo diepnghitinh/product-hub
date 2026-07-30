@@ -14,7 +14,11 @@ import { t } from '@/i18n';
 export type BulkIssueAction =
   | { type: 'cycle'; cycleId: string } // a cycle id joins; '' removes from its cycle
   | { type: 'status'; status: string }
-  | { type: 'assignee'; assigneeId: string } // a user id assigns; '' unassigns
+  // Replaces each issue's assignee list: `[id]` puts that one person on it (and
+  // takes anyone else off), `[]` unassigns. The bar is a command surface — a pick
+  // fires immediately — so it sets one person rather than composing a list; share
+  // an issue with several people from its detail sidebar.
+  | { type: 'assignee'; assigneeIds: string[] }
   | { type: 'delete' };
 
 /** How many issues to write at once — enough to feel instant on a normal
@@ -26,7 +30,7 @@ function requestFor(action: BulkIssueAction): (id: string) => Promise<unknown> {
     case 'cycle':
       return (id) => apiPatch(`/issues/${id}`, { cycleId: action.cycleId });
     case 'assignee':
-      return (id) => apiPatch(`/issues/${id}`, { assigneeId: action.assigneeId });
+      return (id) => apiPatch(`/issues/${id}`, { assigneeIds: action.assigneeIds });
     case 'status':
       return (id) => apiPatch(`/issues/${id}/status`, { status: action.status });
     case 'delete':

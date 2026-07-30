@@ -4,6 +4,7 @@ import { Result } from '@shared/logic/result';
 import { IRoadmapRepository } from '@application/roadmaps/repositories/roadmap.repository';
 import { INotifier } from '@application/webhooks/notifier.port';
 import { WebhookEvent } from '@application/app-settings/domain/webhook.types';
+import { plainSnippet } from '@module-shared/utils/plain-text.util';
 import { CreateCommentDto } from '../dtos/create-comment.dto';
 import { UpdateCommentDto } from '../dtos/update-comment.dto';
 import { CommentEntity } from '../domain/entities/comment.entity';
@@ -77,8 +78,8 @@ export class CreateRoadmapItemCommentUseCase
     // Best-effort @mention ping to the workspace's chat channels — same as bug
     // and task comments, so a mention on a roadmap item reaches Lark/Telegram too.
     if (comment.mentions.length) {
-      const snippet =
-        comment.body.length > 280 ? `${comment.body.slice(0, 280)}…` : comment.body;
+      // Text channels, not HTML — flatten the rich body before it goes out.
+      const snippet = plainSnippet(comment.body, 280);
       await this.notifier.notify(
         tenantId,
         WebhookEvent.COMMENT_MENTION,

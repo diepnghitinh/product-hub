@@ -27,6 +27,9 @@ export interface IssueDoc {
   projectId: string;
   cycleId: string;
   carryOverCount: number;
+  /** Everyone on the issue, primary first. Absent on a pre-multi-assign row —
+   *  `assigneeId` is that row's single assignee, which is why both are queried. */
+  assignees: { id: string; name: string }[];
   assigneeId: string;
   assigneeName: string;
   createdBy: string;
@@ -81,6 +84,15 @@ export const IssueSchema = new Schema<IssueDoc>(
     // Times auto-rollover carried this issue forward (unfinished at a cycle
     // boundary). Absent on a pre-cycles row reads as 0 — no migration needed.
     carryOverCount: { type: Number, default: 0 },
+    // Everyone on the issue, primary first. `_id: false` — these are denormalized
+    // name/id pairs, not documents of their own (same shape a roadmap item uses).
+    assignees: {
+      type: [new Schema({ id: String, name: String }, { _id: false })],
+      default: [],
+    },
+    // Primary assignee, mirrored from `assignees[0]` by the entity. Still indexed:
+    // it's what a pre-multi-assign row has, and what the "assigned to me" and
+    // per-assignee filters `$or` against `assignees.id`.
     assigneeId: { type: String, default: '', index: true },
     assigneeName: { type: String, default: '' },
     createdBy: { type: String, default: '' },
@@ -118,3 +130,8 @@ IssueSchema.index(
   { tenantId: 1, shortId: 1 },
   { unique: true, partialFilterExpression: { shortId: { $gt: '' } } },
 );
+
+// Co-assignee lookups ("everything Nguyen is on", My Team, the assignee filter).
+// A multikey index on the array path — the primary is covered by `assigneeId`
+// above, and an assignee filter hits both halves of its `$or`.
+IssueSchema.index({ tenantId: 1, 'assignees.id': 1 });

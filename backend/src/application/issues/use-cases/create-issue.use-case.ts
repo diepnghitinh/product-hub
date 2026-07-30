@@ -14,6 +14,7 @@ import { CreateIssueDto } from '../dtos/create-issue.dto';
 import { IssueEntity } from '../domain/entities/issue.entity';
 import { IssueKind } from '../domain/enums/issue.enums';
 import { IIssueRepository } from '../repositories/issue.repository';
+import { resolveIssueAssignees } from './resolve-assignees';
 
 export interface CreateIssueRequest {
   tenantId: string;
@@ -44,14 +45,12 @@ export class CreateIssueUseCase
     const kind = dto.personal ? IssueKind.TASK : dto.kind;
     const isBug = kind === IssueKind.BUG;
 
-    let assigneeName = '';
-    if (dto.assigneeId) {
-      const assignee = await this.users.findById(dto.assigneeId);
-      if (!assignee || assignee.tenantId !== tenantId) {
-        return Result.fail('Assignee not found');
-      }
-      assigneeName = assignee.name;
-    }
+    // `assigneeIds` is the list; `assigneeId` is the one-person shorthand still
+    // used by quick-add, MCP and the bulk bar.
+    const wanted = dto.assigneeIds ?? (dto.assigneeId ? [dto.assigneeId] : []);
+    const resolved = await resolveIssueAssignees(this.users, tenantId, wanted);
+    if (resolved.isFailure) return Result.fail(resolved.error as string);
+    const assignees = resolved.getValue();
 
     // A personal task lives in no team; otherwise the issue lands in the tenant's
     // team for its kind (the passed team, or the workspace default — QC for bugs,
@@ -113,8 +112,7 @@ export class CreateIssueUseCase
       roadmapItemId: dto.roadmapItemId,
       roadmapItemLabel: dto.roadmapItemLabel,
       projectId: dto.projectId,
-      assigneeId: dto.assigneeId,
-      assigneeName,
+      assignees,
       createdBy,
       createdByName,
       // A bug's reporter is its creator; a task has no reporter.
@@ -152,18 +150,20 @@ export class CreateIssueUseCase
           `Type: ${issue.type}`,
           `Status: ${issue.status}`,
           `Reporter: ${createdByName}`,
-          assigneeName ? `Assigned to: ${assigneeName}` : '',
+          // Everyone on it, so a shared bug doesn't read as one person's.
+          assignees.length ? `Assigned to: ${assignees.map((a) => a.name).join(', ')}` : '',
         ]
           .filter(Boolean)
           .join('\n'),
         { link: `/bugs/${issue.shortId}` },
       );
-      if (assigneeName) {
+      if (assignees.length) {
         await this.notifier.notify(
           tenantId,
           WebhookEvent.BUG_ASSIGNED,
           [`📌 Bug assigned: ${issue.title}`, `Status: ${issue.status}`].join('\n'),
-          { mentionUserIds: dto.assigneeId ? [dto.assigneeId] : [], link: `/bugs/${issue.shortId}` },
+          // @-pings every assignee whose chat id is mapped.
+          { mentionUserIds: assignees.map((a) => a.id), link: `/bugs/${issue.shortId}` },
         );
       }
     }

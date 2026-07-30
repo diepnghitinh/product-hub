@@ -54,7 +54,22 @@ export class UpdateIssueDto {
   @IsString()
   projectId?: string;
 
-  @ApiPropertyOptional({ description: 'Assignee user id (empty string to unassign)' })
+  @ApiPropertyOptional({
+    description:
+      'Replaces the whole assignee list, primary first (empty array to unassign). ' +
+      'Takes precedence over `assigneeId`.',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  assigneeIds?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Single assignee user id (empty string to unassign) — shorthand that replaces ' +
+      'the list with just this person',
+  })
   @IsOptional()
   @IsString()
   assigneeId?: string;

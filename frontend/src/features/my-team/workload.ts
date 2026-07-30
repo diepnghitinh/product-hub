@@ -108,11 +108,18 @@ export function groupByPerson(
 ): PersonWorkload[] {
   const map = new Map<string, { name: string; tasks: IssueDto[] }>();
   for (const t of tasks) {
-    const id = t.assigneeId || UNASSIGNED_ID;
-    const name = t.assigneeId ? t.assigneeName || t.assigneeId : unassignedLabel;
-    const entry = map.get(id) ?? { name, tasks: [] };
-    entry.tasks.push(t);
-    map.set(id, entry);
+    // A shared issue appears in **each** of its assignees' queues, and its points
+    // count in full for every one of them — this view answers "what's on your
+    // plate?", and half a task is not a thing anyone can carry. Column and cycle
+    // totals are per-issue elsewhere, so nothing double-counts against a sprint.
+    const on = t.assignees.length ? t.assignees : [{ id: UNASSIGNED_ID, name: unassignedLabel }];
+    for (const a of on) {
+      const id = a.id || UNASSIGNED_ID;
+      const name = id === UNASSIGNED_ID ? unassignedLabel : a.name || a.id;
+      const entry = map.get(id) ?? { name, tasks: [] };
+      entry.tasks.push(t);
+      map.set(id, entry);
+    }
   }
   return [...map.entries()]
     .map(([id, { name, tasks: ts }]) => buildPerson(id, name, ts, columns))

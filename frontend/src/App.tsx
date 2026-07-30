@@ -12,7 +12,7 @@ import { ReportView } from '@/features/reports/ReportView';
 import { BugsBoardPage } from '@/features/bugs/BugsBoardPage';
 import { NewBugPage } from '@/features/bugs/NewBugPage';
 import { InboxPage } from '@/features/inbox/InboxPage';
-import { MyIssuesPage } from '@/features/issues/MyIssuesPage';
+import { IssuesPage } from '@/features/issues/IssuesPage';
 import { IssueDetailPage } from '@/features/issues/IssueDetailPage';
 import { MyTaskListView } from '@/features/tasks/MyTaskListView';
 import { PersonalBoardPage } from '@/features/tasks/PersonalBoardPage';
@@ -84,17 +84,21 @@ export default function App() {
           <Route path="/bugs/new" element={<NewBugPage />} />
           <Route path="/bugs/:bugId" element={<IssueRefRedirect />} />
           <Route path="/inbox" element={<InboxPage />} />
-          {/* The unified personal work area — tasks + bugs in one board. */}
-          <Route path="/issues" element={<MyIssuesPage />} />
+          {/* The unified work area — tasks + bugs in one board. `/issues` is the
+              whole workspace; `/issues/me` is the same board narrowed to what's
+              assigned to me. */}
+          <Route path="/issues" element={<IssuesPage scope="all" />} />
+          <Route path="/issues/me" element={<IssuesPage scope="mine" />} />
           <Route path="/issues/today" element={<MyTaskListView mode="today" />} />
           <Route path="/issues/personal" element={<PersonalBoardPage />} />
           {/* One detail URL for both kinds — the ref names the issue, the page
               works out whether it's a task or a bug. Static siblings above win
-              the match, so `today`/`personal` are never read as refs. */}
+              the match, so `me`/`today`/`personal` are never read as refs. */}
           <Route path="/issues/:issueRef" element={<IssueDetailPage />} />
           {/* Old task routes fold into Issues; deep links + bookmarks still work.
-              /tasks/new keeps its own page (create). */}
-          <Route path="/tasks" element={<Navigate to="/issues" replace />} />
+              A bare /tasks meant *my* tasks, so it lands on /issues/me — not the
+              workspace-wide list. /tasks/new keeps its own page (create). */}
+          <Route path="/tasks" element={<Navigate to="/issues/me" replace />} />
           <Route path="/tasks/new" element={<NewTaskPage />} />
           <Route path="/tasks/today" element={<Navigate to="/issues/today" replace />} />
           <Route path="/tasks/personal" element={<Navigate to="/issues/personal" replace />} />
