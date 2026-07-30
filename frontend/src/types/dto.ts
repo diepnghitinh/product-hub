@@ -282,7 +282,11 @@ export interface BugDto {
   caseId: string;
   caseLabel: string;
   reportId: string;
+  /** Everyone on the bug, primary first (`[]` = unassigned). */
+  assignees: IssueAssigneeDto[];
+  /** @deprecated Primary assignee — mirrors `assignees[0]`. */
   assigneeId: string;
+  /** @deprecated Primary assignee's name — mirrors `assignees[0]`. */
   assigneeName: string;
   reporterId: string;
   reporterName: string;
@@ -403,6 +407,11 @@ export interface RoadmapItem {
   imageUrl: string;
   /** Optional start date, ISO `YYYY-MM-DD` ('' when unset). */
   startDate: string;
+  /** Optional target end date, ISO `YYYY-MM-DD` ('' when unset). Together with
+   *  `startDate` this is the item's own planned window — what the timeline draws
+   *  and what dragging its bar writes. Unset → the timeline falls back to
+   *  deriving an end from the linked tasks. */
+  endDate: string;
   assignees: RoadmapAssignee[];
   /** When the item was created (ISO). Set and preserved server-side; optional
    *  here only so a freshly-built draft item can omit it before the first save. */
@@ -464,7 +473,11 @@ export interface TaskDto {
   cycleId: string;
   /** Times auto-rollover carried this task into the next cycle (0 = none). */
   carryOverCount: number;
+  /** Everyone on the task, primary first (`[]` = unassigned). */
+  assignees: IssueAssigneeDto[];
+  /** @deprecated Primary assignee — mirrors `assignees[0]`. */
   assigneeId: string;
+  /** @deprecated Primary assignee's name — mirrors `assignees[0]`. */
   assigneeName: string;
   createdBy: string;
   createdByName: string;
@@ -487,6 +500,13 @@ export interface TaskDto {
 }
 
 // ── Issues (unified task + bug) ───────────────────────────────────────────────
+/** One person on an issue. The name is denormalized server-side, so a list draws
+ *  avatars and names without the (admin-only) user list. */
+export interface IssueAssigneeDto {
+  id: string;
+  name: string;
+}
+
 /**
  * Flat issue shape — the union of {@link TaskDto} and {@link BugDto} with a
  * `kind` discriminator; mirrors the backend `IssueResponseDto` served by
@@ -519,7 +539,13 @@ export interface IssueDto {
   cycleId: string;
   /** Times auto-rollover carried this issue into the next cycle (0 = none). */
   carryOverCount: number;
+  /** Everyone on the issue, primary first (`[]` = unassigned). An issue can be
+   *  shared; `assigneeId`/`assigneeName` mirror the first person. */
+  assignees: IssueAssigneeDto[];
+  /** @deprecated Primary assignee — mirrors `assignees[0]`. Fine for a one-avatar
+   *  row, but "is this person on it?" must test `assignees`. */
   assigneeId: string;
+  /** @deprecated Primary assignee's name — mirrors `assignees[0]`. */
   assigneeName: string;
   createdBy: string;
   createdByName: string;

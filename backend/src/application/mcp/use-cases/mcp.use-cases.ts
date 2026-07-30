@@ -158,20 +158,29 @@ export class McpCreateIssueUseCase
       );
     }
 
-    let assigneeId = '';
-    if (dto.assignee) {
+    // One name, or several separated by commas — an issue can be shared. Each is
+    // resolved on its own so an unknown one still comes back with the choices
+    // rather than silently assigning the rest.
+    const assigneeIds: string[] = [];
+    const wantedNames = (dto.assignee ?? '')
+      .split(',')
+      .map((n) => n.trim())
+      .filter(Boolean);
+    if (wantedNames.length) {
       const people = await this.users.findByTenant(actor.tenantId, ALL_USERS);
-      const person = resolvePerson(people.data, dto.assignee);
-      if (!person) {
-        return Result.fail(
-          didYouMean(
-            'assignee',
-            dto.assignee,
-            people.data.map((u) => u.name),
-          ),
-        );
+      for (const name of wantedNames) {
+        const person = resolvePerson(people.data, name);
+        if (!person) {
+          return Result.fail(
+            didYouMean(
+              'assignee',
+              name,
+              people.data.map((u) => u.name),
+            ),
+          );
+        }
+        assigneeIds.push(person.id.toString());
       }
-      assigneeId = person.id.toString();
     }
 
     // A backlog item is addressed by its ref (`RM-6HCUHKX`) or uuid — the roadmap
@@ -204,7 +213,7 @@ export class McpCreateIssueUseCase
         description: dto.description,
         status,
         teamId: team.id.toString(),
-        assigneeId: assigneeId || undefined,
+        assigneeIds: assigneeIds.length ? assigneeIds : undefined,
         startDate: dto.startDate,
         endDate: dto.endDate,
         estimate: isBug ? undefined : dto.estimate,
@@ -306,6 +315,7 @@ export class McpCreateBacklogItemUseCase
         confidence: dto.confidence,
         effort: dto.effort,
         startDate: dto.startDate,
+        endDate: dto.endDate,
       },
     });
     if (added.isFailure) return Result.fail(added.error as string);
@@ -496,7 +506,7 @@ function toIssueResponse(issue: IssueEntity, teamName: string): McpIssueResponse
     status: issue.status,
     teamId: issue.teamId,
     teamName,
-    assigneeName: issue.assigneeName ?? '',
+    assigneeNames: issue.assignees.map((a) => a.name),
     severity: issue.severity ?? '',
     estimate: issue.estimate ?? 0,
     startDate: issue.startDate ?? '',

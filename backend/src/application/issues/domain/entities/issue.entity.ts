@@ -9,7 +9,27 @@ import {
   IssueKind,
   TaskStatus,
 } from '../enums/issue.enums';
-import { IssueProps } from './issue.props';
+import { IssueAssignee, IssueProps } from './issue.props';
+
+/**
+ * Normalizes whatever a caller had into the canonical assignee list: the list if
+ * it was given, else the legacy single pair, else nobody. Blank ids and repeats
+ * are dropped — the same person can't be on an issue twice, and `''` is how
+ * "unassigned" is stored, not a person.
+ */
+function normalizeAssignees(
+  assignees: IssueAssignee[] | undefined,
+  legacyId?: string,
+  legacyName?: string,
+): IssueAssignee[] {
+  const list = assignees ?? (legacyId ? [{ id: legacyId, name: legacyName || '' }] : []);
+  const seen = new Set<string>();
+  return list.filter((a) => {
+    if (!a?.id || seen.has(a.id)) return false;
+    seen.add(a.id);
+    return true;
+  });
+}
 
 /**
  * An **Issue** — the unified piece of work that used to be a Task *or* a Bug. Its
@@ -40,6 +60,9 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
       projectId?: string;
       cycleId?: string;
       carryOverCount?: number;
+      /** Everyone on it. A single `assigneeId`/`assigneeName` still works and is
+       *  read as a one-person list — that's how a legacy stored issue loads. */
+      assignees?: IssueAssignee[];
       assigneeId?: string;
       assigneeName?: string;
       createdBy: string;
@@ -75,6 +98,7 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
 
     const isTask = props.kind === IssueKind.TASK;
     const now = new Date();
+    const assignees = normalizeAssignees(props.assignees, props.assigneeId, props.assigneeName);
     return Result.ok(
       new IssueEntity(
         {
@@ -94,8 +118,10 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
           projectId: props.projectId || '',
           cycleId: props.cycleId || '',
           carryOverCount: props.carryOverCount ?? 0,
-          assigneeId: props.assigneeId || '',
-          assigneeName: props.assigneeName || '',
+          assignees,
+          // The mirror is always `assignees[0]` — never passed through on its own.
+          assigneeId: assignees[0]?.id ?? '',
+          assigneeName: assignees[0]?.name ?? '',
           createdBy: props.createdBy,
           createdByName: props.createdByName || '',
           reporterId: props.reporterId || '',
@@ -184,6 +210,10 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
   get carryOverCount(): number {
     return this.props.carryOverCount;
   }
+  get assignees(): IssueAssignee[] {
+    return this.props.assignees;
+  }
+  /** The primary assignee's id — `assignees[0]`, kept as a field for old readers. */
   get assigneeId(): string {
     return this.props.assigneeId;
   }
@@ -328,10 +358,23 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
     this.touch();
   }
 
-  assign(userId: string, userName: string): void {
-    this.props.assigneeId = userId;
-    this.props.assigneeName = userName;
+  /**
+   * Put these people on it, in order — the first is the primary. This is the only
+   * way the assignee mirror moves, so `assigneeId` can't drift from the list.
+   * Pass `[]` to unassign.
+   */
+  setAssignees(assignees: IssueAssignee[]): void {
+    const next = normalizeAssignees(assignees);
+    this.props.assignees = next;
+    this.props.assigneeId = next[0]?.id ?? '';
+    this.props.assigneeName = next[0]?.name ?? '';
     this.touch();
+  }
+
+  /** Single-assignee shorthand kept for the callers that only ever have one
+   *  person (bulk bar, MCP, quick-add); `('', '')` unassigns. */
+  assign(userId: string, userName: string): void {
+    this.setAssignees(userId ? [{ id: userId, name: userName }] : []);
   }
 
   /** Commit to (or leave, with '') a team cycle. The use-case validates the

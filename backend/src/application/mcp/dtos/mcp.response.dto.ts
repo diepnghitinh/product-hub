@@ -94,8 +94,11 @@ export class McpIssueResponseDto {
   @ApiProperty()
   teamName: string;
 
-  @ApiProperty()
-  assigneeName: string;
+  @ApiProperty({
+    type: [String],
+    description: 'Names of everyone on the issue, primary first (empty = unassigned)',
+  })
+  assigneeNames: string[];
 
   @ApiProperty()
   severity: string;

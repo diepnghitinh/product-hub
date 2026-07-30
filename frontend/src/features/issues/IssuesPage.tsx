@@ -1,20 +1,27 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, LayoutGrid, List } from 'lucide-react';
-import { Badge, Button } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { AssigneeBadge } from '@/components/AssigneeBadge';
 import { BoardSkeleton, ListSkeleton, TimelineSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
 import { Icon } from '@/components/Icon';
 import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
 import { LabelChips } from '@/features/labels/LabelChips';
-import { FilterMenu, type FilterCategory, type FilterSelections } from '@/components/FilterMenu';
+import {
+  FilterMenu,
+  UNASSIGNED,
+  type FilterCategory,
+  type FilterSelections,
+} from '@/components/FilterMenu';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { useProjects } from '@/features/projects/api';
 import { useRoadmaps } from '@/features/roadmaps/api';
-import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
+import { useUsers } from '@/features/users/api';
+import { useTeamStatuses, useTeamStatusesLookup, useTeamLabelsLookup } from '@/features/teams/api';
 import {
   BUG_SEVERITIES,
   BUG_SEVERITY_COLOR,
@@ -68,13 +75,48 @@ function KindSwitch({ value, onChange }: { value: IssueKind; onChange: (k: Issue
 }
 
 /**
- * The unified personal board — *everything assigned to me*, tasks and bugs, in one
- * place (assigned bugs used to be invisible in the task-only "Assigned to me"). A
- * Kind switch flips between the two: one kind at a time, so each keeps its own
- * status columns and card. Board / list / timeline like every other board.
+ * Columns for a board that spans teams. The default team's set is the baseline;
+ * any status a fetched issue actually carries that's missing from it is appended,
+ * labelled and coloured from that issue's *own* team (a team can rename its
+ * columns or add its own). Without this, `KanbanBoard` groups by column and would
+ * silently drop those rows — a board called "All issues" would be lying. The
+ * fallback is a neutral token, never an invented colour.
  */
-export function MyIssuesPage() {
-  const { user, canEditDelivery: canWrite } = useAuth();
+function extendColumns(
+  base: TeamStatusConfig[],
+  items: IssueDto[],
+  statusesOf: (teamId: string | undefined) => TeamStatusConfig[],
+): TeamStatusConfig[] {
+  const out = [...base];
+  for (const it of items) {
+    if (!it.status || out.some((c) => c.key === it.status)) continue;
+    out.push(
+      statusesOf(it.teamId).find((c) => c.key === it.status) ?? {
+        key: it.status,
+        label: it.status,
+        color: 'hsl(var(--muted-foreground))',
+      },
+    );
+  }
+  return out;
+}
+
+/** Which slice of the workspace the board shows. Same board, one filter apart. */
+export type IssueScope = 'all' | 'mine';
+
+/**
+ * The unified issue board — tasks and bugs in one place (assigned bugs used to be
+ * invisible in the task-only "Assigned to me"). A Kind switch flips between the
+ * two: one kind at a time, so each keeps its own status columns and card. Board /
+ * list / timeline like every other board.
+ *
+ * Two routes, one component:
+ * - `/issues` (`scope="all"`) — every issue in the workspace, filterable by assignee.
+ * - `/issues/me` (`scope="mine"`) — only what's assigned to me.
+ */
+export function IssuesPage({ scope }: { scope: IssueScope }) {
+  const { user, canEditDelivery: canWrite, canManageDelivery } = useAuth();
+  const isAll = scope === 'all';
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
@@ -107,24 +149,39 @@ export function MyIssuesPage() {
     setParams(next, { replace: true });
   };
 
-  // Columns are the *default* team's statuses for this kind — this board spans
-  // teams (my work everywhere), so it isn't scoped to one team's list.
-  const columns = useTeamStatuses(undefined, isBug ? TeamIssueType.BUG : TeamIssueType.TASK);
+  const issueType = isBug ? TeamIssueType.BUG : TeamIssueType.TASK;
+  // Columns start as the *default* team's statuses for this kind — this board spans
+  // teams (all of them, or my work everywhere), so it isn't scoped to one team's
+  // list. `extendColumns` below adds any status the default team doesn't have.
+  const defaultColumns = useTeamStatuses(undefined, issueType);
+  const statusesFor = useTeamStatusesLookup();
   // Labels resolve per-item: each card carries its own teamId (see the task board).
   const labelsFor = useTeamLabelsLookup();
 
-  // Strictly assigned to me. The sentinel keeps the list empty (not everyone's)
-  // until the user has loaded.
   const { data, isLoading } = useIssues({
     kind: [kind],
-    mine: user?.id ?? '__none__',
+    // "Assigned to me" is strictly the assignee, never the creator. The sentinel
+    // keeps that list empty (not everyone's) until the user has loaded; the
+    // all-issues scope sends no `mine` at all, so the API returns the workspace.
+    mine: isAll ? undefined : user?.id ?? '__none__',
     search: search || undefined,
     status: filters.status,
+    // Filtering by person only means something when the list isn't already one person's.
+    assigneeId: isAll ? filters.assigneeId : undefined,
     severity: isBug ? (filters.severity as BugSeverity[] | undefined) : undefined,
     projectId: filters.projectId,
     roadmapItemId: isBug ? undefined : filters.roadmapItemId,
   });
   const items = data?.items ?? [];
+  // A board titled "All issues" must not hide a row it has no column for, so any
+  // status present on a fetched issue but missing from the default team's set is
+  // appended (see `extendColumns`).
+  const columns = isAll
+    ? extendColumns(defaultColumns, items, (teamId) => statusesFor(teamId, issueType))
+    : defaultColumns;
+  // The API caps a page at 100 (`PaginationDto`), like every other board here —
+  // say so rather than looking complete.
+  const capped = (data?.total ?? 0) > items.length;
 
   const setStatus = useSetIssueStatus();
   const remove = useDeleteIssue();
@@ -137,7 +194,8 @@ export function MyIssuesPage() {
     navigate(status ? `${base}?status=${encodeURIComponent(status)}` : base);
   };
 
-  // Only needed to label the filter options.
+  // Only needed to label the filter options — people only on the all-issues board.
+  const { data: usersData } = useUsers({ limit: 100 }, isAll && canManageDelivery);
   const { data: projectsData } = useProjects({ limit: 100 });
   const { data: roadmaps } = useRoadmaps();
 
@@ -147,6 +205,25 @@ export function MyIssuesPage() {
       label: t('roadmaps.status'),
       options: columns.map((c) => ({ id: c.key, label: c.label, color: c.color })),
     },
+    // Assignee is the axis that only appears once the board isn't already one
+    // person's — same shape as the team boards', self-filter first (the people
+    // list is manager-only, so a member can still narrow to their own).
+    ...(isAll
+      ? [
+          {
+            id: 'assigneeId',
+            label: t('filters.assignee'),
+            searchable: true,
+            options: [
+              ...(user ? [{ id: user.id, label: t('filters.assignedToMe') }] : []),
+              { id: UNASSIGNED, label: t('filters.unassigned') },
+              ...(usersData?.items ?? [])
+                .filter((u) => u.id !== user?.id)
+                .map((u) => ({ id: u.id, label: u.name })),
+            ],
+          },
+        ]
+      : []),
     // Severity is a bug-only axis; backlog item is task-only.
     ...(isBug
       ? [
@@ -186,13 +263,13 @@ export function MyIssuesPage() {
     if (it && it.status !== toStatus) setStatus.mutate({ id, status: toStatus });
   }
 
-  const openIssue = (it: IssueDto) =>
-    navigate(`/${isBug ? 'bugs' : 'tasks'}/${it.shortId || it.id}`);
+  // One detail URL for both kinds — `/issues/<ref>` works out the kind itself.
+  const openIssue = (it: IssueDto) => navigate(`/issues/${it.shortId || it.id}`);
 
   return (
     <IssueBoardLayout
-      title={t('tasks.assignedToMe')}
-      subtitle={t('issues.mySubtitle')}
+      title={isAll ? t('issues.allTitle') : t('tasks.assignedToMe')}
+      subtitle={isAll ? t('issues.allSubtitle') : t('issues.mySubtitle')}
       search={{
         value: search,
         onChange: setSearch,
@@ -203,6 +280,16 @@ export function MyIssuesPage() {
           <KindSwitch value={kind} onChange={setKind} />
           <FilterMenu size="default" categories={filterCategories} value={filters} onChange={setFilters} />
         </div>
+      }
+      filtersEnd={
+        capped ? (
+          <p className="text-xs text-muted-foreground">
+            <span className="tabular-nums">
+              {items.length} / {data?.total}
+            </span>{' '}
+            {t('issues.cappedHint')}
+          </p>
+        ) : undefined
       }
       view={{
         value: view,
@@ -229,7 +316,9 @@ export function MyIssuesPage() {
         )
       ) : items.length === 0 ? (
         <div className="mx-4 rounded-xl border border-dashed p-8 text-center md:mx-8">
-          <p className="text-muted-foreground">{isBug ? t('bugs.empty') : t('tasks.none')}</p>
+          <p className="text-muted-foreground">
+            {isAll ? t('issues.emptyAll') : isBug ? t('bugs.empty') : t('tasks.none')}
+          </p>
           {canWrite && (
             <Button size="sm" className="mt-3" onClick={() => openCreate()}>
               {isBug ? t('bugs.new') : t('tasks.new')}
@@ -285,7 +374,7 @@ export function MyIssuesPage() {
         </div>
       ) : (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6 pt-1', BOARD_GUTTER)}>
-          <IssueTimelineView items={items} issueType={isBug ? TeamIssueType.BUG : TeamIssueType.TASK} />
+          <IssueTimelineView items={items} issueType={issueType} />
         </div>
       )}
     </IssueBoardLayout>
@@ -346,9 +435,11 @@ function IssueList({
                   {it.shortId && (
                     <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{it.shortId}</span>
                   )}
-                  <Badge variant="muted" className="max-w-[35%] shrink-0 truncate">
-                    {it.assigneeName || t('tasks.unassigned')}
-                  </Badge>
+                  <AssigneeBadge
+                    assignees={it.assignees}
+                    unassignedLabel={t('tasks.unassigned')}
+                    className="max-w-[35%] shrink-0"
+                  />
                 </button>
               ))}
             </div>

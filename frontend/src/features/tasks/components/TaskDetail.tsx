@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarRange, Circle, CircleDot, CircleUser, Clock, Gauge, Map as MapIcon, Trash2, Triangle } from 'lucide-react';
+import { CalendarRange, Circle, CircleDot, Clock, Gauge, Map as MapIcon, Trash2, Triangle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import {
@@ -11,6 +11,7 @@ import {
   Select,
   formatDateRange,
 } from '@/components/ui';
+import { AssigneeField, fallbackNames } from '@/components/AssigneeField';
 import { DetailSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
@@ -231,22 +232,14 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header', dense = f
 
             {!isPersonal && (
               <PropField bare label={t('tasks.assignee')}>
-                {canWrite ? (
-                  <Combobox
-                    leadingIcon={<CircleUser />}
-                    value={task.assigneeId || ''}
-                    onChange={(v) => save({ assigneeId: v })}
-                    placeholder={t('tasks.unassigned')}
-                    options={[
-                      { value: '', label: t('tasks.unassigned') },
-                      ...users.map((u) => ({ value: u.id, label: u.name })),
-                    ]}
-                  />
-                ) : (
-                  <PropValue icon={<CircleUser />} muted={!task.assigneeName}>
-                    {task.assigneeName || t('tasks.unassigned')}
-                  </PropValue>
-                )}
+                <AssigneeField
+                  multiple
+                  value={task.assignees.map((a) => a.id)}
+                  onChange={(ids) => save({ assigneeIds: ids })}
+                  readOnly={!canWrite}
+                  fallbackNames={fallbackNames(task.assignees)}
+                  aria-label={t('tasks.assignee')}
+                />
               </PropField>
             )}
 

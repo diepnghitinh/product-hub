@@ -51,6 +51,9 @@ export interface CreateIssueInput {
   description?: string;
   /** Built-in status or a team's custom column key. Defaults to the kind's first column. */
   status?: string;
+  /** Everyone to put on it, primary first. Wins over `assigneeId`. */
+  assigneeIds?: string[];
+  /** One-person shorthand for {@link assigneeIds}. */
   assigneeId?: string;
   /** Start of the work window, ISO `YYYY-MM-DD`. */
   startDate?: string;
@@ -95,7 +98,9 @@ export interface UpdateIssueInput {
   /** Commit to a team cycle — one of the issue's team's current/upcoming cycle
    *  ids ('' leaves the cycle; completed cycles are rejected server-side). */
   cycleId?: string;
-  /** Empty string unassigns. */
+  /** Replaces the whole list, primary first (`[]` unassigns). Wins over `assigneeId`. */
+  assigneeIds?: string[];
+  /** One-person shorthand for {@link assigneeIds}; empty string unassigns. */
   assigneeId?: string;
   startDate?: string;
   endDate?: string;

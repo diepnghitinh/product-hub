@@ -25,8 +25,9 @@ export interface BurndownIssueRow {
   status: string;
   /** Story points; 0 = unset (bug teams have no estimates → all 0). */
   estimate: number;
-  assigneeId: string;
-  assigneeName: string;
+  /** Everyone on the issue (empty = unassigned); the repository resolves a
+   *  pre-multi-assign row's single assignee into a one-person list. */
+  assignees: { id: string; name: string }[];
   labelKeys: string[];
   projectId: string;
 }
@@ -120,7 +121,8 @@ export function buildBurndown(input: BuildBurndownInput): BurndownResult {
   const completedC = add();
   const completedP = add();
 
-  // Breakdown accumulators (current snapshot — every member counts once).
+  // Breakdown accumulators (current snapshot, not a series). An issue counts once
+  // per group it belongs to — so once per assignee and once per label.
   const assignees = new Map<string, BurndownGroup>();
   const labels = new Map<string, BurndownGroup>();
   const projects = new Map<string, BurndownGroup>();
@@ -166,8 +168,15 @@ export function buildBurndown(input: BuildBurndownInput): BurndownResult {
       completedP[di] += pts;
     }
 
-    // Snapshot breakdowns.
-    bump(assignees, r.assigneeId, r.assigneeName, '', pts, isDone);
+    // Snapshot breakdowns. A shared issue counts in full for each person on it —
+    // this reads as "how loaded is everyone", the same way it counts under each of
+    // its labels below. The cycle's own scope/completed totals above are per
+    // issue, so sharing work never inflates them.
+    if (r.assignees.length) {
+      for (const a of r.assignees) bump(assignees, a.id, a.name, '', pts, isDone);
+    } else {
+      bump(assignees, '', '', '', pts, isDone); // "Unassigned"
+    }
     if (r.labelKeys.length) {
       for (const k of r.labelKeys) {
         const meta = labelLookup[k];

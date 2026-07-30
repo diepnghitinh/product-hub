@@ -226,6 +226,7 @@ export class AddRoadmapItemUseCase
       progress: item.progress ?? 0,
       imageUrl: item.imageUrl ?? '',
       startDate: item.startDate ?? '',
+      endDate: item.endDate ?? '',
       assignees: item.assignees ?? [],
       createdAt: now,
       startedAt: isStarted ? now : undefined,

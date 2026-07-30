@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useEscapeBack } from '@/lib/useEscapeBack';
-import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
-import { useTeams } from '@/features/teams/api';
+import { useIssueCrumbParent } from '@/features/issues/useIssueCrumb';
+import { IssueKind } from '@/types/enums';
 import { useTask } from './api';
 import { TaskDetail } from './components/TaskDetail';
 import { CenteredPageLayout } from '@/layouts/shared';
@@ -19,30 +19,21 @@ export function TaskDetailPage({ issueRef: taskId }: { issueRef: string }) {
   // query (React Query dedupes it) for the body.
   const { data: task } = useTask(taskId);
 
-  // Breadcrumb parent: the task's own team board when resolvable, so the crumb
-  // tells you which team the task belongs to — falls back to "My Tasks" if the
-  // task has no resolvable team.
-  const { data: teams } = useTeams();
-  const team = teams?.find((tm) => tm.id === task?.teamId);
-  // A private personal task belongs to no team — its crumb points back to the
-  // Personal board, not a team, and never says "My Tasks".
+  // Breadcrumb parent: the task's own team board — shared with a bug's page, so
+  // both kinds read `All issues › <team> › <ref>`.
+  const parent = useIssueCrumbParent(IssueKind.TASK, task);
+  // A private personal task belongs to no team; the crumb above already points
+  // at the Personal board, and deleting one returns there too.
   const isPersonal = !!task?.ownerId;
-  const parent = isPersonal
-    ? { to: '/issues/personal', label: t('personal.title') }
-    : team
-    ? { to: `/teams/${team.id}`, label: team.name }
-    : { to: '/issues', label: t('tasks.assignedToMe') };
 
   return (
     <CenteredPageLayout>
-      {/* Breadcrumb (My Tasks › TSK-7) — tasks aren't in the nav model, so the
-          parent is named here. */}
       <PageHeader title={task?.shortId || task?.title || taskId || ''} parent={parent} />
 
       <TaskDetail
         taskId={taskId}
         menuTarget="topbar"
-        onDeleted={() => navigate(isPersonal ? '/issues/personal' : '/issues')}
+        onDeleted={() => navigate(isPersonal ? '/issues/personal' : '/issues/me')}
       />
     </CenteredPageLayout>
   );

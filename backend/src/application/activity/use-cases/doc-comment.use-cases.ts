@@ -4,6 +4,7 @@ import { Result } from '@shared/logic/result';
 import { IDocPageRepository } from '@application/docs/repositories/doc-page.repository';
 import { INotifier } from '@application/webhooks/notifier.port';
 import { WebhookEvent } from '@application/app-settings/domain/webhook.types';
+import { plainSnippet } from '@module-shared/utils/plain-text.util';
 import { CreateDocCommentDto } from '../dtos/doc-comment.dtos';
 import { UpdateCommentDto } from '../dtos/update-comment.dto';
 import { CommentEntity } from '../domain/entities/comment.entity';
@@ -100,8 +101,8 @@ export class CreateDocCommentUseCase
     // Best-effort @mention ping to the workspace's chat channels — same as every
     // other thread. The link opens the page with this comment focused.
     if (comment.mentions.length) {
-      const snippet =
-        comment.body.length > 280 ? `${comment.body.slice(0, 280)}…` : comment.body;
+      // Text channels, not HTML — flatten the rich body before it goes out.
+      const snippet = plainSnippet(comment.body, 280);
       await this.notifier.notify(
         tenantId,
         WebhookEvent.COMMENT_MENTION,

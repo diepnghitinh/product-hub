@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CircleUser, FlaskConical, Type } from 'lucide-react';
+import { FlaskConical, Type } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useEscapeBack } from '@/lib/useEscapeBack';
 import {
   Button,
-  Combobox,
   DateRangePicker,
   DotLabel,
   Input,
@@ -13,11 +12,11 @@ import {
   Select,
   Skeleton,
 } from '@/components/ui';
+import { AssigneeField } from '@/components/AssigneeField';
 import { DescriptionTemplates, useTemplateSeed } from '@/components/DescriptionTemplates';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { Icon } from '@/components/Icon';
-import { useUsers } from '@/features/users/api';
 import {
   DetailGrid,
   PropField,
@@ -77,9 +76,6 @@ export function NewBugPage() {
   const reportId = searchParams.get('reportId') || undefined;
 
   const create = useCreateBug();
-  // Readable by any member; only a manager may set an assignee (see below).
-  const { data: usersData } = useUsers({ limit: 100 });
-  const users = usersData?.items ?? [];
   // Columns of the team that will own the bug (default bug team when standalone).
   const columns = useTeamStatuses(teamId, TeamIssueType.BUG);
 
@@ -90,7 +86,7 @@ export function NewBugPage() {
   const [status, setStatus] = useState<string | undefined>(presetStatus);
   // Unassigned by default — a bug is reported *for* someone to pick up, unlike a
   // task, which the person creating it usually means to do.
-  const [assigneeId, setAssigneeId] = useState('');
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [type, setType] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -141,7 +137,7 @@ export function NewBugPage() {
         // Sent so a team board's bug lands in that team, not the workspace default.
         teamId,
         cycleId: cycleId || undefined,
-        assigneeId: assigneeId || undefined,
+        assigneeIds,
         type: type.trim() || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
@@ -251,15 +247,11 @@ export function NewBugPage() {
                 always did, rather than showing a field they can't use. */}
             {canManageDelivery && (
               <PropField bare label={t('bugs.assignee')}>
-                <Combobox
-                  leadingIcon={<CircleUser />}
-                  value={assigneeId}
-                  onChange={setAssigneeId}
-                  placeholder={t('bugs.unassigned')}
-                  options={[
-                    { value: '', label: t('bugs.unassigned') },
-                    ...users.map((u) => ({ value: u.id, label: u.name })),
-                  ]}
+                <AssigneeField
+                  multiple
+                  value={assigneeIds}
+                  onChange={setAssigneeIds}
+                  aria-label={t('bugs.assignee')}
                 />
               </PropField>
             )}

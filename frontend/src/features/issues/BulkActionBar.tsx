@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui';
+import { AssigneeField } from '@/components/AssigneeField';
 import { t } from '@/i18n';
 import { CycleStatus, type TeamStatusConfig } from '@/types/enums';
 import type { CycleDto } from '@/types/dto';
@@ -14,26 +15,10 @@ import { cycleName } from '@/features/cycles/dates';
 import { useBulkIssueAction, type BulkIssueAction } from './bulk.api';
 import type { IssueSelection } from './useIssueSelection';
 
-/** A picked value → label pair for the assignee / cycle menus. */
+/** A picked value → label pair for the cycle menu. */
 export interface BulkOption {
   value: string;
   label: string;
-}
-
-/**
- * Assignee targets for the bar: unassign first, then "me", then everyone else.
- * `users` is the workspace people list (manager-only, so it's often just the two
- * self-serve rows for a plain member — still enough to unassign or self-assign).
- */
-export function buildAssigneeOptions(
-  user: { id: string } | null | undefined,
-  users: { id: string; name: string }[] | undefined,
-): BulkOption[] {
-  return [
-    { value: '', label: t('filters.unassigned') },
-    ...(user ? [{ value: user.id, label: t('filters.assignedToMe') }] : []),
-    ...(users ?? []).filter((u) => u.id !== user?.id).map((u) => ({ value: u.id, label: u.name })),
-  ];
 }
 
 /**
@@ -63,15 +48,15 @@ export function buildCycleOptions(cycles: CycleDto[] | undefined): BulkOption[] 
  * List view — the surface for "move these to a cycle" and its natural companions
  * (status, assignee, delete). It's a thin shell over {@link useBulkIssueAction}:
  * it only turns a menu pick into an action and clears the selection once the write
- * lands. Options are prepared by the board (which already has the columns, people
- * and cycles loaded), so the bar stays presentational and identical for bugs and
- * tasks. Renders nothing when the (visible) selection is empty.
+ * lands. Status and cycle options are prepared by the board (which already has
+ * them loaded); the assignee menu is the app's shared {@link AssigneeField}
+ * wearing the bar's trigger, so "who's on it" looks the same here as on a card.
+ * Renders nothing when the (visible) selection is empty.
  */
 export function BulkActionBar({
   selection,
   visibleIds,
   columns,
-  assignees,
   cycles,
 }: {
   selection: IssueSelection;
@@ -79,7 +64,6 @@ export function BulkActionBar({
    *  or a delete can't leave the count referring to rows that aren't on screen. */
   visibleIds: string[];
   columns: TeamStatusConfig[];
-  assignees: BulkOption[];
   /** Cycle targets (open cycles + "No cycle"); omit/empty on non-cycle teams. */
   cycles?: BulkOption[];
 }) {
@@ -138,18 +122,33 @@ export function BulkActionBar({
           ))}
         </BulkMenu>
 
-        {assignees.length > 0 && (
-          <BulkMenu label={t('bulk.assignee')} icon={<UserRound />} disabled={busy}>
-            {assignees.map((o) => (
-              <DropdownMenuItem
-                key={o.value || '__unassigned__'}
-                onSelect={() => apply({ type: 'assignee', assigneeId: o.value })}
-              >
-                {o.label}
-              </DropdownMenuItem>
-            ))}
-          </BulkMenu>
-        )}
+        {/* The bar holds no assignee of its own — every pick is a command, which
+            is why the "Unassigned" row is spelled out rather than left to the
+            click-again-to-clear gesture the field uses elsewhere. */}
+        <AssigneeField
+          value=""
+          onChange={(assigneeId) =>
+            // One pick = "put this person on all of these" (and only them).
+            apply({ type: 'assignee', assigneeIds: assigneeId ? [assigneeId] : [] })
+          }
+          disabled={busy}
+          align="center"
+          clearLabel={t('assignee.unassigned')}
+          trigger={
+            // Its own label — the shell's `aria-label` styles the built-in
+            // trigger, and this one replaces it (and hides its text under `sm`).
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0"
+              disabled={busy}
+              aria-label={t('bulk.assignee')}
+            >
+              <UserRound />
+              <span className="hidden sm:inline">{t('bulk.assignee')}</span>
+            </Button>
+          }
+        />
 
         <Button
           variant="ghost"

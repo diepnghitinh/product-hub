@@ -5,6 +5,7 @@ import { IIssueRepository } from '@application/issues/repositories/issue.reposit
 import { IssueKind } from '@application/issues/domain/enums/issue.enums';
 import { INotifier } from '@application/webhooks/notifier.port';
 import { WebhookEvent } from '@application/app-settings/domain/webhook.types';
+import { plainSnippet } from '@module-shared/utils/plain-text.util';
 import { CreateCommentDto } from '../dtos/create-comment.dto';
 import { UpdateCommentDto } from '../dtos/update-comment.dto';
 import { CommentEntity } from '../domain/entities/comment.entity';
@@ -74,8 +75,9 @@ export class CreateIssueCommentUseCase
     // Best-effort @mention ping to the workspace's chat channels; the link routes
     // by kind so it opens the right board.
     if (comment.mentions.length) {
-      const snippet =
-        comment.body.length > 280 ? `${comment.body.slice(0, 280)}…` : comment.body;
+      // Chat channels take text, not HTML — flatten the body or the ping shows
+      // the raw markup (`&nbsp;<br><span class="rte-mention">`).
+      const snippet = plainSnippet(comment.body, 280);
       await this.notifier.notify(
         tenantId,
         WebhookEvent.COMMENT_MENTION,

@@ -42,6 +42,9 @@ export class IssueRepository
         projectId: doc.projectId,
         cycleId: doc.cycleId,
         carryOverCount: doc.carryOverCount,
+        // A pre-multi-assign row has no `assignees`; the entity reads its single
+        // `assigneeId`/`assigneeName` as a one-person list, so it loads unchanged.
+        assignees: doc.assignees?.length ? doc.assignees : undefined,
         assigneeId: doc.assigneeId,
         assigneeName: doc.assigneeName,
         createdBy: doc.createdBy,
@@ -88,6 +91,7 @@ export class IssueRepository
       projectId: issue.projectId,
       cycleId: issue.cycleId,
       carryOverCount: issue.carryOverCount,
+      assignees: issue.assignees,
       assigneeId: issue.assigneeId,
       assigneeName: issue.assigneeName,
       createdBy: issue.createdBy,
@@ -171,7 +175,6 @@ export class IssueRepository
     if (query.ids?.length) filter._id = { $in: query.ids };
     if (query.status?.length) filter.status = { $in: query.status };
     if (query.severity?.length) filter.severity = { $in: query.severity };
-    if (query.assigneeId?.length) filter.assigneeId = { $in: resolveAssignees(query.assigneeId) };
     if (query.parentId?.length) filter.parentId = { $in: query.parentId };
     if (query.roadmapItemId?.length) filter.roadmapItemId = { $in: query.roadmapItemId };
     if (query.roadmapId?.length) filter.roadmapId = { $in: query.roadmapId };
@@ -182,9 +185,24 @@ export class IssueRepository
     if (query.cycleId !== undefined) filter.cycleId = query.cycleId;
     if (query.caseId) filter.caseId = query.caseId;
     if (query.reportId) filter.reportId = query.reportId;
-    // "Assigned to me": strictly the issues assigned to me — this wins over any
-    // explicit assignee filter, so it's set after the assigneeId clause above.
-    if (query.mine) filter.assigneeId = query.mine;
+    // Assignee match. An issue counts as someone's when they are *any* of its
+    // assignees, not only the primary — that's what multi-assign means for "my
+    // work". Both halves are required: an issue written before multi-assign has
+    // the `assigneeId` mirror and an empty `assignees`, so neither clause alone
+    // covers the whole collection. Unassigned arrives as '' (from the sentinel)
+    // and matches the mirror, which is '' exactly when the list is empty.
+    // "Assigned to me" wins over an explicit assignee filter, as it did before.
+    const wantedAssignees = query.mine
+      ? [query.mine]
+      : query.assigneeId?.length
+        ? resolveAssignees(query.assigneeId)
+        : null;
+    if (wantedAssignees) {
+      filter.$or = [
+        { assigneeId: { $in: wantedAssignees } },
+        { 'assignees.id': { $in: wantedAssignees } },
+      ];
+    }
     if (query.search) {
       // Escaped: free text from a search box would otherwise throw on `(`.
       const escaped = query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -293,6 +311,7 @@ export class IssueRepository
           updatedAt: 1,
           status: 1,
           estimate: 1,
+          assignees: 1,
           assigneeId: 1,
           assigneeName: 1,
           labelKeys: 1,
@@ -306,6 +325,7 @@ export class IssueRepository
           | 'updatedAt'
           | 'status'
           | 'estimate'
+          | 'assignees'
           | 'assigneeId'
           | 'assigneeName'
           | 'labelKeys'
@@ -318,8 +338,13 @@ export class IssueRepository
       updatedAt: d.updatedAt,
       status: d.status,
       estimate: d.estimate ?? 0,
-      assigneeId: d.assigneeId ?? '',
-      assigneeName: d.assigneeName ?? '',
+      // Every person on it, so the per-assignee breakdown counts a shared issue
+      // for each of them. A pre-multi-assign row falls back to its mirror.
+      assignees: d.assignees?.length
+        ? d.assignees.map((a) => ({ id: a.id ?? '', name: a.name ?? '' }))
+        : d.assigneeId
+          ? [{ id: d.assigneeId, name: d.assigneeName ?? '' }]
+          : [],
       labelKeys: d.labelKeys ?? [],
       projectId: d.projectId ?? '',
     }));

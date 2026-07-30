@@ -1,13 +1,8 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
-  Alert,
-  AlertDescription,
   Button,
-  Dialog,
-  Field,
-  Input,
   Menu,
   Select,
   Table,
@@ -18,35 +13,22 @@ import {
   TableRow,
 } from '@/components/ui';
 import { TableSkeleton } from '@/components/Skeletons';
+import { UserAvatar } from '@/components/UserAvatar';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { ROLE_LABEL, Role } from '@/types/enums';
-import {
-  useCreateUser,
-  useDeleteUser,
-  useUpdateUser,
-  useUsers,
-} from '@/features/users/api';
+import { useDeleteUser, useUpdateUser, useUsers } from '@/features/users/api';
+import { InvitePersonDialog } from '@/features/users/InvitePersonDialog';
 import { CenteredPageLayout } from '@/layouts/shared';
 import { ResetPasswordDialog } from '@/features/admin/ResetPasswordDialog';
-
-/** First-two-initials fallback for the user avatar. */
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
 
 export function AdminPeoplePage() {
   const { user, isAdmin } = useAuth();
   const { data, isLoading } = useUsers({ limit: 100 }, isAdmin);
-  const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
 
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: Role.TESTER });
-  const [error, setError] = useState<string | null>(null);
   const [resetUser, setResetUser] = useState<{ id: string; name: string } | null>(null);
 
   if (!isAdmin)
@@ -55,18 +37,6 @@ export function AdminPeoplePage() {
         Admins only.
       </div>
     );
-
-  function submit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
-    createUser.mutate(form, {
-      onSuccess: () => {
-        setOpen(false);
-        setForm({ name: '', email: '', password: '', role: Role.TESTER });
-      },
-      onError: (err) => setError((err as Error).message),
-    });
-  }
 
   const users = data?.items ?? [];
 
@@ -95,9 +65,17 @@ export function AdminPeoplePage() {
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
-                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-xs font-medium">
-                        {initials(u.name)}
-                      </span>
+                      {/* Same tinted disc the assignee picker draws, so a person
+                          is the same colour here as wherever they're assigned. */}
+                      <UserAvatar
+                        tint
+                        seed={u.id}
+                        name={u.name}
+                        email={u.email}
+                        src={u.avatarUrl}
+                        className="size-8 shrink-0"
+                        fallbackClassName="text-xs"
+                      />
                       <span className="truncate">{u.name}</span>
                     </div>
                   </TableCell>
@@ -145,46 +123,8 @@ export function AdminPeoplePage() {
         </div>
       )}
 
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title={t('people.invite')}
-        footer={
-          <>
-            <Button variant="ghost" type="button" onClick={() => setOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button form="user-form" type="submit" loading={createUser.isPending}>
-              {t('common.create')}
-            </Button>
-          </>
-        }
-      >
-        <form id="user-form" onSubmit={submit}>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <Field label={t('people.name')} htmlFor="u-name">
-            <Input id="u-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus />
-          </Field>
-          <Field label={t('people.email')} htmlFor="u-email">
-            <Input id="u-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-          </Field>
-          <Field label={t('people.password')} htmlFor="u-pass">
-            <Input id="u-pass" type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-          </Field>
-          <Field label={t('people.role')} htmlFor="u-role">
-            <Select
-              id="u-role"
-              value={form.role}
-              onValueChange={(v) => setForm({ ...form, role: v as Role })}
-              options={Object.values(Role).map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
-            />
-          </Field>
-        </form>
-      </Dialog>
+      {/* The same dialog the assignee picker's "Invite people via email" opens. */}
+      <InvitePersonDialog open={open} onClose={() => setOpen(false)} />
 
       <ResetPasswordDialog
         user={resetUser}

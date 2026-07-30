@@ -44,6 +44,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui';
+import { PeoplePicker, type PickerPerson } from '@/components/PeoplePicker';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { CenteredPageLayout } from '@/layouts/shared';
 
@@ -88,12 +89,20 @@ const priorityOptions = [
   { value: 'critical', label: 'Critical', color: 'hsl(0 72% 51%)' },
 ];
 
-const assigneeOptions = [
-  { value: 'ava', label: 'Ava Nguyen' },
-  { value: 'liam', label: 'Liam Park' },
-  { value: 'mia', label: 'Mia Chen' },
-  { value: 'noah', label: 'Noah Kim' },
-  { value: 'olivia', label: 'Olivia Tran' },
+const backlogOptions = [
+  { value: 'onboarding', label: 'Discovery · Faster onboarding' },
+  { value: 'billing', label: 'Delivery · Billing overhaul' },
+  { value: 'search', label: 'Now · Search relevance' },
+  { value: 'mobile', label: 'Next · Mobile polish' },
+];
+
+/** Stand-ins for `useUsers` — the gallery never calls the API. */
+const demoPeople: PickerPerson[] = [
+  { id: 'ava', name: 'Ava Nguyen', email: 'ava@example.com' },
+  { id: 'liam', name: 'Liam Park', email: 'liam@example.com' },
+  { id: 'mia', name: 'Mia Chen', email: 'mia@example.com' },
+  { id: 'noah', name: 'Noah Kim', email: 'noah@example.com' },
+  { id: 'olivia', name: 'Olivia Tran', email: 'olivia@example.com' },
 ];
 
 const labelOptions = [
@@ -125,7 +134,9 @@ export function DesignPatternsPage() {
   const [checked, setChecked] = useState(true);
   const [priority, setPriority] = useState('high');
   const [notify, setNotify] = useState('email');
-  const [assignee, setAssignee] = useState('');
+  const [backlogItem, setBacklogItem] = useState('');
+  const [assignee, setAssignee] = useState<string[]>(['ava']);
+  const [reviewers, setReviewers] = useState<string[]>(['liam', 'mia', 'noah']);
   const [labels, setLabels] = useState<string[]>(['bug', 'ui']);
   const [tags, setTags] = useState<string[]>(['design', 'urgent']);
   const [date, setDate] = useState('');
@@ -269,11 +280,34 @@ export function DesignPatternsPage() {
           <Field label="Combobox (searchable)" htmlFor="dp-combobox">
             <Combobox
               id="dp-combobox"
-              options={assigneeOptions}
+              options={backlogOptions}
+              value={backlogItem}
+              onChange={setBacklogItem}
+              placeholder="Link a backlog item…"
+              searchPlaceholder="Search backlog…"
+            />
+          </Field>
+          {/* People are never a Combobox — the picker is the one assignee control
+              (`AssigneeField` is this wired to `useUsers`). */}
+          <Field label="People picker" htmlFor="dp-people">
+            <PeoplePicker
+              id="dp-people"
+              people={demoPeople}
               value={assignee}
               onChange={setAssignee}
-              placeholder="Assign to…"
-              searchPlaceholder="Search people…"
+              meId="ava"
+              placeholder="Unassigned"
+            />
+          </Field>
+          <Field label="People picker (multiple)" htmlFor="dp-people-multi">
+            <PeoplePicker
+              id="dp-people-multi"
+              multiple
+              people={demoPeople}
+              value={reviewers}
+              onChange={setReviewers}
+              meId="ava"
+              placeholder="Add people…"
             />
           </Field>
           <Field label="Multi-select" htmlFor="dp-multi">

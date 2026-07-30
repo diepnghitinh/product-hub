@@ -58,6 +58,7 @@ function emptyRoadmapItem(id: string, phase: string): RoadmapItem {
     rice: 9,
     imageUrl: '',
     startDate: '',
+    endDate: '',
     assignees: [],
     milestoneId: '',
     objectiveId: '',
@@ -326,12 +327,9 @@ export function RoadmapBoardPage() {
           ) : view === 'workflow' ? (
             <RoadmapWorkflowView items={items} />
           ) : view === 'gantt' ? (
-            <RoadmapGanttView
-              roadmapId={roadmap.id}
-              items={items}
-              columns={columns}
-              onOpenItem={openItem}
-            />
+            // The timeline peeks a row in a drawer rather than navigating — it owns
+            // both drawers, so it needs no open-item callback from here.
+            <RoadmapGanttView roadmapId={roadmap.id} items={items} columns={columns} />
           ) : (
             <RoadmapRiceTable
               items={items}

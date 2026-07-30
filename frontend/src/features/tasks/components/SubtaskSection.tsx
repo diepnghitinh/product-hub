@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link2, Plus, Trash2 } from 'lucide-react';
-import { Button, Combobox, ProgressBar, Select, Spinner } from '@/components/ui';
+import { Button, ProgressBar, Select, Spinner } from '@/components/ui';
+import { AssigneeField, fallbackNames } from '@/components/AssigneeField';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { useAuth } from '@/lib/auth';
-import { useUsers } from '@/features/users/api';
 import { useTeams, useTeamStatusesLookup } from '@/features/teams/api';
 import { TeamIconPicker } from '@/features/teams/TeamIconPicker';
 import { IssuePeekDrawer, type IssuePeek } from '@/features/issues/IssuePeekDrawer';
@@ -70,9 +70,6 @@ export function SubtaskSection({
   className,
 }: SubtaskSectionProps) {
   const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
-  // People list is readable by any member, so assignees resolve for everyone.
-  const { data: usersData } = useUsers({ limit: 100 });
-  const users = usersData?.items ?? [];
 
   // Spans both kinds: a backlog item lists its linked tasks *and* bugs.
   const { data, isLoading } = useIssues(query);
@@ -151,7 +148,10 @@ export function SubtaskSection({
           <p className="py-2 text-sm text-muted-foreground">{t('subtasks.empty')}</p>
         ) : (
           issues.map((tk) => {
-            const mine = !!user && tk.assigneeId === user.id;
+            // "Mine" is *am I on it*, not *am I the only one* — a child can be shared.
+            const mine = !!user && tk.assignees.some((a) => a.id === user.id);
+            const assigneeIds = tk.assignees.map((a) => a.id);
+            const assigneeLabel = tk.assignees.map((a) => a.name).join(', ');
             const team = teamById.get(tk.teamId);
             // This child's own columns — a bug team's `open`/`resolved` are as
             // real here as a task's `todo`, so the dot reads its colour from the
@@ -224,19 +224,18 @@ export function SubtaskSection({
                 {/* Assignee */}
                 <div className="flex min-w-0 items-center">
                   {isAdmin ? (
-                    <Combobox
-                      value={tk.assigneeId || ''}
-                      onChange={(v) => update.mutate({ id: tk.id, input: { assigneeId: v } })}
+                    <AssigneeField
+                      multiple
+                      value={assigneeIds}
+                      onChange={(ids) => update.mutate({ id: tk.id, input: { assigneeIds: ids } })}
                       placeholder={t('tasks.assign')}
                       className="h-7 w-full"
-                      options={[
-                        { value: '', label: t('tasks.unassigned') },
-                        ...users.map((u) => ({ value: u.id, label: u.name })),
-                      ]}
+                      fallbackNames={fallbackNames(tk.assignees)}
+                      aria-label={t('tasks.assignee')}
                     />
-                  ) : canWrite && tk.assigneeId && !mine ? (
-                    <span className="truncate text-xs text-muted-foreground" title={tk.assigneeName}>
-                      {tk.assigneeName}
+                  ) : canWrite && tk.assignees.length > 0 && !mine ? (
+                    <span className="truncate text-xs text-muted-foreground" title={assigneeLabel}>
+                      {assigneeLabel}
                     </span>
                   ) : canWrite ? (
                     <Button
@@ -244,10 +243,15 @@ export function SubtaskSection({
                       variant={mine ? 'secondary' : 'ghost'}
                       size="sm"
                       className="h-7"
+                      // Adds/removes *me*, leaving anyone else on it alone.
                       onClick={() =>
                         update.mutate({
                           id: tk.id,
-                          input: { assigneeId: mine ? '' : user?.id ?? '' },
+                          input: {
+                            assigneeIds: mine
+                              ? assigneeIds.filter((id) => id !== user?.id)
+                              : [...assigneeIds, user?.id ?? ''].filter(Boolean),
+                          },
                         })
                       }
                     >
@@ -255,7 +259,7 @@ export function SubtaskSection({
                     </Button>
                   ) : (
                     <span className="truncate text-xs text-muted-foreground">
-                      {tk.assigneeName || t('tasks.unassigned')}
+                      {assigneeLabel || t('tasks.unassigned')}
                     </span>
                   )}
                 </div>
@@ -281,7 +285,6 @@ export function SubtaskSection({
         <TaskComposerCard
           teams={composerTeams}
           defaultTeamId={defaultTeamId}
-          users={users}
           pending={create.isPending}
           titlePlaceholder={titlePlaceholder}
           onCancel={() => setAdding(false)}

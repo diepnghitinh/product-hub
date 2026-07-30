@@ -57,6 +57,11 @@ export interface RoadmapItemData {
   imageUrl: string;
   /** Optional start date, ISO `YYYY-MM-DD` ('' when unset). */
   startDate: string;
+  /** Optional target end date, ISO `YYYY-MM-DD` ('' when unset). The pair is the
+   *  item's own planned window — the timeline draws and drags it directly. When
+   *  it's unset the timeline still derives an end from the linked tasks, so an
+   *  item nobody has scheduled by hand keeps the bar it always had. */
+  endDate: string;
   /** People assigned (denormalized). */
   assignees: RoadmapAssignee[];
   /** When the item was first created (ISO). Stamped and then preserved

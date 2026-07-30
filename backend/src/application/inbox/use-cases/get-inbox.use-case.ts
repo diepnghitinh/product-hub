@@ -6,6 +6,7 @@ import { IIssueRepository } from '@application/issues/repositories/issue.reposit
 import { QueryIssueDto } from '@application/issues/dtos/query-issue.dto';
 import { IssueKind } from '@application/issues/domain/enums/issue.enums';
 import { ICommentRepository } from '@application/activity/repositories/comment.repository';
+import { plainSnippet } from '@module-shared/utils/plain-text.util';
 import { InboxKind } from '../domain/inbox-kind.enum';
 
 export interface InboxItem {
@@ -38,26 +39,11 @@ export interface GetInboxRequest {
 }
 
 /**
- * A comment body is rich HTML — a mention is a `<span class="rte-mention">`, not
- * bare text. The inbox shows one flat line per notification, so flatten it here:
- * the list renders its title as text, and unflattened markup would show up as
- * literal tags.
+ * The inbox shows one flat line per notification, so a rich comment body is
+ * flattened with the shared `plainSnippet` — the same helper the @mention webhook
+ * uses, so a mention reads identically in the inbox and in Lark/Telegram.
  */
-function plainText(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, ' ')
-    .replace(/<[^>]*>/g, '')
-    // `&amp;` last, or `&amp;lt;` would decode all the way down to `<`.
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
+const INBOX_TITLE_MAX = 100;
 
 /**
  * Assembles a user's inbox from two sources — comments that mention them and
@@ -99,13 +85,12 @@ export class GetInboxUseCase implements IUsecaseExecute<GetInboxRequest, Result<
       // navigates there rather than rendering a whole doc page in its list pane.
       const isDoc = !!c.docPageId;
       const kind = isDoc ? InboxKind.DOC_MENTION : InboxKind.MENTION;
-      const text = plainText(c.body);
       items.push({
         kind,
         id: c.id.toString(),
         refId: isDoc ? `${c.docId}/${c.docPageId}?comment=${c.id.toString()}` : c.bugId,
         key: `${kind}:${c.id.toString()}:${c.createdAt.getTime()}`,
-        title: text.length > 100 ? `${text.slice(0, 100)}…` : text,
+        title: plainSnippet(c.body, INBOX_TITLE_MAX),
         actorName: c.authorName,
         seen: false,
         createdAt: c.createdAt,

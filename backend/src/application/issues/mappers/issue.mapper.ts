@@ -20,6 +20,7 @@ export class IssueMapper {
       projectId: issue.projectId,
       cycleId: issue.cycleId,
       carryOverCount: issue.carryOverCount,
+      assignees: issue.assignees.map((a) => ({ id: a.id, name: a.name })),
       assigneeId: issue.assigneeId,
       assigneeName: issue.assigneeName,
       createdBy: issue.createdBy,

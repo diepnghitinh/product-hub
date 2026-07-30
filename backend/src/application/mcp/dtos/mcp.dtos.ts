@@ -155,6 +155,11 @@ export class McpCreateBacklogItemDto {
   @IsOptional()
   @IsString()
   startDate?: string;
+
+  @ApiPropertyOptional({ description: 'Target end date, ISO (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
 }
 
 /**

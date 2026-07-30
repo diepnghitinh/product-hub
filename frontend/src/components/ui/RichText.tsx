@@ -6,7 +6,7 @@ import { renderMermaidBlocks } from '@/lib/mermaid';
 // diagrams both need these rules, on pages that never mount the editor itself.
 import '@/styles/rich-text-editor.css';
 import { isWebLink, resolveHref, useExternalLink } from './ExternalLink';
-import { useLightbox, type LightboxImage } from './Lightbox';
+import { collectImages, useLightbox } from './Lightbox';
 
 /** Shared prose styling for editor HTML — links, images (click-to-zoom cursor).
  *  `rich-text-content` is the read-view half of the content rules the editor
@@ -66,15 +66,9 @@ export function RichText({ html, className }: RichTextProps) {
       // reader can arrow through them from wherever they clicked.
       const img = el.closest('img');
       if (img && root.contains(img)) {
-        const all = Array.from(root.querySelectorAll('img')).filter(
-          (n) => n.currentSrc || n.getAttribute('src'),
-        );
-        const images: LightboxImage[] = all.map((n) => ({
-          src: n.currentSrc || n.src,
-          alt: n.getAttribute('alt') || undefined,
-        }));
+        const { images, indexOf } = collectImages(root);
         e.preventDefault();
-        lightbox.open(images, Math.max(0, all.indexOf(img as HTMLImageElement)));
+        lightbox.open(images, indexOf(img as HTMLImageElement));
         return;
       }
 
