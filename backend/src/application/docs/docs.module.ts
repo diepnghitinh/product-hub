@@ -4,6 +4,7 @@ import { InfrastructureDocsModule } from '@infrastructure/docs/docs.module';
 import { InfrastructureActivityModule } from '@infrastructure/activity/activity.module';
 import {
   CreateDocUseCase,
+  DuplicateDocUseCase,
   GetDocsUseCase,
   GetDocUseCase,
   UpdateDocUseCase,
@@ -29,6 +30,7 @@ import { ExportDocPagePdfUseCase } from './use-cases/doc-page-pdf.use-case';
 
 const useCases = [
   CreateDocUseCase,
+  DuplicateDocUseCase,
   GetDocsUseCase,
   GetDocUseCase,
   UpdateDocUseCase,

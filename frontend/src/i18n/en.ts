@@ -11,7 +11,6 @@ export const en = {
   'nav.roadmaps': 'Roadmaps',
   'nav.docs': 'Docs',
   'nav.bugs': 'Bugs',
-  'nav.milestones': 'OKRs',
   'nav.inbox': 'Inbox',
   'nav.tasks': 'My Tasks',
   'nav.myTeam': 'My Team',
@@ -24,16 +23,22 @@ export const en = {
   'nav.signOut': 'Sign out',
   'nav.collapse': 'Collapse sidebar',
   'nav.expand': 'Expand sidebar',
+  'nav.resize': 'Resize sidebar',
+  'nav.resizeHint': 'Drag to resize · double-click to reset',
   'nav.menu': 'Menu',
   'nav.create': 'Create new',
   'nav.newTeam': 'New space',
 
   // Level 1 of the sidebar — the icon rail. Each label sits under a 20px glyph in
   // a 68px column, so one short word each: "Discovery", not "Product Discovery".
+  // Discovery/Delivery/Quality are headings inside the Workspace panel now, and
+  // are still one word for the same reason: they head a 220px column.
   'nav.areas': 'Areas',
-  'navarea.home': 'Home',
+  // The key is the area's stable id; the label is what the rail and the panel
+  // title read. "Home" because that's where the stop lands (`/`) and what the
+  // first thing in a menu is called — "Workspace" named the app, not a place.
+  'navarea.workspace': 'Home',
   'navarea.discovery': 'Discovery',
-  'navarea.delivery': 'Delivery',
   'navarea.quality': 'Quality',
   'navarea.more': 'More',
 
@@ -90,8 +95,12 @@ export const en = {
   'dashboard.projects': 'Projects',
   'dashboard.comingSoon': 'Coming in the next phase',
 
+  'projects.hint': 'Test plans and coverage across every project.',
   'projects.new': 'New project',
   'projects.create': 'Create project',
+  'projects.search': 'Search projects…',
+  'projects.coverage': 'Coverage',
+  'projects.noMatch': 'No projects match your search.',
   'projects.edit': 'Edit project',
   'projects.rename': 'Rename',
   'projects.empty': 'No projects yet. Create your first one to get started.',
@@ -386,6 +395,11 @@ export const en = {
   'docs.pages': 'pages',
   'docs.onePage': 'page',
   'docs.createdBy': 'By {name}',
+  'docs.duplicate': 'Duplicate doc',
+  'docs.duplicating': 'Duplicating…',
+  // The suffix a copy's title gets. Leading space included — it's appended.
+  'docs.copySuffix': ' (copy)',
+  'docs.duplicated': 'Copied to “{title}”',
   'docs.delete': 'Delete doc',
   'docs.confirmDelete': 'Delete this doc and every page in it? This cannot be undone.',
   'docs.searchPages': 'Search pages',

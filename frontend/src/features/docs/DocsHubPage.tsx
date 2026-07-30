@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, MoreHorizontal, Share2, Tag, Trash2, UserRound } from 'lucide-react';
+import { Copy, FileText, MoreHorizontal, Share2, Tag, Trash2, UserRound } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import {
   Button,
@@ -25,7 +26,15 @@ import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { FavouriteKind, TEAM_COLORS } from '@/types/enums';
 import type { DocDto } from '@/types/dto';
-import { useCreateDoc, useDeleteDoc, useDocs, useSetDocSharing, useUpdateDoc } from './api';
+import {
+  copyDocTitle,
+  useCreateDoc,
+  useDeleteDoc,
+  useDocs,
+  useDuplicateDoc,
+  useSetDocSharing,
+  useUpdateDoc,
+} from './api';
 import { docPath } from './slug';
 
 const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]';
@@ -94,6 +103,7 @@ export function DocsHubPage() {
   const create = useCreateDoc();
   const update = useUpdateDoc();
   const remove = useDeleteDoc();
+  const duplicate = useDuplicateDoc();
   const setSharing = useSetDocSharing();
 
   const [open, setOpen] = useState(false);
@@ -104,6 +114,8 @@ export function DocsHubPage() {
   const [color, setColor] = useState<string | null>(null);
   const [tags, setTags] = useState<string[]>([]);
   const [sharing, setSharingDoc] = useState<DocDto | null>(null);
+  /** The card being copied — the mutation is shared, so it says *which* one. */
+  const [duplicating, setDuplicating] = useState<string | null>(null);
   /** Lower-cased tag keys, not labels — see `tagKey`. */
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   /** Author scope: false = the whole workspace, true = docs I created. */
@@ -180,6 +192,23 @@ export function DocsHubPage() {
     setColor(doc.color ?? null);
     setTags(doc.tags ?? []);
     setOpen(true);
+  }
+
+  /**
+   * Copy a doc where it stands. The hub sorts by activity, so the copy arrives as
+   * the first card — but the card you clicked hasn't moved and your eye is on it,
+   * so the toast says what was made and what it's called.
+   */
+  function duplicateDoc(doc: DocDto) {
+    setDuplicating(doc.id);
+    duplicate.mutate(
+      { id: doc.id, title: copyDocTitle(doc.title) },
+      {
+        onSuccess: (copy) => toast.success(t('docs.duplicated').replace('{title}', copy.title)),
+        onError: (e) => toast.error((e as Error).message),
+        onSettled: () => setDuplicating(null),
+      },
+    );
   }
 
   function submit(e: FormEvent) {
@@ -271,7 +300,27 @@ export function DocsHubPage() {
           {visible.map((doc) => {
             const items: MenuItem[] = [
               ...(canWrite
-                ? [{ label: t('docs.edit'), onClick: () => openEdit(doc), closeOnSelect: true }]
+                ? [
+                    {
+                      label: t('docs.edit'),
+                      onClick: () => openEdit(doc),
+                      closeOnSelect: true,
+                    },
+                    {
+                      // Same gate as writing a doc — a copy is a new doc. It
+                      // lands at the top of the grid (the hub sorts by activity),
+                      // so the toast names it rather than moving you into it:
+                      // duplicating from a list shouldn't leave the list.
+                      label: duplicating === doc.id ? t('docs.duplicating') : t('docs.duplicate'),
+                      icon: <Copy className="size-4" />,
+                      disabled: duplicate.isPending,
+                      // One-shot, so the menu goes away with it — the grid
+                      // re-sorts as the copy lands, and a menu left hanging
+                      // over a card that just moved belongs to nothing.
+                      closeOnSelect: true,
+                      onClick: () => duplicateDoc(doc),
+                    },
+                  ]
                 : []),
               ...(canManageDelivery
                 ? [

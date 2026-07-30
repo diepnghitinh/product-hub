@@ -91,6 +91,18 @@ export class UpdateDocDto {
   tags?: string[];
 }
 
+export class DuplicateDocDto {
+  @ApiPropertyOptional({
+    description: 'Name for the copy. Defaults to "<title> (copy)".',
+    example: 'Discovery — Ads Connect (copy)',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(160)
+  title?: string;
+}
+
 export class ShareDocDto {
   @ApiProperty({ description: 'Enable or disable the public read-only link' })
   @IsBoolean()

@@ -34,9 +34,11 @@ const CHROME_LABEL_CSS =
  * goes, so a long-lived browser stays cheap. If it dies (crash, OOM, a killed
  * container) the next render notices and launches a fresh one.
  *
- * Chromium ships with the `puppeteer` package. In an image that provides its own
- * (a slim Docker base, a distro package), point `PUPPETEER_EXECUTABLE_PATH` at
- * it and nothing else changes.
+ * Chromium ships with the `puppeteer` package, which is what a laptop uses. A
+ * container can't: that download is a glibc build (our image is Alpine) and it
+ * lands in the installing user's ~/.cache, not the one the server runs as. So
+ * the image installs the distro's own Chromium and points
+ * `PUPPETEER_EXECUTABLE_PATH` at it — see backend/Dockerfile.
  */
 @Injectable()
 export class PdfService implements OnModuleDestroy {
@@ -63,9 +65,21 @@ export class PdfService implements OnModuleDestroy {
         });
         return browser;
       })
-      .catch((err) => {
+      .catch((err: Error) => {
         this.launching = undefined;
-        throw err;
+        // Puppeteer's own message for a missing browser reads as a build
+        // problem ("did you run browsers install?") and gets shown to whoever
+        // clicked Export. Say where we looked instead — that's the one fact
+        // that tells you whether the image or the env var is wrong.
+        this.logger.error(
+          `Could not start the print browser (executablePath=${
+            process.env.PUPPETEER_EXECUTABLE_PATH || 'puppeteer default'
+          }): ${err.message}`,
+        );
+        throw new Error(
+          'PDF export could not start a browser on the server. ' +
+            'Install Chromium in the API image and point PUPPETEER_EXECUTABLE_PATH at it.',
+        );
       });
     return this.launching;
   }

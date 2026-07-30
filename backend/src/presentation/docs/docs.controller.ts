@@ -6,6 +6,7 @@ import { JwtPayload, Role } from '@core/interfaces';
 import { EntityNotFoundException } from '@core/exceptions';
 import {
   CreateDocUseCase,
+  DuplicateDocUseCase,
   GetDocsUseCase,
   GetDocUseCase,
   UpdateDocUseCase,
@@ -30,6 +31,7 @@ import { ExportDocPagePdfUseCase } from '@application/docs/use-cases/doc-page-pd
 import {
   CreateDocDto,
   CreateDocPageDto,
+  DuplicateDocDto,
   ReorderDocPagesDto,
   SaveDocPageVersionDto,
   ShareDocDto,
@@ -57,6 +59,7 @@ import { DocMapper } from '@application/docs/mappers';
 export class DocsController {
   constructor(
     private readonly createDoc: CreateDocUseCase,
+    private readonly duplicateDoc: DuplicateDocUseCase,
     private readonly getDocs: GetDocsUseCase,
     private readonly getDoc: GetDocUseCase,
     private readonly updateDoc: UpdateDocUseCase,
@@ -107,6 +110,29 @@ export class DocsController {
     @Body() dto: CreateDocDto,
   ): Promise<DocResponseDto> {
     const result = await this.createDoc.execute({
+      tenantId: auth.tenantId,
+      author: { userId: auth.userId, name: auth.name },
+      dto,
+    });
+    if (result.isFailure) throw new EntityNotFoundException(result.error as string);
+    const { doc, pages } = result.getValue();
+    return DocMapper.toResponseDto(doc, pages);
+  }
+
+  /**
+   * Copy a doc and its whole page tree. Same gate as creating one — a duplicate
+   * is a new doc, and anyone who may write one may copy one.
+   */
+  @Post(':id/duplicate')
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT)
+  @ApiOperation({ summary: 'Duplicate a doc with every page in it' })
+  async duplicate(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: DuplicateDocDto,
+  ): Promise<DocResponseDto> {
+    const result = await this.duplicateDoc.execute({
+      id,
       tenantId: auth.tenantId,
       author: { userId: auth.userId, name: auth.name },
       dto,

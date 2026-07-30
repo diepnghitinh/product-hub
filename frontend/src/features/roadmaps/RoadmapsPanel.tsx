@@ -11,11 +11,19 @@ import { timeAgo } from '@/lib/format';
 import type { RoadmapDto } from '@/types/dto';
 import { useCreateRoadmap, useRoadmaps, useUpdateRoadmap } from './api';
 import { RoadmapTimingSummary } from './components/RoadmapTimingSummary';
-import { CenteredPageLayout } from '@/layouts/shared';
 
 const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]';
 
-export function RoadmapsPage() {
+/**
+ * The Roadmaps tab of the planning page (`PlanningPage`) — the list of roadmaps
+ * as cards, and the create/edit dialog behind them.
+ *
+ * A *panel*, not a page: it has no layout of its own, because the page it sits in
+ * owns the scroll column shared with the OKRs tab. It keeps its own `PageHeader`,
+ * which portals into the topbar — so the title and the primary action follow
+ * whichever tab is open, without the shell having to know what either tab offers.
+ */
+export function RoadmapsPanel() {
   const { user, canWrite } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -71,7 +79,7 @@ export function RoadmapsPage() {
   const roadmaps = (data ?? []).filter((r) => !projectId || r.projectId === projectId);
 
   return (
-    <CenteredPageLayout>
+    <>
       {projectId && (
         <BackLink to={`/testing/${projectId}`}>{projectName || t('nav.projects')}</BackLink>
       )}
@@ -155,6 +163,6 @@ export function RoadmapsPage() {
           </Field>
         </form>
       </Dialog>
-    </CenteredPageLayout>
+    </>
   );
 }

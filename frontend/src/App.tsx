@@ -20,12 +20,11 @@ import { NewTaskPage } from '@/features/tasks/NewTaskPage';
 import { MyTeamPage } from '@/features/my-team/MyTeamPage';
 import { TeamBoardPage } from '@/features/teams/TeamBoardPage';
 import { TeamCyclesPage } from '@/features/cycles/TeamCyclesPage';
-import { RoadmapsPage } from '@/features/roadmaps/RoadmapsPage';
+import { PlanningPage } from '@/features/planning/PlanningPage';
 import { RoadmapBoardPage } from '@/features/roadmaps/RoadmapBoardPage';
 import { RoadmapItemDetailPage } from '@/features/roadmaps/RoadmapItemDetailPage';
 import { DocsHubPage } from '@/features/docs/DocsHubPage';
 import { DocWorkspacePage } from '@/features/docs/DocWorkspacePage';
-import { MilestonesPage } from '@/features/milestones/MilestonesPage';
 import { MilestoneDetailPage } from '@/features/milestones/MilestoneDetailPage';
 import { AdminPeoplePage } from '@/features/admin/AdminPeoplePage';
 import { AdminSettingsPage } from '@/features/admin/AdminSettingsPage';
@@ -107,14 +106,16 @@ export default function App() {
           {/* A team's own issue list — renders the bug or task board by issueType. */}
           <Route path="/teams/:teamId" element={<TeamBoardPage />} />
           <Route path="/teams/:teamId/cycles" element={<TeamCyclesPage />} />
-          <Route path="/roadmaps" element={<RoadmapsPage />} />
+          {/* Roadmaps and OKRs are one tabbed page; the path picks the tab, so
+              both keep their own URL and every existing link still resolves. */}
+          <Route path="/roadmaps" element={<PlanningPage />} />
           <Route path="/roadmaps/:roadmapId" element={<RoadmapBoardPage />} />
           <Route path="/roadmaps/:roadmapId/items/:itemId" element={<RoadmapItemDetailPage />} />
           {/* A doc's pages are deep-linkable: /docs/:docId/:pageId. */}
           <Route path="/docs" element={<DocsHubPage />} />
           <Route path="/docs/:docId" element={<DocWorkspacePage />} />
           <Route path="/docs/:docId/:pageId" element={<DocWorkspacePage />} />
-          <Route path="/okrs" element={<MilestonesPage />} />
+          <Route path="/okrs" element={<PlanningPage />} />
           <Route path="/okrs/:milestoneId" element={<MilestoneDetailPage />} />
           <Route path="/admin/people" element={<AdminPeoplePage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />

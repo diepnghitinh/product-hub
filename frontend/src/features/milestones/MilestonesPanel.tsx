@@ -7,9 +7,15 @@ import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { MILESTONE_STATUS_LABEL } from '@/types/enums';
 import { useCreateMilestone, useMilestones } from './api';
-import { CenteredPageLayout } from '@/layouts/shared';
 
-export function MilestonesPage() {
+/**
+ * The OKRs tab of the planning page (`PlanningPage`) — the objectives as cards
+ * with their progress, and the create dialog.
+ *
+ * A *panel*, not a page: see `RoadmapsPanel`. Its own `PageHeader` portals into
+ * the topbar, so opening this tab swaps both the title and the primary action.
+ */
+export function MilestonesPanel() {
   const { user, canWrite } = useAuth();
   const navigate = useNavigate();
   const { data, isLoading } = useMilestones();
@@ -38,7 +44,7 @@ export function MilestonesPage() {
   const milestones = data ?? [];
 
   return (
-    <CenteredPageLayout>
+    <>
       <PageHeader
         title={t('milestones.title')}
         actions={
@@ -100,6 +106,6 @@ export function MilestonesPage() {
           </Field>
         </form>
       </Dialog>
-    </CenteredPageLayout>
+    </>
   );
 }

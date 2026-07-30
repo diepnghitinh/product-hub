@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
+  Copy,
   FileDown,
   FileText,
   MessageSquare,
@@ -23,12 +24,14 @@ import { FavouriteKind } from '@/types/enums';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import type { DocPageSummary } from '@/types/dto';
 import {
+  copyDocTitle,
   useCreateDocPage,
   useDeleteDoc,
   useDeleteDocPage,
   useDoc,
   useDocCommentCounts,
   useDocPage,
+  useDuplicateDoc,
   useExportDocPagePdf,
   useReorderDocPages,
   useSetDocSharing,
@@ -117,6 +120,7 @@ export function DocWorkspacePage() {
   const renamePage = useUpdateDocPage();
   const reorder = useReorderDocPages();
   const updateDoc = useUpdateDoc();
+  const duplicateDoc = useDuplicateDoc();
   const deleteDoc = useDeleteDoc();
   const setSharing = useSetDocSharing();
   const exportPdf = useExportDocPagePdf();
@@ -208,6 +212,29 @@ export function DocWorkspacePage() {
           .catch((e) => toast.error((e as Error).message));
       },
     },
+    // Same gate as writing — a copy is a new doc. Unlike the hub's menu this one
+    // opens the copy: you were reading a doc and asked for another like it, so
+    // the copy is where you want to be. The share link, history, threads and
+    // record links stay with the original (see `DuplicateDocUseCase`).
+    ...(canWrite
+      ? [
+          {
+            label: duplicateDoc.isPending ? t('docs.duplicating') : t('docs.duplicate'),
+            icon: <Copy className="size-4" />,
+            disabled: duplicateDoc.isPending,
+            closeOnSelect: true,
+            onClick: () => {
+              duplicateDoc.mutate(
+                { id: docId, title: copyDocTitle(doc.title) },
+                {
+                  onSuccess: (copy) => navigate(docPath(copy)),
+                  onError: (e) => toast.error((e as Error).message),
+                },
+              );
+            },
+          },
+        ]
+      : []),
     ...(canManageDelivery
       ? [
           {

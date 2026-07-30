@@ -6,6 +6,7 @@ export type IconName =
   | 'bug'
   | 'roadmap'
   | 'milestone'
+  | 'docs'
   | 'inbox'
   | 'tasks'
   | 'user-check'
@@ -85,6 +86,19 @@ const PATHS: Record<IconName, ReactNode> = {
       <circle cx="12" cy="12" r="10" />
       <circle cx="12" cy="12" r="6" />
       <circle cx="12" cy="12" r="2" />
+    </>
+  ),
+  /* A page with a turned corner and three lines of writing — Lucide's `FileText`,
+     path for path. The Docs feature already draws itself with that exact glyph
+     everywhere it appears (hub tabs, page tree, linked docs, the public view), so
+     the nav row is the same page rather than a near-miss of it. Deliberately not
+     the `book` team symbol this used to borrow: a team can pick `book` for itself,
+     and then one mark in one sidebar means two different things. */
+  docs: (
+    <>
+      <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+      <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+      <path d="M10 9H8M16 13H8M16 17H8" />
     </>
   ),
   inbox: (

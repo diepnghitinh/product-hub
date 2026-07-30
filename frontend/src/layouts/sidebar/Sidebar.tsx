@@ -13,6 +13,7 @@ import { ProfileMenu } from '@/layouts/sidebar/ProfileMenu';
 import {
   ACTION,
   FavouriteNavItem,
+  NAV_DIVIDER,
   NAV_FOOTER_CELL,
   NavHeading,
   NavLeafItem,
@@ -24,17 +25,35 @@ import {
   useNavGroups,
   useNavSections,
   useSelectedArea,
+  useSidebarWidth,
 } from '@/layouts/sidebar/navPrimitives';
 
 const COLLAPSE_KEY = 'ph_nav_collapsed';
+/** The dragged width, per browser — see `useSidebarWidth`. */
+const WIDTH_KEY = 'ph_nav_width';
 
 /**
- * Level 1, the icon rail — sized to the longest area label ("Discovery") so no
- * micro-label truncates, since a rail reading "Disco…" is worse than no label.
+ * Level 1, the icon rail — wide enough for a whole area label under the glyph,
+ * since a rail reading "Works…" is worse than no label at all. Renaming an area
+ * is a wording call, so the width leaves headroom rather than fitting today's
+ * words exactly. Fixed: the rail holds glyphs, so dragging the sidebar wider
+ * gives every pixel to the panel, where the labels are.
  */
 const RAIL_W = 'w-[68px]';
-/** Level 2, the panel beside it. Together: 68 + 220 = the sidebar's 288px. */
+const RAIL_PX = 68;
+/**
+ * Level 2, the panel beside it — the part that grows. 68 + 220 = the sidebar's
+ * default 288px; the bounds below are the panel's, so they read as what a *row*
+ * gets: 180px is about where "Product Discovery" starts truncating, and past
+ * 420 the rows are mostly whitespace.
+ */
 const PANEL_W = 'w-[220px]';
+const SIDEBAR_W = { initial: 288, min: RAIL_PX + 180, max: RAIL_PX + 420 };
+/**
+ * The panel's share of the dragged width. Only meaningful from `md` up — below
+ * it the drawer is a fixed width and `PANEL_W` stands.
+ */
+const PANEL_FLEX_W = 'md:w-[calc(var(--sidebar-w)-68px)]';
 
 interface SidebarProps {
   /** Whether the mobile drawer is open. */
@@ -44,14 +63,15 @@ interface SidebarProps {
 }
 
 /**
- * The app's sidebar, in two levels: an always-visible icon **rail** of areas
- * (Home · Discovery · Delivery · Quality · More), and a **panel** showing only
- * the selected area's destinations.
+ * The app's sidebar, in two levels: an always-visible icon **rail** of areas —
+ * two of them, `workspace` and `more` — and a **panel** showing only the
+ * selected area's destinations.
  *
- * Two levels is the point: one flat column had to carry every section of the app
- * at once, so it grew section headings to cope and still read as a long list.
- * Now the rail answers "what am I doing?" and the panel answers "where in it?" —
- * and each panel is short enough to take in at a glance.
+ * The rail used to carry five stops — Home, Discovery, Delivery, Quality, More —
+ * and the first four have merged into the one workspace panel, where they read
+ * as headings instead. They were phases of the same job, so switching between them
+ * cost a rail click before most navigation. What's left on the rail is the one
+ * genuine change of room: using the product, or administering it.
  *
  * This file owns the *shape* — rail beside panel, this order, this collapse. The
  * IA it renders comes from `menuConfig`, and every row from `navPrimitives`:
@@ -79,6 +99,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   useEffect(() => {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
+  const { width, dragging, handle } = useSidebarWidth({ storageKey: WIDTH_KEY, ...SIDEBAR_W });
 
   const areas = NAV_AREAS.filter((a) => !a.adminOnly || isAdmin);
   const [selectedId, setSelectedId] = useSelectedArea(findAreaId(pathname, search), areas[0].id);
@@ -136,6 +157,10 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
     </button>
   );
 
+  // Every row the panel draws, so a row can tell whether a *sibling* claims the
+  // URL it's pointing at — All issues and Bugs share `/issues`, in two sections.
+  const panelItems = area.sections.flatMap((s) => s.items);
+
   /** The selected area's sections — the whole of level 2. */
   const panel = (
     <>
@@ -146,7 +171,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         <Link
           to={area.path}
           onClick={goFromPanel}
-          className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight text-foreground transition-colors hover:text-primary"
+          className="min-w-0 flex-1 truncate text-[14px] font-semibold tracking-tight text-foreground transition-colors hover:text-primary"
         >
           {t(area.labelKey)}
         </Link>
@@ -178,15 +203,18 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                       />
                     ))}
                 </div>
-                <div className="-my-1.5 mx-2 border-t border-sidebar-border" />
+                {section.dividerAfter && <div className={NAV_DIVIDER} />}
               </Fragment>
             );
           }
 
-          // Teams — each is an area with its own board, statuses and cycles,
-          // rendered like a workspace's "spaces". Delivery's second section.
+          // Delivery — the section's own rows (All issues) followed by the teams,
+          // each a space with its own board, statuses and cycles. The team list is
+          // appended rather than replacing `items`, so the block is one list with
+          // the unscoped view at its head; it renders even with no teams yet,
+          // because All issues is always there.
           if (section.dynamic === 'teams') {
-            if (activeTeams.length === 0) return null;
+            const items = section.items.filter((i) => !i.adminOnly || isAdmin);
             return (
               <div key={section.key} className="flex flex-col gap-0.5">
                 <NavHeading
@@ -227,6 +255,15 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                 />
                 {sectionOpen(section.key) && (
                   <>
+                    {items.map((item) => (
+                      <NavLeafItem
+                        key={`${item.path}?${item.search ?? ''}`}
+                        item={item}
+                        peers={panelItems}
+                        unseen={unseen}
+                        onNavigate={goFromPanel}
+                      />
+                    ))}
                     <TeamNavList
                       teams={activeTeams}
                       pathname={pathname}
@@ -261,35 +298,42 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           // so it's always open.
           const open = !section.headingKey || sectionOpen(section.key);
           return (
-            <div key={section.key} className="flex flex-col gap-0.5">
-              {section.headingKey && (
-                <NavHeading
-                  label={t(section.headingKey)}
-                  open={sectionOpen(section.key)}
-                  onToggle={() => toggleSection(section.key)}
-                />
-              )}
-              {open &&
-                items.map((item) =>
-                  item.children ? (
-                    <NavParentItem
-                      key={item.path}
-                      item={item}
-                      // Standing on any of its views keeps the group open.
-                      open={isOpen(item.path, item.children.map((c) => c.path))}
-                      onToggle={() => toggleGroup(item.path, item.children!.map((c) => c.path))}
-                      onNavigate={goFromPanel}
-                    />
-                  ) : (
-                    <NavLeafItem
-                      key={`${item.path}?${item.search ?? ''}`}
-                      item={item}
-                      unseen={unseen}
-                      onNavigate={goFromPanel}
-                    />
-                  ),
+            <Fragment key={section.key}>
+              <div className="flex flex-col gap-0.5">
+                {section.headingKey && (
+                  <NavHeading
+                    label={t(section.headingKey)}
+                    open={sectionOpen(section.key)}
+                    onToggle={() => toggleSection(section.key)}
+                  />
                 )}
-            </div>
+                {open &&
+                  items.map((item) =>
+                    item.children ? (
+                      <NavParentItem
+                        key={item.path}
+                        item={item}
+                        // Standing on any of its views keeps the group open.
+                        open={isOpen(item.path, item.children.map((c) => c.path))}
+                        onToggle={() => toggleGroup(item.path, item.children!.map((c) => c.path))}
+                        onNavigate={goFromPanel}
+                      />
+                    ) : (
+                      <NavLeafItem
+                        key={`${item.path}?${item.search ?? ''}`}
+                        item={item}
+                        peers={panelItems}
+                        unseen={unseen}
+                        onNavigate={goFromPanel}
+                      />
+                    ),
+                  )}
+              </div>
+              {/* Ends the block of rows that are *mine*, before the app's own
+                  headed sections start. Declared in `menuConfig`, so which
+                  blocks get one is answered in the model, not here. */}
+              {section.dividerAfter && <div className={NAV_DIVIDER} />}
+            </Fragment>
           );
         })}
       </nav>
@@ -305,11 +349,18 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   return (
     <aside
       ref={asideRef}
+      // The dragged width rides as a variable so the panel can take its share of
+      // it in CSS, and so the fixed widths (mobile drawer, collapsed rail) stay
+      // media queries rather than something this component has to compute.
+      style={{ '--sidebar-w': `${width}px` } as React.CSSProperties}
       className={cn(
-        'fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[288px] border-r bg-sidebar text-sidebar-foreground shadow-xl transition-[width,transform] duration-200',
+        'fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[288px] border-r bg-sidebar text-sidebar-foreground shadow-xl transition-[width,transform] duration-200 md:shrink-0',
         'md:sticky md:top-0 md:z-30 md:translate-x-0 md:shadow-none',
-        collapsed ? 'md:w-[68px]' : 'md:w-[288px]',
+        collapsed ? 'md:w-[68px]' : 'md:w-[var(--sidebar-w)]',
         mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+        // The width transition is what makes collapsing glide; during a drag it
+        // would make the edge lag the cursor by 200ms.
+        dragging && 'transition-none',
       )}
     >
       {/* Level 1 — the rail. Always visible, at every width. Its right edge is
@@ -337,7 +388,11 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
 
         <nav
           aria-label={t('nav.areas')}
-          className="flex flex-1 flex-col items-center gap-1 overflow-y-auto px-2 py-2"
+          // `px-1`, not `px-2`: the micro-labels get every pixel of the 68px
+          // rail, so a longer area name still sits under its glyph without an
+          // ellipsis. The tile inside each button is a fixed 36px and stays
+          // centred either way.
+          className="flex flex-1 flex-col items-center gap-1 overflow-y-auto px-1 py-2"
         >
           {areas.map((a) => (
             <RailButton
@@ -366,19 +421,27 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
       </div>
 
       {/* Level 2 — the panel, docked beside the rail. */}
-      <div className={cn('flex min-w-0 flex-col', PANEL_W, collapsed && 'md:hidden')}>{panel}</div>
+      <div className={cn('flex min-w-0 flex-col', PANEL_W, PANEL_FLEX_W, collapsed && 'md:hidden')}>
+        {panel}
+      </div>
 
-      {/* …and the same panel floated over the page while collapsed. */}
+      {/* …and the same panel floated over the page while collapsed. Same width
+          as when docked — a peek is the panel, not a different one. */}
       {collapsed && peek && (
         <div
           className={cn(
             'absolute left-[68px] top-0 z-10 hidden h-full flex-col rounded-r-xl border bg-sidebar shadow-2xl md:flex',
             PANEL_W,
+            PANEL_FLEX_W,
           )}
         >
           {panel}
         </div>
       )}
+
+      {/* Drag the menu wider. Not while collapsed: there the width is the rail's
+          68px and there's nothing to give the extra pixels to. */}
+      {!collapsed && handle}
 
       {/* Opening the new team's board is the confirmation — it proves the team
           exists and lands you where you'd go next anyway. */}

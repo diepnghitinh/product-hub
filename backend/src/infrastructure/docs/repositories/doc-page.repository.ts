@@ -134,6 +134,20 @@ export class DocPageRepository
       .exec();
   }
 
+  async saveMany(pages: DocPageEntity[]): Promise<void> {
+    if (!pages.length) return;
+    // One round trip for a whole duplicated tree, upserting like `save` does.
+    await this.model.bulkWrite(
+      pages.map((page) => ({
+        updateOne: {
+          filter: { _id: page.id.toString() },
+          update: { $set: this.toDocument(page) },
+          upsert: true,
+        },
+      })),
+    );
+  }
+
   async update(page: DocPageEntity): Promise<void> {
     await this.save(page);
   }

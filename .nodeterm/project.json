@@ -1,26 +1,26 @@
 {
   "version": 1,
-  "rev": 512,
-  "savedAt": "2026-07-30T11:59:51.288Z",
+  "rev": 526,
+  "savedAt": "2026-07-30T16:26:58.828Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 640.630973107621,
-    "y": 2429.582368619747,
-    "zoom": 0.968709487914002
+    "x": 787.8691073368095,
+    "y": 2820.972946619032,
+    "zoom": 1.15
   },
   "nodes": [
     {
       "id": "term-ms6tz8k1-1",
       "kind": "terminal",
       "position": {
-        "x": -233.5517740917457,
-        "y": -2231.135817407967
+        "x": 372.4090504109988,
+        "y": -2479.6881167615625
       },
       "size": {
         "width": 600,
-        "height": 400
+        "height": 841
       },
       "title": "Thêm lựa chọn hiển thị docs của người dùng",
       "titleAuto": true,
@@ -28,6 +28,44 @@
       "group": null,
       "tags": [],
       "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-ms7myaak-1",
+      "kind": "terminal",
+      "position": {
+        "x": -344.00800615613,
+        "y": -1923.511939802499
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Redesign product UI/UX with premium SaaS skill",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-ms7nqz4r-2",
+      "kind": "terminal",
+      "position": {
+        "x": -315.1035715972257,
+        "y": -2458.243979142229
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Fix Chrome browser missing in Puppeteer PDF export",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
       "cwd": ".",
       "agentId": "claude"
     }
