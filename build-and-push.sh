@@ -2,14 +2,17 @@
 #
 # build-and-push.sh — build the product-hub images and push them to a registry.
 #
-#   REGISTRY=<host>/<repo> ./build-and-push.sh                    # both images (backend & frontend as tags)
+#   REGISTRY=<host>/<repo> ./build-and-push.sh                    # all three images (one tag each)
 #   REGISTRY=<host>/<repo> ./build-and-push.sh backend            # just the API
+#   REGISTRY=<host>/<repo> ./build-and-push.sh realtime           # just the sync server
 #   REGISTRY=<host>/<repo> VITE_API_URL=https://api.acme.com/v1 ./build-and-push.sh
 #   REGISTRY=<host>/<repo> PUSH=0 ./build-and-push.sh             # build only, no push
 #
 # Produces (REGISTRY is the full repo path; the image name is the tag):
 #   $REGISTRY:product-hub-backend
 #   $REGISTRY:product-hub-frontend
+#   $REGISTRY:product-hub-realtime    the collab/ Yjs sync server — deployed as the
+#                                     `realtime` service (docker-compose.demo.stack.yml)
 #
 # After each build it reports the image's content digest (sha256) — an immutable
 # handle on that exact image — so you can pin a deployment to
@@ -23,9 +26,14 @@
 #   PLATFORM        target arch            (default linux/amd64 — right for most cloud hosts)
 #   VITE_API_URL    frontend API base URL, inlined at build time. Unset by default →
 #                   the value in frontend/.env.prod is used; set it to override that.
+#   VITE_COLLAB_URL frontend sync-server URL, inlined the same way (default /collab,
+#                   from .env.prod). Note an EMPTY value here means "don't override",
+#                   not "ship without collaboration" — to build an image that never
+#                   talks to the realtime service, blank it in frontend/.env.prod.
 #   BUILD_MODE      Vite build mode → picks frontend/.env.<mode> (default prod)
 #   BACKEND_IMAGE   backend tag            (default product-hub-backend)
 #   FRONTEND_IMAGE  frontend tag           (default product-hub-frontend)
+#   REALTIME_IMAGE  sync server tag        (default product-hub-realtime)
 #   DIGEST_FILE     optional path; when set, each image's pinnable
 #                   "<name>\t<ref>@sha256:…" line is written here as well as printed
 #   REGISTRY_USER / REGISTRY_PASSWORD   if both set, the script `docker login`s first
@@ -45,13 +53,16 @@ REGISTRY="${REGISTRY:-}"
 PUSH="${PUSH:-1}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 VITE_API_URL="${VITE_API_URL:-}"          # empty → use frontend/.env.prod
+VITE_COLLAB_URL="${VITE_COLLAB_URL:-}"    # empty → use frontend/.env.prod (/collab)
 BUILD_MODE="${BUILD_MODE:-prod}"          # Vite mode → frontend/.env.<mode>
 BACKEND_IMAGE="${BACKEND_IMAGE:-product-hub-backend}"
 FRONTEND_IMAGE="${FRONTEND_IMAGE:-product-hub-frontend}"
+REALTIME_IMAGE="${REALTIME_IMAGE:-product-hub-realtime}"
 DIGEST_FILE="${DIGEST_FILE:-}"          # optional file to also write pinnable ref@digest lines to
 TARGET="${1:-all}"
 
 DIGESTS=()   # "name|ref|sha256:…" per built image → summary + optional DIGEST_FILE
+BUILT=()     # "name|ref" per image built, in order → drives the pushed/built summary
 METAS=()     # buildx --metadata-file temp files, removed on exit
 
 BLUE='\033[0;34m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; RED='\033[0;31m'; NC='\033[0m'
@@ -84,7 +95,7 @@ image_digest() {
 
 # ── Validate ──────────────────────────────────────────────────────────────
 [ -n "$REGISTRY" ] || die "REGISTRY is required — e.g. REGISTRY=myacr.azurecr.io ./build-and-push.sh"
-case "$TARGET" in all|backend|frontend) ;; *) die "unknown target '$TARGET' — use: all | backend | frontend" ;; esac
+case "$TARGET" in all|backend|frontend|realtime) ;; *) die "unknown target '$TARGET' — use: all | backend | frontend | realtime" ;; esac
 command -v docker >/dev/null 2>&1 || die "docker not found on PATH"
 docker buildx version >/dev/null 2>&1 || die "docker buildx is required (it ships with modern Docker/OrbStack)"
 REGISTRY="${REGISTRY%/}"   # trim any trailing slash
@@ -114,6 +125,7 @@ build() {
   args+=( "$context" )
   log "building $ref  ($PLATFORM$([ "$PUSH" = 1 ] && echo ', push'))"
   docker "${args[@]}"
+  BUILT+=( "$name|$ref" )
 
   # Capture the sha256 buildx just computed. It's the same digest the registry
   # stores, so "$ref@$digest" is an immutable handle on this exact build.
@@ -134,20 +146,31 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "backend" ]; then
   build "$BACKEND_IMAGE" "$ROOT/backend"
 fi
 if [ "$TARGET" = "all" ] || [ "$TARGET" = "frontend" ]; then
-  # BUILD_MODE picks the .env file; VITE_API_URL is passed only when set, so it
-  # overrides .env.<mode> rather than blanking it out.
+  # BUILD_MODE picks the .env file; the two VITE_* overrides are passed only when
+  # set, so they override .env.<mode> rather than blanking it out.
   fe_args=( --build-arg "BUILD_MODE=$BUILD_MODE" )
-  [ -n "$VITE_API_URL" ] && fe_args+=( --build-arg "VITE_API_URL=$VITE_API_URL" )
+  [ -n "$VITE_API_URL" ]    && fe_args+=( --build-arg "VITE_API_URL=$VITE_API_URL" )
+  [ -n "$VITE_COLLAB_URL" ] && fe_args+=( --build-arg "VITE_COLLAB_URL=$VITE_COLLAB_URL" )
   build "$FRONTEND_IMAGE" "$ROOT/frontend" "${fe_args[@]}"
+fi
+if [ "$TARGET" = "all" ] || [ "$TARGET" = "realtime" ]; then
+  # The Yjs sync server. Nothing is baked in: it reads MONGODB_URI, JWT_SECRET,
+  # PORT and ALLOWED_ORIGINS from the environment at start-up, so one image is
+  # good for every environment — unlike the frontend, whose config Vite inlines.
+  build "$REALTIME_IMAGE" "$ROOT/collab"
 fi
 
 if [ "$PUSH" = "1" ]; then
   printf "\n${GREEN}✔ pushed to %s${NC}\n" "$REGISTRY"
-  [ "$TARGET" != "frontend" ] && printf "  %s:%s\n" "$REGISTRY" "$BACKEND_IMAGE"
-  [ "$TARGET" != "backend"  ] && printf "  %s:%s\n" "$REGISTRY" "$FRONTEND_IMAGE"
 else
   printf "\n${GREEN}✔ built locally${NC} (PUSH=0 — nothing pushed)\n"
 fi
+# Listed from what was actually built rather than re-derived from $TARGET: the
+# old "which one did we skip" tests only worked while there were exactly two
+# images, and silently claimed a third had been pushed when it had not.
+for entry in ${BUILT+"${BUILT[@]}"}; do
+  printf "  %s\n" "${entry#*|}"
+done
 
 # ── Digests ────────────────────────────────────────────────────────────────
 # Pin deployments to REF@sha256:… (an immutable handle on this exact build)

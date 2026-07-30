@@ -16,6 +16,7 @@ export type IconName =
   | 'chevron-left'
   | 'chevron-right'
   | 'menu'
+  | 'more'
   | 'logout'
   | 'checks'
   | 'close'
@@ -161,6 +162,16 @@ const PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   close: <path d="M18 6L6 18M6 6l12 12" />,
+  /* "More" — the nav rail's everything-else stop. A 3×3 grid, drawn as filled
+     dots rather than stroked circles: at 20px a 2px stroke on a 3px circle fills
+     it in anyway, and nine of those read as a smudge. */
+  more: (
+    <g fill="currentColor" stroke="none">
+      {[5, 12, 19].flatMap((cy) =>
+        [5, 12, 19].map((cx) => <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="1.7" />),
+      )}
+    </g>
+  ),
   code: <path d="M16 18l6-6-6-6M8 6l-6 6 6 6" />,
   flask: (
     <>

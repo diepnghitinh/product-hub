@@ -257,6 +257,67 @@
   }
 }
 
+/* "Add a line above this one" — the strip that appears over a block with nothing
+   to type into: an image, a divider, a diagram (lib/editor/insertLine).
+
+   Not scoped to `.rich-text-editor`: like the `/` menu it lives on `document.body`
+   (a node inside a block would be saved as that block's content, and
+   `.report-workspace` would repaint its tokens), and it is positioned `fixed`
+   against the block's own box. Same language as the resize handles — a transparent
+   hit strip showing an accent line only while it's wanted. */
+.rte-insert-line {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  /* Present but quiet: the pointer is usually over the picture rather than over
+     the strip, so it has to be visible without being part of the document. */
+  opacity: 0.75;
+  transition: opacity 0.12s ease;
+}
+.rte-insert-line:hover,
+.rte-insert-line:focus-visible {
+  opacity: 1;
+  outline: none;
+}
+.rte-insert-line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--rte-accent);
+}
+.rte-insert-line__plus {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--rte-accent);
+  color: hsl(var(--primary-foreground));
+}
+.rte-insert-line__plus svg {
+  width: 11px;
+  height: 11px;
+}
+@media (pointer: coarse) {
+  .rte-insert-line {
+    height: 26px;
+    opacity: 1;
+  }
+}
+
 /* Editor.js popovers/toolbars follow the app surface tokens. */
 .rich-text-editor .ce-popover,
 .rich-text-editor .ce-toolbar__settings-btn,
@@ -761,6 +822,12 @@ figure.mermaid-block[data-mermaid-error='true'] .mermaid-render {
   padding-left: 1.1em;
   list-style: disc;
 }
+/* The same class on an `<ol>` — a cell's numbered list (`/numbered`, or `1.` and
+   a space) is the ordered version of the same thing, and would otherwise draw
+   discs. */
+ol.rte-list {
+  list-style: decimal;
+}
 .rte-check {
   margin: 0.2em 0;
   padding-left: 1.4em;
@@ -931,4 +998,28 @@ figure.mermaid-block[data-mermaid-error='true'] .mermaid-render {
   content: attr(data-placeholder);
   color: hsl(var(--muted-foreground));
   pointer-events: none;
+}
+
+/* ── Collaborators' name flags ──────────────────────────────────────────────
+   The flag on somebody else's caret. It shows while they are moving or typing
+   and then stands down, because three names parked over one sentence is worse
+   than no names at all — the caret keeps their colour, and the presence row
+   rings each face in the same one, so who-is-who survives the fade.
+   Restarted by remounting: the flag is keyed by where its owner is. */
+.collab-flag {
+  animation: collab-flag-fade 2.6s ease-in forwards;
+}
+@keyframes collab-flag-fade {
+  0%,
+  62% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .collab-flag {
+    animation-duration: 0.01s;
+  }
 }

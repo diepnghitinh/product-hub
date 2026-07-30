@@ -36,6 +36,14 @@ export const ko: Record<I18nKey, string> = {
   'nav.create': '새로 만들기',
   'nav.newTeam': '새 스페이스',
 
+  // 사이드바 1단계 — 아이콘 레일. 60px 열의 20px 글리프 아래 놓이므로 짧게.
+  'nav.areas': '영역',
+  'navarea.home': '홈',
+  'navarea.discovery': '디스커버리',
+  'navarea.delivery': '딜리버리',
+  'navarea.quality': '품질',
+  'navarea.more': '더보기',
+
   'theme.toggle': '라이트 / 다크 전환',
   'theme.light': '라이트',
   'theme.dark': '다크',
@@ -426,6 +434,11 @@ export const ko: Record<I18nKey, string> = {
   'docs.saving': '저장 중…',
   'docs.saved': '저장됨',
   'docs.unsaved': '저장되지 않은 변경',
+  'docs.collab.connecting': '연결 중…',
+  'docs.collab.offline': '다시 연결 중…',
+  'docs.collab.editing': '접속 중',
+  'docs.collab.live': '실시간',
+  'docs.collab.liveHint': '변경 사항은 자동으로 저장되며 입력하는 즉시 모두에게 보입니다.',
   'docs.collapseRail': '페이지 숨기기',
   'docs.expandRail': '페이지 보기',
   'docs.pagesLabel': '페이지',
@@ -825,6 +838,12 @@ export const ko: Record<I18nKey, string> = {
   // Language — the locale switch. Saved in this browser, not on the account.
   'profile.language': '언어',
   'profile.languageHint': '이 브라우저에만 적용됩니다. 전환하면 페이지가 새로고침됩니다.',
+  // Side menu — which of the two navigation shapes this browser draws.
+  'profile.sideMenu': '사이드 메뉴',
+  'profile.sideMenuHint':
+    '새 메뉴는 레일에서 영역을 골라 이동합니다. 기본 메뉴는 모든 섹션을 한 열에 쌓아 보여줍니다. 이 브라우저에만 적용됩니다.',
+  'navstyle.twoLevel': '새 메뉴',
+  'navstyle.classic': '기본',
 
   'settings.title': '설정',
   'settings.subtitle': '워크스페이스, 연동, 알림을 설정하세요.',
@@ -1270,6 +1289,7 @@ export const ko: Record<I18nKey, string> = {
   'editor.toggleBodyPlaceholder': '열면 보이는 내용',
   'editor.selectImage': '이미지 선택',
   'editor.selectVideo': '동영상 선택',
+  'editor.insertLineAbove': '위에 줄 추가',
   'editor.uploading': '업로드 중…',
   'editor.uploadFailed': '업로드 실패 — 클릭해서 다시 시도',
   'editor.resizeImage': '이미지 크기 조절',
@@ -1281,6 +1301,8 @@ export const ko: Record<I18nKey, string> = {
   'editor.resizeRow': '드래그해서 행 높이 조절',
   'editor.diagramSource': '머메이드 다이어그램 소스',
   'editor.diagramFailed': '다이어그램을 그릴 수 없습니다',
+  'editor.diagramDrawing': '그리는 중…',
+  'editor.diagramHint': '입력하는 대로 그려지는 플로차트·시퀀스 다이어그램',
   'editor.enterCode': '코드를 입력하세요',
   'editor.strikethrough': '취소선',
   'editor.tableFitWidth': '너비에 맞추기',

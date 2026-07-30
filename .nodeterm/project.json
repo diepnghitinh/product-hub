@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "rev": 507,
-  "savedAt": "2026-07-30T01:32:01.290Z",
+  "rev": 512,
+  "savedAt": "2026-07-30T11:59:51.288Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 1128.630973107621,
-    "y": 2410.5805375650593,
+    "x": 640.630973107621,
+    "y": 2429.582368619747,
     "zoom": 0.968709487914002
   },
   "nodes": [
@@ -27,25 +27,7 @@
       "color": "#d97757",
       "group": null,
       "tags": [],
-      "cwd": ".",
-      "agentId": "claude"
-    },
-    {
-      "id": "term-ms6u8b2m-2",
-      "kind": "terminal",
-      "position": {
-        "x": -913.838287460244,
-        "y": -2224.942010002487
-      },
-      "size": {
-        "width": 600,
-        "height": 400
-      },
-      "title": "Claude Code",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
+      "collapsed": false,
       "cwd": ".",
       "agentId": "claude"
     }

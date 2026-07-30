@@ -22,6 +22,10 @@ ARG BUILD_MODE=prod
 # letting it win over .env files — which would blank the value and fall back to
 # localhost. So when no override is given we must `unset` it, not merely skip export.
 ARG VITE_API_URL=""
+# Same escape hatch for the collaboration server. Unlike the API this one has no
+# guard, because empty is a valid answer: it means "ship without collaborative doc
+# editing", and the app falls back to the single-writer editor (src/lib/env.ts).
+ARG VITE_COLLAB_URL=""
 # Guard: fail loudly if there is neither an env file nor an explicit override, so a
 # prod image can never silently ship the localhost dev fallback (src/lib/env.ts).
 RUN set -e; \
@@ -34,6 +38,11 @@ RUN set -e; \
         echo "Fix: create frontend/.env.$BUILD_MODE (copy .env.prod.example), or pass --build-arg VITE_API_URL=..." >&2; \
         exit 1; \
       fi; \
+    fi; \
+    if [ -n "$VITE_COLLAB_URL" ]; then \
+      export VITE_COLLAB_URL="$VITE_COLLAB_URL"; \
+    else \
+      unset VITE_COLLAB_URL; \
     fi; \
     npm run build -- --mode "$BUILD_MODE"
 

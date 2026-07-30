@@ -45,6 +45,11 @@ cursor
 .env.prod
 .env
 
+# Deployment env files for docker stack deploy (./env/*.env beside the stack
+# file). These hold real credentials and, unlike the files above, their names do
+# NOT match the .env* rules — nothing else here would have stopped a commit.
+/env/
+
 # Debug
 /3rd
 

@@ -75,6 +75,40 @@ services:
       retries: 5
       start_period: 25s
 
+  # ── Collab (Yjs sync server for collaborative doc editing) ───────────────
+  collab:
+    build:
+      context: ./collab
+    image: product-hub-collab:local
+    container_name: producthub-collab
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: '3002'
+      # Same database as the api: this service reads doc pages and mirrors the
+      # rendered HTML back into them.
+      MONGODB_URI: mongodb://${MONGO_USER:-producthub}:${MONGO_PASSWORD:-producthub}@db:27017/${MONGO_DB:-producthub}?authSource=admin
+      # MUST match the api's secret — editors authenticate here with the very
+      # same access token they use for REST calls.
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      # Only the /presence read is subject to CORS; WebSockets are not.
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080}
+    ports:
+      - '3002:3002' # exposed for debugging; the app reaches it through nginx
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
   # ── Web (Vite SPA served by nginx) ───────────────────────────────────────
   web:
     build:
@@ -82,11 +116,21 @@ services:
       args:
         # Baked at build time. /v1 = same origin; nginx proxies it to the api.
         VITE_API_URL: '/v1'
+        # Collaborative doc editing, through nginx's /collab proxy (upgrade
+        # header included). The editor is the same Editor.js one an issue's
+        # description uses either way; this is what makes a doc page *shared*.
+        # Set it to '' to build an image that never talks to the collab service.
+        VITE_COLLAB_URL: '/collab'
     image: product-hub-frontend:local
     container_name: producthub-web
     restart: unless-stopped
     depends_on:
       api:
+        condition: service_healthy
+      # nginx resolves proxy_pass upstreams when it loads its config, so the
+      # collab name has to exist before web starts or nginx exits with
+      # "host not found in upstream".
+      collab:
         condition: service_healthy
     ports:
       - '${WEB_PORT:-8080}:80'

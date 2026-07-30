@@ -23,6 +23,7 @@
 import Table from '@editorjs/table';
 import type { API, BlockAPI, SanitizerConfig } from '@editorjs/editorjs';
 import { t } from '@/i18n';
+import { bindCellKeys } from './inputRules';
 import { SlashMenu, type SlashMenuConfig } from './SlashMenu';
 import { INLINE_SANITIZE } from './sanitize';
 
@@ -532,9 +533,10 @@ export class ResizableTableTool extends Table {
   // ── What a cell can hold ───────────────────────────────────────────────────
 
   /**
-   * The `/` menu, plus the one thing it inserts that stays interactive: a
-   * checklist item. Both are wired to the wrapper rather than to each cell, so
-   * they survive every add/delete row and column without re-attaching.
+   * The `/` menu, the keys that make lines and lists inside a cell, and the one
+   * thing the menu inserts that stays interactive: a checklist item. All wired to
+   * the wrapper rather than to each cell, so they survive every add/delete row and
+   * column without re-attaching.
    */
   private wireCellTools() {
     const wrap = this.wrapEl;
@@ -542,6 +544,14 @@ export class ResizableTableTool extends Table {
     this.slash?.bind(wrap);
     if ((wrap as { __rteCells?: boolean }).__rteCells) return;
     (wrap as { __rteCells?: boolean }).__rteCells = true;
+
+    // Enter breaks the line instead of adding a row, `*`+space starts a list, and
+    // Backspace can get back out of one. Bound after the `/` menu, so a menu that
+    // is open still owns Enter.
+    bindCellKeys(wrap, {
+      onChange: () => this.changed(),
+      addRowBelow: () => this.addRowBelowCaret(),
+    });
 
     // Click the box, not the text: a checklist item is an ordinary editable line,
     // so only the marker strip toggles it — measured off the item's own left edge
@@ -552,6 +562,23 @@ export class ResizableTableTool extends Table {
       li.dataset.checked = li.dataset.checked === 'true' ? 'false' : 'true';
       this.changed();
     });
+  }
+
+  /**
+   * A row under the caret's own — what ⌘/Ctrl+Enter does now that plain Enter
+   * belongs to the line. Goes through the patched `addRow`, so the stored row
+   * heights follow the insert.
+   */
+  private addRowBelowCaret() {
+    const node = window.getSelection()?.anchorNode;
+    const el = node?.nodeType === Node.ELEMENT_NODE ? (node as HTMLElement) : node?.parentElement;
+    const row = el?.closest<HTMLElement>('.tc-row') ?? null;
+    const index = row ? this.rows().indexOf(row) : -1;
+    // Stock indices are 1-based and insert *before*, so "after row `index`" is
+    // `index + 2` — and out of range, which is what a caret we couldn't place
+    // gives, appends.
+    this.internals?.addRow(index >= 0 ? index + 2 : undefined, true);
+    this.changed();
   }
 
   // ── Keeping sizes aligned when the table's shape changes ───────────────────

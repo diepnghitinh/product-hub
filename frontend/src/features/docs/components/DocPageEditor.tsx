@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Check, History, Link2, Loader2, Paintbrush, X } from 'lucide-react';
 import { Button, Drawer, RichText, RichTextEditor, SymbolPicker } from '@/components/ui';
 import { MediaUploader } from '@/components/MediaUploader';
+import { ProseSkeleton } from '@/components/Skeletons';
 import { TeamSymbol, TEAM_SYMBOL_NAMES } from '@/components/TeamSymbol';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
@@ -12,6 +13,10 @@ import { contentRoot, describeRange, type TextAnchor } from '@/lib/textAnchor';
 import { DocLinkKind, IssueKind, TEAM_COLORS } from '@/types/enums';
 import type { DocAttachment, DocLink, DocPageDto } from '@/types/dto';
 import { useDoc, useDocComments, useUpdateDocPage } from '../api';
+import { CollabDocEditor } from '../collab/CollabDocEditor';
+import { CollabLive, CollabPresence } from '../collab/CollabPresence';
+import { resetCollabDoc } from '../collab/resetCollabDoc';
+import { useCollabSession } from '../collab/useCollabSession';
 import { pageStyleOf, typographyAttrs, widthClass, type DocPageStyle } from '../pageStyle';
 import { DocAttachments } from './DocAttachments';
 import { DocComments } from './DocComments';
@@ -103,10 +108,36 @@ export function DocPageEditor({
    */
   const [seed, setSeed] = useState({ nonce: 0, html: page.content });
 
-  // ── Comments ──────────────────────────────────────────────────────────────
-  // Every signed-in role except Guest, mirroring the backend's @Roles on these
-  // routes — a developer can't edit a doc's body but can absolutely argue with it.
-  const { canEditDelivery: canComment } = useAuth();
+  // Every signed-in role except Guest may comment, mirroring the backend's
+  // @Roles on those routes — a developer can't edit a doc's body but can
+  // absolutely argue with it.
+  const { user, canEditDelivery: canComment } = useAuth();
+
+  // ── Live collaboration ────────────────────────────────────────────────────
+  /**
+   * When there's a sync server, the body is a CRDT and this page stops saving it.
+   *
+   * `useCollabSession` returns null when `VITE_COLLAB_URL` is unset, which is the
+   * whole feature flag — no build depends on the service existing, and with it
+   * off every line below behaves exactly as it did before. Only writers connect:
+   * a reader is served the same static render as the public share view, so a
+   * socket would buy them nothing but a socket.
+   */
+  const collab = useCollabSession({
+    tenantId: user?.tenantId,
+    pageId: page.id,
+    user: user ? { id: user.id, name: user.name, avatarUrl: user.avatarUrl } : null,
+    enabled: canWrite,
+  });
+  /**
+   * Wait for the first sync before showing the editor.
+   *
+   * Not politeness — correctness. BlockNote binds to the fragment immediately,
+   * and an empty fragment is a legitimate document: mounting before the server's
+   * state arrives shows a blank page for a moment, and any keystroke in that
+   * moment is an edit to an empty document that then merges with the real one.
+   */
+  const collabReady = !!collab && collab.synced;
   const { data: comments } = useDocComments(page.docId, page.id);
   /** The box the highlights are measured and painted in. */
   const [box, setBox] = useState<HTMLDivElement | null>(null);
@@ -495,6 +526,19 @@ export function DocPageEditor({
                 .replace('{when}', timeAgo(page.updatedAt))}
             </span>
           )}
+          {/* Who's here now, in the row that already answers "who touched this"
+              — the same question asked in the present tense. */}
+          {collab && (
+            <CollabPresence peers={collab.peers} status={collab.status} />
+          )}
+          {/* With a CRDT there is no save to report: the body is saved the
+              instant it is typed, and a "Saving…" that never appears would just
+              be a widget nobody can interpret. Title and page styles still go
+              over REST, so the indicator stays for those — it simply has less to
+              say than it used to, which is why "Live" stands in beside it and
+              says the reassuring part instead. Writers only: a reader has no
+              work in flight to reassure them about. */}
+          {collab && canWrite && <CollabLive status={collab.status} />}
           <SaveStatus status={status} />
           {/* Sits with the byline because that's where "when did this change"
               already lives — history is the long answer to the same question. */}
@@ -571,12 +615,34 @@ export function DocPageEditor({
         <div ref={setBox} className="relative mt-4">
           <DocCommentLayer layout={layout} activeId={activeComment} hiddenIds={resolvedIds} />
           <div ref={setContent} className="relative z-[1]" onClick={pickThread}>
-            {canWrite ? (
+            {collab ? (
+              /* The collaborative body. Note what's missing: no `value`, and no
+                 `onChange` that queues a save. That absence *is* the feature —
+                 the Y.Doc is the document, and the sync server renders it back
+                 into `content` on its own debounce. Two people can type in the
+                 same paragraph because nobody is PATCHing an HTML string over
+                 the top of anybody else. Everything else on this page (title,
+                 icon, links, files, styles) still saves over REST exactly as
+                 before; only the body moved. */
+              collabReady ? (
+                <CollabDocEditor
+                  session={collab}
+                  onComment={canComment ? commentOnRange : undefined}
+                />
+              ) : (
+                <ProseSkeleton />
+              )
+            ) : canWrite ? (
               <RichTextEditor
                 key={seed.nonce}
                 value={seed.html}
                 images
                 diagrams
+                // `@` names a person in the page itself, the way it already does
+                // in a task or a comment. The chip is a reference, not a ping:
+                // notifications come from the comment thread, which is where a
+                // question actually gets asked.
+                mentions
                 minHeight={360}
                 placeholder={t('docs.write')}
                 onChange={(html) => queue({ content: html })}
@@ -620,7 +686,16 @@ export function DocPageEditor({
           if (timer.current) clearTimeout(timer.current);
           setStatus('idle');
           setTitle(restored.title);
-          setSeed((s) => ({ nonce: s.nonce + 1, html: restored.content }));
+          if (collab) {
+            // A remount would show the restored text to *this* window only, and
+            // the next keystroke would mirror the old body back over it. Asking
+            // the sync server to re-read the page applies it to the shared
+            // document instead, so it lands on every open copy at once — nothing
+            // to seed here, and no key to bump.
+            void resetCollabDoc(page.id);
+          } else {
+            setSeed((s) => ({ nonce: s.nonce + 1, html: restored.content }));
+          }
         }}
       />
 

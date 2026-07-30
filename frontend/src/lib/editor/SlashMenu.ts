@@ -33,6 +33,9 @@ import type EditorJS from '@editorjs/editorjs';
 import { toast } from 'sonner';
 import { t } from '@/i18n';
 import { formatDate, initials } from '@/lib/format';
+// What a list is, in both shapes — shared with the `*`/`1.`/`[]` shortcuts so a
+// bullet made from the menu and one typed by hand are the same markup.
+import { cellListHtml, listBlockData, trimSeedPad } from './listMarkup';
 // One upload path for the whole editor: storage when it's configured, an inline
 // compressed data URL when it isn't.
 import { toUrl } from './ResizableImageTool';
@@ -389,36 +392,25 @@ export class SlashMenu {
         label: t('editor.slashBullet'),
         keywords: 'bullet ul list 목록',
         icon: ICONS.bullet,
-        run: () => this.insert('<ul class="rte-list"><li>&nbsp;</li></ul>', 'inside'),
+        run: () => this.insert(cellListHtml('unordered'), 'inside'),
+      },
+      {
+        key: 'numbered',
+        label: t('editor.slashNumbered'),
+        keywords: 'numbered ol ordered list 번호',
+        icon: ICONS.numbered,
+        run: () => this.insert(cellListHtml('ordered'), 'inside'),
       },
       {
         key: 'checklist',
         label: t('editor.slashChecklist'),
         keywords: 'checklist todo task check 체크',
         icon: ICONS.check,
-        run: () =>
-          this.insert('<ul class="rte-check"><li data-checked="false">&nbsp;</li></ul>', 'inside'),
+        run: () => this.insert(cellListHtml('checklist'), 'inside'),
       },
       ...this.inlineItems(),
     ];
     return items;
-  }
-
-  /**
-   * A list block's data, seeded with the one empty row the author is about to
-   * type into.
-   *
-   * Not cosmetic: `@editorjs/list` v2 recognises the legacy checklist format by
-   * reading `'text' in data.items[0]`, so an empty `items` array reads a
-   * property of `undefined` and the whole insert throws before the block is
-   * built — `/bullet` did nothing at all.
-   */
-  private static listData(style: 'unordered' | 'ordered' | 'checklist') {
-    return {
-      style,
-      meta: {},
-      items: [{ content: '', meta: style === 'checklist' ? { checked: false } : {}, items: [] }],
-    };
   }
 
   /**
@@ -458,21 +450,21 @@ export class SlashMenu {
         label: t('editor.slashBullet'),
         keywords: 'bullet ul list unordered 목록',
         icon: ICONS.bullet,
-        run: () => this.insertBlock('list', SlashMenu.listData('unordered')),
+        run: () => this.insertBlock('list', listBlockData('unordered')),
       },
       {
         key: 'numbered',
         label: t('editor.slashNumbered'),
         keywords: 'numbered ol ordered list 번호',
         icon: ICONS.numbered,
-        run: () => this.insertBlock('list', SlashMenu.listData('ordered')),
+        run: () => this.insertBlock('list', listBlockData('ordered')),
       },
       {
         key: 'checklist',
         label: t('editor.slashChecklist'),
         keywords: 'checklist todo task check 체크',
         icon: ICONS.check,
-        run: () => this.insertBlock('list', SlashMenu.listData('checklist')),
+        run: () => this.insertBlock('list', listBlockData('checklist')),
       },
     );
     if (full) {
@@ -786,11 +778,11 @@ export class SlashMenu {
     if (target) {
       // *After* the `&nbsp;` the item was seeded with. Chrome reads the start of
       // an element as a position before it and would type outside an inline
-      // `<code>`; the end is unambiguously inside. `trimPad` then drops the
+      // `<code>`; the end is unambiguously inside. `trimSeedPad` then drops the
       // padding as soon as there's real text, so nothing is indented by a space.
       next.selectNodeContents(target);
       next.collapse(false);
-      this.trimPad(target);
+      trimSeedPad(host, target);
     } else if (last) {
       next.setStartAfter(last);
       next.collapse(true);
@@ -850,27 +842,6 @@ export class SlashMenu {
       this.busy = false;
       this.config.onChange?.();
     }, 0);
-  }
-
-  /**
-   * A list item and a code chip are seeded with one `&nbsp;` so the caret has
-   * something to hold on to — an empty element loses it. Drop that space once the
-   * user has typed real text, so the line is saved as `<li>Ship it</li>` and not
-   * `<li>Ship it&nbsp;</li>`. Fires at most once, and only if the padding is
-   * still the first thing in the element.
-   */
-  private trimPad(el: HTMLElement) {
-    const host = this.host;
-    if (!host) return;
-    const onInput = () => {
-      const text = el.firstChild as Text | null;
-      if (!el.isConnected) return host.removeEventListener('input', onInput);
-      if (text?.nodeType !== Node.TEXT_NODE || !text.data.startsWith('\u00a0')) return;
-      if (text.data.length < 2) return; // still empty — the caret needs it
-      text.deleteData(0, 1);
-      host.removeEventListener('input', onInput);
-    };
-    host.addEventListener('input', onInput);
   }
 
   // ── Keys ───────────────────────────────────────────────────────────────────

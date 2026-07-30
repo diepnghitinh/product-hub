@@ -1,6 +1,13 @@
 export { AppLayout } from './AppLayout';
 export { Sidebar } from './sidebar/Sidebar';
-export { NAV_GROUPS, findNavItem, type NavItem, type NavGroup } from './sidebar/menuConfig';
+export {
+  NAV_AREAS,
+  findAreaId,
+  findNavItem,
+  type NavItem,
+  type NavArea,
+  type NavSection,
+} from './sidebar/menuConfig';
 export { Topbar } from './headers/Topbar';
 export { PageHeader } from './headers/PageHeader';
 export { PageChromeContext, usePageChrome, type PageChromeSlots } from './headers/PageChrome';

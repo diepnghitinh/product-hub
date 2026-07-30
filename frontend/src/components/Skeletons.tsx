@@ -219,6 +219,32 @@ export function TableSkeleton({ rows = 6, cols = 4 }: { rows?: number; cols?: nu
  * block — beside a fixed 260px properties column that drops below on mobile.
  * Drop it into the same content slot the real detail fills.
  */
+/**
+ * A page of prose mid-load — paragraphs of uneven line lengths broken by a
+ * heading. For a doc page waiting on its first sync from the collaboration
+ * server: it holds the column's width and rhythm so the real text lands where
+ * the grey lines were instead of pushing the page down.
+ *
+ * Deliberately ragged and fixed (not random), so it reads as writing rather than
+ * a grid, and doesn't reshuffle on every render.
+ */
+const PROSE_LINES = ['100%', '96%', '88%', '', '92%', '100%', '78%', '', '100%', '84%'];
+
+export function ProseSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 py-1" aria-hidden>
+      {PROSE_LINES.map((width, i) =>
+        // An empty entry is a paragraph break — a taller gap, no line.
+        width ? (
+          <Skeleton key={i} className="h-4" style={{ width }} />
+        ) : (
+          <Skeleton key={i} className="mt-3 h-5 w-40" />
+        ),
+      )}
+    </div>
+  );
+}
+
 export function DetailSkeleton() {
   return (
     <div className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_260px]">

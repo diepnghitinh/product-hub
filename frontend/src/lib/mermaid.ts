@@ -10,10 +10,17 @@ type MermaidApi = {
 
 let loader: Promise<MermaidApi> | null = null;
 
-/** The current app theme, so a diagram isn't black-on-black in dark mode. */
+/**
+ * The current app theme, so a diagram isn't black-on-black in dark mode.
+ *
+ * Read off `data-theme`, which is where `ThemeProvider` puts it and what
+ * `tailwind.config.cjs` binds the `dark:` variant to. There is no `.dark` class
+ * on this app's `<html>` — looking for one is how every diagram ended up drawn
+ * in the light palette, including on a dark page.
+ */
 function currentTheme(): 'dark' | 'default' {
   return typeof document !== 'undefined' &&
-    document.documentElement.classList.contains('dark')
+    document.documentElement.dataset['theme'] === 'dark'
     ? 'dark'
     : 'default';
 }

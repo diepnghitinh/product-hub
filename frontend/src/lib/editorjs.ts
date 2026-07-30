@@ -200,6 +200,47 @@ function parseListItems(listEl: Element, checklist: boolean): ListItem[] {
 }
 
 /**
+ * Hang an indent off the line above it, in place.
+ *
+ * Google Docs and Word write a nested list inside an `<li>` of its own with no
+ * text on it. That empty item still draws a marker, and since it has no text the
+ * marker shares its line with the child's — which is the `• ◦` a pasted outline
+ * ends up reading as. There was never a line there: the indent belongs to the
+ * item above it, so that is where it goes, and if there is nothing above it the
+ * indent collapses into its own level rather than inventing a bullet to hang off.
+ *
+ * Run on the way into the editor and on the way into a read view, so a document
+ * that was pasted like this reads properly before anyone re-saves it.
+ */
+export function foldListIndents(root: Element) {
+  root.querySelectorAll('li').forEach((li) => {
+    const nested = Array.from(li.children).filter(isListTag);
+    if (!nested.length) return;
+    const clone = li.cloneNode(true) as Element;
+    Array.from(clone.children)
+      .filter(isListTag)
+      .forEach((c) => clone.removeChild(c));
+    // Text, a picture, anything of its own — then it is an ordinary parent item
+    // and the nesting under it is exactly what it looks like.
+    if ((clone.textContent ?? '').replace(/\u00a0/g, '').trim() || clone.querySelector('img')) {
+      return;
+    }
+    const previous = li.previousElementSibling;
+    if (previous?.tagName === 'LI') {
+      nested.forEach((list) => previous.appendChild(list));
+      li.remove();
+      return;
+    }
+    const parent = li.parentNode;
+    if (!parent) return;
+    nested.forEach((list) => {
+      while (list.firstElementChild) parent.insertBefore(list.firstElementChild, li);
+    });
+    li.remove();
+  });
+}
+
+/**
  * The URL of the first embedded image in a rich-text HTML value (`''` when there
  * is none). Used to derive a roadmap item's cover from its description — the
  * first picture in the write-up becomes the card cover. SSR-safe: falls back to
@@ -223,7 +264,10 @@ export function firstImageUrl(html: string): string {
 export function mentionIdsFromHtml(html: string): string[] {
   if (!html) return [];
   if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
-    return [...new Set([...html.matchAll(/data-user-id=["']([^"']+)["']/g)].map((m) => m[1]))];
+    const matched = [...html.matchAll(/data-user-id=["']([^"']+)["']/g)]
+      .map((m) => m[1] ?? '')
+      .filter(Boolean);
+    return [...new Set(matched)];
   }
   const doc = new DOMParser().parseFromString(`<!doctype html><body>${html}`, 'text/html');
   const ids = [...doc.querySelectorAll('[data-user-id]')]
@@ -268,6 +312,64 @@ export function isRichHtml(value: string): boolean {
   return RICH_TAG.test(value) || HTML_ENTITY.test(value);
 }
 
+/**
+ * Turn pasted non-breaking spaces back into ordinary ones, in place.
+ *
+ * Word processors join words with `&nbsp;` — Google Docs does it throughout — and
+ * to the browser a phrase held together by them is a single unbreakable word: it
+ * overflows its container or gets chopped mid-word instead of wrapping, which is
+ * how a pasted sentence in a narrow table cell ended up broken across
+ * `experie/nce`. Runs over the live DOM after a paste and over stored HTML on the
+ * way in, so a document that was already saved that way heals when it reloads.
+ *
+ * A leading one on a text node is left alone: that is the caret seed a fresh list
+ * item or chip is holding on to (see `trimSeedPad`), and an ordinary space there
+ * collapses to nothing. Code keeps every space it was given.
+ */
+export function normalizeSpaces(root: Element): boolean {
+  const doc = root.ownerDocument;
+  if (!doc || typeof NodeFilter === 'undefined') return false;
+  const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) =>
+      node.parentElement?.closest('pre, code, textarea')
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT,
+  });
+  const texts: Text[] = [];
+  while (walker.nextNode()) texts.push(walker.currentNode as Text);
+
+  // The caret, as plain numbers. `replaceData` drags any live range that sits
+  // inside what it rewrites back to the start of it — and a range saved by
+  // cloning is live too, so the only safe snapshot is the node and the offset.
+  const sel = doc.defaultView?.getSelection?.() ?? null;
+  const caret =
+    sel && sel.rangeCount
+      ? { node: sel.getRangeAt(0).startContainer, offset: sel.getRangeAt(0).startOffset }
+      : null;
+
+  let changed = false;
+  for (const text of texts) {
+    if (!text.data.includes('\u00a0', 1)) continue;
+    text.replaceData(1, text.data.length - 1, text.data.slice(1).replace(/\u00a0/g, ' '));
+    changed = true;
+  }
+  // Every replacement is the same length as what it replaced, so the caret goes
+  // back exactly where it was.
+  if (changed && caret && sel && caret.node.isConnected) {
+    const range = doc.createRange();
+    try {
+      range.setStart(caret.node, caret.offset);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch {
+      // The paste replaced the node the caret was in — the browser has already put
+      // it somewhere sensible.
+    }
+  }
+  return changed;
+}
+
 export function htmlToBlocks(html: string): HtmlEditorBlock[] {
   if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
     return html ? [{ type: 'paragraph', data: { text: html } }] : [];
@@ -280,6 +382,11 @@ export function htmlToBlocks(html: string): HtmlEditorBlock[] {
   );
   const root = doc.getElementById('__root');
   if (!root) return [];
+  // Before anything is read off it: a document pasted out of a word processor
+  // gets its spaces and its indents fixed on the way into the editor, so opening
+  // it is the repair.
+  normalizeSpaces(root);
+  foldListIndents(root);
 
   const blocks: HtmlEditorBlock[] = [];
   let buffer = '';
@@ -563,7 +670,7 @@ function renderBlock(b: HtmlEditorBlock): string {
       return `<tr${style}>${cells.map(cell).join('')}</tr>`;
     };
     if (withHeadings) {
-      const [head, ...body] = rows;
+      const [head = [], ...body] = rows;
       const thead = `<thead>${renderRow(head, true, 0)}</thead>`;
       const tbody = body.length
         ? `<tbody>${body.map((r, i) => renderRow(r, false, i + 1)).join('')}</tbody>`
@@ -591,8 +698,9 @@ function renderBlock(b: HtmlEditorBlock): string {
 
 export function blocksToHtml(blocks: HtmlEditorBlock[]): string {
   if (blocks.length === 0) return '';
-  if (blocks.length === 1 && blocks[0].type === 'paragraph') {
-    return blocks[0].data.text ?? '';
-  }
+  // A single paragraph is stored as bare inline HTML — the shape every value
+  // written before the editor existed already has.
+  const only = blocks.length === 1 ? blocks[0] : undefined;
+  if (only?.type === 'paragraph') return only.data.text ?? '';
   return blocks.map(renderBlock).join('');
 }

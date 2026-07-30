@@ -204,6 +204,8 @@ export function NewBugPage() {
               placeholder={t('bugs.description')}
               minHeight={80}
               images
+              // `@` names a person here too — a reference in the text, not a ping.
+              mentions
               className="border-0"
             />
           </div>
