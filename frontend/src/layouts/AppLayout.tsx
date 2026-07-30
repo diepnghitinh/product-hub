@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useNavStyle } from '@/lib/navStyle';
 import { Sidebar } from '@/layouts/sidebar/Sidebar';
+import { ClassicSidebar } from '@/layouts/sidebar/ClassicSidebar';
 import { Topbar } from '@/layouts/headers/Topbar';
 import { PageChromeContext } from '@/layouts/headers/PageChrome';
 import { MainContent } from '@/layouts/content/MainContent';
@@ -16,8 +18,13 @@ import { PageTitleManager } from '@/layouts/head/PageTitleManager';
  * belong to the page, which picks one of `layouts/shared` — so adding a
  * full-page surface never means editing this file. (It used to match pathnames
  * here, which meant every new board had to be registered.)
+ *
+ * There are two side menus and the user picks one (Profile → Side menu). This is
+ * the only place that choice is read: both take the same two props and set their
+ * own width, so swapping them needs nothing else from the shell.
  */
 export function AppLayout() {
+  const { navStyle } = useNavStyle();
   const [mobileOpen, setMobileOpen] = useState(false);
   // Callback refs: the slots must exist before a page can portal into them, and
   // a plain ref wouldn't re-render to hand them down.
@@ -29,7 +36,11 @@ export function AppLayout() {
   return (
     <PageTitleManager>
       <div className="flex min-h-[100dvh] sm:h-[100dvh] sm:overflow-hidden">
-        <Sidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
+        {navStyle === 'classic' ? (
+          <ClassicSidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
+        ) : (
+          <Sidebar mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} />
+        )}
 
         {/* Dimmed backdrop behind the mobile drawer */}
         {mobileOpen && (

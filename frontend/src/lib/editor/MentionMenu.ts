@@ -1,11 +1,10 @@
-// The `@` picker for the block editor — type `@`, pick a person, get the same
-// `rte-mention` chip the table cell's `/` menu inserts, so a mention is one
-// thing across the product no matter where it was written.
+// The `@` picker for the editor — type `@`, pick a person, get the same
+// `rte-mention` chip the `/` menu inserts, so a mention is one thing across the
+// product no matter where it was written: any block, and any table cell.
 //
-// Its own class rather than another mode of `CellSlashMenu`: that menu anchors
-// on `.tc-cell` and is bound to a table's wrapper, so teaching it about blocks
-// would put a `/` menu into every editor in the app. This one only does
-// mentions, and is only bound when the editor is handed people to mention.
+// Its own class rather than another mode of `SlashMenu`: this one only does
+// mentions, on a trigger of its own, and is only bound when the editor is handed
+// people to mention.
 //
 // The popup is appended to `document.body`, for the reasons the slash menu
 // documents: a node inside a block is read back as block *content* and would be
@@ -91,15 +90,18 @@ export class MentionMenu {
     const node = sel?.anchorNode;
     if (!sel || !sel.isCollapsed || !node || node.nodeType !== Node.TEXT_NODE) return this.close();
     const parent = node.parentElement as HTMLElement | null;
-    // Table cells have their own `/` menu, which already offers mentions.
-    const block = parent?.closest<HTMLElement>('.ce-block');
-    if (!block || parent?.closest('.tc-cell')) return this.close();
+    // A table cell is a mention host like any other line. Its `/` menu does offer
+    // people, but nobody types `/` to mention someone — `@` is the gesture, and it
+    // used to do nothing at all inside a table.
+    const host =
+      parent?.closest<HTMLElement>('.tc-cell') ?? parent?.closest<HTMLElement>('.ce-block');
+    if (!host || parent?.closest('input, textarea')) return this.close();
 
     const before = (node.textContent ?? '').slice(0, sel.anchorOffset);
     const match = before.match(AT);
     if (!match) return this.close();
 
-    this.host = block;
+    this.host = host;
     this.anchorNode = node as Text;
     this.anchorStart = before.length - match[1].length - 1;
     this.query = match[1];

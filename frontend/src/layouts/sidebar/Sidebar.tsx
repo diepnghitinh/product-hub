@@ -1,9 +1,9 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronsLeft, ChevronsRight, MoreHorizontal, Plus, Star } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
-import { NAV_GROUPS } from '@/layouts/sidebar/menuConfig';
+import { findAreaId, NAV_AREAS } from '@/layouts/sidebar/menuConfig';
 import { t } from '@/i18n';
 import { useInbox } from '@/features/inbox/api';
 import { useFavourites } from '@/features/favourites/api';
@@ -13,17 +13,28 @@ import { ProfileMenu } from '@/layouts/sidebar/ProfileMenu';
 import {
   ACTION,
   FavouriteNavItem,
+  NAV_FOOTER_CELL,
   NavHeading,
   NavLeafItem,
   NavParentItem,
+  RailButton,
   ROW,
   SidebarCreateMenu,
   TeamNavList,
   useNavGroups,
   useNavSections,
+  useSelectedArea,
 } from '@/layouts/sidebar/navPrimitives';
 
 const COLLAPSE_KEY = 'ph_nav_collapsed';
+
+/**
+ * Level 1, the icon rail — sized to the longest area label ("Discovery") so no
+ * micro-label truncates, since a rail reading "Disco…" is worse than no label.
+ */
+const RAIL_W = 'w-[68px]';
+/** Level 2, the panel beside it. Together: 68 + 220 = the sidebar's 288px. */
+const PANEL_W = 'w-[220px]';
 
 interface SidebarProps {
   /** Whether the mobile drawer is open. */
@@ -33,21 +44,31 @@ interface SidebarProps {
 }
 
 /**
- * The app's sidebar: one column, every section of the app stacked in it, with a
- * collapse to an icon-only rail.
+ * The app's sidebar, in two levels: an always-visible icon **rail** of areas
+ * (Home · Discovery · Delivery · Quality · More), and a **panel** showing only
+ * the selected area's destinations.
  *
- * Every row it renders comes from `navPrimitives`: this file owns the *shape*
- * (one column, this order, this collapse) and nothing about how a team, a
- * favourite or a nav link looks or behaves.
+ * Two levels is the point: one flat column had to carry every section of the app
+ * at once, so it grew section headings to cope and still read as a long list.
+ * Now the rail answers "what am I doing?" and the panel answers "where in it?" —
+ * and each panel is short enough to take in at a glance.
+ *
+ * This file owns the *shape* — rail beside panel, this order, this collapse. The
+ * IA it renders comes from `menuConfig`, and every row from `navPrimitives`:
+ * nothing about how a team, a favourite or a nav link looks is decided here.
+ *
+ * Collapsing hides the panel and keeps the rail, so the areas never disappear.
+ * A rail click while collapsed floats the panel over the page (a "peek") instead
+ * of pushing it — otherwise collapsing would strand every level-2 destination.
  */
 export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   const { isAdmin, canManageDelivery } = useAuth();
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   const { data: inbox } = useInbox();
   const unseen = inbox?.unseenCount ?? 0;
   const { data: favourites } = useFavourites();
   // Teams are dynamic (QC/Engineering are seeded); archived ones drop out.
-  const { pathname } = useLocation();
   const { data: teams } = useTeams();
   const activeTeams = (teams ?? []).filter((x) => !x.archived);
 
@@ -59,207 +80,305 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
 
+  const areas = NAV_AREAS.filter((a) => !a.adminOnly || isAdmin);
+  const [selectedId, setSelectedId] = useSelectedArea(findAreaId(pathname, search), areas[0].id);
+  // An area can go away under a remembered id — a non-admin whose browser still
+  // remembers `more`. Falling back keeps the panel from rendering empty.
+  const area = areas.find((a) => a.id === selectedId) ?? areas[0];
+
   const { isOpen, toggleGroup } = useNavGroups();
   const { sectionOpen, toggleSection } = useNavSections();
-  // A section's caret reflects its stored open state; its *body*, though, also shows
-  // whenever the rail is collapsed to icons — there the headings (and their toggles)
-  // are hidden, so section-collapse would otherwise strand items with no way back.
-  const sectionBodyOpen = (key: string) => collapsed || sectionOpen(key);
 
-  return (
-    <aside
-      className={cn(
-        'fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[232px] flex-col border-r bg-sidebar text-sidebar-foreground shadow-xl transition-[width,transform] duration-200',
-        'md:sticky md:top-0 md:z-30 md:translate-x-0 md:shadow-none',
-        collapsed ? 'md:w-14' : 'md:w-[232px]',
-        mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-      )}
+  // The peeked panel is dismissed by Escape or a click anywhere outside the
+  // sidebar — it floats over the page, so it must not trap the next click.
+  const [peek, setPeek] = useState(false);
+  const asideRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!peek) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPeek(false);
+    };
+    const onDown = (e: PointerEvent) => {
+      if (!asideRef.current?.contains(e.target as Node)) setPeek(false);
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, [peek]);
+
+  /**
+   * Going somewhere from the panel closes both the mobile drawer and a peek —
+   * you asked for a page, not for the nav to stay in the way. A *rail* click
+   * doesn't: switching area is choosing what to look through next, so the panel
+   * stays open (which is also what keeps the peek from closing itself on the
+   * navigation it just triggered).
+   */
+  const goFromPanel = () => {
+    onCloseMobile();
+    setPeek(false);
+  };
+
+  const collapseToggle = (
+    <button
+      type="button"
+      onClick={() => {
+        setCollapsed((c) => !c);
+        setPeek(false);
+      }}
+      title={collapsed ? t('nav.expand') : t('nav.collapse')}
+      aria-label={collapsed ? t('nav.expand') : t('nav.collapse')}
+      className="hidden size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:grid"
     >
-      {/* Header — a bold workspace title, then the actions that act on the whole
-          rail: collapse, and a create menu. Kept at h-12 so it lines up with the
-          topbar's own row across the divide. */}
+      {collapsed ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}
+    </button>
+  );
+
+  /** The selected area's sections — the whole of level 2. */
+  const panel = (
+    <>
+      {/* Header — the area's name, linking to its landing page, beside the one
+          create action. Kept at h-12 so it lines up with the topbar's own row
+          across the divide. */}
       <div className="flex h-12 shrink-0 items-center gap-1 border-b border-sidebar-border px-3">
         <Link
-          to="/"
-          onClick={onCloseMobile}
-          className={cn(
-            'flex min-w-0 items-center gap-1.5 text-[15px] font-semibold tracking-tight text-foreground',
-            collapsed && 'md:hidden',
-          )}
+          to={area.path}
+          onClick={goFromPanel}
+          className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-tight text-foreground transition-colors hover:text-primary"
         >
-          <span className="shrink-0 text-base text-primary" aria-hidden>
-            ◑
-          </span>
-          <span className="truncate">{t('app.name')}</span>
+          {t(area.labelKey)}
         </Link>
-
-        <div className={cn('flex items-center gap-0.5', collapsed ? 'md:mx-auto' : 'ml-auto')}>
-          <button
-            type="button"
-            onClick={() => setCollapsed((c) => !c)}
-            title={collapsed ? t('nav.expand') : t('nav.collapse')}
-            aria-label={collapsed ? t('nav.expand') : t('nav.collapse')}
-            className="hidden size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground md:grid"
-          >
-            {collapsed ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}
-          </button>
-
-          <span className={cn(collapsed && 'md:hidden')}>
-            <SidebarCreateMenu onNewTeam={() => setCreatingTeam(true)} onNavigate={onCloseMobile} />
-          </span>
-        </div>
+        <SidebarCreateMenu onNewTeam={() => setCreatingTeam(true)} onNavigate={goFromPanel} />
       </div>
 
-      {/* Nav */}
       <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2 py-3">
-        {/* Favourites — the user's pinned entities, first thing in the rail.
-            Hidden when there are none; each row links straight to its item. */}
-        {favourites && favourites.length > 0 && (
-          <>
-            <div className="flex flex-col gap-0.5">
-              <NavHeading
-                label={t('nav.favourites')}
-                icon={<Star className="size-3.5" aria-hidden />}
-                open={sectionOpen('favourites')}
-                onToggle={() => toggleSection('favourites')}
-                className={cn(collapsed && 'md:hidden')}
-              />
-              {sectionBodyOpen('favourites') &&
-                favourites.map((fav) => (
-                  <FavouriteNavItem
-                    key={`${fav.kind}:${fav.refId}`}
-                    fav={fav}
-                    collapsed={collapsed}
-                    onNavigate={onCloseMobile}
-                  />
-                ))}
-            </div>
-            <div className={cn('mx-2 border-t border-sidebar-border', collapsed && 'md:mx-1')} />
-          </>
-        )}
-        {NAV_GROUPS.map((group) => {
-          const items = group.items.filter((i) => !i.adminOnly || isAdmin);
-          if (items.length === 0) return null;
-          // The top group is the primary nav — headingless, like a home column —
-          // and a divider closes it off from the titled sections below.
-          const isPrimary = group.headingKey === 'navgroup.overview';
-          return (
-            <Fragment key={group.headingKey}>
-              <div className="flex flex-col gap-0.5">
-                {!isPrimary && (
-                  <NavHeading
-                    label={t(group.headingKey)}
-                    open={sectionOpen(group.headingKey)}
-                    onToggle={() => toggleSection(group.headingKey)}
-                    className={cn(collapsed && 'md:hidden')}
-                  />
-                )}
-                {/* The headingless primary group has no toggle, so it always shows. */}
-                {(isPrimary || sectionBodyOpen(group.headingKey)) &&
-                  items.map((item) =>
-                    item.children && !collapsed ? (
-                      <NavParentItem
-                        key={item.path}
-                        item={item}
-                        // Standing on any of its views keeps the group open.
-                        open={isOpen(item.path, item.children.map((c) => c.path))}
-                        onToggle={() => toggleGroup(item.path, item.children!.map((c) => c.path))}
-                        onNavigate={onCloseMobile}
-                      />
-                    ) : (
-                      <NavLeafItem
-                        key={item.path}
-                        item={item}
-                        collapsed={collapsed}
-                        unseen={unseen}
-                        onNavigate={onCloseMobile}
-                      />
-                    ),
-                  )}
-              </div>
-
-              {isPrimary && (
-                <div className={cn('mx-2 border-t border-sidebar-border', collapsed && 'md:mx-1')} />
-              )}
-
-              {/* Teams sit right under Delivery — each is an area with its own
-                  issue list (QC → bugs, Engineering → tasks), rendered like a
-                  workspace's "spaces". */}
-              {group.headingKey === 'navgroup.delivery' && activeTeams.length > 0 && (
+        {area.sections.map((section) => {
+          // Favourites — the user's own pins. Hidden when there are none, and
+          // closed off with a hairline: they're the one section the *user* filled,
+          // not part of the app's structure.
+          if (section.dynamic === 'favourites') {
+            if (!favourites || favourites.length === 0) return null;
+            return (
+              <Fragment key={section.key}>
                 <div className="flex flex-col gap-0.5">
                   <NavHeading
-                    label={t('navgroup.teams')}
-                    open={sectionOpen('teams')}
-                    onToggle={() => toggleSection('teams')}
-                    className={cn(collapsed && 'md:hidden')}
-                    actions={
-                      // `⋯` opens the page that owns teams and is revealed only while
-                      // the heading row is hovered (the group/heading scope lives on
-                      // NavHeading's row, not the team rows below). `+` adds a team and
-                      // stays visible as the primary action. Both gated on
-                      // canManageDelivery, matching the team endpoints' @Roles(ADMIN,
-                      // PRODUCT) — the gates must agree or an affordance silently
-                      // vanishes for Product.
-                      canManageDelivery ? (
-                        <span className="flex items-center gap-0.5">
-                          <Link
-                            to="/admin/settings"
-                            onClick={onCloseMobile}
-                            title={t('navgroup.teamsSettings')}
-                            aria-label={t('navgroup.teamsSettings')}
-                            className={cn(ACTION, 'group-hover/heading:opacity-100')}
-                          >
-                            <MoreHorizontal className="size-3.5" aria-hidden />
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => setCreatingTeam(true)}
-                            title={t('teams.add')}
-                            aria-label={t('teams.add')}
-                            className={cn(ACTION, 'opacity-100')}
-                          >
-                            <Plus className="size-3.5" aria-hidden />
-                          </button>
-                        </span>
-                      ) : undefined
-                    }
+                    label={t(section.headingKey!)}
+                    icon={<Star className="size-3.5" aria-hidden />}
+                    open={sectionOpen(section.key)}
+                    onToggle={() => toggleSection(section.key)}
                   />
-                  {sectionBodyOpen('teams') && (
-                    <>
-                      <TeamNavList
-                        teams={activeTeams}
-                        collapsed={collapsed}
-                        pathname={pathname}
-                        onNavigate={onCloseMobile}
-                        isOpen={isOpen}
-                        onToggle={toggleGroup}
+                  {sectionOpen(section.key) &&
+                    favourites.map((fav) => (
+                      <FavouriteNavItem
+                        key={`${fav.kind}:${fav.refId}`}
+                        fav={fav}
+                        onNavigate={goFromPanel}
                       />
-                      {/* A quiet "add another" foot to the list — the same create the
-                          heading's `+` runs, but where the eye lands after reading the
-                          spaces. Mirrors a workspace's "+ New Space". */}
-                      {canManageDelivery && !collapsed && (
+                    ))}
+                </div>
+                <div className="-my-1.5 mx-2 border-t border-sidebar-border" />
+              </Fragment>
+            );
+          }
+
+          // Teams — each is an area with its own board, statuses and cycles,
+          // rendered like a workspace's "spaces". Delivery's second section.
+          if (section.dynamic === 'teams') {
+            if (activeTeams.length === 0) return null;
+            return (
+              <div key={section.key} className="flex flex-col gap-0.5">
+                <NavHeading
+                  label={t(section.headingKey!)}
+                  open={sectionOpen(section.key)}
+                  onToggle={() => toggleSection(section.key)}
+                  actions={
+                    // `⋯` opens the page that owns teams and is revealed only while
+                    // the heading row is hovered (the group/heading scope lives on
+                    // NavHeading's row, not the team rows below). `+` adds a team and
+                    // stays visible as the primary action. Both gated on
+                    // canManageDelivery, matching the team endpoints' @Roles(ADMIN,
+                    // PRODUCT) — the gates must agree or an affordance silently
+                    // vanishes for Product.
+                    canManageDelivery ? (
+                      <span className="flex items-center gap-0.5">
+                        <Link
+                          to="/admin/settings"
+                          onClick={goFromPanel}
+                          title={t('navgroup.teamsSettings')}
+                          aria-label={t('navgroup.teamsSettings')}
+                          className={cn(ACTION, 'group-hover/heading:opacity-100')}
+                        >
+                          <MoreHorizontal className="size-3.5" aria-hidden />
+                        </Link>
                         <button
                           type="button"
                           onClick={() => setCreatingTeam(true)}
-                          className={cn(ROW, 'text-muted-foreground')}
+                          title={t('teams.add')}
+                          aria-label={t('teams.add')}
+                          className={cn(ACTION, 'opacity-100')}
                         >
-                          <span className="grid size-5 shrink-0 place-items-center">
-                            <Plus className="size-4" />
-                          </span>
-                          <span className="truncate">{t('nav.newTeam')}</span>
+                          <Plus className="size-3.5" aria-hidden />
                         </button>
-                      )}
-                    </>
-                  )}
-                </div>
+                      </span>
+                    ) : undefined
+                  }
+                />
+                {sectionOpen(section.key) && (
+                  <>
+                    <TeamNavList
+                      teams={activeTeams}
+                      pathname={pathname}
+                      onNavigate={goFromPanel}
+                      isOpen={isOpen}
+                      onToggle={toggleGroup}
+                    />
+                    {/* A quiet "add another" foot to the list — the same create the
+                        heading's `+` runs, but where the eye lands after reading the
+                        spaces. Mirrors a workspace's "+ New Space". */}
+                    {canManageDelivery && (
+                      <button
+                        type="button"
+                        onClick={() => setCreatingTeam(true)}
+                        className={cn(ROW, 'text-muted-foreground')}
+                      >
+                        <span className="grid size-5 shrink-0 place-items-center">
+                          <Plus className="size-4" />
+                        </span>
+                        <span className="truncate">{t('nav.newTeam')}</span>
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          }
+
+          const items = section.items.filter((i) => !i.adminOnly || isAdmin);
+          if (items.length === 0) return null;
+          // A headingless section is the panel's lead group: nothing to toggle,
+          // so it's always open.
+          const open = !section.headingKey || sectionOpen(section.key);
+          return (
+            <div key={section.key} className="flex flex-col gap-0.5">
+              {section.headingKey && (
+                <NavHeading
+                  label={t(section.headingKey)}
+                  open={sectionOpen(section.key)}
+                  onToggle={() => toggleSection(section.key)}
+                />
               )}
-            </Fragment>
+              {open &&
+                items.map((item) =>
+                  item.children ? (
+                    <NavParentItem
+                      key={item.path}
+                      item={item}
+                      // Standing on any of its views keeps the group open.
+                      open={isOpen(item.path, item.children.map((c) => c.path))}
+                      onToggle={() => toggleGroup(item.path, item.children!.map((c) => c.path))}
+                      onNavigate={goFromPanel}
+                    />
+                  ) : (
+                    <NavLeafItem
+                      key={`${item.path}?${item.search ?? ''}`}
+                      item={item}
+                      unseen={unseen}
+                      onNavigate={goFromPanel}
+                    />
+                  ),
+                )}
+            </div>
           );
         })}
       </nav>
 
-      {/* Footer — the signed-in user's menu: avatar → appearance, links, sign out. */}
-      <ProfileMenu collapsed={collapsed} onCloseMobile={onCloseMobile} />
+      {/* The signed-in user's menu: avatar → appearance, language, sign out.
+          Collapsed it moves to the rail, so the peeked panel doesn't show a
+          second copy — but the drawer below md always shows the panel, and there
+          it stays here where there's room for the name. */}
+      <ProfileMenu onCloseMobile={goFromPanel} className={cn(collapsed && 'md:hidden')} />
+    </>
+  );
+
+  return (
+    <aside
+      ref={asideRef}
+      className={cn(
+        'fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[288px] border-r bg-sidebar text-sidebar-foreground shadow-xl transition-[width,transform] duration-200',
+        'md:sticky md:top-0 md:z-30 md:translate-x-0 md:shadow-none',
+        collapsed ? 'md:w-[68px]' : 'md:w-[288px]',
+        mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+      )}
+    >
+      {/* Level 1 — the rail. Always visible, at every width. Its right edge is
+          the divider between the two levels, so it goes when the panel does —
+          the aside's own border is the outer boundary either way. */}
+      <div
+        className={cn(
+          'flex shrink-0 flex-col border-r border-sidebar-border',
+          RAIL_W,
+          collapsed && 'md:border-r-0',
+        )}
+      >
+        {/* The brand mark, at the top of the rail where a workspace switcher
+            would sit. The product's name rides in the tooltip: at 68px the mark
+            is all that fits, and the panel's title is the more useful label. */}
+        <Link
+          to="/"
+          onClick={goFromPanel}
+          title={t('app.name')}
+          className="grid h-12 shrink-0 place-items-center border-b border-sidebar-border text-lg text-primary"
+        >
+          <span aria-hidden>◑</span>
+          <span className="sr-only">{t('app.name')}</span>
+        </Link>
+
+        <nav
+          aria-label={t('nav.areas')}
+          className="flex flex-1 flex-col items-center gap-1 overflow-y-auto px-2 py-2"
+        >
+          {areas.map((a) => (
+            <RailButton
+              key={a.id}
+              area={a}
+              active={a.id === area.id}
+              onSelect={() => {
+                setSelectedId(a.id);
+                // Collapsed, the panel is the only way to reach level 2 — float
+                // it rather than making the user expand the sidebar first.
+                if (collapsed) setPeek(true);
+              }}
+            />
+          ))}
+        </nav>
+
+        {/* The rail's footer is one `NAV_FOOTER_CELL` per control, stacked — so
+            whichever cell ends up at the bottom shares its top edge with the
+            panel's profile and with a feature's own footer beside it. */}
+        <div className="flex shrink-0 flex-col">
+          <div className={cn(NAV_FOOTER_CELL, 'justify-center')}>{collapseToggle}</div>
+          {/* Collapsed there is no panel footer to hold it. `md:` only: below it
+              the panel is always open and carries the profile itself. */}
+          {collapsed && <ProfileMenu compact onCloseMobile={goFromPanel} className="hidden md:flex" />}
+        </div>
+      </div>
+
+      {/* Level 2 — the panel, docked beside the rail. */}
+      <div className={cn('flex min-w-0 flex-col', PANEL_W, collapsed && 'md:hidden')}>{panel}</div>
+
+      {/* …and the same panel floated over the page while collapsed. */}
+      {collapsed && peek && (
+        <div
+          className={cn(
+            'absolute left-[68px] top-0 z-10 hidden h-full flex-col rounded-r-xl border bg-sidebar shadow-2xl md:flex',
+            PANEL_W,
+          )}
+        >
+          {panel}
+        </div>
+      )}
 
       {/* Opening the new team's board is the confirmation — it proves the team
           exists and lands you where you'd go next anyway. */}
@@ -268,7 +387,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
         onClose={() => setCreatingTeam(false)}
         onCreated={(team) => {
           navigate(`/teams/${team.id}`);
-          onCloseMobile();
+          goFromPanel();
         }}
       />
     </aside>

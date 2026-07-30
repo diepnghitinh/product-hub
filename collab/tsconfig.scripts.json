@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts"],
+  // The superseded BlockNote fidelity suite. It builds blocks by hand against
+  // BlockNote's `Inline` types and has never typechecked cleanly; it is kept only
+  // as a record of what the previous editor did (see the header of
+  // `src/blocknote.ts`), and `npm run smoke` is `smoke-editorjs.ts` now. Left in
+  // the tree but out of the check, so the check is worth running.
+  "exclude": ["scripts/smoke-blocknote.ts"]
+}

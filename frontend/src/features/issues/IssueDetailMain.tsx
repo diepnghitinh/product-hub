@@ -219,6 +219,9 @@ export function IssueDetailMain({
               placeholder={descriptionPlaceholder}
               minHeight={80}
               images
+              // `@` names a person in the description the same way it does in a
+              // comment. The chip is a reference, not a ping — only comments notify.
+              mentions
               className="border-0"
             />
           </>

@@ -1,0 +1,7 @@
+node_modules
+dist
+config/*.env*
+!config/example.env*
+scripts
+.git
+*.log

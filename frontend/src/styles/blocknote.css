@@ -1,0 +1,370 @@
+/*
+ * BlockNote, wearing the product's clothes.
+ *
+ * BlockNote themes through its own `--bn-*` variables, so this file is almost
+ * entirely a translation table: every one of them is pointed at the shadcn token
+ * the rest of the app already uses. Nothing here picks a colour. That is what
+ * makes dark mode free (the tokens flip under `[data-theme="dark"]`) and what
+ * stops the editor drifting when the brand palette changes.
+ *
+ * The visual target is `.doc-page` in rich-text-editor.css — the single-writer
+ * editor this one stands in for. A reader must not be able to tell which editor
+ * saved a page, so: no frame, no focus ring, page background, doc typography.
+ */
+
+.doc-page-collab {
+  /* --- palette ------------------------------------------------------------ */
+
+  /* Transparent, not `--background`: the page already paints itself, and an
+     opaque panel here would show as a seam against the title above it. */
+  --bn-colors-editor-background: transparent;
+  --bn-colors-editor-text: hsl(var(--foreground));
+
+  /* Slash menu, formatting toolbar, link and colour pickers — all popovers. */
+  --bn-colors-menu-background: hsl(var(--popover));
+  --bn-colors-menu-text: hsl(var(--popover-foreground));
+  --bn-colors-hovered-background: hsl(var(--accent));
+  --bn-colors-hovered-text: hsl(var(--accent-foreground));
+  --bn-colors-selected-background: hsl(var(--primary));
+  --bn-colors-selected-text: hsl(var(--primary-foreground));
+  --bn-colors-disabled-background: hsl(var(--muted));
+  --bn-colors-disabled-text: hsl(var(--muted-foreground));
+  --bn-colors-border: hsl(var(--border));
+
+  /* Drag handle and + button. Muted so an empty margin reads as empty. */
+  --bn-colors-side-menu: hsl(var(--muted-foreground));
+
+  --bn-colors-tooltip-background: hsl(var(--popover));
+  --bn-colors-tooltip-text: hsl(var(--popover-foreground));
+  --bn-colors-shadow: hsl(var(--border));
+
+  /* --- shape -------------------------------------------------------------- */
+
+  --bn-font-family: var(--doc-font-family, inherit);
+  --bn-border-radius-small: calc(var(--radius) - 2px);
+  --bn-border-radius-medium: var(--radius);
+  --bn-border-radius-large: var(--radius);
+
+  /*
+   * Above the page, below everything modal.
+   *
+   * BlockNote's popovers are `position: fixed` children of the editor, so they
+   * are stacked against the app, not against the doc. 40 clears the page and the
+   * sticky header while staying under the app's dialogs, drawers and tooltips
+   * (z-50) — otherwise the slash menu would paint over a confirm dialog opened
+   * on top of it.
+   */
+  --bn-ui-base-z-index: 40;
+
+  min-height: 360px;
+  font-size: var(--doc-font-size, 1rem);
+}
+
+/*
+ * The editor surface itself.
+ *
+ * `padding-inline` is BlockNote's 54px gutter for the drag handle. Zeroing it
+ * lets the drag handle render in the page's own margin — the text column then
+ * lines up with the page title instead of sitting indented under it, and the
+ * handles behave the way every doc tool puts them: outside the writing.
+ */
+.doc-page-collab .bn-editor {
+  padding-inline: 0;
+  background-color: transparent;
+  border-radius: 0;
+}
+
+/* Match the read view's rhythm so switching between them doesn't reflow. */
+.doc-page-collab .bn-block-content {
+  padding-block: 0.4em;
+  line-height: 1.6;
+}
+
+/* A doc page is the document — a focus ring around the whole body is noise. */
+.doc-page-collab .bn-editor:focus,
+.doc-page-collab .bn-editor:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/*
+ * Code blocks.
+ *
+ * The first place BlockNote does not theme through a variable (the popup skin
+ * below is the other): it hardcodes `#fff on #161616` for code, in both colour
+ * schemes. That reads as a black slab
+ * on a light page, while the very same code shown by `RichText` — the read view,
+ * the public share link, the PDF — is `--muted` with a border. One page would
+ * change colour depending on who was looking at it, so the tokens win here too.
+ */
+.doc-page-collab .bn-block-content[data-content-type='codeBlock'] {
+  background-color: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  font-size: 0.8125rem;
+}
+
+/* The language picker rides on that background, so it inherits the text colour
+   instead of BlockNote's white-on-dark. */
+.doc-page-collab .bn-block-content[data-content-type='codeBlock'] > div > select {
+  color: hsl(var(--muted-foreground));
+}
+
+/*
+ * Links.
+ *
+ * BlockNote ships no anchor styling at all, and Tailwind's preflight resets `a`
+ * to `color: inherit; text-decoration: inherit` — so a link in the editor was
+ * body text with a URL hidden inside it, indistinguishable from the words around
+ * it. The read view paints links `--primary` + underline (the PROSE class in
+ * ui/RichText.tsx); this is the same two declarations, so a link looks like a
+ * link on both sides of the edit button.
+ */
+.doc-page-collab .bn-inline-content a,
+.doc-page-collab .bn-block-content a[href] {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.doc-page-collab .bn-inline-content a:hover {
+  text-decoration-thickness: 2px;
+}
+
+/*
+ * The drawn diagram, under a `mermaid` code block.
+ *
+ * A decoration, not a block (features/docs/collab/mermaidPreview.ts) — so it is
+ * styled here rather than by the read view's `figure.mermaid-block`, but it is
+ * deliberately the same picture: centred, never wider than the column, mermaid's
+ * own parse error in `--destructive` monospace when the source doesn't parse.
+ *
+ * Panelled in `--muted` so it reads as output belonging to the code block above
+ * it rather than as content of the page — the source is what's stored; this is
+ * only what it draws.
+ */
+.doc-page-collab .bn-mermaid-preview {
+  margin: 0.25rem 0 0.4em;
+  padding: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) - 2px);
+  background-color: hsl(var(--muted) / 0.4);
+  text-align: center;
+  /* Not text you can put a caret in — the code block above it is. */
+  cursor: default;
+  user-select: none;
+}
+
+.doc-page-collab .bn-mermaid-preview svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* While the first draw is in flight. Quiet, and the same height as a line of
+   the message it replaces, so the page doesn't jump when the picture lands. */
+.doc-page-collab .bn-mermaid-preview.is-drawing {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.75rem;
+  text-align: left;
+}
+
+/* Mermaid's own message, left-aligned and wrapped — it usually names the line. */
+.doc-page-collab .bn-mermaid-preview.has-error {
+  color: hsl(var(--destructive));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+/* Images, on the read view's terms: never wider than the column, same corner. */
+.doc-page-collab .bn-block-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+/* --- popups: the slash menu, toolbars, panels ---------------------------- */
+
+/*
+ * The `--bn-colors-*` translation above is honoured by BlockNote's editor and
+ * ignored by its *component library*: `@blocknote/ariakit/style.css` paints every
+ * popup with literal values — `#fff` surfaces, `#dae2e7` borders, and VS Code's
+ * `#007acc` for the highlighted row. So the `/` menu, the formatting toolbar and
+ * the table handle menu came up in a different palette from every other menu in
+ * the product, on a page whose brand colour is purple.
+ *
+ * These rules pick no colour either. They point the same shadcn tokens at the
+ * hardcoded declarations, which is also what keeps the popups in step with dark
+ * mode: the tokens flip, `#fff` would not.
+ *
+ * Everything is scoped to `.doc-page-collab` — BlockNote mounts its popups inside
+ * the editor's own root, so this cannot reach a menu belonging to the rest of the
+ * app even by accident.
+ */
+.doc-page-collab :is(.bn-ak-menu, .bn-ak-popover, .bn-ak-toolbar, .bn-ak-wrapper, .bn-ak-hovercard) {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border-color: hsl(var(--border));
+  /* Tied to `--foreground` rather than black so the shadow stays a shadow in
+     dark mode instead of an invisible smudge. */
+  box-shadow:
+    0 10px 15px -3px hsl(var(--foreground) / 0.1),
+    0 4px 6px -4px hsl(var(--foreground) / 0.1);
+}
+
+/*
+ * The highlighted row.
+ *
+ * `--accent`, not `--primary`: this is the same "where the keyboard is" state
+ * that `ui/Menu`, `ui/select-menu` and `ui/Combobox` all paint with
+ * `focus:bg-accent text-accent-foreground`, and a `/` menu that highlighted in
+ * solid purple would be the loudest menu in the app.
+ */
+.doc-page-collab :is(.bn-ak-menu-item, .bn-ak-select-item, .bn-ak-tab):is(
+    :hover,
+    :active,
+    [data-active],
+    [data-active-item],
+    [aria-selected='true']
+  ) {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+/*
+ * The selection toolbar has to fit on the screen.
+ *
+ * BlockNote caps it at `100vw` and lets it scroll, but its wrapper is positioned
+ * *inside* the page — 32px left of the text column — so a cap measured from the
+ * viewport's left edge is the whole sidebar too generous. With 13 controls the row
+ * is ~800px: at 1240px the last two, **Create link** and **Comment**, sat off the
+ * right edge, and at 900px eight of them did. Unreachable, in both cases, with
+ * nothing on screen to say so.
+ *
+ * So cap the wrapper against its containing block — the text column, which is
+ * inside the viewport by construction — and let the row wrap instead of scroll.
+ * Wrapping over scrolling because a doc's two most important selection actions
+ * are commenting and linking, and both are at the end: a second row shows them,
+ * a scroll strip hides them behind a gesture with no affordance.
+ *
+ * `min-width: 0` is what allows the shrink at all: the toolbar is a flex item, so
+ * its automatic minimum size would otherwise be its full 800px of content.
+ */
+.doc-page-collab div:has(> .bn-formatting-toolbar) {
+  max-width: 100%;
+}
+
+.doc-page-collab .bn-formatting-toolbar {
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  overflow-x: visible;
+  row-gap: 0.25rem;
+}
+
+/* An item's own trailing section (the ⌘-Alt-1 hint) is drawn at low alpha over
+   the row, which stops reading once the row is `--accent`. */
+.doc-page-collab .bn-ak-suggestion-menu-item-section[data-position='right'] {
+  color: hsl(var(--muted-foreground));
+}
+
+.doc-page-collab .bn-ak-separator {
+  border-color: hsl(var(--border));
+}
+
+.doc-page-collab .bn-ak-tooltip {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border-color: hsl(var(--border));
+}
+
+/* Text inputs in the link and image panels. */
+.doc-page-collab :is(.bn-ak-input, .bn-ak-input-wrapper) {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  box-shadow: inset 0 0 0 1px hsl(var(--border));
+}
+
+.doc-page-collab .bn-ak-input::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+/* The one place a strong brand fill is right: a panel's confirm button
+   ("Embed image"), which is a primary button like any other in the app. */
+.doc-page-collab .bn-ak-primary {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.doc-page-collab .bn-ak-primary:hover {
+  background-color: hsl(var(--primary) / 0.9);
+}
+
+/* Panel tabs ("Upload" / "Embed") and the link text — `--primary`, matching the
+   link colour the editor and the read view already share. */
+.doc-page-collab :is(.bn-ak-link, .bn-ak-anchor, .bn-ak-tab) {
+  color: hsl(var(--primary));
+}
+
+.doc-page-collab .bn-ak-tab[aria-selected='true'] {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+/* --- collaborators ------------------------------------------------------- */
+
+/*
+ * Remote carets and their name labels. Colour comes from the person (inline, set
+ * by BlockNote from their awareness state), so this only shapes them: a caret
+ * thin enough to sit between two characters, and a label that reads as a tag.
+ */
+.doc-page-collab .bn-collaboration-cursor__caret {
+  border-radius: 1px;
+}
+
+.doc-page-collab .bn-collaboration-cursor__label {
+  border-radius: 3px;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/*
+ * Someone else's selection.
+ *
+ * y-prosemirror paints this itself as the person's colour at ~44% alpha, which
+ * is legible over body text without hiding it. Left alone on purpose; the rule
+ * exists so the highlight survives a text colour that would otherwise inherit
+ * through it.
+ */
+.doc-page-collab .ProseMirror-yjs-selection {
+  color: inherit;
+}
+
+/* --- narrow screens ------------------------------------------------------ */
+
+/*
+ * On a phone there is no margin to put the handles in, so give the gutter back
+ * and let the text indent slightly rather than have a drag handle land on top of
+ * the first word. `--bn-mobile-keyboard-offset` lifts the toolbar clear of the
+ * on-screen keyboard.
+ */
+@media (max-width: 639px) {
+  .doc-page-collab .bn-editor {
+    padding-inline: 1.5rem 0;
+  }
+
+  .doc-page-collab .bn-collaboration-cursor__label {
+    font-size: 0.625rem;
+  }
+
+  /* A diagram has to fit a phone too, so it keeps `max-width: 100%` and loses
+     the padding instead — the picture gets the whole column. */
+  .doc-page-collab .bn-mermaid-preview {
+    padding: 0.5rem;
+  }
+}

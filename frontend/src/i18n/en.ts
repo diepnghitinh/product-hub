@@ -28,6 +28,15 @@ export const en = {
   'nav.create': 'Create new',
   'nav.newTeam': 'New space',
 
+  // Level 1 of the sidebar — the icon rail. Each label sits under a 20px glyph in
+  // a 68px column, so one short word each: "Discovery", not "Product Discovery".
+  'nav.areas': 'Areas',
+  'navarea.home': 'Home',
+  'navarea.discovery': 'Discovery',
+  'navarea.delivery': 'Delivery',
+  'navarea.quality': 'Quality',
+  'navarea.more': 'More',
+
   'theme.toggle': 'Toggle light / dark',
   'theme.light': 'Light',
   'theme.dark': 'Dark',
@@ -422,6 +431,11 @@ export const en = {
   'docs.saving': 'Saving…',
   'docs.saved': 'Saved',
   'docs.unsaved': 'Unsaved changes',
+  'docs.collab.connecting': 'Connecting…',
+  'docs.collab.offline': 'Reconnecting…',
+  'docs.collab.editing': 'here now',
+  'docs.collab.live': 'Live',
+  'docs.collab.liveHint': 'Changes save themselves and everyone sees them as you type.',
   'docs.collapseRail': 'Hide pages',
   'docs.expandRail': 'Show pages',
   'docs.pagesLabel': 'Pages',
@@ -822,6 +836,12 @@ export const en = {
   // Language — the locale switch. Saved in this browser, not on the account.
   'profile.language': 'Language',
   'profile.languageHint': 'Applies to this browser only. The page reloads to switch.',
+  // Side menu — which of the two navigation shapes this browser draws.
+  'profile.sideMenu': 'Side menu',
+  'profile.sideMenuHint':
+    'New groups the app into areas you pick from a rail. Classic stacks every section in one column. Applies to this browser only.',
+  'navstyle.twoLevel': 'New',
+  'navstyle.classic': 'Classic',
 
   'settings.title': 'Settings',
   'settings.subtitle': 'Configure your workspace, integrations and notifications.',
@@ -1266,6 +1286,7 @@ export const en = {
   'editor.toggleBodyPlaceholder': 'Hidden until you open it',
   'editor.selectImage': 'Select an image',
   'editor.selectVideo': 'Select a video',
+  'editor.insertLineAbove': 'Add a line above',
   'editor.uploading': 'Uploading…',
   'editor.uploadFailed': 'Upload failed — click to retry',
   'editor.resizeImage': 'Resize image',
@@ -1277,6 +1298,8 @@ export const en = {
   'editor.resizeRow': 'Drag to resize row',
   'editor.diagramSource': 'Mermaid diagram source',
   'editor.diagramFailed': 'Could not draw this diagram',
+  'editor.diagramDrawing': 'Drawing…',
+  'editor.diagramHint': 'Flowchart or sequence, drawn as you type',
   'editor.enterCode': 'Enter code',
   'editor.strikethrough': 'Strikethrough',
   'editor.tableFitWidth': 'Fit to width',

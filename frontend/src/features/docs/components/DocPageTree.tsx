@@ -330,7 +330,11 @@ export function DocPageTree({
       </nav>
 
       {canWrite && (
-        <div className="border-t p-2">
+        // `h-12` on purpose: this column sits beside the sidebar's own footer
+        // cells (collapse toggle, profile), and all three share that height so
+        // the rule above them is one line across the columns. Height only — the
+        // border keeps this column's own colour, not the sidebar's.
+        <div className="flex h-12 shrink-0 items-center border-t px-2">
           <Button
             type="button"
             variant="ghost"
