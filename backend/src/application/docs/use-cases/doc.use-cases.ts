@@ -1,9 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { UniqueEntityID } from '@core/domain';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { keepOrUpgradeShareToken, uniqueRef } from '@module-shared/utils/short-id.util';
 import { ICommentRepository } from '@application/activity/repositories/comment.repository';
-import { CreateDocDto, UpdateDocDto } from '../dtos/doc.dtos';
+import { CreateDocDto, DuplicateDocDto, UpdateDocDto } from '../dtos/doc.dtos';
 import { DOC_REF_PREFIX } from '../domain/entities/doc.props';
 import { DocEntity } from '../domain/entities/doc.entity';
 import { DocPageEntity } from '../domain/entities/doc-page.entity';
@@ -21,6 +22,20 @@ export interface DocWithPages {
 export interface DocWithCount {
   doc: DocEntity;
   pageCount: number;
+}
+
+/** Both the DTO and the schema cap a title here. */
+const MAX_TITLE = 160;
+
+/**
+ * `<title> (copy)`, kept inside the cap. A title already at the limit would push
+ * the suffix past it and the write would be rejected by Mongo — so the tail of
+ * the name gives way instead, since the suffix is the part that says what this is.
+ */
+function copyTitle(title: string): string {
+  const suffix = ' (copy)';
+  if (title.length + suffix.length <= MAX_TITLE) return `${title}${suffix}`;
+  return `${title.slice(0, MAX_TITLE - suffix.length).trimEnd()}${suffix}`;
 }
 
 @Injectable()
@@ -76,6 +91,128 @@ export class CreateDocUseCase
     await this.pages.save(page);
 
     return Result.ok({ doc, pages: [page] });
+  }
+}
+
+/**
+ * Copy a doc and every page in it — the whole tree, in one go.
+ *
+ * What travels is the writing: each page's body, its symbol and cover, its files
+ * and its Page Styles, in the same nesting and the same order. What deliberately
+ * does not: the share link, the version history, the comment threads and the
+ * links to issues / roadmap items. Each of those is a statement about the
+ * *original* — a granted URL, a record of how those words got there, a
+ * conversation anchored in them, a claim on a work item — and re-issuing it for a
+ * copy is not what "duplicate" asks for. See the notes at each one below.
+ */
+@Injectable()
+export class DuplicateDocUseCase
+  implements
+    IUsecaseExecute<
+      {
+        id: string;
+        tenantId: string;
+        author: { userId: string; name: string };
+        dto: DuplicateDocDto;
+      },
+      Result<DocWithPages>
+    >
+{
+  constructor(
+    @Inject(IDocRepository) private readonly docs: IDocRepository,
+    @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
+  ) {}
+
+  async execute({
+    id,
+    tenantId,
+    author,
+    dto,
+  }: {
+    id: string;
+    tenantId: string;
+    author: { userId: string; name: string };
+    dto: DuplicateDocDto;
+  }): Promise<Result<DocWithPages>> {
+    // `id` is whatever the URL carried — a `DOC-…` ref or the uuid.
+    const source = await this.docs.findByIdOrRef(tenantId, id);
+    if (!source || source.tenantId !== tenantId) return Result.fail('Doc not found');
+
+    const created = DocEntity.create({
+      tenantId,
+      ref: await uniqueRef(DOC_REF_PREFIX, (ref) => this.docs.refExists(tenantId, ref)),
+      title: dto.title?.trim() || copyTitle(source.title),
+      icon: source.icon,
+      color: source.color,
+      coverUrl: source.coverUrl,
+      tags: source.tags,
+      // The copy belongs to whoever made it, not to whoever wrote the original.
+      createdBy: author.userId,
+      createdByName: author.name,
+      // Sharing stays off (the entity's default): a share token is an access
+      // grant handed out for one doc, and minting a second public URL for the
+      // same words — silently, from a menu item — is not something to infer.
+    });
+    if (created.isFailure) return Result.fail(created.error as string);
+    const doc = created.getValue();
+    const docId = doc.id.toString();
+
+    const sourcePages = await this.pages.findByDoc(source.id.toString());
+    // Every new id first, so a child's `parentId` can be remapped in a single
+    // pass. A parent that isn't in the map (an orphaned page) lands at top level
+    // rather than pointing back into the doc we copied from.
+    const newIds = new Map(sourcePages.map((p) => [p.id.toString(), new UniqueEntityID()]));
+
+    const copies: DocPageEntity[] = [];
+    for (const page of sourcePages) {
+      const copy = DocPageEntity.create(
+        {
+          tenantId,
+          docId,
+          parentId: newIds.get(page.parentId)?.toString() ?? '',
+          title: page.title,
+          icon: page.icon,
+          color: page.color,
+          coverUrl: page.coverUrl,
+          content: page.content,
+          // Files come along: an attachment is part of the writing. Both pages
+          // point at the same stored upload — nothing is copied in the bucket,
+          // and removing the chip from one leaves the other's alone.
+          attachments: page.attachments,
+          // `links` are left behind on purpose. A link is the original page's
+          // claim on an issue or a roadmap item; copying it would put a second,
+          // identical row in that record's Docs section for somebody else to
+          // clean up. Link the copy from the copy if that's what was meant.
+          style: {
+            fontStyle: page.fontStyle,
+            fontSize: page.fontSize,
+            pageWidth: page.pageWidth,
+            showCover: page.showCover,
+            showTitle: page.showTitle,
+            showUpdated: page.showUpdated,
+            showLinks: page.showLinks,
+            showAttachments: page.showAttachments,
+          },
+          order: page.order,
+          createdBy: author.userId,
+          updatedBy: author.userId,
+          updatedByName: author.name,
+        },
+        newIds.get(page.id.toString()),
+      );
+      if (copy.isFailure) return Result.fail(copy.error as string);
+      copies.push(copy.getValue());
+    }
+
+    // The doc lands first: a page whose doc doesn't exist is unreachable, while
+    // a doc that briefly holds no pages just reads as empty.
+    await this.docs.save(doc);
+    await this.pages.saveMany(copies);
+    // Version history and comment threads stay with the pages they were written
+    // against — a copy starts with a clean history and no open threads. So does
+    // its collaborative session: a new page id is a new room, which seeds itself
+    // from the HTML above the first time somebody opens it.
+    return Result.ok({ doc, pages: copies });
   }
 }
 

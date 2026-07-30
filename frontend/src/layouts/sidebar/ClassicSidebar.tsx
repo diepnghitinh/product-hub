@@ -21,9 +21,18 @@ import {
   TeamNavList,
   useNavGroups,
   useNavSections,
+  useSidebarWidth,
 } from '@/layouts/sidebar/navPrimitives';
 
 const COLLAPSE_KEY = 'ph_nav_collapsed';
+/**
+ * The dragged width — a *separate* key from the two-level menu's. The two are
+ * different shapes (one column vs rail + panel), so a width that suits one is
+ * the wrong one for the other; sharing the key would mean switching menus
+ * resized the one you switched to.
+ */
+const WIDTH_KEY = 'ph_nav_width_classic';
+const SIDEBAR_W = { initial: 232, min: 200, max: 400 };
 
 interface SidebarProps {
   /** Whether the mobile drawer is open. */
@@ -66,6 +75,7 @@ export function ClassicSidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
   useEffect(() => {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
+  const { width, dragging, handle } = useSidebarWidth({ storageKey: WIDTH_KEY, ...SIDEBAR_W });
 
   const { isOpen, toggleGroup } = useNavGroups();
   const { sectionOpen, toggleSection } = useNavSections();
@@ -76,11 +86,16 @@ export function ClassicSidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
 
   return (
     <aside
+      // See the two-level menu: the dragged width is a variable so the fixed
+      // widths below (mobile drawer, collapsed rail) can stay media queries.
+      style={{ '--sidebar-w': `${width}px` } as React.CSSProperties}
       className={cn(
-        'fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[232px] flex-col border-r bg-sidebar text-sidebar-foreground shadow-xl transition-[width,transform] duration-200',
+        'fixed inset-y-0 left-0 z-40 flex h-[100dvh] w-[232px] flex-col border-r bg-sidebar text-sidebar-foreground shadow-xl transition-[width,transform] duration-200 md:shrink-0',
         'md:sticky md:top-0 md:z-30 md:translate-x-0 md:shadow-none',
-        collapsed ? 'md:w-14' : 'md:w-[232px]',
+        collapsed ? 'md:w-14' : 'md:w-[var(--sidebar-w)]',
         mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+        // Would otherwise make the edge lag the cursor by the collapse duration.
+        dragging && 'transition-none',
       )}
     >
       {/* Header — a bold workspace title, then the actions that act on the whole
@@ -91,7 +106,7 @@ export function ClassicSidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           to="/"
           onClick={onCloseMobile}
           className={cn(
-            'flex min-w-0 items-center gap-1.5 text-[15px] font-semibold tracking-tight text-foreground',
+            'flex min-w-0 items-center gap-1.5 text-[14px] font-semibold tracking-tight text-foreground',
             collapsed && 'md:hidden',
           )}
         >
@@ -145,8 +160,9 @@ export function ClassicSidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
             <div className={cn('mx-2 border-t border-sidebar-border', collapsed && 'md:mx-1')} />
           </>
         )}
-        {NAV_GROUPS.map((group) => {
+        {NAV_GROUPS.map((group, _i, groups) => {
           const items = group.items.filter((i) => !i.adminOnly || isAdmin);
+          const groupItems = groups.flatMap((g) => g.items);
           if (items.length === 0) return null;
           // The top group is the primary nav — headingless, like a home column —
           // and a divider closes it off from the titled sections below.
@@ -179,6 +195,10 @@ export function ClassicSidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
                         key={item.path}
                         item={item}
                         collapsed={collapsed}
+                        // This menu's own rows: it has no query row today, so
+                        // nothing yields — but the rule travels with the model
+                        // rather than being spelled out per menu.
+                        peers={groupItems}
                         unseen={unseen}
                         onNavigate={onCloseMobile}
                       />
@@ -270,6 +290,10 @@ export function ClassicSidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           links, sign out. `'md'` because this menu's drawer below md is full
           width and has room for the name; only the desktop rail narrows. */}
       <ProfileMenu compact={collapsed ? 'md' : undefined} onCloseMobile={onCloseMobile} />
+
+      {/* Drag the menu wider. Not while collapsed — that width is the icon
+          rail's and there's nothing to give the extra pixels to. */}
+      {!collapsed && handle}
 
       {/* Opening the new team's board is the confirmation — it proves the team
           exists and lands you where you'd go next anyway. */}

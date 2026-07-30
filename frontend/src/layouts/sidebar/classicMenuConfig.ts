@@ -58,11 +58,14 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     // Product Discovery — decide what's worth building (the what & why).
+    //
+    // No OKRs row: it's a tab of the roadmaps page, and `alsoAt` keeps this row
+    // the one that lights up there. Same call as the two-level menu — a row that
+    // exists in one menu style and not the other is how the two drift apart.
     headingKey: 'navgroup.discovery',
     items: [
-      { path: '/roadmaps', labelKey: 'nav.roadmaps', icon: 'roadmap' },
-      { path: '/docs', labelKey: 'nav.docs', icon: 'book' },
-      { path: '/okrs', labelKey: 'nav.milestones', icon: 'milestone' },
+      { path: '/roadmaps', labelKey: 'nav.roadmaps', icon: 'roadmap', alsoAt: ['/okrs'] },
+      { path: '/docs', labelKey: 'nav.docs', icon: 'docs' },
     ],
   },
   {

@@ -130,8 +130,8 @@ export function ProfileMenu({
                 compact === 'md' && 'md:hidden',
               )}
             >
-              <span className="truncate text-[13px] font-medium text-foreground">{user.name}</span>
-              <span className="truncate text-[11px] text-muted-foreground">
+              <span className="truncate text-[12px] font-medium text-foreground">{user.name}</span>
+              <span className="truncate text-[10px] text-muted-foreground">
                 {ROLE_LABEL[user.role]}
               </span>
             </span>

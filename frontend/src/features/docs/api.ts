@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiDelete, apiDownload, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
-import { getLocale } from '@/i18n';
+import { getLocale, t } from '@/i18n';
 import type {
   CommentDto,
   DocAttachment,
@@ -35,12 +35,30 @@ export function useDoc(idOrRef: string | undefined) {
   });
 }
 
-/** One page with its body — what the editor reads. */
+/**
+ * One page with its body — what the editor reads.
+ *
+ * The **one query that opts out of the app's refetch-on-event policy** (see
+ * `queryClient`). Everywhere else this cache mirrors the server and a background
+ * refetch can only improve it; here the UI owns it. The autosave writes the
+ * server's own response back into this key, and a Y.Doc-backed page treats it as
+ * a mirror of state the CRDT holds — so a refetch fired by an alt-tab while a
+ * debounced save is still in flight would put the pre-save body back into the
+ * cache. Nothing on screen changes (Editor.js reads its content once, at mount),
+ * which is what makes it nasty: you'd only see it after switching pages and back.
+ *
+ * Only the *behind your back* triggers are off. Opening the page still refetches
+ * — that's a deliberate navigation, and the moment Editor.js re-reads its
+ * content anyway, so a teammate's changes land exactly when you go to look at
+ * them. (`staleTime: Infinity` would have covered focus too, and cost that.)
+ */
 export function useDocPage(docId: string | undefined, pageId: string | undefined) {
   return useQuery({
     queryKey: ['doc-page', docId, pageId],
     queryFn: () => apiGet<DocPageDto>(`/docs/${docId}/pages/${pageId}`),
     enabled: !!docId && !!pageId,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 
@@ -70,6 +88,35 @@ export function useCreateDoc() {
       color?: string | null;
       tags?: string[];
     }) => apiPost<DocDto>('/docs', input),
+    onSuccess: invalidate,
+  });
+}
+
+/** Titles are capped at 160 by both the API and the database. */
+const MAX_DOC_TITLE = 160;
+
+/**
+ * What a copy is called: `<title> (copy)`, in the reader's language, trimmed to
+ * fit. The suffix is the part that says what this doc is, so a title already at
+ * the cap gives up its tail rather than losing it — send a longer one and the
+ * API rejects the whole request.
+ */
+export function copyDocTitle(title: string): string {
+  const suffix = t('docs.copySuffix');
+  if (title.length + suffix.length <= MAX_DOC_TITLE) return `${title}${suffix}`;
+  return `${title.slice(0, MAX_DOC_TITLE - suffix.length).trimEnd()}${suffix}`;
+}
+
+/**
+ * Copies a doc and every page in it — the tree, the bodies, the files, the page
+ * styles. The share link, version history, comment threads and record links stay
+ * with the original; see `DuplicateDocUseCase` for why each one does.
+ */
+export function useDuplicateDoc() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, title }: { id: string; title?: string }) =>
+      apiPost<DocDto>(`/docs/${id}/duplicate`, { title }),
     onSuccess: invalidate,
   });
 }

@@ -10,6 +10,8 @@ export abstract class IDocPageRepository {
   /** Page totals per doc id — the hub's card count, in one query. */
   countByDocIds: (docIds: string[]) => Promise<Record<string, number>>;
   save: (page: DocPageEntity) => Promise<void>;
+  /** A whole tree at once — what duplicating a doc writes. */
+  saveMany: (pages: DocPageEntity[]) => Promise<void>;
   update: (page: DocPageEntity) => Promise<void>;
   updateMany: (pages: DocPageEntity[]) => Promise<void>;
   delete: (id: string) => Promise<void>;
