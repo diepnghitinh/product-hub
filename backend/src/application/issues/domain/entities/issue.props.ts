@@ -118,4 +118,16 @@ export interface IssueProps {
   order: number;
   createdAt: Date;
   updatedAt: Date;
+  /**
+   * When this issue became **finished** — the moment it entered a completed
+   * status (`COMPLETED_STATUS_KEYS`: resolved/closed for a bug, done for a task)
+   * and stayed there. `null` while it is open.
+   *
+   * Owned entirely by {@link IssueEntity.setStatus}: the *first* move into a
+   * completed status stamps it (so resolved → closed keeps the moment it was
+   * actually fixed), and moving back out — a reopen — clears it, because a
+   * reopened bug is not solved and must not carry a solve date. A client can
+   * never set or backdate it.
+   */
+  resolvedAt: Date | null;
 }

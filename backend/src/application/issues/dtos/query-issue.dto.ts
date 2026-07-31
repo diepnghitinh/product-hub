@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsArray, IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsEnum, IsISO8601, IsOptional, IsString } from 'class-validator';
 import { PaginationDto } from '@module-shared/modules/pagination/pagination.dto';
 import { TransformQueryArray } from '@module-shared/utils/query-array.util';
 import { BugSeverity, IssueKind } from '../domain/enums/issue.enums';
@@ -114,4 +114,43 @@ export class QueryIssueDto extends PaginationDto {
   @IsOptional()
   @IsString()
   reportId?: string;
+
+  // ── date-range filters ──────────────────────────────────────────────────────
+  // Each end is inclusive and optional (either alone = an open-ended range).
+  // A bare `YYYY-MM-DD` is read as that whole day in UTC; pass a full instant
+  // when the day must be the *user's* — see `dateRangeFilter`.
+
+  @ApiPropertyOptional({
+    description: 'Opened on/after this date — YYYY-MM-DD or a full ISO instant',
+    example: '2026-07-01',
+  })
+  @IsOptional()
+  @IsISO8601()
+  createdFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Opened on/before this date (inclusive) — YYYY-MM-DD or a full ISO instant',
+    example: '2026-07-31',
+  })
+  @IsOptional()
+  @IsISO8601()
+  createdTo?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Solved (moved to a done status) on/after this date. Issues still open have no ' +
+      'solved date and are excluded — YYYY-MM-DD or a full ISO instant',
+    example: '2026-07-01',
+  })
+  @IsOptional()
+  @IsISO8601()
+  resolvedFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Solved on/before this date (inclusive) — YYYY-MM-DD or a full ISO instant',
+    example: '2026-07-31',
+  })
+  @IsOptional()
+  @IsISO8601()
+  resolvedTo?: string;
 }

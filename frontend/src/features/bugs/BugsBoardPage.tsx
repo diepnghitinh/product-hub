@@ -16,6 +16,8 @@ import { LabelChips } from '@/features/labels/LabelChips';
 import {
   FilterMenu,
   UNASSIGNED,
+  dateRangeParams,
+  decodeDateRange,
   type FilterCategory,
   type FilterSelections,
 } from '@/components/FilterMenu';
@@ -172,6 +174,11 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   const { data: cyclesData } = useCycles(cyclesEnabled ? teamId : undefined);
   const cycleOptions = cyclesEnabled ? buildCycleOptions(cyclesData) : undefined;
 
+  // The two date windows, as the instants the API filters on (see
+  // `dateRangeParams` for why they aren't sent as bare calendar dates).
+  const created = dateRangeParams(decodeDateRange(filters.createdAt));
+  const solved = dateRangeParams(decodeDateRange(filters.resolvedAt));
+
   const { data, isLoading } = useBugs({
     teamId,
     search: search || undefined,
@@ -182,6 +189,10 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
     projectId: projectId ? [projectId] : filters.projectId,
     cycleId: teamId ? cycleParam || undefined : undefined,
     caseId,
+    createdFrom: created.from,
+    createdTo: created.to,
+    resolvedFrom: solved.from,
+    resolvedTo: solved.to,
   });
 
   const filterCategories: FilterCategory[] = [
@@ -224,6 +235,14 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
             options: (projectsData?.items ?? []).map((p) => ({ id: p.id, label: p.title })),
           },
         ]),
+    // When it was reported, and when it was fixed. The two questions a QA board
+    // gets asked that the status columns can't answer — "what came in this
+    // week?" and "what did we actually close last month?".
+    { id: 'createdAt', label: t('filters.createdDate'), type: 'date' },
+    // Solved = the moment it entered Resolved/Closed (`resolvedAt`, stamped
+    // server-side). A bug that's still open has no solved date, so any window
+    // here narrows to fixed bugs on its own.
+    { id: 'resolvedAt', label: t('filters.solvedDate'), type: 'date' },
   ];
 
   const bugs = data?.items ?? [];

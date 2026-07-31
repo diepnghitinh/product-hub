@@ -1,4 +1,4 @@
-import { BugStatus, TaskStatus } from '@application/issues/domain/enums/issue.enums';
+import { COMPLETED_STATUS_KEYS, IssueKind } from '@application/issues/domain/enums/issue.enums';
 import { TeamIssueType } from '@application/teams/domain/enums/team.enums';
 
 /** Derived from the cycle's dates on read — never stored. */
@@ -20,15 +20,14 @@ export const CYCLE_FILTER_NONE = 'none';
 export const CYCLE_FILTER_NO_MATCH = '__no-cycle__';
 
 /**
- * The status keys that count as "finished" for cycle rollups and rollover.
- * Statuses have no done-category yet, so — like every other rollup in the
- * codebase — this reads the built-in keys literally: issues in custom columns
- * count as unfinished and therefore roll over (see features/cycles.md §7.2).
+ * The status keys that count as "finished" for cycle rollups and rollover — the
+ * team's issue type read through the issue domain's `COMPLETED_STATUS_KEYS`, so
+ * rollups and an issue's own `resolvedAt` stamp can never disagree about what
+ * "done" means. Issues in a team's custom columns count as unfinished and
+ * therefore roll over (see features/cycles.md §7.2).
  */
 export function completedStatusKeysFor(issueType: TeamIssueType): string[] {
-  return issueType === TeamIssueType.BUG
-    ? [BugStatus.RESOLVED, BugStatus.CLOSED]
-    : [TaskStatus.DONE];
+  return COMPLETED_STATUS_KEYS[issueType === TeamIssueType.BUG ? IssueKind.BUG : IssueKind.TASK];
 }
 
 /** Max length of a cycle's free-text goal/notes (plain text). Generous for a

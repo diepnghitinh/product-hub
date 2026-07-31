@@ -51,6 +51,8 @@ export interface IssueDoc {
   order: number;
   createdAt: Date;
   updatedAt: Date;
+  /** When it entered a done status and stayed there; null while open. */
+  resolvedAt: Date | null;
 }
 
 export const IssueSchema = new Schema<IssueDoc>(
@@ -118,6 +120,11 @@ export const IssueSchema = new Schema<IssueDoc>(
     // type's value (string/number/bool/date-string) round-trips. Empty by default.
     customFields: { type: Schema.Types.Mixed, default: {} },
     order: { type: Number, default: 0 },
+    // When this issue became finished — set/cleared by the entity as it crosses
+    // the done boundary (never by a client). Indexed: it's what the boards'
+    // "Solved date" filter ranges over. Absent on a pre-`resolvedAt` row reads
+    // as null; `backfill:issue-resolved-at` stamps those from their updatedAt.
+    resolvedAt: { type: Date, default: null, index: true },
   },
   { timestamps: true },
 );

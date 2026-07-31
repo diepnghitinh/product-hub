@@ -31,3 +31,24 @@ export {
 
 export type { TaskStatusConfig } from '@application/tasks/domain/enums/task.enums';
 export type { BugStatusConfig, BugAttachment } from '@application/bugs/domain/enums/bug.enums';
+
+import { TaskStatus as TaskStatusEnum } from '@application/tasks/domain/enums/task.enums';
+import { BugStatus as BugStatusEnum } from '@application/bugs/domain/enums/bug.enums';
+
+/**
+ * The statuses that count as **finished**, per kind — the single source of truth
+ * for "this issue is done". Statuses have no done-category yet, so this reads the
+ * built-in keys literally: an issue parked in a team's *custom* column counts as
+ * unfinished. Cycle rollups/rollover (`completedStatusKeysFor`) and the issue's
+ * own `resolvedAt` stamp both read this, so a bug can never be "solved" for one
+ * and open for the other.
+ */
+export const COMPLETED_STATUS_KEYS: Record<IssueKind, string[]> = {
+  [IssueKind.BUG]: [BugStatusEnum.RESOLVED, BugStatusEnum.CLOSED],
+  [IssueKind.TASK]: [TaskStatusEnum.DONE],
+};
+
+/** Whether `status` means "finished" for this kind of issue. */
+export function isCompletedStatus(kind: IssueKind, status: string): boolean {
+  return COMPLETED_STATUS_KEYS[kind].includes(status);
+}

@@ -42,6 +42,7 @@ export class IssueMapper {
       order: issue.order,
       createdAt: issue.createdAt,
       updatedAt: issue.updatedAt,
+      resolvedAt: issue.resolvedAt,
     };
   }
 
