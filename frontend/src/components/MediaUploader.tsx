@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui';
@@ -21,6 +21,12 @@ interface MediaUploaderProps {
   accept?: string;
   /** Button label. Defaults to "Upload". */
   label?: string;
+  /**
+   * Glyph shown before the label. Defaults to the upload arrow — override it
+   * where the button sits in a row of *other* actions and needs to name what it
+   * adds (a picture, say) rather than the fact that it uploads.
+   */
+  icon?: ReactNode;
   /** Allow selecting several files at once. */
   multiple?: boolean;
   size?: 'sm' | 'default';
@@ -40,6 +46,7 @@ export function MediaUploader({
   onUploadedAll,
   accept = 'image/*,video/*',
   label,
+  icon,
   multiple = true,
   size = 'sm',
   variant = 'secondary',
@@ -90,7 +97,7 @@ export function MediaUploader({
         disabled={disabled}
         onClick={() => inputRef.current?.click()}
       >
-        {!busy && <Upload className="mr-1.5 size-4" />}
+        {!busy && (icon ?? <Upload className="mr-1.5 size-4" />)}
         {label ?? t('uploads.add')}
       </Button>
     </>
