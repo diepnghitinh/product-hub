@@ -302,6 +302,12 @@ export interface BugDto {
   customFields: Record<string, CustomFieldValue>;
   createdAt: string;
   updatedAt: string;
+  /**
+   * When the bug was solved: the moment it entered Resolved/Closed. `null` while
+   * it's open, and cleared again if it's reopened. Server-owned (stamped on the
+   * status move) — what the board's "Solved date" filter ranges over.
+   */
+  resolvedAt: string | null;
 }
 
 /** A file attached to a bug (image / short video) — matches the upload response. */
@@ -575,6 +581,8 @@ export interface IssueDto {
   order: number;
   createdAt: string;
   updatedAt: string;
+  /** When it was solved — see {@link BugDto.resolvedAt}. */
+  resolvedAt: string | null;
 }
 
 // ── Milestones (OKR) ─────────────────────────────────────────────────────────

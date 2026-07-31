@@ -8,6 +8,7 @@ import {
   BugStatus,
   IssueKind,
   TaskStatus,
+  isCompletedStatus,
 } from '../enums/issue.enums';
 import { IssueAssignee, IssueProps } from './issue.props';
 
@@ -84,6 +85,7 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
       order?: number;
       createdAt?: Date;
       updatedAt?: Date;
+      resolvedAt?: Date | null;
     },
     id?: UniqueEntityID,
   ): Result<IssueEntity> {
@@ -99,6 +101,7 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
     const isTask = props.kind === IssueKind.TASK;
     const now = new Date();
     const assignees = normalizeAssignees(props.assignees, props.assigneeId, props.assigneeName);
+    const status = props.status ?? (isTask ? TaskStatus.TODO : BugStatus.OPEN);
     return Result.ok(
       new IssueEntity(
         {
@@ -111,7 +114,7 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
           shortId: props.shortId || '',
           title: props.title.trim(),
           description: props.description?.trim() || '',
-          status: props.status ?? (isTask ? TaskStatus.TODO : BugStatus.OPEN),
+          status,
           roadmapId: props.roadmapId || '',
           roadmapItemId: props.roadmapItemId || '',
           roadmapItemLabel: props.roadmapItemLabel || '',
@@ -145,6 +148,18 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
           order: props.order ?? 0,
           createdAt: props.createdAt || now,
           updatedAt: props.updatedAt || now,
+          // `undefined` means "not supplied" — a brand-new issue, so an issue
+          // created straight into a done column (the + Add on Resolved) is
+          // stamped now. A row loaded from the store always passes the field
+          // explicitly (`doc.resolvedAt ?? null`), so a pre-`resolvedAt` bug
+          // that is already resolved keeps its blank stamp instead of silently
+          // acquiring today's date the first time it is read and re-saved.
+          resolvedAt:
+            props.resolvedAt !== undefined
+              ? props.resolvedAt
+              : isCompletedStatus(props.kind, status)
+                ? now
+                : null,
         },
         id,
       ),
@@ -277,6 +292,14 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
   get updatedAt(): Date {
     return this.props.updatedAt;
   }
+  /** When it became finished (`null` while open) — see {@link setStatus}. */
+  get resolvedAt(): Date | null {
+    return this.props.resolvedAt;
+  }
+  /** In a done column right now (resolved/closed for a bug, done for a task). */
+  get isCompleted(): boolean {
+    return isCompletedStatus(this.props.kind, this.props.status);
+  }
 
   /**
    * Access rule. A team issue is visible to (and editable by) anyone in the tenant
@@ -348,8 +371,21 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
     this.touch();
   }
 
+  /**
+   * Move to another status column — and keep {@link resolvedAt} honest, since
+   * that stamp is the only record of *when* a bug was solved (the board's
+   * "Solved date" filter and any time-to-fix reading are built on it).
+   *
+   * Crossing **into** the done set stamps the moment; crossing back **out** — a
+   * reopen — clears it. Moving *within* the done set (resolved → closed) is not
+   * a new fix, so the original moment stands.
+   */
   setStatus(status: string): void {
+    const wasCompleted = this.isCompleted;
+    const nowCompleted = isCompletedStatus(this.props.kind, status);
     this.props.status = status;
+    if (nowCompleted && !wasCompleted) this.props.resolvedAt = new Date();
+    else if (!nowCompleted && wasCompleted) this.props.resolvedAt = null;
     this.touch();
   }
 

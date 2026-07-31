@@ -140,4 +140,13 @@ export class IssueResponseDto {
 
   @ApiProperty()
   updatedAt: Date;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'When the issue was solved — the moment it entered a done status ' +
+      '(resolved/closed for a bug, done for a task). null while it is open, and ' +
+      'cleared again if it is reopened. Server-owned: a client cannot set it.',
+  })
+  resolvedAt: Date | null;
 }

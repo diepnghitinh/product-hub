@@ -4,6 +4,7 @@ import { FilterQuery, Model } from 'mongoose';
 import { UniqueEntityID } from '@core/domain';
 import { BaseRepository } from '@core/infrastructure/database/mongoose/base';
 import { resolveAssignees } from '@module-shared/utils/query-array.util';
+import { dateRangeFilter } from '@module-shared/utils/date-range.util';
 import { CycleRollup } from '@application/cycles/domain/enums/cycle.enums';
 import { BurndownIssueRow } from '@application/cycles/domain/cycle-burndown';
 import {
@@ -66,6 +67,10 @@ export class IssueRepository
         order: doc.order,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
+        // Always passed explicitly (never left undefined): that's how the entity
+        // tells a stored row from a brand-new issue and so doesn't stamp an old
+        // already-resolved bug with today's date on load — see IssueEntity.create.
+        resolvedAt: doc.resolvedAt ?? null,
       },
       new UniqueEntityID(doc._id),
     );
@@ -113,6 +118,7 @@ export class IssueRepository
       order: issue.order,
       createdAt: issue.createdAt,
       updatedAt: issue.updatedAt,
+      resolvedAt: issue.resolvedAt,
     };
   }
 
@@ -185,6 +191,13 @@ export class IssueRepository
     if (query.cycleId !== undefined) filter.cycleId = query.cycleId;
     if (query.caseId) filter.caseId = query.caseId;
     if (query.reportId) filter.reportId = query.reportId;
+    // Date windows. `resolvedAt` is null on anything still open, and null never
+    // satisfies a $gte/$lte — so a solved-date filter narrows to solved issues
+    // on its own, which is exactly what "solved between these dates" means.
+    const created = dateRangeFilter(query.createdFrom, query.createdTo);
+    if (created) filter.createdAt = created;
+    const resolved = dateRangeFilter(query.resolvedFrom, query.resolvedTo);
+    if (resolved) filter.resolvedAt = resolved;
     // Assignee match. An issue counts as someone's when they are *any* of its
     // assignees, not only the primary — that's what multi-assign means for "my
     // work". Both halves are required: an issue written before multi-assign has

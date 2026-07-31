@@ -26,6 +26,15 @@ export interface BugQuery {
   caseId?: string;
   reportId?: string;
   search?: string;
+  /** Opened on/after this instant (or `YYYY-MM-DD`, read as that UTC day). */
+  createdFrom?: string;
+  /** Opened on/before this instant — inclusive. */
+  createdTo?: string;
+  /** Solved (moved to resolved/closed) on/after this instant. Still-open bugs
+   *  have no solved date, so either end on its own also excludes them. */
+  resolvedFrom?: string;
+  /** Solved on/before this instant — inclusive. */
+  resolvedTo?: string;
 }
 
 export interface CreateBugInput {
