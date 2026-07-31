@@ -131,6 +131,74 @@ export function useImportTestCases(projectId: string) {
   });
 }
 
+export interface ImportFeatureInput {
+  name: string;
+  /** An existing report to top up; omit to create the feature. */
+  reportId?: string;
+  cases: RawCase[];
+}
+
+export interface ImportFeaturesResult {
+  created: number;
+  /** Existing features the import appended cases to. */
+  toppedUp: number;
+  cases: number;
+  failed: { name: string; message: string }[];
+}
+
+/**
+ * Import a file's worth of features into one group: create each feature, then
+ * push its cases through the per-report import endpoint. Like the other bulk
+ * actions in the app this fans out over the single-item endpoints rather than
+ * adding a bulk API — and it runs sequentially because the server derives each
+ * report's slug and order from the ones already stored.
+ */
+export function useImportFeatures(projectId: string) {
+  const invalidate = useReportInvalidation(projectId);
+  return useMutation({
+    mutationFn: async ({
+      groupId,
+      features,
+      onProgress,
+    }: {
+      groupId: string;
+      features: ImportFeatureInput[];
+      onProgress?: (done: number) => void;
+    }) => {
+      const out: ImportFeaturesResult = { created: 0, toppedUp: 0, cases: 0, failed: [] };
+      for (const [i, feature] of features.entries()) {
+        try {
+          let reportId = feature.reportId;
+          if (reportId) {
+            out.toppedUp += 1;
+          } else {
+            const report = await apiPost<ReportDto>(`/projects/${projectId}/reports`, {
+              title: feature.name,
+              label: feature.name,
+              groupId,
+            });
+            reportId = report.id;
+            out.created += 1;
+          }
+          if (feature.cases.length > 0) {
+            const res = await apiPost<ImportResult>(
+              `/projects/${projectId}/reports/${reportId}/testcases/import`,
+              { cases: feature.cases },
+            );
+            out.cases += res.imported;
+          }
+        } catch (e) {
+          out.failed.push({ name: feature.name, message: (e as Error).message });
+        }
+        onProgress?.(i + 1);
+      }
+      return out;
+    },
+    // Settled, not success: a partial import still changed the sidebar.
+    onSettled: invalidate,
+  });
+}
+
 export function useSetResult(projectId: string) {
   const invalidate = useReportInvalidation(projectId);
   return useMutation({
