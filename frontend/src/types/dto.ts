@@ -70,6 +70,9 @@ export interface UserDto {
   role: Role;
   /** Avatar image URL, or null/absent for the initials fallback. */
   avatarUrl?: string | null;
+  /** Last authenticated request from this account, or null if never seen. Stamped
+   *  at most once a minute per user, so treat it as "within the last minute". */
+  lastActiveAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

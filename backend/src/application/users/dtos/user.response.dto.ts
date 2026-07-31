@@ -21,6 +21,12 @@ export class UserResponseDto {
   @ApiPropertyOptional({ nullable: true, description: 'Avatar image URL, or null for the initials fallback.' })
   avatarUrl?: string | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'When this account was last online, or null if never seen.',
+  })
+  lastActiveAt?: Date | null;
+
   @ApiProperty()
   createdAt: Date;
 

@@ -22,6 +22,7 @@ import { McpPresentationModule } from './mcp/mcp.module';
 import { PublicPresentationModule } from './public/public.module';
 import { AppSettingsPresentationModule } from './app-settings/app-settings.module';
 import { StoragePresentationModule } from './storage/storage.module';
+import { PlatformPresentationModule } from './platform/platform.module';
 
 /**
  * Mounts every feature's presentation module at a URL path prefix (routes end up
@@ -58,6 +59,9 @@ import { StoragePresentationModule } from './storage/storage.module';
     // Controller is @Controller('uploads') → /v1/uploads, so it's imported like
     // AppSettings (no RouterModule prefix entry needed).
     StoragePresentationModule,
+    // The vendor console. Same process, separate URL space and separate token —
+    // nothing under /v1/platform is reachable with a workspace JWT.
+    PlatformPresentationModule,
     RouterModule.register([
       { path: 'health', module: HealthModule },
       { path: 'auth', module: AuthPresentationModule },
@@ -68,6 +72,7 @@ import { StoragePresentationModule } from './storage/storage.module';
       { path: 'roadmaps', module: RoadmapsPresentationModule },
       { path: 'docs', module: DocsPresentationModule },
       { path: 'milestones', module: MilestonesPresentationModule },
+      { path: 'platform', module: PlatformPresentationModule },
     ]),
   ],
 })

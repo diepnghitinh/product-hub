@@ -25,6 +25,7 @@
     "backfill:roadmap-item-refs": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/backfill-roadmap-item-refs.ts",
     "backfill:doc-refs": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/backfill-doc-refs.ts",
     "backfill:issue-resolved-at": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/backfill-issue-resolved-at.ts",
+    "seed:platform": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/seed-platform.ts",
     "lint": "eslint \"{src,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch"

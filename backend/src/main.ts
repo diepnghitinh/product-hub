@@ -82,6 +82,12 @@ async function bootstrap() {
       'JWT-auth',
     )
     .addApiKey({ type: 'apiKey', name: 'x-api-key', in: 'header' }, 'x-api-key')
+    // A second bearer scheme, because /v1/platform tokens are signed with a
+    // different secret and are not interchangeable with workspace tokens.
+    .addBearerAuth(
+      { in: 'header', type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      'platform-auth',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('swagger', app, document, {

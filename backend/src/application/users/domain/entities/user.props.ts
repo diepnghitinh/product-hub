@@ -14,6 +14,10 @@ export interface UserProps {
    *  initials fallback. Set self-service via `PUT users/me/avatar`. */
   avatarUrl?: string | null;
   inboxSeenAt?: Date | null;
+  /** When this account last made an authenticated request. Read-only here — it's
+   *  stamped straight onto the document by `IUserRepository.touchLastActive`, so
+   *  the entity carries it for display but never writes it. */
+  lastActiveAt?: Date | null;
   /** Entities this user has pinned to their sidebar (newest first). */
   favourites: FavouriteRef[];
   /**

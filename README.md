@@ -205,6 +205,7 @@ Five roles, enforced on both the API and the UI:
 |---|---|
 | **Frontend** | React + TypeScript, Vite, Tailwind CSS, Radix UI (shadcn-style), TanStack Query, React Router, Editor.js |
 | **Backend** | NestJS 11, MongoDB (Mongoose), JWT auth, class-validator, Swagger, MCP over HTTP |
+| **Platform console** | Same stack, separate app and separate origin ([`saas-admin/`](saas-admin/)) |
 | **Tooling** | Docker Compose (MongoDB), one-command dev script |
 
 ---
@@ -234,6 +235,28 @@ Open the app, **register** a workspace, and you're in as its admin.
 
 ---
 
+## Running it as a SaaS — the platform console
+
+product-hub is multi-tenant: one deployment holds many workspaces. The **platform console**
+([`saas-admin/`](saas-admin/)) is the vendor's own app for running that — every workspace on
+the deployment, the plan catalog, subscriptions, and what each workspace actually uses.
+
+```bash
+ADMIN=1 ./dev.sh                            # console → http://localhost:3003
+cd backend && npm run seed:platform         # first operator + a Free/Pro/Business catalog
+```
+
+It is a **separate app on a separate origin** with its own account collection and its own JWT
+secret — a workspace user has no URL under the app that loads it, and a workspace token is not
+valid against `/v1/platform`. That separation is the security model, so don't collapse it into
+an `/admin` route. Full details, including the deployment checklist:
+[`saas-admin/README.md`](saas-admin/README.md).
+
+> In V1 plan limits are **reported, not enforced** — a workspace over its limit keeps working
+> and the console tells you who to talk to.
+
+---
+
 ## Project layout
 
 ```
@@ -241,8 +264,11 @@ product-hub/
 ├── frontend/     React + Vite SPA (features/, components/ui abstraction layer)
 ├── backend/      NestJS API (DDD: presentation / application / infrastructure)
 │                 — also serves the MCP endpoint at /v1/mcp
+│                 — and /v1/platform for the console
+├── saas-admin/   Platform console SPA — tenants, plans, subscriptions, usage (vendor only)
+├── collab/       Yjs sync server for collaborative doc editing (optional)
 ├── docs/         Product overview, architecture, roles, feature inventory
-└── dev.sh        One-command local stack (Mongo + API + web)
+└── dev.sh        One-command local stack (Mongo + API + web [+ collab] [+ console])
 ```
 
 More detail lives in [`docs/`](docs/) — start with
