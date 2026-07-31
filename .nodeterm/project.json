@@ -1,55 +1,16 @@
 {
   "version": 1,
-  "rev": 566,
-  "savedAt": "2026-07-31T02:53:38.387Z",
+  "rev": 591,
+  "savedAt": "2026-07-31T04:45:20.221Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 455.9941073368095,
-    "y": 2853.472946619032,
-    "zoom": 1.15
+    "x": -33.71847393519522,
+    "y": 2660.7997197651125,
+    "zoom": 0.8488645334121577
   },
-  "nodes": [
-    {
-      "id": "term-ms8afxw6-1",
-      "kind": "terminal",
-      "position": {
-        "x": -337.71226724939953,
-        "y": -2424.324301407854
-      },
-      "size": {
-        "width": 600,
-        "height": 400
-      },
-      "title": "Fix docs heading layout and icon hover",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
-      "cwd": ".",
-      "agentId": "claude"
-    },
-    {
-      "id": "term-ms8c349z-2",
-      "kind": "terminal",
-      "position": {
-        "x": 317.8312110114712,
-        "y": -2424.324301407854
-      },
-      "size": {
-        "width": 600,
-        "height": 400
-      },
-      "title": "Cho phép import feature cho testcase",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
-      "cwd": ".",
-      "agentId": "claude"
-    }
-  ],
+  "nodes": [],
   "bridges": [],
   "ropes": [],
   "kanban": {

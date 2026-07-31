@@ -25,6 +25,7 @@ export class UserEntity extends AggregateRoot<UserProps> {
       role?: Role;
       avatarUrl?: string | null;
       inboxSeenAt?: Date | null;
+      lastActiveAt?: Date | null;
       favourites?: FavouriteRef[];
       personalStatuses?: TaskStatusConfig[];
       readInboxKeys?: string[];
@@ -57,6 +58,7 @@ export class UserEntity extends AggregateRoot<UserProps> {
           role: props.role || Role.TESTER,
           avatarUrl: props.avatarUrl ?? null,
           inboxSeenAt: props.inboxSeenAt ?? null,
+          lastActiveAt: props.lastActiveAt ?? null,
           favourites: props.favourites ?? [],
           // Seed personal-board columns from the shipped defaults so every user
           // (including accounts that predate the field) starts with To do / In
@@ -96,6 +98,9 @@ export class UserEntity extends AggregateRoot<UserProps> {
   }
   get inboxSeenAt(): Date | null | undefined {
     return this.props.inboxSeenAt;
+  }
+  get lastActiveAt(): Date | null | undefined {
+    return this.props.lastActiveAt;
   }
   get favourites(): FavouriteRef[] {
     return this.props.favourites;

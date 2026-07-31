@@ -25,4 +25,11 @@ export abstract class IUserRepository {
   save: (user: UserEntity) => Promise<void>;
   update: (user: UserEntity) => Promise<void>;
   delete: (id: string) => Promise<void>;
+  /**
+   * Stamp "this account was online at `at`". A field-level write rather than a
+   * `save`, because it fires on ordinary requests: loading a whole entity to put
+   * one timestamp back would be wasteful *and* would race — a request in flight
+   * would write back the rest of the user as it looked before a concurrent edit.
+   */
+  touchLastActive: (id: string, at: Date) => Promise<void>;
 }

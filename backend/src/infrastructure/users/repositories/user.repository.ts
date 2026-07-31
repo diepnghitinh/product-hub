@@ -31,6 +31,7 @@ export class UserRepository
         role: doc.role as Role,
         avatarUrl: doc.avatarUrl ?? null,
         inboxSeenAt: doc.inboxSeenAt,
+        lastActiveAt: doc.lastActiveAt ?? null,
         favourites: doc.favourites ?? [],
         personalStatuses: doc.personalStatuses ?? [],
         readInboxKeys: doc.readInboxKeys ?? [],
@@ -43,6 +44,12 @@ export class UserRepository
     return result.getValue();
   }
 
+  /**
+   * Note there's no `lastActiveAt` here, deliberately. `save` overwrites every
+   * field it lists, and an entity can be seconds stale by the time it's written
+   * back — including the stamp would let a slow role change roll "last online"
+   * backwards. `touchLastActive` is its only writer.
+   */
   toDocument(user: UserEntity): Partial<UserDoc> {
     return {
       _id: user.id.toString(),
@@ -123,6 +130,15 @@ export class UserRepository
 
   async update(user: UserEntity): Promise<void> {
     await this.save(user);
+  }
+
+  async touchLastActive(id: string, at: Date): Promise<void> {
+    // `timestamps: false` keeps this off `updatedAt` — being online isn't an edit,
+    // and anything sorting people by "recently changed" shouldn't reshuffle just
+    // because someone opened the app.
+    await this.model
+      .updateOne({ _id: id }, { $set: { lastActiveAt: at } }, { timestamps: false })
+      .exec();
   }
 
   async delete(id: string): Promise<void> {

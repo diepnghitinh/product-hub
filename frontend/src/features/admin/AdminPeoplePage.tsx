@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { cn } from '@/lib/utils';
 import {
   Button,
   Menu,
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui';
 import { TableSkeleton } from '@/components/Skeletons';
 import { UserAvatar } from '@/components/UserAvatar';
+import { formatDateTime, timeAgo } from '@/lib/format';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { ROLE_LABEL, Role } from '@/types/enums';
@@ -21,6 +23,34 @@ import { useDeleteUser, useUpdateUser, useUsers } from '@/features/users/api';
 import { InvitePersonDialog } from '@/features/users/InvitePersonDialog';
 import { CenteredPageLayout } from '@/layouts/shared';
 import { ResetPasswordDialog } from '@/features/admin/ResetPasswordDialog';
+
+/** Anyone seen this recently is treated as here *now*. The stamp is throttled to
+ *  one write a minute, so a tighter window would just show "1m ago" to someone
+ *  who is plainly still typing. */
+const ONLINE_WITHIN_MS = 5 * 60_000;
+
+/**
+ * "Last online" for one person: a green dot while they're around, otherwise how
+ * long ago, with the exact timestamp on hover. `null` means the account hasn't
+ * been seen since the field shipped — not that they've never signed in.
+ */
+function LastOnline({ at }: { at?: string | null }) {
+  if (!at) return <span className="text-muted-foreground">{t('people.neverOnline')}</span>;
+
+  const isOnline = Date.now() - new Date(at).getTime() < ONLINE_WITHIN_MS;
+  return (
+    <span
+      title={formatDateTime(at)}
+      className={cn(
+        'inline-flex items-center gap-1.5 whitespace-nowrap',
+        isOnline ? 'text-foreground' : 'text-muted-foreground',
+      )}
+    >
+      {isOnline && <span className="size-1.5 shrink-0 rounded-full bg-success" aria-hidden />}
+      {isOnline ? t('people.online') : timeAgo(at)}
+    </span>
+  );
+}
 
 export function AdminPeoplePage() {
   const { user, isAdmin } = useAuth();
@@ -48,7 +78,7 @@ export function AdminPeoplePage() {
       />
 
       {isLoading ? (
-        <TableSkeleton rows={6} cols={3} />
+        <TableSkeleton rows={6} cols={4} />
       ) : (
         <div className="overflow-hidden rounded-xl border">
           <Table>
@@ -57,6 +87,9 @@ export function AdminPeoplePage() {
                 <TableHead>{t('people.name')}</TableHead>
                 <TableHead>{t('people.email')}</TableHead>
                 <TableHead>{t('people.role')}</TableHead>
+                {/* Below sm the table would overflow, so this column folds into
+                    the name cell instead of being lost to a sideways scroll. */}
+                <TableHead className="hidden sm:table-cell">{t('people.lastOnline')}</TableHead>
                 <TableHead aria-label="actions" className="w-0" />
               </TableRow>
             </TableHeader>
@@ -76,7 +109,12 @@ export function AdminPeoplePage() {
                         className="size-8 shrink-0"
                         fallbackClassName="text-xs"
                       />
-                      <span className="truncate">{u.name}</span>
+                      <div className="min-w-0">
+                        <span className="block truncate">{u.name}</span>
+                        <span className="block text-xs font-normal sm:hidden">
+                          <LastOnline at={u.lastActiveAt} />
+                        </span>
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{u.email}</TableCell>
@@ -85,10 +123,18 @@ export function AdminPeoplePage() {
                       <Select
                         value={u.role}
                         disabled={u.id === user?.id}
-                        onValueChange={(v) => updateUser.mutate({ id: u.id, input: { role: v as Role } })}
-                        options={Object.values(Role).map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+                        onValueChange={(v) =>
+                          updateUser.mutate({ id: u.id, input: { role: v as Role } })
+                        }
+                        options={Object.values(Role).map((r) => ({
+                          value: r,
+                          label: ROLE_LABEL[r],
+                        }))}
                       />
                     </div>
+                  </TableCell>
+                  <TableCell className="hidden text-sm sm:table-cell">
+                    <LastOnline at={u.lastActiveAt} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Menu
@@ -126,11 +172,7 @@ export function AdminPeoplePage() {
       {/* The same dialog the assignee picker's "Invite people via email" opens. */}
       <InvitePersonDialog open={open} onClose={() => setOpen(false)} />
 
-      <ResetPasswordDialog
-        user={resetUser}
-        open={!!resetUser}
-        onClose={() => setResetUser(null)}
-      />
+      <ResetPasswordDialog user={resetUser} open={!!resetUser} onClose={() => setResetUser(null)} />
     </CenteredPageLayout>
   );
 }

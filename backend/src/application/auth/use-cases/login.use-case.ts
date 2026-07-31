@@ -4,6 +4,7 @@ import { IUsecaseExecute, JwtPayload } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { PasswordService } from '@module-shared/services/password.service';
 import { IUserRepository } from '@application/users/repositories/user.repository';
+import { ITenantRepository } from '@application/tenants/repositories/tenant.repository';
 import { LoginDto } from '../dtos/login.dto';
 import { AuthResult } from './register.use-case';
 
@@ -13,6 +14,7 @@ export class LoginUseCase
 {
   constructor(
     @Inject(IUserRepository) private readonly users: IUserRepository,
+    @Inject(ITenantRepository) private readonly tenants: ITenantRepository,
     private readonly password: PasswordService,
     private readonly jwt: JwtService,
   ) {}
@@ -24,6 +26,14 @@ export class LoginUseCase
 
     const ok = await this.password.compare(dto.password, user.passwordHash);
     if (!ok) return Result.fail('Invalid email or password');
+
+    // A workspace suspended from the platform console stops here — this is the
+    // single chokepoint where suspension is enforced, so it has to say *why*
+    // rather than reuse the deliberately-vague credentials message.
+    const tenant = await this.tenants.findById(user.tenantId);
+    if (tenant?.isSuspended) {
+      return Result.fail('This workspace is suspended. Please contact support.');
+    }
 
     const payload: JwtPayload = {
       userId: user.id.toString(),

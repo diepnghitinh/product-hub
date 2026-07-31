@@ -10,6 +10,7 @@ export class UserMapper {
       name: user.name,
       role: user.role,
       avatarUrl: user.avatarUrl ?? null,
+      lastActiveAt: user.lastActiveAt ?? null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };

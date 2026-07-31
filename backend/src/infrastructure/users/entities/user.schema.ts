@@ -14,6 +14,7 @@ export interface UserDoc {
   role: Role;
   avatarUrl: string | null;
   inboxSeenAt: Date | null;
+  lastActiveAt: Date | null;
   favourites: FavouriteRef[];
   personalStatuses: TaskStatusConfig[];
   readInboxKeys: string[];
@@ -67,6 +68,10 @@ export const UserSchema = new Schema<UserDoc>(
     // Avatar image URL from cloud storage; null (the default) shows initials.
     avatarUrl: { type: String, default: null },
     inboxSeenAt: { type: Date, default: null },
+    // Last time this account made an authenticated request ("last online" in
+    // Settings → People). Written *only* by `touchLastActive`, never by a normal
+    // save — see the repository for why. null = never seen since the field shipped.
+    lastActiveAt: { type: Date, default: null },
     favourites: { type: [FavouriteRefSchema], default: [] },
     // Empty by default; the entity fills in DEFAULT_TASK_STATUSES on read so an
     // account that predates this field still gets the three starter columns.

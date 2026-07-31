@@ -11,6 +11,7 @@ import {
   ResetUserPasswordUseCase,
   GetPersonalStatusesUseCase,
   ReplacePersonalStatusesUseCase,
+  TouchUserActivityUseCase,
 } from './use-cases';
 
 const useCases = [
@@ -24,6 +25,7 @@ const useCases = [
   ResetUserPasswordUseCase,
   GetPersonalStatusesUseCase,
   ReplacePersonalStatusesUseCase,
+  TouchUserActivityUseCase,
 ];
 
 @Module({
