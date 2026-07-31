@@ -20,7 +20,9 @@ export interface ParseResult {
   totalRows: number;
 }
 
-const HEADER_ALIASES: Record<string, keyof RawCase> = {
+/** Header cell → case field. Shared with the feature importer, which reads the
+ *  same columns once it has split a file into features. */
+export const HEADER_ALIASES: Record<string, keyof RawCase> = {
   area: 'area',
   feature: 'area',
   scenario: 'area',
@@ -58,7 +60,7 @@ const HEADER_ALIASES: Record<string, keyof RawCase> = {
 };
 
 /** The positional order the template emits — used when a sheet has no header. */
-const FIXED_ORDER: (keyof RawCase)[] = [
+export const FIXED_ORDER: (keyof RawCase)[] = [
   'area',
   'type',
   'result',
@@ -72,7 +74,7 @@ const FIXED_ORDER: (keyof RawCase)[] = [
 
 /** Lowercase a header cell and collapse underscores/whitespace, so `Test_Steps`
  *  and `Expected  Result` both match their aliases. */
-function normalizeKey(raw: unknown): string {
+export function normalizeKey(raw: unknown): string {
   return String(raw ?? '')
     .trim()
     .toLowerCase()
@@ -82,7 +84,7 @@ function normalizeKey(raw: unknown): string {
 /** A row counts as empty when every meaningful field is blank (type/result
  *  default server-side, so they don't keep an otherwise-blank row alive —
  *  mirrors the backend's `normalizeCases` emptiness rule). */
-function isEmptyCase(c: RawCase): boolean {
+export function isEmptyCase(c: RawCase): boolean {
   const steps = Array.isArray(c.testSteps) ? c.testSteps.join('') : c.testSteps;
   return !(
     c.area?.trim() ||
@@ -97,7 +99,7 @@ function isEmptyCase(c: RawCase): boolean {
 
 /** Map a JSON object to a raw row: prefer our canonical field names, then
  *  gap-fill from header aliases so human-authored files still map. */
-function mapObject(row: Record<string, unknown>): RawCase {
+export function caseFromObject(row: Record<string, unknown>): RawCase {
   const out: RawCase = {
     area: str(row.area),
     type: str(row.type),
@@ -166,7 +168,7 @@ export async function parseTestCasesFile(file: File): Promise<ParseResult> {
         skipped += 1;
         continue;
       }
-      const c = mapObject(entry as Record<string, unknown>);
+      const c = caseFromObject(entry as Record<string, unknown>);
       if (isEmptyCase(c)) skipped += 1;
       else cases.push(c);
     }

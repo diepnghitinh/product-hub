@@ -1,48 +1,28 @@
 {
   "version": 1,
-  "rev": 526,
-  "savedAt": "2026-07-30T16:26:58.828Z",
+  "rev": 566,
+  "savedAt": "2026-07-31T02:53:38.387Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": 787.8691073368095,
-    "y": 2820.972946619032,
+    "x": 455.9941073368095,
+    "y": 2853.472946619032,
     "zoom": 1.15
   },
   "nodes": [
     {
-      "id": "term-ms6tz8k1-1",
+      "id": "term-ms8afxw6-1",
       "kind": "terminal",
       "position": {
-        "x": 372.4090504109988,
-        "y": -2479.6881167615625
-      },
-      "size": {
-        "width": 600,
-        "height": 841
-      },
-      "title": "Thêm lựa chọn hiển thị docs của người dùng",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
-      "collapsed": false,
-      "cwd": ".",
-      "agentId": "claude"
-    },
-    {
-      "id": "term-ms7myaak-1",
-      "kind": "terminal",
-      "position": {
-        "x": -344.00800615613,
-        "y": -1923.511939802499
+        "x": -337.71226724939953,
+        "y": -2424.324301407854
       },
       "size": {
         "width": 600,
         "height": 400
       },
-      "title": "Redesign product UI/UX with premium SaaS skill",
+      "title": "Fix docs heading layout and icon hover",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,
@@ -51,17 +31,17 @@
       "agentId": "claude"
     },
     {
-      "id": "term-ms7nqz4r-2",
+      "id": "term-ms8c349z-2",
       "kind": "terminal",
       "position": {
-        "x": -315.1035715972257,
-        "y": -2458.243979142229
+        "x": 317.8312110114712,
+        "y": -2424.324301407854
       },
       "size": {
         "width": 600,
         "height": 400
       },
-      "title": "Fix Chrome browser missing in Puppeteer PDF export",
+      "title": "Cho phép import feature cho testcase",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,

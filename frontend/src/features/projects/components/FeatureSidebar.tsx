@@ -14,6 +14,7 @@ import {
   useReorderReports,
   useUpdateReport,
 } from '@/features/reports/api';
+import { ImportFeaturesDialog } from '@/features/reports/components/ImportFeaturesDialog';
 
 const STORAGE_KEY = 'feature-sidebar-collapsed-groups';
 
@@ -63,6 +64,8 @@ export function FeatureSidebar({
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropId, setDropId] = useState<string | null>(null);
+  /** The group a file import is targeting (its upload button was clicked). */
+  const [importGroup, setImportGroup] = useState<{ id: string; title: string } | null>(null);
   useEffect(() => setCollapsed(readCollapsed()), []);
 
   // Drag a feature onto another to reorder (and move it into that feature's group).
@@ -276,9 +279,9 @@ export function FeatureSidebar({
             <button
               type="button"
               className="nav-add nav-add-icon"
-              onClick={() => addFeature(groupId, groupTitle)}
-              title={t('project.addFeatureTip')}
-              aria-label={t('project.addFeatureTip')}
+              onClick={() => setImportGroup({ id: groupId, title: groupTitle })}
+              title={t('report.importFeaturesTip')}
+              aria-label={`${t('report.importFeaturesTip')} — ${groupTitle}`}
             >
               <svg
                 width="14"
@@ -396,6 +399,17 @@ export function FeatureSidebar({
           )}
         </nav>
       </div>
+
+      {importGroup && (
+        <ImportFeaturesDialog
+          open
+          onClose={() => setImportGroup(null)}
+          projectId={projectId}
+          groupId={importGroup.id}
+          groupTitle={importGroup.title}
+          existing={reportsFor(importGroup.id)}
+        />
+      )}
     </aside>
   );
 }
