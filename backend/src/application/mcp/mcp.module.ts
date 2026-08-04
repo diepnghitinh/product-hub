@@ -5,13 +5,28 @@ import { ApplicationIssuesModule } from '@application/issues/issues.module';
 import { ApplicationTeamsModule } from '@application/teams/teams.module';
 import { ApplicationRoadmapsModule } from '@application/roadmaps/roadmaps.module';
 import { ApplicationDocsModule } from '@application/docs/docs.module';
+import { ApplicationActivityModule } from '@application/activity/activity.module';
+import { ApplicationIssueLinksModule } from '@application/issue-links/issue-links.module';
 import {
   GetMcpContextUseCase,
   GetMcpEventsUseCase,
+  McpAddCommentUseCase,
   McpCreateBacklogItemUseCase,
   McpCreateDocUseCase,
   McpCreateIssueUseCase,
+  McpDeleteCommentUseCase,
+  McpDeleteIssueUseCase,
+  McpGetIssueUseCase,
+  McpLinkIssuesUseCase,
+  McpListBacklogItemsUseCase,
+  McpListCommentsUseCase,
+  McpListLinksUseCase,
   McpSearchIssuesUseCase,
+  McpSetStatusUseCase,
+  McpUnlinkIssuesUseCase,
+  McpUpdateCommentUseCase,
+  McpUpdateDocUseCase,
+  McpUpdateIssueUseCase,
 } from './use-cases';
 
 const useCases = [
@@ -19,8 +34,21 @@ const useCases = [
   GetMcpEventsUseCase,
   McpCreateBacklogItemUseCase,
   McpCreateDocUseCase,
+  McpUpdateDocUseCase,
   McpCreateIssueUseCase,
+  McpGetIssueUseCase,
+  McpUpdateIssueUseCase,
+  McpSetStatusUseCase,
+  McpDeleteIssueUseCase,
+  McpListCommentsUseCase,
+  McpAddCommentUseCase,
+  McpUpdateCommentUseCase,
+  McpDeleteCommentUseCase,
   McpSearchIssuesUseCase,
+  McpListBacklogItemsUseCase,
+  McpLinkIssuesUseCase,
+  McpListLinksUseCase,
+  McpUnlinkIssuesUseCase,
 ];
 
 @Module({
@@ -34,6 +62,11 @@ const useCases = [
     ApplicationTeamsModule,
     ApplicationRoadmapsModule,
     ApplicationDocsModule,
+    // The 4 issue-comment use-cases (list/add/update/delete) inject from here —
+    // without it the comment wrappers can't resolve their dependencies.
+    ApplicationActivityModule,
+    // The 3 issue-link use-cases (create/get/delete) the link wrappers delegate to.
+    ApplicationIssueLinksModule,
   ],
   providers: [...useCases],
   exports: [...useCases],

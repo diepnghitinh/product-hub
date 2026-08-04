@@ -174,7 +174,29 @@ export enum McpEntity {
   BUG = 'bug',
   BACKLOG_ITEM = 'backlog-item',
   DOC = 'doc',
+  COMMENT = 'comment',
 }
+
+/** What an API key may do through MCP — a ceiling independent of the owner's
+ *  role. New keys default to read-only; a higher scope must be chosen to write. */
+export enum ApiKeyScope {
+  READ_ONLY = 'read-only',
+  READ_WRITE = 'read-write',
+  READ_WRITE_DELETE = 'read-write-delete',
+}
+
+/** Widest-to-narrowest is not meaningful for display order; least-privilege first. */
+export const API_KEY_SCOPES: ApiKeyScope[] = [
+  ApiKeyScope.READ_ONLY,
+  ApiKeyScope.READ_WRITE,
+  ApiKeyScope.READ_WRITE_DELETE,
+];
+
+export const API_KEY_SCOPE_LABEL: Record<ApiKeyScope, string> = {
+  [ApiKeyScope.READ_ONLY]: t('enum.apiKeyScope.readOnly'),
+  [ApiKeyScope.READ_WRITE]: t('enum.apiKeyScope.readWrite'),
+  [ApiKeyScope.READ_WRITE_DELETE]: t('enum.apiKeyScope.readWriteDelete'),
+};
 
 /** The six relation options in "Mark as" menu order (matches the mockup). */
 export const RELATION_TYPES: RelationType[] = [

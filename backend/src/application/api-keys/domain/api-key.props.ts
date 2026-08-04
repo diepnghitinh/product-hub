@@ -1,4 +1,5 @@
 import { UniqueEntityID } from '@core/domain';
+import { ApiKeyScope } from './api-key.enums';
 
 export interface ApiKeyProps {
   id: UniqueEntityID;
@@ -9,6 +10,8 @@ export interface ApiKeyProps {
   /** Display prefix (e.g. `phk_ab12…`) for the masked list. */
   prefix: string;
   createdBy: string;
+  /** What the key may do — the ceiling on write/delete through MCP. */
+  scope: ApiKeyScope;
   lastUsedAt: Date | null;
   createdAt: Date;
 }

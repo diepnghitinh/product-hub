@@ -911,6 +911,14 @@ export const ko: Record<I18nKey, string> = {
   'settings.mcpDesktopNote':
     'Claude Code를 비롯해 헤더를 보낼 수 있는 클라이언트에서 동작합니다. Claude Desktop의 커스텀 커넥터는 키 대신 OAuth 로그인을 요구하므로 아직 이 URL을 쓸 수 없습니다.',
   'settings.mcpKeysNote': 'MCP는 API와 같은 키를 씁니다 — 설정 → API 키에서 해지할 수 있습니다.',
+  'settings.mcpKeyScope': '권한',
+  'settings.mcpKeyScopeHint':
+    '이 키를 쓰는 어시스턴트가 할 수 있는 작업입니다. 읽기 전용으로 시작하고, 생성·수정·삭제가 필요할 때만 넓히세요.',
+  'settings.mcpVerbCreated': '생성',
+  'settings.mcpVerbUpdated': '수정',
+  'settings.mcpVerbDeleted': '삭제',
+  'settings.mcpVerbMoved': '이동',
+  'settings.mcpVerbCommented': '댓글',
   'settings.mcpTools':
     '그런 다음 “내 Product OS 워크스페이스를 보여줘”, “QC에 버그를 등록해줘”, “백로그 항목을 추가해줘”, “이걸 문서로 정리해줘”처럼 요청하세요. 팀, 상태, 담당자는 이름 그대로 받으며, 알 수 없는 값이면 추측하지 않고 가능한 선택지를 알려줍니다.',
   'settings.mcpReady': '키가 준비되었습니다',
@@ -1373,6 +1381,9 @@ export const ko: Record<I18nKey, string> = {
   'enum.role.guest': '게스트',
   'enum.role.product': '프로덕트',
   'enum.role.developer': '개발자',
+  'enum.apiKeyScope.readOnly': '읽기 전용',
+  'enum.apiKeyScope.readWrite': '읽기 및 쓰기',
+  'enum.apiKeyScope.readWriteDelete': '읽기·쓰기·삭제',
 
   'enum.environment.development': '개발',
   'enum.environment.staging': '스테이징',

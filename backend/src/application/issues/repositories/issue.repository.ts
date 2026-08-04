@@ -31,6 +31,10 @@ export abstract class IIssueRepository {
     opts?: { personalOwnerId?: string },
   ) => Promise<IssuePaginationResponse>;
   countByStatus: (tenantId: string, status: string) => Promise<number>;
+  /** Count every issue whose parent is `parentId`, regardless of owner — the
+   *  privacy filter on `findByTenant` hides personal-task children, but the
+   *  delete-orphan guard must see them too, or it would orphan a private subtask. */
+  countChildren: (tenantId: string, parentId: string) => Promise<number>;
   /** Scope/completed (count + points) per cycle id, in one aggregation. Feeds
    *  both the live rollups and the freeze at cycle completion. */
   cycleRollups: (

@@ -915,6 +915,14 @@ export const en = {
   'settings.mcpDesktopNote':
     'Works with Claude Code and any client that can send a header. Claude Desktop’s custom connectors expect an OAuth sign-in rather than a key, so they can’t use this URL yet.',
   'settings.mcpKeysNote': 'MCP uses the same keys as the API — revoke one under Settings → API keys.',
+  'settings.mcpKeyScope': 'Access',
+  'settings.mcpKeyScopeHint':
+    'What an assistant using this key may do. Start read-only and widen only when you want it to create, edit, or delete.',
+  'settings.mcpVerbCreated': 'Created',
+  'settings.mcpVerbUpdated': 'Updated',
+  'settings.mcpVerbDeleted': 'Deleted',
+  'settings.mcpVerbMoved': 'Moved',
+  'settings.mcpVerbCommented': 'Commented',
   'settings.mcpTools':
     'Then ask it to “list my Product OS workspace”, “file a bug for QC”, “add a backlog item”, or “write this up as a doc — with a diagram of the flow”. Team, status and assignee accept plain names; an unknown one comes back with the valid choices instead of guessing.',
   'settings.mcpReady': 'Your key is ready',
@@ -1374,6 +1382,9 @@ export const en = {
   'enum.role.admin': 'Admin',
   'enum.role.tester': 'Tester',
   'enum.role.guest': 'Guest',
+  'enum.apiKeyScope.readOnly': 'Read-only',
+  'enum.apiKeyScope.readWrite': 'Read & write',
+  'enum.apiKeyScope.readWriteDelete': 'Read, write & delete',
   'enum.role.product': 'Product',
   'enum.role.developer': 'Developer',
 

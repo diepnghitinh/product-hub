@@ -254,6 +254,12 @@ export class IssueRepository
     return this.model.countDocuments({ tenantId, status }).exec();
   }
 
+  async countChildren(tenantId: string, parentId: string): Promise<number> {
+    // No ownerId scoping on purpose — the orphan guard must count personal-task
+    // children too, which the privacy-filtered `findByTenant` would hide.
+    return this.model.countDocuments({ tenantId, parentId }).exec();
+  }
+
   async cycleRollups(
     tenantId: string,
     cycleIds: string[],

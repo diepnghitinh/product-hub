@@ -164,12 +164,13 @@ function header(req: McpRequest, name: string): string {
 
 /** The key, plus whichever client it is speaking for until the handshake says. */
 function actorOf(req: McpRequest): McpActor {
-  const { tenantId, name, keyId, userId } = req.apiAuth;
+  const { tenantId, name, keyId, userId, scope } = req.apiAuth;
   return {
     tenantId,
     keyId,
     keyName: name,
     userId,
+    scope,
     clientName: header(req, MCP_CLIENT_HEADER).slice(0, 80) || UNKNOWN_MCP_CLIENT,
   };
 }

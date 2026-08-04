@@ -1,0 +1,20 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testRegex": ".*\\.e2e-spec\\.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "testEnvironment": "node",
+  "testTimeout": 60000,
+  "moduleNameMapper": {
+    "^puppeteer$": "<rootDir>/test/stubs/puppeteer.stub.ts",
+    "^@modelcontextprotocol/sdk/server/mcp.js$": "<rootDir>/test/stubs/mcp-sdk.stub.ts",
+    "^@core/(.*)$": "<rootDir>/libs/core/$1",
+    "^@shared/(.*)$": "<rootDir>/libs/shared/$1",
+    "^@application/(.*)$": "<rootDir>/src/application/$1",
+    "^@infrastructure/(.*)$": "<rootDir>/src/infrastructure/$1",
+    "^@presentation/(.*)$": "<rootDir>/src/presentation/$1",
+    "^@module-shared/(.*)$": "<rootDir>/src/shared/$1"
+  }
+}
