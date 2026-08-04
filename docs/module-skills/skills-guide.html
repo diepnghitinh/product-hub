@@ -1,0 +1,596 @@
+<title>Product-OS — Cẩm nang module & skill</title>
+<style>
+  :root{
+    --bg:#f7f8fb; --panel:#ffffff; --ink:#1a1d29; --ink-soft:#4a4f60; --ink-faint:#787f93;
+    --line:#e5e8f0; --line-soft:#eef0f6; --accent:#4f5bd5; --accent-soft:#eaecfb;
+    --code-bg:#f0f2f8; --diagram-bg:#ffffff;
+    /* category accents */
+    --c-core:#d6446f;   --c-core-bg:#fbe9ef;
+    --c-plan:#4f5bd5;   --c-plan-bg:#e9ebfb;
+    --c-qa:#b7791f;     --c-qa-bg:#f8efdc;
+    --c-doc:#2f9e6b;    --c-doc-bg:#e4f4ec;
+    --c-ppl:#8b5cf6;    --c-ppl-bg:#f0e9fb;
+    --c-plat:#0d9488;   --c-plat-bg:#dcf2ef;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0f1117; --panel:#171a22; --ink:#e8eaf2; --ink-soft:#b3b8c9; --ink-faint:#7f869c;
+      --line:#262a36; --line-soft:#20232d; --accent:#8b93f0; --accent-soft:#20233a;
+      --code-bg:#1d2129; --diagram-bg:#f4f5fa;
+      --c-core:#f2779e; --c-core-bg:#331a24;
+      --c-plan:#9aa2f5; --c-plan-bg:#1c1f33;
+      --c-qa:#e0b562;  --c-qa-bg:#2e2717;
+      --c-doc:#5ec894; --c-doc-bg:#152a20;
+      --c-ppl:#b499f8; --c-ppl-bg:#251c3a;
+      --c-plat:#39c2b3; --c-plat-bg:#0f2b28;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f7f8fb; --panel:#ffffff; --ink:#1a1d29; --ink-soft:#4a4f60; --ink-faint:#787f93;
+    --line:#e5e8f0; --line-soft:#eef0f6; --accent:#4f5bd5; --accent-soft:#eaecfb;
+    --code-bg:#f0f2f8; --diagram-bg:#ffffff;
+    --c-core:#d6446f; --c-core-bg:#fbe9ef; --c-plan:#4f5bd5; --c-plan-bg:#e9ebfb;
+    --c-qa:#b7791f; --c-qa-bg:#f8efdc; --c-doc:#2f9e6b; --c-doc-bg:#e4f4ec;
+    --c-ppl:#8b5cf6; --c-ppl-bg:#f0e9fb; --c-plat:#0d9488; --c-plat-bg:#dcf2ef;
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1117; --panel:#171a22; --ink:#e8eaf2; --ink-soft:#b3b8c9; --ink-faint:#7f869c;
+    --line:#262a36; --line-soft:#20232d; --accent:#8b93f0; --accent-soft:#20233a;
+    --code-bg:#1d2129; --diagram-bg:#f4f5fa;
+    --c-core:#f2779e; --c-core-bg:#331a24; --c-plan:#9aa2f5; --c-plan-bg:#1c1f33;
+    --c-qa:#e0b562; --c-qa-bg:#2e2717; --c-doc:#5ec894; --c-doc-bg:#152a20;
+    --c-ppl:#b499f8; --c-ppl-bg:#251c3a; --c-plat:#39c2b3; --c-plat-bg:#0f2b28;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:48px 24px 96px}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
+  code{background:var(--code-bg);padding:.1em .4em;border-radius:5px;font-size:.86em}
+
+  header.top{border-bottom:1px solid var(--line);padding-bottom:28px;margin-bottom:36px}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  h1{font-size:34px;line-height:1.15;margin:.35em 0 .2em;text-wrap:balance;letter-spacing:-.02em}
+  .lede{color:var(--ink-soft);font-size:16px;max-width:62ch;margin:0}
+  .stats{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 16px;min-width:96px}
+  .stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .stat span{font-size:12px;color:var(--ink-faint)}
+
+  h2{font-size:13px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint);
+    font-weight:700;margin:52px 0 18px;padding-bottom:8px;border-bottom:1px solid var(--line-soft)}
+  h2:first-of-type{margin-top:40px}
+  p{margin:0 0 14px}
+
+  .callout{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:10px;padding:16px 20px;margin:0 0 20px}
+  .callout p{margin:0}
+  .callout p+p{margin-top:8px}
+
+  .diagram-card{background:var(--diagram-bg);border:1px solid var(--line);border-radius:14px;
+    padding:20px;overflow-x:auto;margin:8px 0 6px}
+  .diagram-card pre{margin:0;min-width:560px}
+  figcaption{color:var(--ink-faint);font-size:13px;margin:10px 2px 0}
+
+  /* category header */
+  .cat{display:flex;align-items:center;gap:10px;margin:46px 0 6px}
+  .cat .dot{width:11px;height:11px;border-radius:3px;background:var(--cc)}
+  .cat h3{margin:0;font-size:19px;letter-spacing:-.01em}
+  .cat .n{margin-left:auto;font-size:12px;color:var(--ink-faint);font-variant-numeric:tabular-nums}
+  .cat-note{color:var(--ink-soft);font-size:14px;margin:2px 0 18px}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:680px){.grid{grid-template-columns:1fr}.wrap{padding:32px 16px 72px}h1{font-size:28px}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--cc);
+    border-radius:12px;padding:16px 18px;display:flex;flex-direction:column}
+  .card .slug{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;
+    color:var(--cc);font-weight:600}
+  .card h4{margin:2px 0 8px;font-size:16px;letter-spacing:-.01em}
+  .card .desc{color:var(--ink-soft);font-size:13.5px;margin:0 0 12px}
+  .card .rel-label{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-faint);
+    font-weight:700;margin-bottom:6px}
+  .card ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px}
+  .card li{font-size:12.5px;color:var(--ink-soft);padding-left:14px;position:relative;line-height:1.45}
+  .card li::before{content:"→";position:absolute;left:0;color:var(--cc);font-size:11px;top:1px}
+  .card li b{color:var(--ink);font-weight:600}
+  .card .tag{background:var(--ccb);color:var(--cc);font-family:ui-monospace,Menlo,monospace;
+    font-size:11px;padding:1px 5px;border-radius:4px;font-weight:600}
+  .card.wide{grid-column:1/-1}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:4px 0 8px}
+  .twrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  th{background:var(--panel);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+  tr:last-child td{border-bottom:none}
+  td.mono{font-size:12px;color:var(--ink-soft)}
+
+  footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--ink-faint);font-size:12.5px}
+  a{color:var(--accent);text-decoration:none}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Cẩm nang kiến trúc · product-os</div>
+    <h1>36 skill module — bản đồ đọc là hiểu</h1>
+    <p class="lede">Mỗi module trong monorepo giờ có một skill (<code>.claude/skills/module-*/SKILL.md</code>)
+      mô tả mục đích, nơi nó sống, mô hình dữ liệu và <b>quan hệ với các module khác</b>. Trang này là
+      bản tổng hợp để đọc một lượt — trong session Claude Code, gõ <code>/module-&lt;tên&gt;</code> để mở chi tiết.</p>
+    <div class="stats">
+      <div class="stat"><b>4</b><span>ứng dụng</span></div>
+      <div class="stat"><b>35</b><span>skill module</span></div>
+      <div class="stat"><b>+1</b><span>skill kiến trúc</span></div>
+      <div class="stat"><b>105</b><span>subagent · 0 lỗi</span></div>
+      <div class="stat"><b>63+23</b><span>gap đã vá</span></div>
+    </div>
+  </header>
+
+  <h2>Cách dùng</h2>
+  <div class="callout">
+    <p><b>Điểm vào:</b> gõ <code>/product-os-architecture</code> để lấy bản đồ tổng, rồi nhảy sang skill module cụ thể.</p>
+    <p><b>Khi làm việc trên một vùng:</b> gõ đúng skill của nó — ví dụ sửa board Kanban → <code>/module-teams</code> +
+      <code>/module-issues</code>; làm tài liệu realtime → <code>/module-docs</code> + <code>/module-collab</code>.</p>
+    <p><b>Đã commit được:</b> các skill nằm trong repo nên cả team dùng chung; mỗi skill đã được 1 agent thứ hai verify đối chiếu source.</p>
+    <p><b>Đã audit lại:</b> 20 agent rà toàn bộ đối chiếu source — vá <b>63</b> gap tại chỗ (thiếu quan hệ/field/endpoint, sai lệch) + <b>23</b> quan hệ 2 chiều còn thiếu; 5 đề xuất bị loại vì source không chứng minh (không bịa thêm).</p>
+  </div>
+
+  <h2>4 ứng dụng · nền chung</h2>
+  <p><b>backend</b> — NestJS 11, MongoDB/Mongoose, mọi route dưới <code>/v1/*</code>, chia 3 lớp DDD
+    (<code>presentation</code> · <code>application</code> · <code>infrastructure</code>). Guard toàn cục:
+    <code>JwtAuthGuard → RolesGuard</code>. &nbsp;<b>frontend</b> — React+Vite, mỗi feature một thư mục
+    <code>src/features/*</code>. &nbsp;<b>saas-admin</b> — React+Vite, console cho vendor, chỉ nói chuyện với
+    <code>/v1/platform</code> (token riêng). &nbsp;<b>collab</b> — server Hocuspocus/Yjs riêng, đồng bộ CRDT nội dung doc.
+    &nbsp;Mọi aggregate mang <code>tenantId</code> để cách ly multi-tenant.</p>
+
+  <h2>Bản đồ quan hệ — <code>issue</code> ở trung tâm</h2>
+  <figure style="margin:0">
+    <div class="diagram-card">
+<pre class="mermaid">
+%%{init: {'theme':'neutral','flowchart':{'curve':'basis'}}}%%
+flowchart TB
+  TENANT["tenant"] --> TEAM["team"]
+  TEAM --> ISSUE(["ISSUE<br/>task · bug"])
+  TENANT --> USER["user"]
+  USER -->|assignee| ISSUE
+
+  TEAM -. "owns" .-> STAT["statuses · labels<br/>custom-fields · cycles"]
+  STAT --> ISSUE
+
+  CYCLE["cycle (sprint)"] --> ISSUE
+  ROAD["roadmap<br/>(RICE)"] --> ISSUE
+  MILE["milestone<br/>(OKR)"] --> ROAD
+  ISSUE --- LINK["issue-link"] --- ISSUE
+
+  REPORT["report<br/>test-case"] --> ISSUE
+  PROJ["project"] --> REPORT
+  PROJ --> GROUP["group"] --> REPORT
+
+  ISSUE --> ACT["activity<br/>(comment)"]
+  ACT --> INBOX["inbox"]
+  ISSUE --> RCT["reaction"]
+  ISSUE --> FAV["favourite"]
+  ISSUE -. attach .- DOC["doc"]
+  DOC -. realtime .- COLLAB["collab (Yjs)"]
+
+  ACT --> WH["webhook<br/>Lark/Telegram"]
+  MCP["mcp (AI)"] --> ISSUE
+  APIK["api-key"] --> MCP
+  TENANT -. managed by .-> PLAT["platform / saas-admin"]
+
+  classDef core fill:#fde8ee,stroke:#d6446f,stroke-width:2.5px,color:#5a1e34;
+  classDef org fill:#f0e9fb,stroke:#8b5cf6,color:#3a2159;
+  classDef plan fill:#e9ebfb,stroke:#4f5bd5,color:#1e2154;
+  classDef qa fill:#f8efdc,stroke:#b7791f,color:#5a3c14;
+  classDef doc fill:#e4f4ec,stroke:#2f9e6b,color:#1d3d2c;
+  classDef plat fill:#dcf2ef,stroke:#0d9488,color:#0b3b36;
+  class ISSUE core; class TENANT,TEAM,USER,STAT org;
+  class CYCLE,ROAD,MILE,LINK plan; class REPORT,PROJ,GROUP qa;
+  class ACT,INBOX,RCT,FAV,DOC,COLLAB doc; class WH,MCP,APIK,PLAT plat;
+</pre>
+    </div>
+    <figcaption>Mũi tên = "gắn vào / phụ thuộc". <code>issue</code> (hồng) là collection đa hình <code>kind=task|bug</code>;
+      gần như mọi module khác tham chiếu nó bằng khóa ngoại.</figcaption>
+  </figure>
+
+  <!-- ============ CORE ============ -->
+  <div class="cat" style="--cc:var(--c-core)"><span class="dot"></span><h3>1 · Nhân — Issue & vệ tinh</h3><span class="n">8 module</span></div>
+  <p class="cat-note">Task và Bug là <b>một</b> entity <code>issue</code> (một collection, một API, một hook factory) phân biệt bằng <code>kind</code>. Nhóm này là các mặt và phần đính kèm của nó.</p>
+  <div class="grid" style="--cc:var(--c-core);--ccb:var(--c-core-bg)">
+    <div class="card">
+      <span class="slug">module-issues</span><h4>Issues</h4>
+      <p class="desc">Record đa hình hợp nhất Task+Bug: một collection <code>issues</code>, phân biệt bằng <code>kind</code>. Bản ghi trung tâm mọi thứ khác trỏ vào.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>teams</b> — <code>teamId</code> + statuses/labels/custom-fields đến từ team</li>
+        <li><b>cycles</b> — <code>cycleId</code>, rollover sprint</li>
+        <li><b>roadmaps</b> — <code>roadmapItemId</code> nối task với backlog</li>
+        <li><b>reports</b> — bug mang <code>caseId/reportId</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-bugs</span><h4>Bugs</h4>
+      <p class="desc">Defect report: mức severity, ảnh/quay màn hình, link về test-case. Board <code>/bugs</code>, phục vụ qua <code>/v1/issues?kind=bug</code>.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>issues</b> — nhà thật của nó (một trong hai <code>kind</code>)</li>
+        <li><b>reports</b> — <code>reportId</code> nối bug về test-case</li>
+        <li><b>issue-links</b> — quan hệ blocks/duplicate với issue khác</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-tasks</span><h4>Tasks</h4>
+      <p class="desc">Việc kỹ thuật/sản phẩm, size theo thang Fibonacci, có sub-task. Nuôi board team, "My Tasks", và Personal board mỗi user.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>issues</b> — abstraction cha; dùng chung <code>makeIssueHooks</code></li>
+        <li><b>teams</b> — cột board = <code>TeamStatusConfig</code></li>
+        <li><b>roadmaps</b> — nối tới backlog item</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-cycles</span><h4>Cycles (Sprint)</h4>
+      <p class="desc">Nhịp sprint của team: cửa sổ dài cố định. Chạy <b>auto</b> (scheduler mint + rollover) hoặc <b>manual</b>; theo dõi scope/completed + burn-up.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>teams</b> — cấu hình nhịp nằm trên <code>TeamEntity</code></li>
+        <li><b>issues</b> — <code>cycleId</code>, rollup, rollover</li>
+        <li><b>admin</b> — <code>TeamCyclesEditor</code> là UI duy nhất chỉnh nhịp</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-issue-links</span><h4>Issue Links</h4>
+      <p class="desc">Quan hệ có kiểu, có hướng giữa 2 issue: blocks / is-blocked-by / parent-of / related-to / duplicate-of. Cross-type (bug chặn task).</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>issues/tasks/bugs</b> — validate 2 đầu qua repo issue chung</li>
+        <li>Không module nào khác đọc/ghi nó — quan hệ thuần 2-issue</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-labels</span><h4>Labels</h4>
+      <p class="desc">Pill tag tự do theo màu, định nghĩa <b>theo team</b> (không có built-in, không list toàn cục). Áp lên task/bug qua <code>labelKeys</code>.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>teams</b> — labels là field của <code>Team</code>, sửa ở Settings → Teams</li>
+        <li><b>tasks/bugs</b> — mang <code>labelKeys</code>, render <code>LabelChips</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-custom-fields</span><h4>Custom Fields</h4>
+      <p class="desc">Field tự định nghĩa kiểu Jira (Environment, Story Points…) hiện thành property row trên mọi bug/task của team. Định nghĩa thuộc team, giá trị theo issue.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>teams</b> — <code>CustomFieldConfig[]</code> nằm trên <code>Team.customFields</code></li>
+        <li><b>bugs/tasks</b> — lưu giá trị vào <code>issue.customFields</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-reactions</span><h4>Reactions</h4>
+      <p class="desc">Emoji reaction nhanh (palette cố định, toggle) gắn lên issue hoặc roadmap item. Pill đếm số + tooltip ai đã react.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>issues</b> — <code>ReactionBar</code> dưới Description ở detail</li>
+        <li><b>roadmaps</b> — cùng bar với <code>ReactionTargetType.RoadmapItem</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ PLANNING ============ -->
+  <div class="cat" style="--cc:var(--c-plan)"><span class="dot"></span><h3>2 · Lập kế hoạch</h3><span class="n">3 module</span></div>
+  <p class="cat-note">"Đang cược vào gì" (Roadmap/RICE) và "thành công trông ra sao" (OKR), gộp trên một trang tab.</p>
+  <div class="grid" style="--cc:var(--c-plan);--ccb:var(--c-plan-bg)">
+    <div class="card">
+      <span class="slug">module-roadmaps</span><h4>Roadmaps</h4>
+      <p class="desc">Board backlog/ưu tiên, chấm điểm RICE (reach×impact×confidence/effort), cột "pool" tùy biến. Xem dạng Kanban / bảng RICE / Gantt. Chia sẻ công khai được.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>issues</b> — task/bug mang <code>roadmapItemId</code> để thực thi item</li>
+        <li><b>milestones</b> — item link tới OKR (<code>objectiveId/keyResultId</code>)</li>
+        <li><b>public</b> — <code>PublicRoadmapsController</code> phục vụ view read-only</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-milestones</span><h4>Milestones (OKR)</h4>
+      <p class="desc">OKR = title + timeframe chứa objectives, mỗi cái có key results. Progress cuốn lên: KR → objective (có trọng số) → milestone.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>roadmaps</b> — <code>roadmapIds[]</code> nối tới nhiều roadmap</li>
+        <li><b>planning</b> — là tab "OKRs" của trang planning</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-planning</span><h4>Planning</h4>
+      <p class="desc">Chỉ là vỏ trang mỏng, không có backend riêng: đặt Roadmaps và OKRs sau một dải tab (<code>/roadmaps</code> · <code>/okrs</code>).</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>roadmaps</b> + <b>milestones</b> — render 2 panel của chúng</li>
+        <li>Không nối team/my-team — chỉ ở trang cấp workspace</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ QA ============ -->
+  <div class="cat" style="--cc:var(--c-qa)"><span class="dot"></span><h3>3 · Testing / QA</h3><span class="n">4 module</span></div>
+  <p class="cat-note">Phía "Testing" của app (tách khỏi issue-tracker): Project → Report (test-case) → bug được raise từ đó.</p>
+  <div class="grid" style="--cc:var(--c-qa);--ccb:var(--c-qa-bg)">
+    <div class="card">
+      <span class="slug">module-projects</span><h4>Projects</h4>
+      <p class="desc">Container cấp cao nhất của "Testing": mỗi initiative một Project, có badge <code>environment</code> (dev/staging/prod), nest các feature report bên dưới.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>reports/groups</b> — Project sở hữu report + folder nhóm</li>
+        <li><b>public</b> — chia sẻ project lộ ra test reports</li>
+        <li><b>tenants/auth</b> — scope theo tenant, validate quyền</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-reports</span><h4>Reports / Test-cases</h4>
+      <p class="desc">Tài liệu test theo feature: các section (overview/screenshot/cards/steps/bullets/ordered) + bảng test-case có kết quả (Passed/Failed…). Cuốn lên progress của project.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>bugs</b> — bug raise <i>against</i> test-case qua <code>reportId</code> (một chiều)</li>
+        <li><b>projects</b> — report scope 1:1 theo <code>projectId</code></li>
+        <li><b>audit-log</b> — đổi kết quả test-case được ghi lịch sử</li>
+        <li><b>public</b> — test report lộ ra qua link chia sẻ project</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-groups</span><h4>Groups</h4>
+      <p class="desc">Folder có thứ tự, admin đặt tên, scope trong một project (vd "1 · Authentication") để gom các Report của project trong sidebar.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>reports</b> — Report mang <code>groupId</code>; kéo-thả đổi group</li>
+        <li><b>projects</b> — luôn scope theo <code>projectId</code> (route lồng)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-audit-log</span><h4>Audit Log</h4>
+      <p class="desc">Lịch sử append-only "ai đổi gì" trên test-case/report — hiện tập trung ở thay đổi <b>kết quả</b> test-case, cho cả user và CI/API.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>reports</b> — đường ghi thật; đổi trùng giá trị thì <b>không</b> ghi</li>
+        <li><b>projects</b> — entry scope theo project</li>
+        <li><b>public</b> — endpoint CI công khai ghi kèm actor <code>API</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ DOCS & COLLAB ============ -->
+  <div class="cat" style="--cc:var(--c-doc)"><span class="dot"></span><h3>4 · Tài liệu & cộng tác</h3><span class="n">5 module</span></div>
+  <p class="cat-note">Kiến thức viết ra (docs realtime), và lớp phản hồi bám theo mỗi issue.</p>
+  <div class="grid" style="--cc:var(--c-doc);--ccb:var(--c-doc-bg)">
+    <div class="card">
+      <span class="slug">module-docs</span><h4>Docs</h4>
+      <p class="desc">Knowledge base kiểu Notion: cây page, mỗi page thân HTML, đính vào issue/roadmap, version tay, xuất PDF, publish read-only. Thân page <b>sửa realtime</b> qua server collab.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>collab</b> — engine realtime; giữ CRDT Yjs, ghi HTML về <code>docpages.content</code></li>
+        <li><b>activity</b> — comment neo vào đoạn trích trong page (resolve được)</li>
+        <li><b>issues/roadmaps</b> — page đính vào bug/task hoặc roadmap item</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-collab</span><h4>Collab (realtime)</h4>
+      <p class="desc">Service thứ tư (cạnh db/api/web). Cho 2 người co-edit thân page không mất dữ liệu: thân page là CRDT Yjs, relay caret/selection (awareness).</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>docs</b> — lý do tồn tại; chỉ giữ CRDT + đồng bộ <code>docpages.content</code></li>
+        <li><b>auth</b> — dùng <i>cùng</i> JWT của REST API (<code>JWT_SECRET</code> phải khớp)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-activity</span><h4>Activity</h4>
+      <p class="desc">Một engine comment-thread dùng lại cho 3 chủ thể: issue, doc page (neo vào đoạn trích), roadmap item. Không phải audit đổi field — chỉ là thread 1 cấp.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>issues/bugs/tasks</b> — một thread chung cho cả bug & task</li>
+        <li><b>docs/roadmaps</b> — cùng engine cho comment page & roadmap item</li>
+        <li><b>inbox</b> — chỉ mention <b>bug</b> mới báo inbox (v1)</li>
+        <li><b>webhooks</b> — comment-mention bắn <code>COMMENT_MENTION</code>; <b>storage</b> — ảnh đính trong comment</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-inbox</span><h4>Inbox</h4>
+      <p class="desc">Trung tâm thông báo kiểu Linear: gộp (1) comment @mention bạn + (2) bug đang gán cho bạn. Read model <b>không có store riêng</b>, tính live mỗi lần gọi.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>bugs/issues</b> — mục "assigned" query issue <code>kind=bug</code></li>
+        <li><b>activity</b> — mention lấy từ comment store</li>
+        <li><b>users</b> — read-state (<code>inboxSeenAt</code>) lưu trên user doc</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-favourites</span><h4>Favourites</h4>
+      <p class="desc">Ghim issue / roadmap item / doc lên sidebar. Mỗi ghim là snapshot denormalized (title + route) để render tức thì không cần fetch lại.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>users</b> — favourites lưu inline trên <code>UserEntity</code> (không store riêng)</li>
+        <li><b>issues/roadmaps/docs</b> — 3 loại đối tượng ghim được</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ PEOPLE ============ -->
+  <div class="cat" style="--cc:var(--c-ppl)"><span class="dot"></span><h3>5 · Con người & truy cập</h3><span class="n">6 module</span></div>
+  <p class="cat-note">Đơn vị sở hữu (team), tài khoản, đăng nhập, và các view theo người.</p>
+  <div class="grid" style="--cc:var(--c-ppl);--ccb:var(--c-ppl-bg)">
+    <div class="card">
+      <span class="slug">module-teams</span><h4>Teams</h4>
+      <p class="desc">Team sở hữu đúng một list issue (bug hoặc task) và mọi thứ board cần: cột statuses, labels, custom-fields, nhịp cycle. Workspace luôn có sẵn <code>qc</code> + <code>engineering</code>.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>bugs/tasks</b> — board đọc cột từ <code>team.statuses</code>, không hardcode</li>
+        <li><b>cycles</b> — nhịp sprint nằm trên team</li>
+        <li><b>labels/custom-fields</b> — dùng chung cho mọi issue của team</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-users</span><h4>Users</h4>
+      <p class="desc">Tài khoản thành viên tenant: admin CRUD, tự đổi password/avatar, "last online". Sở hữu cột Personal board riêng mỗi user (<code>personalStatuses</code>).</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>auth</b> — <code>JwtPayload</code> lái mọi route scope theo tenant</li>
+        <li><b>tasks</b> — <code>personalStatuses</code> nuôi <code>/tasks/personal</code></li>
+        <li><b>favourites/inbox</b> — đều lưu inline trên user doc</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-auth</span><h4>Auth</h4>
+      <p class="desc">Đăng nhập email/mật khẩu kiêm bootstrap workspace: <code>register</code> tạo tenant + admin đầu tiên; <code>login</code> trả JWT. Không có lớp infra riêng.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>tenants</b> — <code>register</code> tạo tenant; re-check <code>isSuspended</code></li>
+        <li><b>teams</b> — <code>EnsureDefaultTeamsUseCase</code> khi đăng ký</li>
+        <li>Mọi controller khác — <code>JwtAuthGuard/RolesGuard</code> global</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-my-team</span><h4>My Team</h4>
+      <p class="desc">Hàng đợi team nhìn <b>theo người</b>: lưới card workload mỗi người, % hoàn thành (story point + số issue), issue nhóm theo status. App không có model membership — "người" = ai được gán.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>issues</b> — nguồn dữ liệu duy nhất, tính client-side</li>
+        <li><b>teams</b> — cột màu đọc từ <code>TeamStatusConfig</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-account</span><h4>Account</h4>
+      <p class="desc">Trang hồ sơ tự phục vụ của chính bạn (<code>/profile</code>): xem identity read-only, đổi avatar, đổi mật khẩu. Không có backend riêng — gọi <code>/users/me/*</code>.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>users</b> — chủ sở hữu entity + endpoint <code>/users/me/*</code></li>
+        <li><b>storage</b> — dialog crop đẩy file qua <code>uploadMedia</code></li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-admin</span><h4>Admin (frontend)</h4>
+      <p class="desc">Màn Settings & People của workspace — không backend riêng. Gộp API nhiều module: team/statuses/cycle/label/custom-field, API keys, MCP, webhooks, storage, quản lý user.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>teams</b> — mỗi tab "Teams" là một team; sửa statuses/labels…</li>
+        <li><b>app-settings</b> — tab Webhooks + Cloud Storage</li>
+        <li><b>api-keys</b> — tab API Keys / MCP</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ PLATFORM ============ -->
+  <div class="cat" style="--cc:var(--c-plat)"><span class="dot"></span><h3>6 · Nền tảng · SaaS · tích hợp</h3><span class="n">9 module</span></div>
+  <p class="cat-note">Lớp multi-tenant, console vendor, và các cổng ra ngoài (chia sẻ, AI, webhook, storage).</p>
+  <div class="grid" style="--cc:var(--c-plat);--ccb:var(--c-plat-bg)">
+    <div class="card">
+      <span class="slug">module-tenants</span><h4>Tenants</h4>
+      <p class="desc">Tenant = một workspace, ranh giới cách ly mọi aggregate mang <code>tenantId</code>. <b>Không có UI quản lý tenant trong app chính</b> — chỉ từ console <code>saas-admin</code>.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>auth</b> — check <code>isSuspended</code> mỗi login & request</li>
+        <li><b>platform</b> — sở hữu toàn bộ HTTP surface quản lý tenant</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-platform</span><h4>Platform (vendor console BE)</h4>
+      <p class="desc">Backend cho app <code>saas-admin</code>, tách khỏi workspace tenant. Operator đăng nhập credential riêng, quản tenant (tạo/suspend), định nghĩa plan + entitlement, gán subscription, tính usage.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>tenants</b> — tạo <code>TenantEntity</code> + admin đầu, toggle suspend</li>
+        <li><b>saas-admin</b> — frontend tiêu thụ toàn bộ API này</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-saas-admin</span><h4>SaaS Admin (app)</h4>
+      <p class="desc">App React riêng — back office của vendor. Xem mọi tenant, định nghĩa plan + entitlement kế thừa, gán/đổi/hủy subscription, override theo tenant, theo dõi usage vs limit.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>platform</b> — tiêu thụ duy nhất API <code>/v1/platform</code></li>
+        <li><b>auth</b> — không gian identity riêng (<code>PlatformAdmin</code>)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-app-settings</span><h4>App Settings</h4>
+      <p class="desc">Một document/tenant: webhook chat, provider cloud-storage, và list default bug/task status (cũ, cấp workspace). Tạo lười khi đọc lần đầu.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>teams</b> — cột board <b>thật</b> nằm ở team, không đọc từ đây</li>
+        <li><b>webhooks</b> (cấu hình hook — module này chứa, webhooks <i>gửi</i>)</li>
+        <li><b>storage</b> — chứa <code>CloudStorageConfig</code> mà storage đọc mỗi lần upload</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-api-keys</span><h4>API Keys</h4>
+      <p class="desc">Admin mint token bí mật/tenant (<code>phk_...</code>) cho client ngoài (chủ yếu AI qua MCP) auth như user thật, không cần JWT. Plaintext hiện đúng một lần; chỉ lưu hash SHA-256.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>mcp</b> — mọi request MCP guard bằng <code>ApiKeyGuard</code></li>
+        <li><b>public</b> — endpoint CI test-case cũng dùng key này</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-mcp</span><h4>MCP server</h4>
+      <p class="desc">Mở Product-OS cho trợ lý AI qua Model Context Protocol: list workspace, search issue, tạo task/bug/backlog/doc — không cần trình duyệt. Đi qua <i>cùng</i> use-case như app web.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>issues</b> — <code>create_issue</code> gọi <code>CreateIssueUseCase</code></li>
+        <li><b>api-keys</b> — auth bằng key; <b>roadmaps/docs</b> — tạo qua use-case</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-webhooks</span><h4>Webhooks</h4>
+      <p class="desc">Bắn thông báo ra Lark/Telegram khi có sự kiện (bug mới, bug được gán, bị @mention). Backend-only, không có REST surface riêng — chỉ <i>gửi</i>.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>app-settings</b> — chứa cấu hình hook (enable/mapping)</li>
+        <li><b>issues/activity</b> — nguồn sự kiện <code>BUG_CREATED</code>… </li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-storage</span><h4>Storage / Uploads</h4>
+      <p class="desc">User upload ảnh/video/tài liệu lên bucket của tenant (S3/Azure) và nhận URL công khai. Không có file model — pass-through stateless để đính media khắp app.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>app-settings</b> — đọc <code>CloudStorageConfig</code> mỗi lần gọi</li>
+        <li><b>bugs/docs/users</b> — attachment, ảnh doc, avatar đi qua đây</li>
+      </ul>
+    </div>
+    <div class="card">
+      <span class="slug">module-public</span><h4>Public / Share links</h4>
+      <p class="desc">Link không cần login cho người ngoài xem read-only một board team / roadmap / test report / doc. Cộng một endpoint <code>x-api-key</code> cho CI ghi kết quả test-case.</p>
+      <div class="rel-label">Quan hệ chính</div>
+      <ul>
+        <li><b>teams/roadmaps/projects/docs</b> — 4 loại được chia sẻ</li>
+        <li><b>issues/activity</b> — đọc cùng collection app authed ghi</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ============ ARCHITECTURE SKILL ============ -->
+  <div class="cat" style="--cc:var(--accent)"><span class="dot"></span><h3>0 · Skill điểm vào</h3></div>
+  <div class="grid" style="--cc:var(--accent);--ccb:var(--accent-soft)">
+    <div class="card wide">
+      <span class="slug">product-os-architecture</span><h4>Bản đồ kiến trúc tổng</h4>
+      <p class="desc">Skill điểm vào: topology 4 app, quy ước 3 lớp DDD, bản đồ quan hệ issue-centric, bảng ánh xạ FE→BE, và index toàn bộ <code>module-*</code> để route đúng chỗ. <b>Bắt đầu từ đây</b>, rồi nhảy sang <code>[[module-x]]</code>.</p>
+    </div>
+  </div>
+
+  <!-- ============ FE -> BE MAP ============ -->
+  <h2>Ánh xạ frontend feature → backend module</h2>
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Nhóm</th><th>Frontend feature</th><th>Backend module</th></tr></thead>
+      <tbody>
+        <tr><td>Nghiệp vụ</td><td class="mono">issues · bugs · tasks · cycles · milestones · roadmaps · projects · reports</td><td class="mono">issues · cycles · milestones · roadmaps · projects · reports <span style="color:var(--ink-faint)">(bugs/tasks = kind của issues)</span></td></tr>
+        <tr><td>Lập kế hoạch</td><td class="mono">planning · labels · custom-fields</td><td class="mono">issues (labelKeys / customFields), teams (định nghĩa)</td></tr>
+        <tr><td>Tổ chức</td><td class="mono">teams · groups · users · my-team · account</td><td class="mono">teams · groups · users</td></tr>
+        <tr><td>Cộng tác</td><td class="mono">docs · inbox · activity · reactions · favourites · uploads</td><td class="mono">docs · inbox · activity · reactions · favourites · storage &nbsp;+ app collab</td></tr>
+        <tr><td>Nền tảng</td><td class="mono">auth · settings · admin · api-keys · audit-log · mcp · public</td><td class="mono">auth · app-settings · api-keys · audit-log · mcp · public · webhooks · issue-links</td></tr>
+        <tr><td>SaaS admin</td><td class="mono">(app saas-admin) overview · plans · subscriptions · usage · tenants</td><td class="mono">platform · tenants</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    Sinh từ đọc mã nguồn thật: <code>backend/src/{presentation,application,infrastructure}</code>,
+    <code>frontend/src/features</code>, <code>saas-admin/src/features</code>, <code>collab/src</code>.
+    Mỗi skill do 1 agent viết + 1 agent verify (72 subagent), rồi 20 agent audit lại đối chiếu source (vá 63 gap tại chỗ + 23 quan hệ 2 chiều; 5 đề xuất bị loại). Tổng 105 subagent, 0 lỗi. Chi tiết đầy đủ nằm trong từng file <code>.claude/skills/module-*/SKILL.md</code>.
+  </footer>
+</div>
