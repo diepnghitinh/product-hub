@@ -76,3 +76,19 @@ cursor
 /.claude/
 /references/
 .nodeterm
+
+# --- Tracked exceptions: module documentation skills + their guide ---
+# Everything under .claude stays local EXCEPT the per-module skills, so the
+# team shares one source of truth for how each module works and relates.
+!/.claude/
+/.claude/*
+!/.claude/skills/
+/.claude/skills/*
+!/.claude/skills/module-*/
+!/.claude/skills/product-os-architecture/
+# The generated reading guide + relationship map for those skills.
+!/docs/module-skills/
+# The prompt/decision history for this documentation work.
+!/prompt/
+/prompt/*
+!/prompt/*_HISTORY.md
