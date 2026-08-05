@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Model } from 'mongoose';
+import { FilterQuery, Model, PipelineStage } from 'mongoose';
 import { UniqueEntityID } from '@core/domain';
 import { BaseRepository } from '@core/infrastructure/database/mongoose/base';
 import { resolveAssignees } from '@module-shared/utils/query-array.util';
@@ -14,6 +14,12 @@ import {
 import { IssueEntity } from '@application/issues/domain/entities/issue.entity';
 import { BugSeverity, IssueKind } from '@application/issues/domain/enums/issue.enums';
 import { QueryIssueDto } from '@application/issues/dtos/query-issue.dto';
+import {
+  BugStatDimension,
+  RawBucket,
+  RawBugStats,
+  RawTrendRow,
+} from '@application/mcp/domain/mcp-bug-stats';
 import { IssueDoc } from '../entities/issue.schema';
 
 @Injectable()
@@ -367,6 +373,116 @@ export class IssueRepository
       labelKeys: d.labelKeys ?? [],
       projectId: d.projectId ?? '',
     }));
+  }
+
+  async bugStats(
+    tenantId: string,
+    filter: { teamId?: string; since?: Date; until?: Date },
+    dimensions: BugStatDimension[],
+    trend?: { unit: 'week' | 'month'; timezone: string },
+  ): Promise<RawBugStats> {
+    const match: FilterQuery<IssueDoc> = { tenantId, kind: IssueKind.BUG };
+    if (filter.teamId) match.teamId = filter.teamId;
+    if (filter.since || filter.until) {
+      match.createdAt = {};
+      if (filter.since) (match.createdAt as Record<string, Date>).$gte = filter.since;
+      if (filter.until) (match.createdAt as Record<string, Date>).$lte = filter.until;
+    }
+
+    // Mỗi chiều một nhánh $facet — một vòng tới DB thay vì sáu.
+    const facet: Record<string, object[]> = { total: [{ $count: 'n' }] };
+
+    // Chiều vô hướng: gom thẳng. `$ifNull` để giá trị thiếu thành '' — cùng một ô
+    // rỗng với hàng đã lưu '' sẵn (schema mặc định '' chứ không phải null).
+    const scalar: Partial<Record<BugStatDimension, string>> = {
+      status: '$status',
+      severity: '$severity',
+      team: '$teamId',
+      project: '$projectId',
+    };
+    for (const dim of dimensions) {
+      const path = scalar[dim];
+      if (!path) continue;
+      facet[dim] = [
+        { $group: { _id: { $ifNull: [path, ''] }, count: { $sum: 1 } } },
+        { $project: { _id: 0, key: '$_id', name: { $literal: '' }, count: 1 } },
+        { $sort: { count: -1 } },
+      ];
+    }
+
+    // assignees là mảng {id, name} denormalized ngay trên issue
+    // (issue.schema.ts:91), nên tên ra luôn từ $group — không phải chạm module
+    // users, và tránh được trần 100 người của ALL_USERS.
+    if (dimensions.includes('assignee')) {
+      facet.assignee = [
+        // Bug chưa giao có mảng rỗng — $unwind sẽ nuốt mất hàng đó, nên thay bằng
+        // một phần tử rỗng để nó rơi vào ô '(unassigned)' thay vì biến mất.
+        {
+          $project: {
+            assignees: {
+              $cond: [
+                { $gt: [{ $size: { $ifNull: ['$assignees', []] } }, 0] },
+                '$assignees',
+                [{ id: '', name: '' }],
+              ],
+            },
+          },
+        },
+        { $unwind: '$assignees' },
+        { $group: { _id: '$assignees.id', name: { $first: '$assignees.name' }, count: { $sum: 1 } } },
+        { $project: { _id: 0, key: '$_id', name: 1, count: 1 } },
+        { $sort: { count: -1 } },
+      ];
+    }
+
+    if (dimensions.includes('label')) {
+      facet.label = [
+        {
+          $project: {
+            labelKeys: {
+              $cond: [{ $gt: [{ $size: { $ifNull: ['$labelKeys', []] } }, 0] }, '$labelKeys', ['']],
+            },
+          },
+        },
+        { $unwind: '$labelKeys' },
+        { $group: { _id: '$labelKeys', count: { $sum: 1 } } },
+        { $project: { _id: 0, key: '$_id', name: { $literal: '' }, count: 1 } },
+        { $sort: { count: -1 } },
+      ];
+    }
+
+    if (trend) {
+      const fmt = trend.unit === 'week' ? '%G-W%V' : '%Y-%m';
+      const bucket = (field: string) => ({
+        $dateToString: { format: fmt, date: field, timezone: trend.timezone },
+      });
+      facet.opened = [
+        { $group: { _id: bucket('$createdAt'), count: { $sum: 1 } } },
+        { $project: { _id: 0, bucket: '$_id', count: 1 } },
+      ];
+      // resolvedAt null = chưa đóng (hoặc đã mở lại — entity xoá mốc khi bug rời
+      // cột done). Nhánh này cố ý *không* lọc theo cửa sổ createdAt ở trên: bug mở
+      // quý trước mà đóng quý này vẫn phải tính vào số đã đóng của quý này.
+      facet.closed = [
+        { $match: { resolvedAt: { $ne: null } } },
+        { $group: { _id: bucket('$resolvedAt'), count: { $sum: 1 } } },
+        { $project: { _id: 0, bucket: '$_id', count: 1 } },
+      ];
+    }
+
+    const [raw] = await this.model
+      .aggregate([{ $match: match }, { $facet: facet }] as PipelineStage[])
+      .exec();
+
+    const dims: RawBugStats['dimensions'] = {};
+    for (const dim of dimensions) dims[dim] = (raw?.[dim] as RawBucket[]) ?? [];
+
+    return {
+      total: (raw?.total?.[0]?.n as number) ?? 0,
+      dimensions: dims,
+      opened: (raw?.opened as RawTrendRow[]) ?? [],
+      closed: (raw?.closed as RawTrendRow[]) ?? [],
+    };
   }
 
   async moveUnfinishedIssues(
