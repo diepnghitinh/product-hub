@@ -20,6 +20,10 @@ import {
 } from '@application/storage/use-cases/upload-media.use-case';
 import { TestStorageConnectionUseCase } from '@application/storage/use-cases/test-storage.use-case';
 import { FetchUploadUseCase } from '@application/storage/use-cases/fetch-upload.use-case';
+import {
+  contentDispositionHeader,
+  decodeMultipartFilename,
+} from '@application/storage/domain/filename';
 import { UpdateStorageDto } from '@application/app-settings/dtos/app-settings.dtos';
 
 // A generous hard ceiling so a normal short video always reaches the use-case,
@@ -38,7 +42,12 @@ export class UploadsController {
   ) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: HARD_LIMIT_BYTES } }))
+  // `defParamCharset` is the whole reason a Vietnamese filename survives: busboy
+  // defaults part headers to latin1, which turns `Báo cáo.xlsx` into
+  // `BÃ¡o cÃ¡o.xlsx` before any of our code sees it. See {@link decodeMultipartFilename}.
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: HARD_LIMIT_BYTES }, defParamCharset: 'utf8' }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload an image or short video to the tenant storage' })
   async upload(
@@ -49,7 +58,9 @@ export class UploadsController {
     return this.uploadMedia.execute(auth.tenantId, {
       buffer: file.buffer,
       contentType: file.mimetype,
-      originalName: file.originalname,
+      // Belt and braces: a no-op once the charset above is honoured, and the
+      // repair if anything upstream (a proxy, an older client) sends latin1.
+      originalName: decodeMultipartFilename(file.originalname),
       size: file.size,
     });
   }
@@ -79,14 +90,13 @@ export class UploadsController {
     const file = await this.fetchUpload.execute(auth.tenantId, url);
     // Prefer the name the record carries: storage keys are uuid-prefixed to stay
     // unique, so the key alone would save as `4f2c…-spec.docx`. It's echoed back
-    // to the same caller that sent it, and sanitized below like any other.
-    // The filename is only ever used by a download, and a quote in it would end
-    // the header value early — strip anything that could break out of it.
-    const safeName = (name?.trim().slice(0, 260) || file.filename).replace(/["\\\r\n]/g, '');
+    // to the same caller that sent it, and sanitized in the helper like any
+    // other client input that lands in a header.
+    const wanted = decodeMultipartFilename(name?.trim() || file.filename);
     res.setHeader('Content-Type', file.contentType);
     res.setHeader(
       'Content-Disposition',
-      `${file.inline ? 'inline' : 'attachment'}; filename="${safeName}"`,
+      contentDispositionHeader(file.inline ? 'inline' : 'attachment', wanted),
     );
     // Never let a browser sniff its way past the type we just decided on.
     res.setHeader('X-Content-Type-Options', 'nosniff');

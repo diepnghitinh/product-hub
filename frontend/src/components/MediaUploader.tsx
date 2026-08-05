@@ -17,6 +17,12 @@ interface MediaUploaderProps {
    * survive.
    */
   onUploadedAll?: (media: UploadedMedia[]) => void;
+  /**
+   * Take the picked files and upload them yourself. When set, this is just the
+   * picker button — used where the caller runs its own queue because it shows
+   * per-file progress (see `useUploadQueue`).
+   */
+  onSelect?: (files: File[]) => void;
   /** File picker filter. Defaults to images + videos. */
   accept?: string;
   /** Button label. Defaults to "Upload". */
@@ -44,6 +50,7 @@ interface MediaUploaderProps {
 export function MediaUploader({
   onUploaded,
   onUploadedAll,
+  onSelect,
   accept = 'image/*,video/*',
   label,
   icon,
@@ -58,6 +65,12 @@ export function MediaUploader({
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
+    if (onSelect) {
+      onSelect(Array.from(files));
+      // Reset here too — this path returns before the loop below.
+      if (inputRef.current) inputRef.current.value = '';
+      return;
+    }
     setBusy(true);
     const uploaded: UploadedMedia[] = [];
     try {

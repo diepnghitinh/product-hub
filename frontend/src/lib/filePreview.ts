@@ -24,6 +24,13 @@ export function fileExt(name: string): string {
 export const ATTACHMENT_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.md,.rtf,image/*';
 
 /**
+ * How many files one record holds. Mirrors `MAX_ATTACHMENTS` in the API's
+ * `sanitizeStoredFiles` — the server is what enforces it; saying so up front
+ * beats uploading twelve files and watching the list silently keep ten.
+ */
+export const MAX_ATTACHMENTS = 25;
+
+/**
  * How to render this file, decided from the type the *upload* settled on with
  * the extension as a fallback.
  *

@@ -13,6 +13,7 @@ import {
   StorageProvider,
 } from '@application/app-settings/domain/storage.types';
 import { IStorageService, UploadFileInput, UploadedMedia } from '@application/storage/storage.port';
+import { storageKeySlug } from '@application/storage/domain/filename';
 
 /** Drop trailing slashes so a base and a key always join with exactly one. */
 const strip = (s: string) => s.replace(/\/+$/, '');
@@ -83,9 +84,8 @@ export class StorageService implements IStorageService {
    * virtual folder. Existing objects keep their old keys; only new keys change.
    */
   private buildKey(originalName: string): string {
-    const safe = originalName.replace(/[^a-zA-Z0-9._-]+/g, '-').slice(-80) || 'file';
     const day = new Date().toISOString().slice(0, 10); // yyyy-mm-dd (UTC)
-    return `uploads/${day}/${uuid()}-${safe}`;
+    return `uploads/${day}/${uuid()}-${storageKeySlug(originalName)}`;
   }
 
   private assertS3(config: CloudStorageConfig): void {

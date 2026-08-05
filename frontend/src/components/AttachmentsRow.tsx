@@ -13,11 +13,18 @@ import {
 import { toast } from 'sonner';
 import { MediaUploader } from '@/components/MediaUploader';
 import { FilePreviewDialog } from '@/components/FilePreviewDialog';
+import { ProgressBar } from '@/components/ui/ProgressBar';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { formatFileSize } from '@/lib/format';
-import { ATTACHMENT_ACCEPT, canPreview, downloadFile, safeFileUrl } from '@/lib/filePreview';
-import { uploadMedia } from '@/features/uploads/api';
+import {
+  ATTACHMENT_ACCEPT,
+  MAX_ATTACHMENTS,
+  canPreview,
+  downloadFile,
+  safeFileUrl,
+} from '@/lib/filePreview';
+import { useUploadQueue } from '@/features/uploads/useUploadQueue';
 import type { AttachedFile } from '@/types/dto';
 
 interface AttachmentsRowProps {
@@ -45,9 +52,9 @@ interface AttachmentsRowProps {
  * everywhere, and the moment it doesn't, three copies drift apart the way the
  * boards did. Uploads go straight to the workspace storage and the new list is
  * handed back for the caller to save — there's no staging step, because a doc
- * page has no Save button to stage anything for. Dropping files onto the row
- * works too; the drop target is the row itself rather than the whole page, so it
- * never competes with the editor's own drag handling for images.
+ * page has no Save button to stage anything for. Dropping files works too —
+ * several at once — onto this section rather than the whole page, so it never
+ * competes with the editor's own drag handling for images.
  */
 export function AttachmentsRow({
   items,
@@ -57,36 +64,32 @@ export function AttachmentsRow({
   title,
   className,
 }: AttachmentsRowProps) {
-  const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   // Which file the viewer is showing; null when it's closed.
   const [viewing, setViewing] = useState<number | null>(null);
   // Depth counter so dragging across the chips inside doesn't flicker the hint.
   const depth = useRef(0);
+  // A batch outlives the render that started it, so append to the list as it
+  // stands *when it lands* — not the one captured when the files were picked.
+  const latest = useRef(items);
+  latest.current = items;
+  const { pending, busy, add, cancel } = useUploadQueue((landed) =>
+    onChange?.([...latest.current, ...landed]),
+  );
 
   // Nothing attached and nothing to attach with — don't leave an empty rule
   // across the page (this is how it renders on the public view).
   if (!items.length && !canWrite) return null;
 
-  async function uploadAll(files: FileList | File[]) {
+  function enqueue(files: FileList | File[]) {
     const list = Array.from(files);
     if (!list.length) return;
-    setBusy(true);
-    // Accumulated locally: `items` is captured from this render, so appending one
-    // at a time would make every file overwrite the one before it.
-    const added: AttachedFile[] = [];
-    try {
-      for (const file of list) {
-        try {
-          added.push(await uploadMedia(file));
-        } catch (e) {
-          toast.error((e as Error).message);
-        }
-      }
-    } finally {
-      setBusy(false);
-      if (added.length) onChange?.([...items, ...added]);
+    const room = MAX_ATTACHMENTS - items.length - pending.length;
+    if (list.length > room) {
+      toast.error(t('uploads.tooMany').replace('{n}', String(MAX_ATTACHMENTS)));
+      if (room <= 0) return;
     }
+    add(list.slice(0, room));
   }
 
   const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes('Files');
@@ -111,17 +114,22 @@ export function AttachmentsRow({
           e.preventDefault();
           depth.current = 0;
           setDragging(false);
-          void uploadAll(e.dataTransfer.files);
+          // The whole drop at once — dragging four files in adds four.
+          enqueue(e.dataTransfer.files);
         },
       }
     : {};
 
   const row = (
     <div
-      {...dropHandlers}
+      // Only the drop target when there's no heading to hang it on; with one,
+      // the section below takes the handlers so the target covers the label too.
+      {...(title ? {} : dropHandlers)}
       className={cn(
         'flex flex-wrap items-center gap-2 rounded-md transition-colors',
-        dragging && 'bg-primary/5 outline-dashed outline-1 outline-offset-2 outline-primary/40',
+        !title &&
+          dragging &&
+          'bg-primary/5 outline-dashed outline-1 outline-offset-2 outline-primary/40',
         !title && className,
       )}
     >
@@ -192,6 +200,47 @@ export function AttachmentsRow({
         );
       })}
 
+      {/* In-flight files, in the same chip shape so the row doesn't reflow when
+          one lands — the finished chip simply takes its place. */}
+      {pending.map((file) => {
+        const Glyph = glyphFor('', file.name);
+        return (
+          <span
+            key={file.id}
+            className="inline-flex max-w-full flex-col gap-1 rounded-md border border-dashed bg-muted/40 py-1 pl-2 pr-1 text-xs"
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Glyph className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <span className="max-w-[180px] truncate font-medium text-foreground sm:max-w-[220px]">
+                {file.name}
+              </span>
+              <span className="shrink-0 tabular-nums text-muted-foreground">
+                {file.status === 'queued'
+                  ? t('uploads.queued')
+                  : file.status === 'finishing'
+                    ? // The bytes are sent; the API is still writing them to
+                      // storage, which the browser can't measure.
+                      t('uploads.finishing')
+                    : `${file.percent}%`}
+              </span>
+              <button
+                type="button"
+                aria-label={t('uploads.cancelUpload')}
+                title={t('uploads.cancelUpload')}
+                onClick={() => cancel(file.id)}
+                className="grid size-4 shrink-0 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+            <ProgressBar
+              value={file.percent}
+              className={cn('h-1', file.status === 'finishing' && 'animate-pulse')}
+            />
+          </span>
+        );
+      })}
+
       {canWrite && (
         <>
           <MediaUploader
@@ -199,13 +248,12 @@ export function AttachmentsRow({
             variant="ghost"
             label={t('uploads.addFile')}
             className="h-7 gap-1.5 text-xs text-muted-foreground"
-            disabled={busy}
-            // The batch callback, not the per-file one: picking four files at
-            // once has to append four, not overwrite three (see MediaUploader).
-            onUploadedAll={(files) => onChange?.([...items, ...files])}
+            // The picker only — the queue above does the uploading, so picked
+            // files get the same per-file progress and cancel as dropped ones.
+            onSelect={enqueue}
           />
           {/* Only worth saying while it's empty — after that the row explains itself. */}
-          {!items.length && (
+          {!items.length && !busy && (
             <span className="hidden items-center gap-1 text-xs text-muted-foreground/70 sm:inline-flex">
               <Paperclip className="size-3" aria-hidden /> {t('uploads.filesHint')}
             </span>
@@ -227,7 +275,16 @@ export function AttachmentsRow({
   if (!title) return row;
 
   return (
-    <section className={cn('flex flex-col gap-2', className)}>
+    // The whole section is the drop target, not just the chips: on a record with
+    // no files yet the row is one small button, which is a hard thing to aim at.
+    <section
+      {...dropHandlers}
+      className={cn(
+        'flex flex-col gap-2 rounded-md transition-colors',
+        dragging && 'bg-primary/5 outline-dashed outline-1 outline-offset-2 outline-primary/40',
+        className,
+      )}
+    >
       {/* Same eyebrow heading as the neighbouring SUB-TASKS / LINKED DOCS sections. */}
       <h3 className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         <Paperclip className="size-3.5" aria-hidden />
