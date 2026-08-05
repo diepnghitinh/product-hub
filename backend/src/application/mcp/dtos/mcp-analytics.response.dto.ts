@@ -41,13 +41,30 @@ export class McpBugStatsResponseDto {
   total: number;
   @ApiProperty({ description: 'Tên team đang lọc; "" nghĩa là cả workspace' })
   teamName: string;
-  @ApiProperty({ description: 'Khoảng thật sự dùng (YYYY-MM-DD); "" khi không lọc theo ngày' })
+  @ApiProperty({
+    description:
+      'Khoảng lọc SNAPSHOT (dimensions/total) thật sự áp dụng, YYYY-MM-DD — chính ' +
+      'since/until đã truyền vào, "" khi không lọc theo ngày. KHÔNG phải cửa sổ ' +
+      'trend mặc định — xin trend không thu hẹp snapshot.',
+  })
   since: string;
-  @ApiProperty() until: string;
+  @ApiProperty({
+    description:
+      'Khoảng lọc SNAPSHOT thật sự áp dụng — xem `since`; "" khi không lọc theo ngày',
+  })
+  until: string;
   @ApiProperty({ description: 'Mỗi chiều đã gấp, đã áp trần' })
   dimensions: FoldedDimension[];
   @ApiProperty({ description: 'Mở/đóng/chênh theo mốc; [] khi không xin trend' })
   trend: TrendBucket[];
   @ApiProperty({ description: "'week' | 'month' | ''" })
   trendUnit: string;
+  @ApiProperty({
+    description:
+      'Khoảng thật sự dùng cho dòng chảy trend (YYYY-MM-DD) — mặc định các mốc gần ' +
+      'nhất khi không cho since/until; "" khi không xin trend',
+  })
+  trendSince: string;
+  @ApiProperty({ description: 'Đầu khoảng trend — xem `trendSince`; "" khi không xin trend' })
+  trendUntil: string;
 }

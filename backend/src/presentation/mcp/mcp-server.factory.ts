@@ -1079,7 +1079,8 @@ export class McpServerFactory {
     }
 
     if (s.trend.length) {
-      out.push('', `Opened vs closed per ${s.trendUnit}:`);
+      const trendRange = s.trendSince && `${s.trendSince} → ${s.trendUntil}`;
+      out.push('', `Opened vs closed per ${s.trendUnit}${trendRange ? ` (${trendRange})` : ''}:`);
       for (const t of s.trend) {
         const sign = t.net > 0 ? `+${t.net}` : String(t.net);
         out.push(`  ${t.bucket} · opened ${t.opened} · closed ${t.closed} · net ${sign}`);

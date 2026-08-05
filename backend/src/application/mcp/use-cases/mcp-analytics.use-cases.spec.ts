@@ -322,6 +322,42 @@ describe('McpGetBugStatsUseCase', () => {
     expect(res.error).toMatch(/narrow/i);
   });
 
+  it('trend "month" không có khoảng, until rơi vào ngày 31 → vẫn đúng 12 mốc', async () => {
+    // `until` cố định ngày 31 để việc chạy suite không phụ thuộc ngày hôm nay:
+    // lùi 11 tháng từ một ngày cuối tháng dài dễ tràn sang tháng kế nếu không
+    // về ngày 1 trước khi trừ tháng (2026-08-31 → 2025-10-01 thay vì
+    // 2025-09-01, và trendRange sẽ chỉ ra 11 mốc, không phải 12).
+    const { useCase } = build(rawOf({ opened: [], closed: [] }));
+    const res = await useCase.execute({
+      actor,
+      dto: { trend: 'month', until: '2026-08-31' },
+    });
+    expect(res.isSuccess).toBe(true);
+    expect(res.getValue().trend).toHaveLength(12);
+  });
+
+  it('trend không since/until → since/until trả về rỗng, trendSince/trendUntil mới mang cửa sổ, và repo không nhận filter ngày', async () => {
+    const { useCase, issues } = build(rawOf({ opened: [], closed: [] }));
+    const res = await useCase.execute({ actor, dto: { trend: 'week' } });
+    const v = res.getValue();
+    expect(v.since).toBe('');
+    expect(v.until).toBe('');
+    expect(v.trendSince).not.toBe('');
+    expect(v.trendUntil).not.toBe('');
+    expect(issues.bugStats).toHaveBeenCalledWith(
+      't1',
+      expect.not.objectContaining({ since: expect.anything() }),
+      expect.anything(),
+      expect.anything(),
+    );
+    expect(issues.bugStats).toHaveBeenCalledWith(
+      't1',
+      expect.not.objectContaining({ until: expect.anything() }),
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
   it('tra tên project cho ô đã cắt trần', async () => {
     const { useCase, projects } = build(
       rawOf({ dimensions: { project: [{ key: 'p1', name: '', count: 3 }] } }),

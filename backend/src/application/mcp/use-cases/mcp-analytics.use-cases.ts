@@ -357,19 +357,32 @@ export class McpGetBugStatsUseCase
     // Cửa sổ trend: không cho khoảng thì lấy DEFAULT_TREND_BUCKETS mốc gần nhất.
     // Bỏ mặc định thì dải là toàn bộ lịch sử → chắc chắn vượt TREND_CAP và tool
     // hỏng ngay lần gọi đầu.
+    //
+    // Cửa sổ này CHỈ dùng cho dòng chảy (trend) — không lọc lại snapshot
+    // (groupBy). Repo vẫn nhận đúng dto.since/dto.until (có thể là undefined):
+    // trộn cửa sổ trend vào bộ lọc snapshot sẽ âm thầm thu hẹp "hiện trạng" theo
+    // một khoảng người dùng không xin cho phần đó.
     let range: string[] = [];
-    let since = dto.since ?? '';
-    let until = dto.until ?? '';
+    let trendSince = dto.since ?? '';
+    let trendUntil = dto.until ?? '';
     if (dto.trend) {
-      if (!since || !until) {
-        const end = until ? new Date(`${until}T00:00:00Z`) : new Date();
+      if (!trendSince || !trendUntil) {
+        const end = trendUntil ? new Date(`${trendUntil}T00:00:00Z`) : new Date();
         const start = new Date(end);
-        if (dto.trend === 'week') start.setUTCDate(start.getUTCDate() - 7 * (DEFAULT_TREND_BUCKETS - 1));
-        else start.setUTCMonth(start.getUTCMonth() - (DEFAULT_TREND_BUCKETS - 1));
-        since = since || start.toISOString().slice(0, 10);
-        until = until || end.toISOString().slice(0, 10);
+        if (dto.trend === 'week') {
+          start.setUTCDate(start.getUTCDate() - 7 * (DEFAULT_TREND_BUCKETS - 1));
+        } else {
+          // Về ngày 1 trước khi lùi tháng: `end` mang nguyên ngày-trong-tháng của
+          // nó (có thể là 29–31), và nếu tháng đích ngắn hơn, setUTCMonth tràn
+          // sang tháng kế — "2026-08-31" lùi 11 tháng sẽ ra "2025-10-01" thay vì
+          // "2025-09-01", và trendRange trả 11 mốc chứ không phải 12.
+          start.setUTCDate(1);
+          start.setUTCMonth(start.getUTCMonth() - (DEFAULT_TREND_BUCKETS - 1));
+        }
+        trendSince = trendSince || start.toISOString().slice(0, 10);
+        trendUntil = trendUntil || end.toISOString().slice(0, 10);
       }
-      range = trendRange(since, until, dto.trend);
+      range = trendRange(trendSince, trendUntil, dto.trend);
       if (range.length > TREND_CAP) {
         return Result.fail(
           `That range covers ${range.length} ${dto.trend}s — narrow it to ${TREND_CAP} or fewer ` +
@@ -406,11 +419,15 @@ export class McpGetBugStatsUseCase
     return Result.ok({
       total: raw.total,
       teamName,
-      since,
-      until,
+      // Phản ánh đúng bộ lọc đã áp cho snapshot — không phải cửa sổ trend đã
+      // tính ở trên, kể cả khi có trend và không có since/until.
+      since: dto.since ?? '',
+      until: dto.until ?? '',
       dimensions: dimensions.map((d) => foldDimension(d, raw.dimensions[d] ?? [], namesFor(d))),
       trend: dto.trend ? mergeTrend(range, raw.opened, raw.closed) : [],
       trendUnit: dto.trend ?? '',
+      trendSince: dto.trend ? trendSince : '',
+      trendUntil: dto.trend ? trendUntil : '',
     });
   }
 
