@@ -25,7 +25,7 @@ export default defineConfig({
         // Deliberately NOT `**/*.js`. The heavy chunks are all lazy
         // (mermaid.core 635 kB, cynefin 691 kB, cytoscape 444 kB, xlsx 429 kB,
         // katex 258 kB, ~30 diagram-* chunks) and are pulled in on demand by
-        // lib/mermaid.ts and features/reports/parse-test-cases.ts. Precaching
+        // lib/mermaid.ts and lib/sheets (inside its worker). Precaching
         // them would push ~2.5 MB at every visitor up front and undo that
         // work — they stay on the network and load only when actually used.
         //
@@ -53,6 +53,16 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
+  worker: {
+    // ES, not Vite's default IIFE. The spreadsheet worker (`lib/sheets`) loads
+    // SheetJS with a dynamic import so the 429 kB parser stays out of the main
+    // bundle — and a dynamic import means code-splitting, which an IIFE bundle
+    // cannot express ("UMD and IIFE output formats are not supported for
+    // code-splitting builds"). Every worker here is constructed with
+    // `{ type: 'module' }` to match, and `readWorkbook` parses inline if a
+    // browser can't start one.
+    format: 'es',
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

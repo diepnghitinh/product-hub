@@ -1,3 +1,4 @@
+import { readWorkbook } from '@/lib/sheets';
 import {
   FIXED_ORDER,
   HEADER_ALIASES,
@@ -216,14 +217,13 @@ function readFlatJson(
 export async function parseFeaturesFile(file: File): Promise<FeatureParseResult> {
   const fallbackName = fileBaseName(file.name);
   const buckets = new FeatureBuckets();
-  const isJson =
-    file.name.toLowerCase().endsWith('.json') || file.type === 'application/json';
+  const isJson = file.name.toLowerCase().endsWith('.json') || file.type === 'application/json';
 
   if (isJson) {
     const data = JSON.parse(await file.text());
     const raw: unknown[] = Array.isArray(data)
       ? data
-      : data.features ?? data.cases ?? data.rows ?? [data];
+      : (data.features ?? data.cases ?? data.rows ?? [data]);
     const list = raw.filter(
       (e): e is Record<string, unknown> => !!e && typeof e === 'object' && !Array.isArray(e),
     );
@@ -242,25 +242,18 @@ export async function parseFeaturesFile(file: File): Promise<FeatureParseResult>
     };
   }
 
-  // Lazy-load the (heavy) xlsx parser only when a spreadsheet is imported.
-  const XLSX = await import('xlsx');
-  const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-  const sheetNames = wb.SheetNames.filter((n) => wb.Sheets[n]);
+  // Off the main thread — a big workbook parses for seconds.
+  const sheets = await readWorkbook(file);
   let skipped = 0;
   let totalRows = 0;
   let splitByColumn = false;
 
-  for (const sheetName of sheetNames) {
-    const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], {
-      header: 1,
-      defval: '',
-      blankrows: false,
-    }) as unknown[][];
+  for (const { name: sheetName, rows } of sheets) {
     if (rows.length === 0) continue;
     // Without a Feature column the sheet itself is the feature — so a workbook
     // of one-sheet-per-feature imports exactly as it reads.
     const sheetLabel = isGenericSheet(sheetName)
-      ? sheetNames.length > 1
+      ? sheets.length > 1
         ? `${fallbackName} · ${sheetName}`
         : fallbackName
       : sheetName;
@@ -272,7 +265,7 @@ export async function parseFeaturesFile(file: File): Promise<FeatureParseResult>
 
   return {
     features: buckets.list(),
-    source: splitByColumn ? 'column' : sheetNames.length > 1 ? 'sheet' : 'file',
+    source: splitByColumn ? 'column' : sheets.length > 1 ? 'sheet' : 'file',
     skipped,
     totalRows,
   };

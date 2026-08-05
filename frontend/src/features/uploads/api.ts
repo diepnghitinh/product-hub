@@ -23,11 +23,15 @@ export interface UploadOptions {
 }
 
 /**
- * Above this, a file goes up in chunks instead of one request. Sized at two
- * chunks: below it the extra begin/complete round-trips cost more than they
- * save, and a file that small rarely fails mid-flight anyway.
+ * Above this, a file goes up in chunks instead of one request — the rule being
+ * "more than a single chunk's worth", matching the server's 8 MiB chunk.
+ *
+ * It was 16 MiB, which left the 8–16 MiB band on the single-shot path: one long
+ * POST with no retry, so a dropped connection nine tenths of the way through a
+ * 9 MB spreadsheet threw the whole transfer away. Two round trips are cheap next
+ * to that. Below one chunk there is nothing to resume *to*, so it stays whole.
  */
-const CHUNKED_THRESHOLD = 16 * 1024 * 1024;
+const CHUNKED_THRESHOLD = 8 * 1024 * 1024;
 
 /** How many times one chunk is re-sent before the whole upload gives up. */
 const MAX_CHUNK_ATTEMPTS = 3;
@@ -65,9 +69,7 @@ interface UploadedPart {
  * either way.
  */
 export function uploadMedia(file: File, options: UploadOptions = {}): Promise<UploadedMedia> {
-  return file.size > CHUNKED_THRESHOLD
-    ? uploadChunked(file, options)
-    : uploadWhole(file, options);
+  return file.size > CHUNKED_THRESHOLD ? uploadChunked(file, options) : uploadWhole(file, options);
 }
 
 /** One request, one file. The path a screenshot or a small PDF takes. */

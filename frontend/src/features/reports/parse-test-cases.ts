@@ -1,3 +1,5 @@
+import { readWorkbook } from '@/lib/sheets';
+
 /** A raw case row sent to the backend (which normalizes type/result/steps). */
 export interface RawCase {
   area?: string;
@@ -152,15 +154,14 @@ function fromArrayRows(rows: unknown[][]): { cases: RawCase[]; skipped: number; 
 
 /** Parse an uploaded `.xlsx`, `.xls`, `.csv`, or `.json` file into raw rows. */
 export async function parseTestCasesFile(file: File): Promise<ParseResult> {
-  const isJson =
-    file.name.toLowerCase().endsWith('.json') || file.type === 'application/json';
+  const isJson = file.name.toLowerCase().endsWith('.json') || file.type === 'application/json';
 
   if (isJson) {
     const text = await file.text();
     const data = JSON.parse(text);
     const list: unknown[] = Array.isArray(data)
       ? data
-      : data.cases ?? data.testCases ?? data.rows ?? [data];
+      : (data.cases ?? data.testCases ?? data.rows ?? [data]);
     const cases: RawCase[] = [];
     let skipped = 0;
     for (const entry of list) {
@@ -175,19 +176,11 @@ export async function parseTestCasesFile(file: File): Promise<ParseResult> {
     return { cases, skipped, totalRows: list.length };
   }
 
-  // Lazy-load the (heavy) xlsx parser only when a spreadsheet is imported.
-  // SheetJS reads .xlsx, .xls, and .csv from the same array buffer.
-  const XLSX = await import('xlsx');
-  const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: 'array' });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
+  // Off the main thread — a big workbook parses for seconds. SheetJS reads
+  // .xlsx, .xls and .csv from the same bytes.
+  const [sheet] = await readWorkbook(file, { firstSheetOnly: true });
   if (!sheet) return { cases: [], skipped: 0, totalRows: 0 };
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-    header: 1,
-    defval: '',
-    blankrows: false,
-  });
-  const { cases, skipped, total } = fromArrayRows(rows as unknown[][]);
+  const { cases, skipped, total } = fromArrayRows(sheet.rows);
   return { cases, skipped, totalRows: total };
 }
 
