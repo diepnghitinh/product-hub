@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { InfrastructureMcpModule } from '@infrastructure/mcp/mcp.module';
 import { InfrastructureUsersModule } from '@infrastructure/users/users.module';
+import { InfrastructureProjectsModule } from '@infrastructure/projects/projects.module';
 import { ApplicationIssuesModule } from '@application/issues/issues.module';
 import { ApplicationTeamsModule } from '@application/teams/teams.module';
 import { ApplicationRoadmapsModule } from '@application/roadmaps/roadmaps.module';
@@ -17,6 +18,7 @@ import {
   McpCreateIssueUseCase,
   McpDeleteCommentUseCase,
   McpDeleteIssueUseCase,
+  McpGetBugStatsUseCase,
   McpGetCycleBurndownUseCase,
   McpGetIssueUseCase,
   McpGetTeamVelocityUseCase,
@@ -56,6 +58,7 @@ const useCases = [
   McpListCyclesUseCase,
   McpGetCycleBurndownUseCase,
   McpGetTeamVelocityUseCase,
+  McpGetBugStatsUseCase,
 ];
 
 @Module({
@@ -77,6 +80,10 @@ const useCases = [
     // Ba tool analytics đọc sprint qua GetTeamCyclesUseCase / GetCycleBurndownUseCase.
     // An toàn về vòng lặp: ApplicationIssuesModule mới là bên import Cycles, MCP là lá.
     ApplicationCyclesModule,
+    // get_bug_stats đổi projectId thành tên project. Lấy repository từ module
+    // infrastructure vì ApplicationProjectsModule chỉ export use-case, không export
+    // IProjectRepository.
+    InfrastructureProjectsModule,
   ],
   providers: [...useCases],
   exports: [...useCases],

@@ -1,6 +1,7 @@
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { BUG_STAT_DIMENSIONS, BugStatDimension } from '../domain/mcp-bug-stats';
 
 /** Danh sách sprint của một team. */
 export class McpListCyclesDto {
@@ -41,4 +42,37 @@ export class McpTeamVelocityDto {
   @Min(1)
   @Max(24)
   cycles?: number;
+}
+
+/** Phân bố bug. Mọi trường đều tuỳ chọn — không có gì thì thống kê toàn workspace
+ *  theo status + severity. */
+export class McpBugStatsDto {
+  @ApiPropertyOptional({ description: 'Tên hoặc id team bug; bỏ trống = cả workspace' })
+  @IsOptional()
+  @IsString()
+  team?: string;
+
+  @ApiPropertyOptional({ description: 'Bug được mở từ ngày này (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  since?: string;
+
+  @ApiPropertyOptional({ description: 'Bug được mở đến ngày này (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  until?: string;
+
+  @ApiPropertyOptional({
+    isArray: true,
+    enum: BUG_STAT_DIMENSIONS,
+    description: 'Chiều gom nhóm; mặc định status + severity',
+  })
+  @IsOptional()
+  @IsArray()
+  groupBy?: BugStatDimension[];
+
+  @ApiPropertyOptional({ enum: ['week', 'month'], description: 'Thêm dòng mở/đóng theo mốc' })
+  @IsOptional()
+  @IsIn(['week', 'month'])
+  trend?: 'week' | 'month';
 }

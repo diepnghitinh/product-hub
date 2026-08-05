@@ -28,6 +28,7 @@ import {
   McpUpdateIssueDto,
 } from '@application/mcp/dtos/mcp.dtos';
 import {
+  McpBugStatsDto,
   McpCycleBurndownDto,
   McpListCyclesDto,
   McpTeamVelocityDto,
@@ -50,6 +51,7 @@ import {
   McpUpdatedDocResponseDto,
 } from '@application/mcp/dtos/mcp.response.dto';
 import {
+  McpBugStatsResponseDto,
   McpCycleSummaryDto,
   McpVelocityResponseDto,
 } from '@application/mcp/dtos/mcp-analytics.response.dto';
@@ -62,6 +64,7 @@ import {
   McpCreateIssueUseCase,
   McpDeleteCommentUseCase,
   McpDeleteIssueUseCase,
+  McpGetBugStatsUseCase,
   McpGetCycleBurndownUseCase,
   McpGetIssueUseCase,
   McpGetTeamVelocityUseCase,
@@ -134,6 +137,7 @@ export class McpController {
     private readonly listCycles: McpListCyclesUseCase,
     private readonly cycleBurndown: McpGetCycleBurndownUseCase,
     private readonly velocity: McpGetTeamVelocityUseCase,
+    private readonly bugStats: McpGetBugStatsUseCase,
   ) {}
 
   @Get('context')
@@ -211,6 +215,23 @@ export class McpController {
     @Query() query: McpTeamVelocityDto,
   ): Promise<McpVelocityResponseDto> {
     const result = await this.velocity.execute({ actor: actorOf(req), dto: query });
+    if (result.isFailure) throw new ValidationException(result.error as string);
+    return result.getValue();
+  }
+
+  @Get('bug-stats')
+  @ApiOperation({ summary: 'Bug distribution by dimension, plus opened/closed flow (API key)' })
+  async bugStatsRoute(
+    @Req() req: McpRequest,
+    @Query() query: McpBugStatsDto,
+  ): Promise<McpBugStatsResponseDto> {
+    // `?groupBy=status&groupBy=severity` arrives as a string when there's only one
+    // value — ValidationPipe's `transform: true` doesn't coerce a lone query value
+    // into an array on its own, so normalize here rather than silently grouping by
+    // one dimension when the caller asked for exactly one.
+    const groupBy = query.groupBy ? [query.groupBy].flat() : undefined;
+    const dto = { ...query, groupBy } as McpBugStatsDto;
+    const result = await this.bugStats.execute({ actor: actorOf(req), dto });
     if (result.isFailure) throw new ValidationException(result.error as string);
     return result.getValue();
   }

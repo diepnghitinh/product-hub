@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Result } from '@shared/logic/result';
 import { IUsecaseExecute } from '@core/interfaces';
 import { GetTeamsUseCase } from '@application/teams/use-cases/team.use-cases';
@@ -8,13 +8,39 @@ import {
 } from '@application/cycles/use-cases/cycle.use-cases';
 import { CycleResponseDto, CycleBurndownResponseDto } from '@application/cycles/dtos/cycle.dtos';
 import { CycleStatus } from '@application/cycles/domain/enums/cycle.enums';
-import { anyTeamChoices, didYouMean, resolveTeamAnyKind } from '../domain/mcp-resolve';
+import { IIssueRepository } from '@application/issues/repositories/issue.repository';
+import { IProjectRepository } from '@application/projects/repositories/project.repository';
+import { IssueKind } from '@application/issues/domain/enums/issue.enums';
 import {
+  anyTeamChoices,
+  didYouMean,
+  resolveTeam,
+  resolveTeamAnyKind,
+  teamChoices,
+} from '../domain/mcp-resolve';
+import {
+  BUG_STAT_DIMENSIONS,
+  BugStatDimension,
+  DEFAULT_DIMENSIONS,
+  DEFAULT_TREND_BUCKETS,
+  DIMENSION_CAP,
+  RawBugStats,
+  TREND_CAP,
+  foldDimension,
+  mergeTrend,
+  trendRange,
+} from '../domain/mcp-bug-stats';
+import {
+  McpBugStatsDto,
   McpCycleBurndownDto,
   McpListCyclesDto,
   McpTeamVelocityDto,
 } from '../dtos/mcp-analytics.dtos';
-import { McpCycleSummaryDto, McpVelocityResponseDto } from '../dtos/mcp-analytics.response.dto';
+import {
+  McpBugStatsResponseDto,
+  McpCycleSummaryDto,
+  McpVelocityResponseDto,
+} from '../dtos/mcp-analytics.response.dto';
 
 import type { McpActor } from './mcp.use-cases';
 
@@ -268,5 +294,141 @@ export class McpGetTeamVelocityUseCase
           : [],
       sprints: closed.map(toCycleSummary),
     });
+  }
+}
+
+/** Ngày phải là YYYY-MM-DD — chuỗi khác dễ bị Date() nuốt thành ngày sai. */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Phân bố bug: ảnh chụp theo chiều (status/severity/assignee/team/label/project)
+ * cộng dòng chảy mở/đóng theo tuần/tháng. Mọi trần và ghép dòng chảy là logic
+ * thuần ở `../domain/mcp-bug-stats` — use-case này chỉ giải tham chiếu, kiểm
+ * tham số và gọi repository.
+ */
+@Injectable()
+export class McpGetBugStatsUseCase
+  implements
+    IUsecaseExecute<{ actor: McpActor; dto: McpBugStatsDto }, Result<McpBugStatsResponseDto>>
+{
+  constructor(
+    private readonly getTeams: GetTeamsUseCase,
+    @Inject(IIssueRepository) private readonly issues: IIssueRepository,
+    @Inject(IProjectRepository) private readonly projects: IProjectRepository,
+  ) {}
+
+  async execute({
+    actor,
+    dto,
+  }: {
+    actor: McpActor;
+    dto: McpBugStatsDto;
+  }): Promise<Result<McpBugStatsResponseDto>> {
+    const dimensions = dto.groupBy?.length ? dto.groupBy : DEFAULT_DIMENSIONS;
+    const bad = dimensions.find((d) => !BUG_STAT_DIMENSIONS.includes(d));
+    if (bad) return Result.fail(didYouMean('groupBy dimension', bad, BUG_STAT_DIMENSIONS));
+
+    for (const [field, value] of [
+      ['since', dto.since],
+      ['until', dto.until],
+    ] as const) {
+      if (value && !ISO_DATE.test(value)) {
+        return Result.fail(`"${field}" must be a date in YYYY-MM-DD format, got "${value}".`);
+      }
+    }
+    if (dto.since && dto.until && dto.until < dto.since) {
+      return Result.fail(`"until" (${dto.until}) is before "since" (${dto.since}).`);
+    }
+
+    // Team bug — resolveTeam lọc theo loại, nên gõ tên team task vào đây sẽ báo
+    // "không có team bug tên đó" thay vì một lỗi khó hiểu ở tầng dưới.
+    const teams = (await this.getTeams.execute({ tenantId: actor.tenantId })).getValue();
+    let teamId: string | undefined;
+    let teamName = '';
+    if (dto.team) {
+      const team = resolveTeam(teams, dto.team, IssueKind.BUG);
+      if (!team) {
+        return Result.fail(didYouMean('bug team', dto.team, teamChoices(teams, IssueKind.BUG)));
+      }
+      teamId = team.id.toString();
+      teamName = team.name;
+    }
+
+    // Cửa sổ trend: không cho khoảng thì lấy DEFAULT_TREND_BUCKETS mốc gần nhất.
+    // Bỏ mặc định thì dải là toàn bộ lịch sử → chắc chắn vượt TREND_CAP và tool
+    // hỏng ngay lần gọi đầu.
+    let range: string[] = [];
+    let since = dto.since ?? '';
+    let until = dto.until ?? '';
+    if (dto.trend) {
+      if (!since || !until) {
+        const end = until ? new Date(`${until}T00:00:00Z`) : new Date();
+        const start = new Date(end);
+        if (dto.trend === 'week') start.setUTCDate(start.getUTCDate() - 7 * (DEFAULT_TREND_BUCKETS - 1));
+        else start.setUTCMonth(start.getUTCMonth() - (DEFAULT_TREND_BUCKETS - 1));
+        since = since || start.toISOString().slice(0, 10);
+        until = until || end.toISOString().slice(0, 10);
+      }
+      range = trendRange(since, until, dto.trend);
+      if (range.length > TREND_CAP) {
+        return Result.fail(
+          `That range covers ${range.length} ${dto.trend}s — narrow it to ${TREND_CAP} or fewer ` +
+            `(use "month" instead of "week", or a shorter since/until).`,
+        );
+      }
+    }
+
+    const raw = await this.issues.bugStats(
+      actor.tenantId,
+      {
+        ...(teamId ? { teamId } : {}),
+        ...(dto.since ? { since: new Date(`${dto.since}T00:00:00.000Z`) } : {}),
+        ...(dto.until ? { until: new Date(`${dto.until}T23:59:59.999Z`) } : {}),
+      },
+      dimensions,
+      dto.trend ? { unit: dto.trend, timezone: 'UTC' } : undefined,
+    );
+
+    // Chỉ project cần tra tên ngoài — assignee đã có name denormalized, label
+    // lấy từ team, còn status/severity/team là chính giá trị đó.
+    const projectNames = await this.projectNames(raw, dimensions);
+    const teamNames = Object.fromEntries(teams.map((t) => [t.id.toString(), t.name]));
+    // Ép kiểu tuple: flatMap suy ra string[][] chứ không phải [string, string][],
+    // và Object.fromEntries đòi cái sau. `t.labels ?? []` vì không phải mọi team
+    // mock/entity đều đảm bảo có mảng này.
+    const labelNames = Object.fromEntries(
+      teams.flatMap((t) => (t.labels ?? []).map((l) => [l.key, l.name] as [string, string])),
+    );
+
+    const namesFor = (d: BugStatDimension): Record<string, string> =>
+      d === 'project' ? projectNames : d === 'team' ? teamNames : d === 'label' ? labelNames : {};
+
+    return Result.ok({
+      total: raw.total,
+      teamName,
+      since,
+      until,
+      dimensions: dimensions.map((d) => foldDimension(d, raw.dimensions[d] ?? [], namesFor(d))),
+      trend: dto.trend ? mergeTrend(range, raw.opened, raw.closed) : [],
+      trendUnit: dto.trend ?? '',
+    });
+  }
+
+  /** Tên project cho tối đa DIMENSION_CAP id — tra sau khi đã cắt trần, nên
+   *  nhiều nhất 10 lượt đọc, chạy song song. */
+  private async projectNames(
+    raw: RawBugStats,
+    dimensions: BugStatDimension[],
+  ): Promise<Record<string, string>> {
+    if (!dimensions.includes('project')) return {};
+    const ids = (raw.dimensions.project ?? [])
+      .filter((r) => r.key)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, DIMENSION_CAP)
+      .map((r) => r.key);
+    const found = await Promise.all(ids.map((id) => this.projects.findById(id)));
+    // `ProjectEntity` gọi tên hiển thị là `title`, KHÔNG phải `name` — nó không
+    // có getter `name`. Dùng nhầm sẽ ra undefined rồi âm thầm rơi về id trần.
+    return Object.fromEntries(ids.map((id, i) => [id, found[i]?.title || id]));
   }
 }

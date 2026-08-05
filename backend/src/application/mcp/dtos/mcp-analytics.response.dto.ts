@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { CycleStatus } from '@application/cycles/domain/enums/cycle.enums';
+import { FoldedDimension, TrendBucket } from '../domain/mcp-bug-stats';
 
 /** Một sprint, rút gọn cho trợ lý đọc. Phẳng theo quy ước CLAUDE.md. */
 export class McpCycleSummaryDto {
@@ -32,4 +33,21 @@ export class McpVelocityResponseDto {
   })
   unpointedSprints: number[];
   @ApiProperty({ type: [McpCycleSummaryDto] }) sprints: McpCycleSummaryDto[];
+}
+
+/** Phân bố bug: ảnh chụp theo từng chiều, cộng dòng chảy khi có trend. */
+export class McpBugStatsResponseDto {
+  @ApiProperty({ description: 'Tổng số bug khớp bộ lọc — mốc để đối chiếu các cột' })
+  total: number;
+  @ApiProperty({ description: 'Tên team đang lọc; "" nghĩa là cả workspace' })
+  teamName: string;
+  @ApiProperty({ description: 'Khoảng thật sự dùng (YYYY-MM-DD); "" khi không lọc theo ngày' })
+  since: string;
+  @ApiProperty() until: string;
+  @ApiProperty({ description: 'Mỗi chiều đã gấp, đã áp trần' })
+  dimensions: FoldedDimension[];
+  @ApiProperty({ description: 'Mở/đóng/chênh theo mốc; [] khi không xin trend' })
+  trend: TrendBucket[];
+  @ApiProperty({ description: "'week' | 'month' | ''" })
+  trendUnit: string;
 }

@@ -3,6 +3,7 @@ import { ApiKeyScope } from '@application/api-keys/domain/api-key.enums';
 import { CycleStatus } from '@application/cycles/domain/enums/cycle.enums';
 import { TeamIssueType } from '@application/teams/domain/enums/team.enums';
 import {
+  McpGetBugStatsUseCase,
   McpGetCycleBurndownUseCase,
   McpGetTeamVelocityUseCase,
   McpListCyclesUseCase,
@@ -27,6 +28,16 @@ const team = (id: string, name: string, cyclesEnabled = true) =>
     issueType: TeamIssueType.TASK,
     archived: false,
     cyclesEnabled,
+  }) as never;
+
+const teamBug = (id: string, name: string) =>
+  ({
+    id: { toString: () => id },
+    name,
+    key: name.toLowerCase(),
+    issueType: TeamIssueType.BUG,
+    archived: false,
+    cyclesEnabled: true,
   }) as never;
 
 const cycle = (n: number, status: CycleStatus, endDate: string) => ({
@@ -228,5 +239,95 @@ describe('McpGetTeamVelocityUseCase', () => {
     const v = (await useCase.execute({ actor, dto: { team: 'Engineering', cycles: 2 } })).getValue();
     expect(v.sprintsCounted).toBe(2);
     expect(v.average).toBe(25);
+  });
+});
+
+describe('McpGetBugStatsUseCase', () => {
+  const rawOf = (over: object = {}) => ({
+    total: 10,
+    dimensions: { status: [{ key: 'open', name: '', count: 10 }] },
+    opened: [],
+    closed: [],
+    ...over,
+  });
+
+  const build = (raw: object = rawOf()) => {
+    const getTeams = { execute: jest.fn().mockResolvedValue(Result.ok([teamBug('t9', 'QC')])) };
+    const issues = { bugStats: jest.fn().mockResolvedValue(raw) };
+    // `title`, không phải `name` — ProjectEntity không có getter `name`. Mock sai
+    // trường sẽ cho test xanh trong khi code thật rơi về id trần.
+    const projects = { findById: jest.fn().mockResolvedValue({ title: 'Ads Connect' }) };
+    return {
+      useCase: new McpGetBugStatsUseCase(getTeams as never, issues as never, projects as never),
+      issues,
+      projects,
+    };
+  };
+
+  it('mặc định gom theo status và severity', async () => {
+    const { useCase, issues } = build();
+    await useCase.execute({ actor, dto: {} });
+    expect(issues.bugStats).toHaveBeenCalledWith('t1', {}, ['status', 'severity'], undefined);
+  });
+
+  it('giải tên team bug và chuyển teamId xuống repo', async () => {
+    const { useCase, issues } = build();
+    await useCase.execute({ actor, dto: { team: 'QC' } });
+    expect(issues.bugStats).toHaveBeenCalledWith('t1', { teamId: 't9' }, expect.anything(), undefined);
+  });
+
+  it('tên team sai → lỗi kèm danh sách team bug', async () => {
+    const { useCase, issues } = build();
+    const res = await useCase.execute({ actor, dto: { team: 'Engineering' } });
+    expect(res.isFailure).toBe(true);
+    expect(res.error).toContain('QC');
+    expect(issues.bugStats).not.toHaveBeenCalled();
+  });
+
+  it('chiều gom lạ → lỗi kèm 6 chiều hợp lệ', async () => {
+    const { useCase } = build();
+    const res = await useCase.execute({ actor, dto: { groupBy: ['owner'] as never } });
+    expect(res.isFailure).toBe(true);
+    expect(res.error).toContain('severity');
+  });
+
+  it('until nhỏ hơn since → lỗi chỉ rõ trường', async () => {
+    const { useCase } = build();
+    const res = await useCase.execute({ actor, dto: { since: '2026-05-01', until: '2026-04-01' } });
+    expect(res.isFailure).toBe(true);
+    expect(res.error).toMatch(/until/i);
+  });
+
+  it('ngày sai định dạng → lỗi', async () => {
+    const { useCase } = build();
+    const res = await useCase.execute({ actor, dto: { since: '01/05/2026' } });
+    expect(res.isFailure).toBe(true);
+    expect(res.error).toMatch(/YYYY-MM-DD/);
+  });
+
+  it('trend không có khoảng → dùng 12 mốc gần nhất, không báo lỗi trần', async () => {
+    const { useCase } = build(rawOf({ opened: [], closed: [] }));
+    const res = await useCase.execute({ actor, dto: { trend: 'week' } });
+    expect(res.isSuccess).toBe(true);
+    expect(res.getValue().trend).toHaveLength(12);
+  });
+
+  it('trend vượt 26 mốc → báo lỗi yêu cầu thu hẹp, không cắt lặng', async () => {
+    const { useCase } = build();
+    const res = await useCase.execute({
+      actor,
+      dto: { trend: 'week', since: '2024-01-01', until: '2026-01-01' },
+    });
+    expect(res.isFailure).toBe(true);
+    expect(res.error).toMatch(/narrow/i);
+  });
+
+  it('tra tên project cho ô đã cắt trần', async () => {
+    const { useCase, projects } = build(
+      rawOf({ dimensions: { project: [{ key: 'p1', name: '', count: 3 }] } }),
+    );
+    const v = (await useCase.execute({ actor, dto: { groupBy: ['project'] } })).getValue();
+    expect(projects.findById).toHaveBeenCalledWith('p1');
+    expect(v.dimensions[0].buckets[0].label).toBe('Ads Connect');
   });
 });

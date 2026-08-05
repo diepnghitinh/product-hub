@@ -28,6 +28,7 @@ import {
   McpUpdateIssueDto,
 } from '@application/mcp/dtos/mcp.dtos';
 import {
+  McpBugStatsDto,
   McpCycleBurndownDto,
   McpListCyclesDto,
   McpTeamVelocityDto,
@@ -49,6 +50,7 @@ import {
   McpUpdatedDocResponseDto,
 } from '@application/mcp/dtos/mcp.response.dto';
 import {
+  McpBugStatsResponseDto,
   McpCycleSummaryDto,
   McpVelocityResponseDto,
 } from '@application/mcp/dtos/mcp-analytics.response.dto';
@@ -65,6 +67,7 @@ import {
   McpCreateIssueUseCase,
   McpDeleteCommentUseCase,
   McpDeleteIssueUseCase,
+  McpGetBugStatsUseCase,
   McpGetCycleBurndownUseCase,
   McpGetIssueUseCase,
   McpGetTeamVelocityUseCase,
@@ -165,6 +168,7 @@ export class McpServerFactory {
     private readonly listCycles: McpListCyclesUseCase,
     private readonly cycleBurndown: McpGetCycleBurndownUseCase,
     private readonly velocity: McpGetTeamVelocityUseCase,
+    private readonly bugStats: McpGetBugStatsUseCase,
     config: ConfigService,
   ) {
     this.appUrl = (config.get<string>('APP_BASE_URL') ?? 'http://localhost:3001').replace(/\/$/, '');
@@ -214,6 +218,7 @@ export class McpServerFactory {
     this.registerListCycles(server, run);
     this.registerCycleBurndown(server, run);
     this.registerVelocity(server, run);
+    this.registerBugStats(server, run);
 
     return server;
   }
@@ -865,6 +870,40 @@ export class McpServerFactory {
     );
   }
 
+  private registerBugStats(server: McpServer, run: Run): void {
+    registerTool<McpBugStatsDto>(
+      server,
+      'get_bug_stats',
+      {
+        title: 'Bug distribution and flow',
+        description:
+          'Counts of bugs, grouped however you ask. `groupBy` is a SNAPSHOT — how the bugs ' +
+          'matching your filter split across status, severity, assignee, team, label or project ' +
+          '(default: status + severity). `trend` is FLOW — how many were opened vs closed each ' +
+          'week or month, and whether the backlog is growing. Ask only for the dimensions you ' +
+          'need; each one adds to the reply. `since`/`until` filter by when a bug was OPENED. ' +
+          'Note: a bug reopened later loses its close date, so a past period’s "closed" count ' +
+          'can change — say so if you quote these numbers in a report.',
+        inputSchema: {
+          team: z.string().optional().describe('Bug team name or id; omit for the whole workspace'),
+          since: z.string().optional().describe('YYYY-MM-DD — bugs opened on or after'),
+          until: z.string().optional().describe('YYYY-MM-DD — bugs opened on or before'),
+          groupBy: z
+            .array(z.enum(['status', 'severity', 'assignee', 'team', 'label', 'project']))
+            .optional()
+            .describe('Snapshot dimensions; default ["status","severity"]'),
+          trend: z.enum(['week', 'month']).optional().describe('Add opened/closed per bucket'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      (dto) =>
+        run<McpBugStatsResponseDto>(
+          (actor) => this.bugStats.execute({ actor, dto }),
+          (s) => this.describeBugStats(s),
+        ),
+    );
+  }
+
   /* ── Formatting ─────────────────────────────────────────────────────────── */
 
   private url(path: string): string {
@@ -1019,6 +1058,36 @@ export class McpServerFactory {
       ...rows,
       ...warn,
     ].join('\n');
+  }
+
+  private describeBugStats(s: McpBugStatsResponseDto): string {
+    const scope = [s.teamName || 'whole workspace', s.since && `opened ${s.since} → ${s.until}`]
+      .filter(Boolean)
+      .join(' · ');
+    const out = [`${s.total} bug(s) · ${scope}`];
+
+    for (const d of s.dimensions) {
+      out.push('', `By ${d.dimension}:`);
+      for (const b of d.buckets) out.push(`  ${b.label} · ${b.count}`);
+      if (d.hiddenBuckets) {
+        out.push(`  … and ${d.hiddenBuckets} more (${d.hiddenBugs} bugs)`);
+      }
+      // Không có dòng này, người đọc cộng cột lại rồi thắc mắc sao không ra tổng.
+      if (d.countsAssignments) {
+        out.push(`  (counts assignments — a bug with two ${d.dimension}s appears twice)`);
+      }
+    }
+
+    if (s.trend.length) {
+      out.push('', `Opened vs closed per ${s.trendUnit}:`);
+      for (const t of s.trend) {
+        const sign = t.net > 0 ? `+${t.net}` : String(t.net);
+        out.push(`  ${t.bucket} · opened ${t.opened} · closed ${t.closed} · net ${sign}`);
+      }
+      out.push('  (net > 0 means the backlog grew that period)');
+    }
+
+    return out.join('\n');
   }
 
   private describeLink(l: McpIssueLinkDto): string {
