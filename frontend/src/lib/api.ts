@@ -3,6 +3,26 @@ import { env } from './env';
 
 const TOKEN_KEY = 'ph_token';
 
+/**
+ * What every failed API call rejects with: the server's own message, plus the
+ * HTTP status when there was a response at all.
+ *
+ * The status is what lets a caller tell "the network dropped, try again" from
+ * "the server said no, stop" — retrying a 413 forever helps nobody. It's still
+ * an `Error`, so the many `catch (e) { toast.error((e as Error).message) }`
+ * sites need no change.
+ */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    /** Absent on a network failure, timeout or abort — no response arrived. */
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -43,7 +63,9 @@ api.interceptors.response.use(
     const message = Array.isArray(data?.message)
       ? data?.message.join(', ')
       : data?.message;
-    return Promise.reject(new Error(message || error.message || 'Request failed'));
+    return Promise.reject(
+      new ApiError(message || error.message || 'Request failed', error.response?.status),
+    );
   },
 );
 

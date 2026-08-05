@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Post,
   Query,
   Res,
@@ -10,7 +11,14 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiHeader,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 import { AuthUser, Roles } from '@core/decorators';
 import { JwtPayload, Role } from '@core/interfaces';
@@ -21,15 +29,39 @@ import {
 import { TestStorageConnectionUseCase } from '@application/storage/use-cases/test-storage.use-case';
 import { FetchUploadUseCase } from '@application/storage/use-cases/fetch-upload.use-case';
 import {
+  BeginChunkedUploadResult,
+  ChunkedUploadUseCase,
+  UploadChunkResult,
+} from '@application/storage/use-cases/chunked-upload.use-case';
+import { CHUNK_SIZE } from '@application/storage/domain/upload-ticket';
+import {
   contentDispositionHeader,
   decodeMultipartFilename,
 } from '@application/storage/domain/filename';
+import {
+  BeginChunkedUploadDto,
+  CompleteChunkedUploadDto,
+} from '@application/storage/dtos/chunked-upload.dtos';
 import { UpdateStorageDto } from '@application/app-settings/dtos/app-settings.dtos';
 
 // A generous hard ceiling so a normal short video always reaches the use-case,
 // where the precise per-type cap (e.g. 30MB video) from the tenant config is
 // enforced with a clear message. Anything larger is almost certainly abuse.
 const HARD_LIMIT_BYTES = 250 * 1024 * 1024;
+
+/** The multipart envelope adds a little to a chunk; leave room for it. */
+const CHUNK_LIMIT_BYTES = CHUNK_SIZE + 64 * 1024;
+
+/** Where the signed ticket rides between `begin` and `complete`. */
+const TICKET_HEADER = 'x-upload-ticket';
+
+/**
+ * The chunk number travels in a header, not the query string, because the
+ * browser's CORS preflight cache is keyed by the full URL — `?part=1` and
+ * `?part=2` would each pay for their own OPTIONS round trip. One constant URL,
+ * one preflight for the whole file.
+ */
+const PART_HEADER = 'x-upload-part';
 
 @ApiTags('Uploads')
 @ApiBearerAuth('JWT-auth')
@@ -39,6 +71,7 @@ export class UploadsController {
     private readonly uploadMedia: UploadMediaUseCase,
     private readonly testStorage: TestStorageConnectionUseCase,
     private readonly fetchUpload: FetchUploadUseCase,
+    private readonly chunked: ChunkedUploadUseCase,
   ) {}
 
   @Post()
@@ -63,6 +96,71 @@ export class UploadsController {
       originalName: decodeMultipartFilename(file.originalname),
       size: file.size,
     });
+  }
+
+  /**
+   * Start a chunked upload — the path large files take. The client splits the
+   * file, sends the chunks to `chunked/part`, then calls `chunked/complete`,
+   * which returns the same shape as `POST /uploads`.
+   *
+   * The type and size are checked *here*, before any bytes move, so an
+   * over-cap file is refused in one small request rather than after 200MB.
+   */
+  @Post('chunked/begin')
+  @ApiOperation({ summary: 'Begin a chunked upload and get its signed ticket' })
+  async beginChunked(
+    @AuthUser() auth: JwtPayload,
+    @Body() dto: BeginChunkedUploadDto,
+  ): Promise<BeginChunkedUploadResult> {
+    return this.chunked.begin(auth.tenantId, {
+      name: decodeMultipartFilename(dto.name),
+      size: dto.size,
+      contentType: dto.contentType || 'application/octet-stream',
+    });
+  }
+
+  /**
+   * Send one chunk. It's forwarded straight to the storage provider, so the API
+   * holds one chunk at a time no matter how big the file is.
+   */
+  @Post('chunked/part')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: CHUNK_LIMIT_BYTES } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiHeader({ name: TICKET_HEADER, description: 'The ticket from chunked/begin' })
+  @ApiHeader({ name: PART_HEADER, description: '1-based chunk number' })
+  @ApiOperation({ summary: 'Upload one chunk of a file' })
+  async uploadChunk(
+    @AuthUser() auth: JwtPayload,
+    @Headers(TICKET_HEADER) ticket: string,
+    @Headers(PART_HEADER) part: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ): Promise<UploadChunkResult> {
+    if (!file) throw new BadRequestException('No chunk provided (form field "file").');
+    return this.chunked.part(auth.tenantId, ticket, Number(part), file.buffer);
+  }
+
+  /** Assemble the chunks. The result is indistinguishable from a normal upload. */
+  @Post('chunked/complete')
+  @ApiHeader({ name: TICKET_HEADER, description: 'The ticket from chunked/begin' })
+  @ApiOperation({ summary: 'Finish a chunked upload' })
+  async completeChunked(
+    @AuthUser() auth: JwtPayload,
+    @Headers(TICKET_HEADER) ticket: string,
+    @Body() dto: CompleteChunkedUploadDto,
+  ): Promise<UploadedMediaResult> {
+    return this.chunked.complete(auth.tenantId, ticket, dto.parts);
+  }
+
+  /** Cancel an upload in progress and stop paying to store its orphaned parts. */
+  @Post('chunked/abort')
+  @ApiHeader({ name: TICKET_HEADER, description: 'The ticket from chunked/begin' })
+  @ApiOperation({ summary: 'Abandon a chunked upload' })
+  async abortChunked(
+    @AuthUser() auth: JwtPayload,
+    @Headers(TICKET_HEADER) ticket: string,
+  ): Promise<{ ok: true }> {
+    await this.chunked.abort(auth.tenantId, ticket);
+    return { ok: true };
   }
 
   /**
