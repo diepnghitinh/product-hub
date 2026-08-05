@@ -7,6 +7,14 @@ export class RoadmapItemAssigneeDto {
   @ApiProperty() name: string;
 }
 
+/** A file attached to a roadmap item (a snapshot of the upload result). */
+export class RoadmapItemAttachmentDto {
+  @ApiProperty() url: string;
+  @ApiProperty() name: string;
+  @ApiProperty() contentType: string;
+  @ApiProperty() size: number;
+}
+
 /** A configurable board column ("pool"). */
 export class RoadmapColumnDto {
   @ApiProperty() key: string;
@@ -37,6 +45,11 @@ export class RoadmapItemDto {
   @ApiProperty({ description: 'Target end date (YYYY-MM-DD), empty when unset' })
   endDate: string;
   @ApiProperty({ type: [RoadmapItemAssigneeDto] }) assignees: RoadmapItemAssigneeDto[];
+  @ApiProperty({
+    type: [RoadmapItemAttachmentDto],
+    description: 'Files attached to the item. Always empty on the public share view.',
+  })
+  attachments: RoadmapItemAttachmentDto[];
   @ApiProperty({ description: 'Derived RICE score' }) rice: number;
   @ApiProperty({ description: 'When the item was created (ISO)' }) createdAt: string;
   @ApiPropertyOptional({ description: 'When work first started (ISO), once In progress' })

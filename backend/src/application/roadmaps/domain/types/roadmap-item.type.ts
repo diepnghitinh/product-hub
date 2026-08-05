@@ -1,3 +1,4 @@
+import { StoredFile } from '@application/storage/domain/stored-file.type';
 import {
   RoadmapDifficulty,
   RoadmapItemStatus,
@@ -64,6 +65,12 @@ export interface RoadmapItemData {
   endDate: string;
   /** People assigned (denormalized). */
   assignees: RoadmapAssignee[];
+  /** Files attached to this item — the spec, the forecast, the mock. Optional
+   *  because items written before attachments existed have no field; every read
+   *  defaults it to `[]`. Held back from the public share view (see
+   *  `RoadmapMapper.toPublicResponseDto`) — a shared roadmap is a plan, not a
+   *  file drop. */
+  attachments?: StoredFile[];
   /** When the item was first created (ISO). Stamped and then preserved
    *  server-side across the wholesale item replace, so reordering or editing
    *  never resets it. Optional because items created before this field existed

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPatch, apiPut } from '@/lib/api';
 import { IssueKind } from '@/types/enums';
 import { makeIssueHooks } from '@/features/issues/hook-factory';
-import type { TaskDto } from '@/types/dto';
+import type { AttachedFile, TaskDto } from '@/types/dto';
 import type { CustomFieldValue, TaskStatus, TeamStatusConfig } from '@/types/enums';
 
 /**
@@ -93,6 +93,8 @@ export interface UpdateTaskInput {
   /** @deprecated Legacy alias of `endDate`; prefer `endDate`. */
   dueDate?: string;
   estimate?: number;
+  /** Replace the attached files ([] detaches them all). */
+  attachments?: AttachedFile[];
   /** Everyone on it, primary first (`[]` unassigns); wins over `assigneeId`. */
   assigneeIds?: string[];
   assigneeId?: string;

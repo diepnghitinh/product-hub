@@ -23,6 +23,7 @@ export class PublicRoadmapsController {
   async view(@Param('token') token: string): Promise<PublicRoadmapView> {
     const result = await this.getPublic.execute({ token });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return { roadmap: RoadmapMapper.toResponseDto(result.getValue()) };
+    // The public variant — item attachments never leave the workspace.
+    return { roadmap: RoadmapMapper.toPublicResponseDto(result.getValue()) };
   }
 }

@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { randomRef } from '@module-shared/utils/short-id.util';
+import { sanitizeStoredFiles } from '@application/storage/domain/stored-file.type';
 import {
   CreateRoadmapDto,
   ReplaceRoadmapColumnsDto,
@@ -158,6 +159,10 @@ export class ReplaceRoadmapItemsUseCase
       return {
         ...item,
         shortId: prev?.shortId ?? mintItemRef(takenRefs),
+        // Items are free-form objects on the wire (the whole array is replaced
+        // on every edit), so this is the only place an attachment's URL is
+        // checked before it's stored and later rendered as a link.
+        attachments: sanitizeStoredFiles(item.attachments),
         createdAt: prev?.createdAt ?? item.createdAt ?? now,
         startedAt: prev?.startedAt ?? (isStarted ? now : undefined),
         completedAt: prev?.completedAt ?? (isCompleted ? now : undefined),

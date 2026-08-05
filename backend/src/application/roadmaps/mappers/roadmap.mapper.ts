@@ -21,6 +21,7 @@ export class RoadmapMapper {
         startDate: item.startDate ?? '',
         endDate: item.endDate ?? '',
         assignees: item.assignees ?? [],
+        attachments: item.attachments ?? [],
         milestoneId: item.milestoneId ?? '',
         objectiveId: item.objectiveId ?? '',
         keyResultId: item.keyResultId ?? '',
@@ -37,6 +38,21 @@ export class RoadmapMapper {
       createdAt: roadmap.createdAt,
       updatedAt: roadmap.updatedAt,
     };
+  }
+
+  /**
+   * The same roadmap as seen through a public share link, with every item's
+   * attachments removed.
+   *
+   * Stripped from the payload rather than hidden in the UI on purpose: the file
+   * URLs *are* the sensitive part. A spec or a revenue forecast attached to a
+   * backlog item stays internal even when the plan around it is deliberately
+   * public, and anything left in the response is readable by whoever holds the
+   * link whether or not a page draws it.
+   */
+  static toPublicResponseDto(roadmap: RoadmapEntity): RoadmapResponseDto {
+    const dto = this.toResponseDto(roadmap);
+    return { ...dto, items: dto.items.map((item) => ({ ...item, attachments: [] })) };
   }
 
   static toResponseDtoArray(roadmaps: RoadmapEntity[]): RoadmapResponseDto[] {

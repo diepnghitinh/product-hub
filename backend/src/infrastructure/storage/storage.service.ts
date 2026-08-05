@@ -14,6 +14,9 @@ import {
 } from '@application/app-settings/domain/storage.types';
 import { IStorageService, UploadFileInput, UploadedMedia } from '@application/storage/storage.port';
 
+/** Drop trailing slashes so a base and a key always join with exactly one. */
+const strip = (s: string) => s.replace(/\/+$/, '');
+
 /** S3 + Azure Blob storage. Clients are built per call from the tenant config. */
 @Injectable()
 export class StorageService implements IStorageService {
@@ -39,6 +42,38 @@ export class StorageService implements IStorageService {
       return;
     }
     throw new BadRequestException('Choose a storage provider first.');
+  }
+
+  /** See {@link IStorageService.publicBaseUrl}. Built from the config alone — no
+   *  network call — so the proxy can check a URL on every request cheaply. */
+  publicBaseUrl(config: CloudStorageConfig): string | null {
+    if (config.provider === StorageProvider.S3) {
+      if (!config.s3Bucket) return null;
+      return this.s3Base(config);
+    }
+    if (config.provider === StorageProvider.AZURE) {
+      if (!config.azureConnectionString || !config.azureContainer) return null;
+      try {
+        return strip(
+          BlobServiceClient.fromConnectionString(config.azureConnectionString).getContainerClient(
+            config.azureContainer,
+          ).url,
+        );
+      } catch {
+        // A malformed connection string is a config problem, not a request one —
+        // the proxy reports "not configured" rather than throwing a 500 here.
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /** Where an S3 object's public URL starts: the CDN base an admin set, else the
+   *  custom endpoint + bucket (MinIO, R2…), else the AWS virtual-host name. */
+  private s3Base(config: CloudStorageConfig): string {
+    if (config.s3PublicBaseUrl) return strip(config.s3PublicBaseUrl);
+    if (config.s3Endpoint) return `${strip(config.s3Endpoint)}/${config.s3Bucket}`;
+    return `https://${config.s3Bucket}.s3.${config.s3Region || 'us-east-1'}.amazonaws.com`;
   }
 
   /**
@@ -102,13 +137,7 @@ export class StorageService implements IStorageService {
       }
     }
 
-    const strip = (s: string) => s.replace(/\/+$/, '');
-    const base = config.s3PublicBaseUrl
-      ? strip(config.s3PublicBaseUrl)
-      : config.s3Endpoint
-        ? `${strip(config.s3Endpoint)}/${config.s3Bucket}`
-        : `https://${config.s3Bucket}.s3.${config.s3Region || 'us-east-1'}.amazonaws.com`;
-    return { url: `${base}/${key}`, key };
+    return { url: `${this.s3Base(config)}/${key}`, key };
   }
 
   private isMissingBucket(err: unknown): boolean {

@@ -7,6 +7,7 @@ import {
   useTemplateSeed,
   type DescriptionTemplate,
 } from '@/components/DescriptionTemplates';
+import { AttachmentsRow } from '@/components/AttachmentsRow';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
@@ -15,7 +16,7 @@ import { FavouriteKind, ReactionTargetType } from '@/types/enums';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import { ReactionBar } from '@/features/reactions/ReactionBar';
 import { LinkedDocsSection } from '@/features/docs/components/LinkedDocsSection';
-import type { CommentDto } from '@/types/dto';
+import type { AttachedFile, CommentDto } from '@/types/dto';
 import { type IssueSubject } from '@/features/activity/api';
 import { ActivityHeader, CommentThread, Avatar, type Person } from '@/features/activity/CommentThread';
 
@@ -59,6 +60,10 @@ export interface IssueDetailMainProps {
   /** Optional content rendered between the description and the Activity timeline
    * — e.g. the task detail's Sub-tasks panel. Bugs pass nothing. */
   beforeActivity?: ReactNode;
+  /** Files attached to this issue. Omit `onAttachmentsChange` (or pass an empty
+   * list read-only) and the row renders as chips only. */
+  attachments?: AttachedFile[];
+  onAttachmentsChange?: (next: AttachedFile[]) => void;
   /** The Properties block, rendered inline under the title (the single-column
    * drawer layout) instead of in a right sidebar. Set only by the peek drawer;
    * the full-page detail leaves it off and keeps Properties in the sidebar. */
@@ -99,6 +104,8 @@ export function IssueDetailMain({
   menuTarget = 'header',
   favourite,
   beforeActivity,
+  attachments,
+  onAttachmentsChange,
   propertiesInline,
 }: IssueDetailMainProps) {
   // The rich editor emits HTML on every keystroke — debounce so we save once the
@@ -240,6 +247,18 @@ export function IssueDetailMain({
           className="mt-3"
         />
       )}
+
+      {/* Logs, screenshots, the spreadsheet the bug was found in — opened in the
+          app's own viewer rather than downloaded to be read. */}
+      {onAttachmentsChange !== undefined || attachments?.length ? (
+        <AttachmentsRow
+          items={attachments ?? []}
+          canWrite={canWrite && !!onAttachmentsChange}
+          onChange={onAttachmentsChange}
+          title={t('uploads.files')}
+          className="mt-8"
+        />
+      ) : null}
 
       {/* Optional inset (task detail's Sub-tasks) between description and Activity. */}
       {beforeActivity}

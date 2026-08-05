@@ -313,13 +313,27 @@ export interface BugDto {
   resolvedAt: string | null;
 }
 
-/** A file attached to a bug (image / short video) — matches the upload response. */
-export interface BugAttachment {
+/**
+ * A file in the workspace's storage, as recorded on whatever it's attached to —
+ * a backlog item, an issue, a doc page, a comment. A snapshot of the upload
+ * result, so a list renders an icon, a name and a size with no extra request.
+ *
+ * One shape for every surface: `<AttachmentsRow>` takes this, and
+ * `<FilePreviewDialog>` decides how to render a file from its `contentType`.
+ */
+export interface AttachedFile {
+  /** Public URL of the stored file. */
   url: string;
+  /** Original filename — the chip's label and the download name. */
   name: string;
+  /** Stored MIME type (extension-derived server-side). */
   contentType: string;
+  /** Bytes. */
   size: number;
 }
+
+/** A file attached to a bug (image / short video) — matches the upload response. */
+export type BugAttachment = AttachedFile;
 
 export interface CommentDto {
   id: string;
@@ -422,6 +436,10 @@ export interface RoadmapItem {
    *  deriving an end from the linked tasks. */
   endDate: string;
   assignees: RoadmapAssignee[];
+  /** Files attached to this item — the spec, the forecast, the mock. Optional so
+   *  a freshly-built draft can omit it; the API always returns an array, and it
+   *  is always empty on the public share view (attachments stay internal). */
+  attachments?: AttachedFile[];
   /** When the item was created (ISO). Set and preserved server-side; optional
    *  here only so a freshly-built draft item can omit it before the first save. */
   createdAt?: string;
@@ -499,6 +517,9 @@ export interface TaskDto {
   dueDate: string;
   /** Points on the estimate scale (see `TASK_ESTIMATES`); `0` means unset. */
   estimate: number;
+  /** Files attached to this task — specs, sheets, screenshots. Same field a bug
+   *  carries; issues are one collection server-side. */
+  attachments: AttachedFile[];
   /** Keys of the team labels on this task (resolved against its team's `labels`). */
   labelKeys: string[];
   /** Values for the team's custom fields, keyed by each field's stable `id`. */
@@ -868,17 +889,8 @@ export interface DocLink {
 
 /** A file attached to a doc page — a snapshot of the upload, so the chip renders
  *  its icon and size without a second request (the public view has no session to
- *  make one with). */
-export interface DocAttachment {
-  /** Public URL of the stored file. */
-  url: string;
-  /** Original filename — the chip's label and the download name. */
-  name: string;
-  /** Stored MIME type — picks the glyph. */
-  contentType: string;
-  /** Bytes. */
-  size: number;
-}
+ *  make one with). See {@link AttachedFile}. */
+export type DocAttachment = AttachedFile;
 
 /** A page in the left rail: everything the tree needs, minus the body. */
 export interface DocPageSummary {

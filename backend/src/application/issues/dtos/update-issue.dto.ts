@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
   IsEnum,
   IsIn,
@@ -8,25 +9,37 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { MAX_ATTACHMENTS } from '@application/storage/domain/stored-file.type';
 import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 import { BugSeverity, TASK_ESTIMATE_VALUES } from '../domain/enums/issue.enums';
 
 /** One attachment on an issue — matches the upload endpoint's response shape. */
 export class IssueAttachmentDto {
+  /**
+   * Where the file lives. Constrained to http(s) rather than validated as a URL:
+   * this is the string the app later renders as a link, so the point is to keep
+   * `javascript:` out, and `@IsUrl` would reject the host-less URLs a local MinIO
+   * or a self-hosted bucket produces.
+   */
   @ApiProperty()
   @IsString()
+  @Matches(/^https?:\/\//i, { message: 'An attachment URL must start with http:// or https://' })
+  @MaxLength(2048)
   url: string;
 
   @ApiProperty()
   @IsString()
+  @MaxLength(260)
   name: string;
 
   @ApiProperty()
   @IsString()
+  @MaxLength(160)
   contentType: string;
 
   @ApiProperty()
@@ -168,9 +181,12 @@ export class UpdateIssueDto {
   @IsString()
   reportId?: string;
 
-  @ApiPropertyOptional({ type: [IssueAttachmentDto], description: '(bug)' })
+  /** Files on the issue — both kinds carry them (a bug's screenshot, a task's
+   *  spec). Replaces the whole list; `[]` detaches everything. */
+  @ApiPropertyOptional({ type: [IssueAttachmentDto], description: 'Attached files' })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(MAX_ATTACHMENTS)
   @ValidateNested({ each: true })
   @Type(() => IssueAttachmentDto)
   attachments?: IssueAttachmentDto[];

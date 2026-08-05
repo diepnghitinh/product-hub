@@ -27,6 +27,7 @@ import {
 import { AssigneeField, fallbackNames } from '@/components/AssigneeField';
 import { DetailSkeleton } from '@/components/Skeletons';
 import { DescriptionTemplates, useTemplateSeed } from '@/components/DescriptionTemplates';
+import { AttachmentsRow } from '@/components/AttachmentsRow';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { usePageChrome } from '@/layouts/headers/PageChrome';
@@ -590,6 +591,16 @@ export function RoadmapItemDetail({
           className="mt-3"
         />
       )}
+
+      {/* Specs, sheets and mockups that belong to this item. Held back from the
+          public share view entirely — see `toPublicResponseDto`. */}
+      <AttachmentsRow
+        items={item.attachments ?? []}
+        canWrite={canWrite}
+        onChange={(attachments) => save({ attachments })}
+        title={t('uploads.files')}
+        className="mt-8"
+      />
 
       <TaskPanel
         roadmapId={roadmap.id}
