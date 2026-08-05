@@ -17,6 +17,7 @@ import {
   McpCreateIssueUseCase,
   McpDeleteCommentUseCase,
   McpDeleteIssueUseCase,
+  McpGetCycleBurndownUseCase,
   McpGetIssueUseCase,
   McpLinkIssuesUseCase,
   McpListBacklogItemsUseCase,
@@ -52,6 +53,7 @@ const useCases = [
   McpListLinksUseCase,
   McpUnlinkIssuesUseCase,
   McpListCyclesUseCase,
+  McpGetCycleBurndownUseCase,
 ];
 
 @Module({

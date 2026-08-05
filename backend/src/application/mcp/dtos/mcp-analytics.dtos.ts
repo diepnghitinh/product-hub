@@ -16,3 +16,14 @@ export class McpListCyclesDto {
   @Max(50)
   limit?: number;
 }
+
+/** Burn-up của một sprint. */
+export class McpCycleBurndownDto {
+  @ApiProperty({ description: 'Tên hoặc id team' })
+  @IsString()
+  team!: string;
+
+  @ApiProperty({ description: "Số hiệu, tên, id, hoặc 'current' / 'next' / 'last'" })
+  @IsString()
+  cycle!: string;
+}

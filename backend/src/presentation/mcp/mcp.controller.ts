@@ -27,7 +27,8 @@ import {
   McpUpdateDocDto,
   McpUpdateIssueDto,
 } from '@application/mcp/dtos/mcp.dtos';
-import { McpListCyclesDto } from '@application/mcp/dtos/mcp-analytics.dtos';
+import { McpCycleBurndownDto, McpListCyclesDto } from '@application/mcp/dtos/mcp-analytics.dtos';
+import { CycleBurndownResponseDto } from '@application/cycles/dtos/cycle.dtos';
 import {
   McpBacklogItemBriefDto,
   McpBacklogItemResponseDto,
@@ -54,6 +55,7 @@ import {
   McpCreateIssueUseCase,
   McpDeleteCommentUseCase,
   McpDeleteIssueUseCase,
+  McpGetCycleBurndownUseCase,
   McpGetIssueUseCase,
   McpLinkIssuesUseCase,
   McpListBacklogItemsUseCase,
@@ -122,6 +124,7 @@ export class McpController {
     private readonly listLinks: McpListLinksUseCase,
     private readonly unlinkIssues: McpUnlinkIssuesUseCase,
     private readonly listCycles: McpListCyclesUseCase,
+    private readonly cycleBurndown: McpGetCycleBurndownUseCase,
   ) {}
 
   @Get('context')
@@ -176,6 +179,18 @@ export class McpController {
     @Query() query: McpListCyclesDto,
   ): Promise<McpCycleSummaryDto[]> {
     const result = await this.listCycles.execute({ actor: actorOf(req), dto: query });
+    if (result.isFailure) throw new ValidationException(result.error as string);
+    return result.getValue();
+  }
+
+  @Get('cycles/:cycle/burndown')
+  @ApiOperation({ summary: 'One sprint’s burn-up series and breakdowns (API key)' })
+  async cycleBurndownRoute(
+    @Req() req: McpRequest,
+    @Param('cycle') cycle: string,
+    @Query('team') team: string,
+  ): Promise<CycleBurndownResponseDto> {
+    const result = await this.cycleBurndown.execute({ actor: actorOf(req), dto: { team, cycle } });
     if (result.isFailure) throw new ValidationException(result.error as string);
     return result.getValue();
   }

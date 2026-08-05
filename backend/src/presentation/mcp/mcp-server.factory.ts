@@ -27,7 +27,7 @@ import {
   McpUpdateDocDto,
   McpUpdateIssueDto,
 } from '@application/mcp/dtos/mcp.dtos';
-import { McpListCyclesDto } from '@application/mcp/dtos/mcp-analytics.dtos';
+import { McpCycleBurndownDto, McpListCyclesDto } from '@application/mcp/dtos/mcp-analytics.dtos';
 import {
   McpBacklogItemBriefDto,
   McpBacklogItemResponseDto,
@@ -46,6 +46,10 @@ import {
 } from '@application/mcp/dtos/mcp.response.dto';
 import { McpCycleSummaryDto } from '@application/mcp/dtos/mcp-analytics.response.dto';
 import {
+  CycleBurndownGroupDto,
+  CycleBurndownResponseDto,
+} from '@application/cycles/dtos/cycle.dtos';
+import {
   GetMcpContextUseCase,
   McpActor,
   McpAddCommentUseCase,
@@ -54,6 +58,7 @@ import {
   McpCreateIssueUseCase,
   McpDeleteCommentUseCase,
   McpDeleteIssueUseCase,
+  McpGetCycleBurndownUseCase,
   McpGetIssueUseCase,
   McpLinkIssuesUseCase,
   McpListBacklogItemsUseCase,
@@ -150,6 +155,7 @@ export class McpServerFactory {
     private readonly listLinks: McpListLinksUseCase,
     private readonly unlinkIssues: McpUnlinkIssuesUseCase,
     private readonly listCycles: McpListCyclesUseCase,
+    private readonly cycleBurndown: McpGetCycleBurndownUseCase,
     config: ConfigService,
   ) {
     this.appUrl = (config.get<string>('APP_BASE_URL') ?? 'http://localhost:3001').replace(/\/$/, '');
@@ -197,6 +203,7 @@ export class McpServerFactory {
     this.registerListLinks(server, run);
     this.registerUnlinkIssues(server, run);
     this.registerListCycles(server, run);
+    this.registerCycleBurndown(server, run);
 
     return server;
   }
@@ -790,6 +797,32 @@ export class McpServerFactory {
     );
   }
 
+  private registerCycleBurndown(server: McpServer, run: Run): void {
+    registerTool<McpCycleBurndownDto>(
+      server,
+      'get_cycle_burndown',
+      {
+        title: 'Read a sprint’s burn-up',
+        description:
+          'How one sprint actually went, day by day: scope vs started vs completed, plus the ' +
+          'split by assignee, label and project. `cycle` takes a number ("3"), a name, an id, ' +
+          'or one of "current" / "next" / "last" — "last" is the most recently finished sprint, ' +
+          'which is what a retro or sprint review usually wants. Reported in the unit the team ' +
+          'estimates in (story points, or issue count when the team does not point).',
+        inputSchema: {
+          team: z.string().describe('Team name or id'),
+          cycle: z.string().describe('Sprint number, name, id, or current / next / last'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      (dto) =>
+        run<CycleBurndownResponseDto>(
+          (actor) => this.cycleBurndown.execute({ actor, dto }),
+          (b) => this.describeBurndown(b),
+        ),
+    );
+  }
+
   /* ── Formatting ─────────────────────────────────────────────────────────── */
 
   private url(path: string): string {
@@ -874,6 +907,53 @@ export class McpServerFactory {
     ]
       .filter(Boolean)
       .join('\n');
+  }
+
+  /** Số lượng mốc cuối của burn-up in ra — cả sprint theo ngày là quá dài cho một
+   *  câu trả lời, và mấy ngày cuối mới là phần nói lên sprint có kịp không. */
+  private static readonly BURNDOWN_TAIL = 10;
+
+  private describeBurndown(b: CycleBurndownResponseDto): string {
+    const points = b.unit === 'points';
+    const n = (count: number, pts: number) => (points ? `${pts} pts` : `${count}`);
+    const tail = b.series.slice(-McpServerFactory.BURNDOWN_TAIL);
+    const head = [
+      `Sprint ${b.number} · ${b.status} · ${b.startDate} → ${b.endDate}`,
+      `  scope ${n(b.scopeCount, b.scopePoints)} · started ${n(b.startedCount, b.startedPoints)} · done ${n(b.completedCount, b.completedPoints)}`,
+      `  measured in ${b.unit}`,
+    ];
+    const series = tail.length
+      ? [
+          '',
+          b.series.length > tail.length
+            ? `Daily (last ${tail.length} of ${b.series.length} days):`
+            : `Daily (${tail.length} days):`,
+          ...tail.map(
+            (d) =>
+              `  ${d.date} · scope ${points ? d.scopePoints : d.scopeCount}` +
+              ` · done ${points ? d.completedPoints : d.completedCount}`,
+          ),
+        ]
+      : ['', 'No daily data.'];
+    const group = (title: string, rows: CycleBurndownGroupDto[]) =>
+      rows.length
+        ? [
+            '',
+            `${title}:`,
+            ...rows.map(
+              (g) =>
+                `  ${g.label || '(none)'} · ${n(g.count, g.points)} planned` +
+                ` · ${n(g.completedCount, g.completedPoints)} done`,
+            ),
+          ]
+        : [];
+    return [
+      ...head,
+      ...series,
+      ...group('By assignee', b.assignees),
+      ...group('By label', b.labels),
+      ...group('By project', b.projects),
+    ].join('\n');
   }
 
   private describeLink(l: McpIssueLinkDto): string {

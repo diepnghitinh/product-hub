@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { Result } from '@shared/logic/result';
 import { IUsecaseExecute } from '@core/interfaces';
 import { GetTeamsUseCase } from '@application/teams/use-cases/team.use-cases';
-import { GetTeamCyclesUseCase } from '@application/cycles/use-cases/cycle.use-cases';
-import { CycleResponseDto } from '@application/cycles/dtos/cycle.dtos';
+import {
+  GetTeamCyclesUseCase,
+  GetCycleBurndownUseCase,
+} from '@application/cycles/use-cases/cycle.use-cases';
+import { CycleResponseDto, CycleBurndownResponseDto } from '@application/cycles/dtos/cycle.dtos';
+import { CycleStatus } from '@application/cycles/domain/enums/cycle.enums';
 import { anyTeamChoices, didYouMean, resolveTeamAnyKind } from '../domain/mcp-resolve';
-import { McpListCyclesDto } from '../dtos/mcp-analytics.dtos';
+import { McpCycleBurndownDto, McpListCyclesDto } from '../dtos/mcp-analytics.dtos';
 import { McpCycleSummaryDto } from '../dtos/mcp-analytics.response.dto';
 
 import type { McpActor } from './mcp.use-cases';
@@ -78,4 +82,113 @@ export function toCycleSummary(c: CycleResponseDto): McpCycleSummaryDto {
     completedCount: c.completedCount,
     completedPoints: c.completedPoints,
   };
+}
+
+/**
+ * Giải một tham chiếu sprint trên danh sách đã lấy về.
+ *
+ * Cố ý *không* dùng `CycleSchedulerService.resolveCycleFilter`: danh sách này đã
+ * chạy qua lazy scheduler một lần rồi (`GetTeamCyclesUseCase` gọi
+ * `ensureCyclesCurrent`), nên giải tại chỗ tránh được lượt quét thứ hai — và MCP
+ * không phải phụ thuộc thêm vào scheduler.
+ *
+ * `last` là sentinel mới, không có trong bộ lọc của app: sprint đã đóng có
+ * `endDate` lớn nhất. Chọn theo ngày chứ không theo số hiệu — team dùng cadence
+ * thủ công có thể tạo Cycle 5 cho khung thời gian trước Cycle 4.
+ */
+export function resolveCycleRef(
+  cycles: CycleResponseDto[],
+  ref: string,
+): CycleResponseDto | null {
+  const wanted = ref?.trim().toLowerCase() ?? '';
+  if (!wanted) return null;
+
+  if (wanted === 'current' || wanted === 'active') {
+    return cycles.find((c) => c.status === CycleStatus.ACTIVE) ?? null;
+  }
+  if (wanted === 'next' || wanted === 'upcoming') {
+    return (
+      cycles
+        .filter((c) => c.status === CycleStatus.UPCOMING)
+        .sort((a, b) => a.startDate.localeCompare(b.startDate))[0] ?? null
+    );
+  }
+  if (wanted === 'last' || wanted === 'previous') {
+    return (
+      cycles
+        .filter((c) => c.status === CycleStatus.COMPLETED)
+        .sort((a, b) => b.endDate.localeCompare(a.endDate))[0] ?? null
+    );
+  }
+
+  return (
+    cycles.find((c) => c.id === ref) ??
+    cycles.find((c) => String(c.number) === wanted) ??
+    cycles.find((c) => c.name.trim().toLowerCase() === wanted) ??
+    null
+  );
+}
+
+/** Gợi ý khi không giải được tham chiếu sprint — liệt kê cái gọi được. */
+export function cycleChoices(cycles: CycleResponseDto[]): string[] {
+  const named = cycles.slice(0, 8).map((c) => c.name || String(c.number));
+  return ['current', 'next', 'last', ...named];
+}
+
+/** Riêng cho `current`/`next`/`last` không khớp: nói đúng *vì sao* rỗng. Trợ lý
+ *  nhận "no sprint is running" sẽ báo lại người dùng đúng sự thật; nhận
+ *  "not found" thì lại đi thử tên khác. */
+const NO_MATCH: Record<string, string> = {
+  current: 'No sprint is running right now — the team may be between cycles (cooldown).',
+  active: 'No sprint is running right now — the team may be between cycles (cooldown).',
+  next: 'No upcoming sprint is scheduled yet.',
+  upcoming: 'No upcoming sprint is scheduled yet.',
+  last: 'No sprint has been completed yet.',
+  previous: 'No sprint has been completed yet.',
+};
+
+/**
+ * Burn-up của một sprint: chuỗi theo ngày, cộng chia theo assignee/label/project.
+ * Team resolve giống `McpListCyclesUseCase`; sprint resolve qua `resolveCycleRef`
+ * trên danh sách vừa lấy — xem ghi chú ở đó về việc không dùng lại scheduler.
+ */
+@Injectable()
+export class McpGetCycleBurndownUseCase
+  implements
+    IUsecaseExecute<
+      { actor: McpActor; dto: McpCycleBurndownDto },
+      Result<CycleBurndownResponseDto>
+    >
+{
+  constructor(
+    private readonly getTeams: GetTeamsUseCase,
+    private readonly getCycles: GetTeamCyclesUseCase,
+    private readonly getBurndown: GetCycleBurndownUseCase,
+  ) {}
+
+  async execute({
+    actor,
+    dto,
+  }: {
+    actor: McpActor;
+    dto: McpCycleBurndownDto;
+  }): Promise<Result<CycleBurndownResponseDto>> {
+    const teams = (await this.getTeams.execute({ tenantId: actor.tenantId })).getValue();
+    const team = resolveTeamAnyKind(teams, dto.team);
+    if (!team) return Result.fail(didYouMean('team', dto.team, anyTeamChoices(teams)));
+    if (!team.cyclesEnabled) return Result.fail(cyclesOff(team.name));
+
+    const teamId = team.id.toString();
+    const cycles = (
+      await this.getCycles.execute({ tenantId: actor.tenantId, teamId })
+    ).getValue();
+
+    const cycle = resolveCycleRef(cycles, dto.cycle);
+    if (!cycle) {
+      const sentinel = NO_MATCH[dto.cycle?.trim().toLowerCase() ?? ''];
+      return Result.fail(sentinel ?? didYouMean('sprint', dto.cycle, cycleChoices(cycles)));
+    }
+
+    return this.getBurndown.execute({ tenantId: actor.tenantId, teamId, cycleId: cycle.id });
+  }
 }
