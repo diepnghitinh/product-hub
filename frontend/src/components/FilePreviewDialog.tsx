@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { formatFileSize } from '@/lib/format';
 import { downloadFile, previewKindOf, type PreviewKind } from '@/lib/filePreview';
+import { readWorkbook, type SheetRows } from '@/lib/sheets';
 import { fetchUploadBytes } from '@/features/uploads/api';
 import type { AttachedFile } from '@/types/dto';
 
@@ -163,7 +164,7 @@ export function FilePreviewDialog({
 /** What a loader hands back, tagged by which renderer should draw it. */
 type Loaded =
   | { kind: 'blobUrl'; url: string; pdf: boolean }
-  | { kind: 'sheet'; sheets: { name: string; rows: string[][]; truncated: boolean }[] }
+  | { kind: 'sheet'; sheets: SheetRows[] }
   | { kind: 'html'; html: string }
   | { kind: 'text'; text: string };
 
@@ -176,6 +177,9 @@ function PreviewBody({ file }: { file: AttachedFile }) {
   useEffect(() => {
     if (previewKind === 'none') return;
     let cancelled = false;
+    // Aborting tears down the sheet worker, so paging past a heavy spreadsheet
+    // stops the parse instead of leaving it to finish for a file nobody's on.
+    const abort = new AbortController();
     // Held outside the async body so cleanup can revoke it even if the effect is
     // torn down between creating the URL and setting state.
     let objectUrl = '';
@@ -184,7 +188,7 @@ function PreviewBody({ file }: { file: AttachedFile }) {
       try {
         const bytes = await fetchUploadBytes(file.url);
         if (cancelled) return;
-        const next = await renderBytes(previewKind, bytes, file);
+        const next = await renderBytes(previewKind, bytes, file, abort.signal);
         if (cancelled) {
           if (next.kind === 'blobUrl') URL.revokeObjectURL(next.url);
           return;
@@ -198,6 +202,7 @@ function PreviewBody({ file }: { file: AttachedFile }) {
 
     return () => {
       cancelled = true;
+      abort.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [file.url, previewKind]);
@@ -254,6 +259,7 @@ async function renderBytes(
   kind: Exclude<PreviewKind, 'none'>,
   bytes: ArrayBuffer,
   file: AttachedFile,
+  signal: AbortSignal,
 ): Promise<Loaded> {
   if (kind === 'pdf' || kind === 'image') {
     const blob = new Blob([bytes], { type: file.contentType || 'application/octet-stream' });
@@ -263,25 +269,14 @@ async function renderBytes(
   if (kind === 'text') return { kind: 'text', text: new TextDecoder().decode(bytes) };
 
   if (kind === 'sheet') {
-    const XLSX = await import('xlsx');
-    const wb = XLSX.read(bytes, { type: 'array' });
-    const sheets = wb.SheetNames.map((name) => {
-      // `header: 1` gives rows-of-cells (not objects), which is what a grid
-      // wants; `raw: false` renders dates and percentages the way the file
-      // formats them rather than as serial numbers.
-      const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[name], {
-        header: 1,
-        raw: false,
-        defval: '',
-        blankrows: false,
-      });
-      const truncated = rows.length > MAX_SHEET_ROWS;
-      return {
-        name,
-        rows: rows.slice(0, MAX_SHEET_ROWS).map((r) => r.slice(0, MAX_SHEET_COLS)),
-        truncated: truncated || rows.some((r) => r.length > MAX_SHEET_COLS),
-      };
-    });
+    // Parsed in a worker, and capped there too — only the 400×40 the grid draws
+    // crosses back, not the file's full 2,600×480. `formatted` renders dates and
+    // percentages the way the file writes them rather than as serial numbers.
+    const sheets = await readWorkbook(
+      bytes,
+      { formatted: true, maxRows: MAX_SHEET_ROWS, maxCols: MAX_SHEET_COLS },
+      signal,
+    );
     return { kind: 'sheet', sheets };
   }
 
@@ -362,15 +357,18 @@ function SheetView({
                   <th className="sticky left-0 z-10 border-b border-r bg-muted px-2 py-1 text-right font-medium tabular-nums text-muted-foreground">
                     {r + 1}
                   </th>
-                  {Array.from({ length: cols }, (_, c) => (
-                    <td
-                      key={c}
-                      className="max-w-64 truncate border-b border-r px-2 py-1 align-top"
-                      title={row[c] || undefined}
-                    >
-                      {row[c] ?? ''}
-                    </td>
-                  ))}
+                  {Array.from({ length: cols }, (_, c) => {
+                    const text = cellText(row[c]);
+                    return (
+                      <td
+                        key={c}
+                        className="max-w-64 truncate border-b border-r px-2 py-1 align-top"
+                        title={text || undefined}
+                      >
+                        {text}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -388,6 +386,12 @@ function SheetView({
       )}
     </div>
   );
+}
+
+/** A cell as text. Reads arrive formatted (so already strings), but the grid
+ *  shouldn't be the thing that breaks if a raw number or date ever gets through. */
+function cellText(cell: unknown): string {
+  return cell == null ? '' : String(cell);
 }
 
 /** 0 → A, 25 → Z, 26 → AA — the spreadsheet's own column addresses. */
