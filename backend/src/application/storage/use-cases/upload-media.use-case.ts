@@ -1,16 +1,7 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  PayloadTooLargeException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { IAppSettingsRepository } from '@application/app-settings/repositories/app-settings.repository';
-import {
-  DEFAULT_MAX_DOC_MB,
-  StorageProvider,
-  defaultStorageConfig,
-} from '@application/app-settings/domain/storage.types';
-import { UploadKind, classifyUpload } from '../domain/upload-kind';
+import { defaultStorageConfig } from '@application/app-settings/domain/storage.types';
+import { planUpload } from '../domain/upload-limits';
 import { IStorageService, UploadFileInput } from '../storage.port';
 
 export interface UploadedMediaResult {
@@ -19,13 +10,6 @@ export interface UploadedMediaResult {
   contentType: string;
   size: number;
 }
-
-/** What each kind is called when it's too big, and which cap it answers to. */
-const KIND_LABEL: Record<UploadKind, string> = {
-  [UploadKind.IMAGE]: 'Image',
-  [UploadKind.VIDEO]: 'Video',
-  [UploadKind.DOCUMENT]: 'File',
-};
 
 /**
  * Store one image, short video or document in the tenant's configured cloud
@@ -44,31 +28,7 @@ export class UploadMediaUseCase {
     const settings = await this.settingsRepo.findByTenant(tenantId);
     const config = settings?.storage ?? defaultStorageConfig();
 
-    if (config.provider === StorageProvider.NONE) {
-      throw new BadRequestException(
-        'Media storage is not configured. Ask an admin to set it up in Settings → Storage.',
-      );
-    }
-
-    const classified = classifyUpload(file.contentType, file.originalName);
-    if (!classified) {
-      throw new BadRequestException(
-        'That file type cannot be uploaded — images, videos, PDFs, Office documents and text files are accepted.',
-      );
-    }
-
-    const capMb =
-      classified.kind === UploadKind.VIDEO
-        ? config.maxVideoMb
-        : classified.kind === UploadKind.DOCUMENT
-          ? // Absent on configs saved before documents were uploadable.
-            (config.maxDocMb ?? DEFAULT_MAX_DOC_MB)
-          : config.maxImageMb;
-    if (file.size > capMb * 1024 * 1024) {
-      throw new PayloadTooLargeException(
-        `${KIND_LABEL[classified.kind]} is too large — the limit is ${capMb}MB.`,
-      );
-    }
+    const classified = planUpload(config, file);
 
     // Stored under the classified type, not the one the browser claimed — see
     // `classifyUpload`.

@@ -14,6 +14,23 @@ export interface UploadedMedia {
   key: string;
 }
 
+/** An upload in progress, assembled by the storage provider rather than by us. */
+export interface MultipartTarget {
+  key: string;
+  /** S3's `UploadId`. Azure needs none and gets a placeholder. */
+  uploadId: string;
+}
+
+/**
+ * A chunk the provider has accepted. `etag` is S3's part ETag, which
+ * `completeMultipart` has to hand back verbatim; Azure ignores it and rebuilds
+ * its block id from `partNumber`.
+ */
+export interface UploadedPart {
+  partNumber: number;
+  etag: string;
+}
+
 /**
  * Port for the cloud storage backend, implemented per provider (S3, Azure) in
  * infrastructure. The config is passed in per call because it's per-tenant and
@@ -34,4 +51,33 @@ export abstract class IStorageService {
    * what may be fetched back have to be the same rule.
    */
   abstract publicBaseUrl(config: CloudStorageConfig): string | null;
+
+  /**
+   * Begin a chunked upload. The provider assembles the object from the parts —
+   * S3 multipart, Azure block blobs — so the API never holds more than one
+   * chunk, and a dropped connection costs one chunk instead of the whole file.
+   */
+  abstract createMultipart(
+    config: CloudStorageConfig,
+    file: { originalName: string; contentType: string },
+  ): Promise<MultipartTarget>;
+
+  /** Store one chunk. `partNumber` is 1-based, as S3 requires. */
+  abstract uploadPart(
+    config: CloudStorageConfig,
+    target: MultipartTarget,
+    partNumber: number,
+    body: Buffer,
+  ): Promise<UploadedPart>;
+
+  /** Assemble the parts into the finished object. Parts may arrive in any order. */
+  abstract completeMultipart(
+    config: CloudStorageConfig,
+    target: MultipartTarget,
+    parts: UploadedPart[],
+    contentType: string,
+  ): Promise<UploadedMedia>;
+
+  /** Throw the parts away. Nothing is stored, and nothing is billed for. */
+  abstract abortMultipart(config: CloudStorageConfig, target: MultipartTarget): Promise<void>;
 }

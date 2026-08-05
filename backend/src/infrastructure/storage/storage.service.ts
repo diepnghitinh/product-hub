@@ -1,22 +1,41 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
   CreateBucketCommand,
+  CreateMultipartUploadCommand,
   HeadBucketCommand,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
   type BucketLocationConstraint,
 } from '@aws-sdk/client-s3';
-import { BlobServiceClient } from '@azure/storage-blob';
+import { BlobServiceClient, type ContainerClient } from '@azure/storage-blob';
 import { v4 as uuid } from 'uuid';
 import {
   CloudStorageConfig,
   StorageProvider,
 } from '@application/app-settings/domain/storage.types';
-import { IStorageService, UploadFileInput, UploadedMedia } from '@application/storage/storage.port';
+import {
+  IStorageService,
+  MultipartTarget,
+  UploadFileInput,
+  UploadedMedia,
+  UploadedPart,
+} from '@application/storage/storage.port';
 import { storageKeySlug } from '@application/storage/domain/filename';
 
 /** Drop trailing slashes so a base and a key always join with exactly one. */
 const strip = (s: string) => s.replace(/\/+$/, '');
+
+/**
+ * Azure's id for one staged block. Every block of a blob must use an id of the
+ * *same* byte length, and the order of `commitBlockList` is what assembles the
+ * file — so the id is the part number, zero-padded to a fixed width, base64'd.
+ * Derived, never stored: a re-sent chunk overwrites its own block.
+ */
+const azureBlockId = (partNumber: number) =>
+  Buffer.from(String(partNumber).padStart(6, '0'), 'utf8').toString('base64');
 
 /** S3 + Azure Blob storage. Clients are built per call from the tenant config. */
 @Injectable()
@@ -140,6 +159,132 @@ export class StorageService implements IStorageService {
     return { url: `${this.s3Base(config)}/${key}`, key };
   }
 
+  async createMultipart(
+    config: CloudStorageConfig,
+    file: { originalName: string; contentType: string },
+  ): Promise<MultipartTarget> {
+    const key = this.buildKey(file.originalName);
+
+    if (config.provider === StorageProvider.S3) {
+      this.assertS3(config);
+      const client = this.s3(config);
+      const create = () =>
+        client.send(
+          new CreateMultipartUploadCommand({
+            Bucket: config.s3Bucket,
+            Key: key,
+            ContentType: file.contentType,
+          }),
+        );
+      let res;
+      try {
+        res = await create();
+      } catch (err) {
+        // Same first-upload-provisions-the-bucket rule as the single-shot path.
+        if (!this.isMissingBucket(err)) throw err;
+        await this.ensureBucket(client, config);
+        res = await create();
+      }
+      if (!res.UploadId) throw new BadRequestException('Storage did not start the upload.');
+      return { key, uploadId: res.UploadId };
+    }
+
+    if (config.provider === StorageProvider.AZURE) {
+      this.assertAzure(config);
+      // Azure has no upload id: staged blocks live on the (not yet committed)
+      // blob itself, so the key is the whole handle.
+      this.azure(config).getBlockBlobClient(key);
+      return { key, uploadId: 'azure' };
+    }
+
+    throw new BadRequestException('Storage is not configured.');
+  }
+
+  async uploadPart(
+    config: CloudStorageConfig,
+    target: MultipartTarget,
+    partNumber: number,
+    body: Buffer,
+  ): Promise<UploadedPart> {
+    if (config.provider === StorageProvider.S3) {
+      this.assertS3(config);
+      const res = await this.s3(config).send(
+        new UploadPartCommand({
+          Bucket: config.s3Bucket,
+          Key: target.key,
+          UploadId: target.uploadId,
+          PartNumber: partNumber,
+          Body: body,
+        }),
+      );
+      if (!res.ETag) throw new BadRequestException('Storage did not accept that chunk.');
+      return { partNumber, etag: res.ETag };
+    }
+
+    if (config.provider === StorageProvider.AZURE) {
+      this.assertAzure(config);
+      await this.azure(config)
+        .getBlockBlobClient(target.key)
+        .stageBlock(azureBlockId(partNumber), body, body.length);
+      return { partNumber, etag: '' };
+    }
+
+    throw new BadRequestException('Storage is not configured.');
+  }
+
+  async completeMultipart(
+    config: CloudStorageConfig,
+    target: MultipartTarget,
+    parts: UploadedPart[],
+    contentType: string,
+  ): Promise<UploadedMedia> {
+    // Both providers assemble in the order given, not the order received.
+    const ordered = [...parts].sort((a, b) => a.partNumber - b.partNumber);
+
+    if (config.provider === StorageProvider.S3) {
+      this.assertS3(config);
+      await this.s3(config).send(
+        new CompleteMultipartUploadCommand({
+          Bucket: config.s3Bucket,
+          Key: target.key,
+          UploadId: target.uploadId,
+          MultipartUpload: {
+            Parts: ordered.map((p) => ({ PartNumber: p.partNumber, ETag: p.etag })),
+          },
+        }),
+      );
+      return { url: `${this.s3Base(config)}/${target.key}`, key: target.key };
+    }
+
+    if (config.provider === StorageProvider.AZURE) {
+      this.assertAzure(config);
+      const blob = this.azure(config).getBlockBlobClient(target.key);
+      await blob.commitBlockList(
+        ordered.map((p) => azureBlockId(p.partNumber)),
+        { blobHTTPHeaders: { blobContentType: contentType } },
+      );
+      return { url: blob.url, key: target.key };
+    }
+
+    throw new BadRequestException('Storage is not configured.');
+  }
+
+  async abortMultipart(config: CloudStorageConfig, target: MultipartTarget): Promise<void> {
+    if (config.provider === StorageProvider.S3) {
+      this.assertS3(config);
+      await this.s3(config).send(
+        new AbortMultipartUploadCommand({
+          Bucket: config.s3Bucket,
+          Key: target.key,
+          UploadId: target.uploadId,
+        }),
+      );
+      return;
+    }
+    // Azure has no abort: blocks that were never committed are not a blob, cost
+    // nothing to read, and the service garbage-collects them after 7 days.
+  }
+
   private isMissingBucket(err: unknown): boolean {
     const e = err as { name?: string; Code?: string } | undefined;
     return e?.name === 'NoSuchBucket' || e?.Code === 'NoSuchBucket';
@@ -181,16 +326,19 @@ export class StorageService implements IStorageService {
     }
   }
 
+  private azure(config: CloudStorageConfig): ContainerClient {
+    return BlobServiceClient.fromConnectionString(
+      config.azureConnectionString as string,
+    ).getContainerClient(config.azureContainer as string);
+  }
+
   private async uploadAzure(
     config: CloudStorageConfig,
     key: string,
     file: UploadFileInput,
   ): Promise<UploadedMedia> {
     this.assertAzure(config);
-    const container = BlobServiceClient.fromConnectionString(
-      config.azureConnectionString as string,
-    ).getContainerClient(config.azureContainer as string);
-    const blob = container.getBlockBlobClient(key);
+    const blob = this.azure(config).getBlockBlobClient(key);
     await blob.uploadData(file.buffer, {
       blobHTTPHeaders: { blobContentType: file.contentType },
     });

@@ -52,6 +52,10 @@ async function bootstrap() {
       'Authorization',
       'Accept-Language',
       'X-Api-Key',
+      // Chunked uploads carry their signed ticket and chunk number in headers;
+      // without these the browser's preflight refuses every chunk.
+      'X-Upload-Ticket',
+      'X-Upload-Part',
       // Streamable HTTP MCP (/v1/mcp): the session id is sent back on every
       // call after `initialize`, and browser-hosted clients can only read it
       // off the response if it's exposed.
@@ -59,7 +63,16 @@ async function bootstrap() {
       'Mcp-Protocol-Version',
       'X-Mcp-Client',
     ],
-    exposedHeaders: ['Mcp-Session-Id'],
+    // A header the browser doesn't expose is a header JavaScript can't read.
+    // `Content-Disposition` is how a download learns its real filename — the
+    // one the server built, including characters a URL can't carry.
+    exposedHeaders: ['Mcp-Session-Id', 'Content-Disposition'],
+    // Let the browser cache the preflight. Without this every chunk of an
+    // upload pays for its own OPTIONS round trip, because the ticket header
+    // makes each one a non-simple request — 100 chunks, 100 wasted trips.
+    // (The cache is keyed by the full URL, which is why the chunk number
+    // travels in a header rather than the query string.)
+    maxAge: 86400,
   });
 
   // URI versioning → every route is served under /v1 by default.

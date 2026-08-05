@@ -4,8 +4,14 @@ import { InfrastructureAppSettingsModule } from '@infrastructure/app-settings/ap
 import { UploadMediaUseCase } from './use-cases/upload-media.use-case';
 import { TestStorageConnectionUseCase } from './use-cases/test-storage.use-case';
 import { FetchUploadUseCase } from './use-cases/fetch-upload.use-case';
+import { ChunkedUploadUseCase } from './use-cases/chunked-upload.use-case';
 
-const useCases = [UploadMediaUseCase, TestStorageConnectionUseCase, FetchUploadUseCase];
+const useCases = [
+  UploadMediaUseCase,
+  TestStorageConnectionUseCase,
+  FetchUploadUseCase,
+  ChunkedUploadUseCase,
+];
 
 @Module({
   // Infra storage provides `IStorageService`; app-settings infra provides the
