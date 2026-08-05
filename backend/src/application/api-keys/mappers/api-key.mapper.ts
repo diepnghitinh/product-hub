@@ -7,6 +7,7 @@ export class ApiKeyMapper {
       id: key.id.toString(),
       name: key.name,
       prefix: key.prefix,
+      scope: key.scope,
       lastUsedAt: key.lastUsedAt,
       createdAt: key.createdAt,
     };

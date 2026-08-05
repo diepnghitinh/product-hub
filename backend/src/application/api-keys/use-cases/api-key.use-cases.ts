@@ -4,6 +4,7 @@ import { Result } from '@shared/logic/result';
 import { generateApiKey, hashApiKey } from '@module-shared/utils/api-key.util';
 import { CreateApiKeyDto } from '../dtos/api-key.dtos';
 import { ApiKeyEntity } from '../domain/api-key.entity';
+import { ApiKeyScope } from '../domain/api-key.enums';
 import { IApiKeyRepository } from '../repositories/api-key.repository';
 
 export interface GeneratedApiKey {
@@ -37,6 +38,7 @@ export class GenerateApiKeyUseCase
       keyHash: hash,
       prefix,
       createdBy: userId,
+      scope: dto.scope ?? ApiKeyScope.READ_ONLY,
     });
     if (created.isFailure) return Result.fail(created.error as string);
     const entity = created.getValue();

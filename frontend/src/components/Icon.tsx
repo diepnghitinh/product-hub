@@ -41,7 +41,8 @@ export type IconName =
   | 'compass'
   | 'package'
   | 'globe'
-  | 'headphones';
+  | 'headphones'
+  | 'comment';
 
 /**
  * The figure "My Tasks" and its "Personal List" child share, so the parent row
@@ -283,6 +284,8 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
     </>
   ),
+  /* A speech bubble — an MCP comment event. */
+  comment: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
 };
 
 interface IconProps {

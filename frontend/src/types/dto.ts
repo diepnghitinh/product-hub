@@ -1,4 +1,5 @@
 import {
+  ApiKeyScope,
   AuditActorType,
   AuditEntityType,
   BugSeverity,
@@ -632,6 +633,8 @@ export interface ApiKeyDto {
   id: string;
   name: string;
   prefix: string;
+  /** What this key may do through MCP — read-only, read-write, or +delete. */
+  scope: ApiKeyScope;
   lastUsedAt: string | null;
   createdAt: string;
 }

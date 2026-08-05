@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { UnauthorizedDomainException } from '@core/exceptions';
 import { AuthenticateApiKeyUseCase } from '@application/api-keys/use-cases/api-key.use-cases';
+import { ApiKeyScope } from '@application/api-keys/domain/api-key.enums';
 
 export interface ApiAuth {
   tenantId: string;
@@ -10,6 +11,8 @@ export interface ApiAuth {
   /** The user who generated the key. A key-authenticated write acts as them, so
    *  an item created through MCP has a real author instead of a nameless robot. */
   userId: string;
+  /** The key's ceiling on write/delete — gated at the MCP tool boundary. */
+  scope: ApiKeyScope;
 }
 
 /**
@@ -35,6 +38,7 @@ export class ApiKeyGuard implements CanActivate {
       name: entity.name,
       keyId: entity.id.toString(),
       userId: entity.createdBy,
+      scope: entity.scope,
     };
     return true;
   }

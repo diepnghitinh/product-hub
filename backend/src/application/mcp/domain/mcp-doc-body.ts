@@ -23,6 +23,11 @@ const BULLET = /^\s*[-*+]\s+(.*)$/;
 const NUMBERED = /^\s*\d+[.)]\s+(.*)$/;
 const QUOTE = /^\s*>\s?(.*)$/;
 const FENCE = /^\s*```(\w*)/;
+/** A thematic break: `---`, `***` or `___` alone on its line. Checked before
+ *  BULLET, which needs whitespace after its marker and so never matches these. */
+const RULE = /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/;
+/** A row of a Markdown table: `| a | b |`. */
+const TABLE_ROW = /^\s*\|.*\|\s*$/;
 /** Whole fenced blocks, used to keep their contents out of prose-level checks. */
 const FENCED_BLOCK = /```[\s\S]*?```/g;
 
@@ -101,12 +106,54 @@ const escapeHtml = (s: string): string =>
 const unescapeHtml = (s: string): string =>
   s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
-const startsBlock = (line: string): boolean =>
+/**
+ * Whether this line opens a block — and so ends the paragraph above it.
+ *
+ * `next` is needed because a table is only a table when a divider follows: a
+ * lone piped line is prose. Every case here MUST have a matching branch in
+ * {@link renderMarkdown}; a line reported as a block start with nothing to
+ * consume it would leave the cursor parked and the loop spinning forever.
+ */
+const startsBlock = (line: string, next = ''): boolean =>
   HEADING.test(line) ||
   BULLET.test(line) ||
   NUMBERED.test(line) ||
   QUOTE.test(line) ||
-  FENCE.test(line);
+  FENCE.test(line) ||
+  RULE.test(line) ||
+  startsTable(line, next);
+
+const startsTable = (line: string, next: string): boolean =>
+  TABLE_ROW.test(line) && !isDivider(line) && isDivider(next);
+
+/** Cells of `| a | b |`, without the outer pipes. */
+const cellsOf = (line: string): string[] =>
+  line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((c) => c.trim());
+
+/**
+ * The `|---|:--:|` line under a header row. A table only exists when this
+ * follows a row — a lone piped line is prose ("use | to pipe"), not a table.
+ */
+const isDivider = (line: string): boolean =>
+  TABLE_ROW.test(line) && cellsOf(line).every((c) => /^:?-+:?$/.test(c));
+
+/**
+ * A table, padded to the header's width. A short row gets empty cells rather
+ * than a ragged `<tr>`, and a long one is truncated: a malformed row should
+ * cost its own cells, not the shape of the whole table.
+ */
+function renderTable(header: string[], rows: string[][]): string {
+  const head = header.map((c) => `<th>${inline(c)}</th>`).join('');
+  const body = rows
+    .map((r) => `<tr>${header.map((_, k) => `<td>${inline(r[k] ?? '')}</td>`).join('')}</tr>`)
+    .join('');
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
 
 /**
  * Inline emphasis. Code spans are stashed first and put back last, so a `**` or
@@ -182,6 +229,26 @@ function renderMarkdown(body: string): string {
       continue;
     }
 
+    if (RULE.test(line)) {
+      out.push('<hr/>');
+      i++;
+      continue;
+    }
+
+    // A table needs its divider on the very next line; without one this is just
+    // a paragraph that happens to contain pipes.
+    if (startsTable(line, lines[i + 1] ?? '')) {
+      const header = cellsOf(line);
+      i += 2;
+      const rows: string[][] = [];
+      while (i < lines.length && TABLE_ROW.test(lines[i]) && !isDivider(lines[i])) {
+        rows.push(cellsOf(lines[i]));
+        i++;
+      }
+      out.push(renderTable(header, rows));
+      continue;
+    }
+
     if (QUOTE.test(line)) {
       const quoted: string[] = [];
       while (i < lines.length && QUOTE.test(lines[i])) {
@@ -195,7 +262,8 @@ function renderMarkdown(body: string): string {
     // A paragraph runs to the next blank line or block marker; a single newline
     // inside it is a soft wrap, not a new paragraph.
     const para: string[] = [];
-    while (i < lines.length && lines[i].trim() && !startsBlock(lines[i])) para.push(lines[i++]);
+    while (i < lines.length && lines[i].trim() && !startsBlock(lines[i], lines[i + 1] ?? ''))
+      para.push(lines[i++]);
     out.push(`<p>${inline(para.join(' '))}</p>`);
   }
 

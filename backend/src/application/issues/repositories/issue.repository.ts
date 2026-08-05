@@ -1,5 +1,6 @@
 import { CycleRollup } from '@application/cycles/domain/enums/cycle.enums';
 import { BurndownIssueRow } from '@application/cycles/domain/cycle-burndown';
+import type { BugStatDimension, RawBugStats } from '@application/mcp/domain/mcp-bug-stats';
 import { IssueEntity } from '../domain/entities/issue.entity';
 import { QueryIssueDto } from '../dtos/query-issue.dto';
 
@@ -31,6 +32,10 @@ export abstract class IIssueRepository {
     opts?: { personalOwnerId?: string },
   ) => Promise<IssuePaginationResponse>;
   countByStatus: (tenantId: string, status: string) => Promise<number>;
+  /** Count every issue whose parent is `parentId`, regardless of owner — the
+   *  privacy filter on `findByTenant` hides personal-task children, but the
+   *  delete-orphan guard must see them too, or it would orphan a private subtask. */
+  countChildren: (tenantId: string, parentId: string) => Promise<number>;
   /** Scope/completed (count + points) per cycle id, in one aggregation. Feeds
    *  both the live rollups and the freeze at cycle completion. */
   cycleRollups: (
@@ -57,6 +62,16 @@ export abstract class IIssueRepository {
   ) => Promise<number>;
   /** Detach every issue pointing at these cycles (deleted upcoming cycles). */
   clearCycleIds: (tenantId: string, cycleIds: string[]) => Promise<number>;
+  /** Phân bố bug, gom nhóm nhiều chiều trong một lần aggregation. Chỉ chiều
+   *  được xin mới dựng vào `$facet`. `trend` thêm hai nhánh mở/đóng theo mốc
+   *  thời gian; bỏ trống thì không tính. Trả về hàng thô — mọi luật về trần và
+   *  ô rỗng nằm ở `application/mcp/domain/mcp-bug-stats.ts`. */
+  bugStats: (
+    tenantId: string,
+    filter: { teamId?: string; since?: Date; until?: Date },
+    dimensions: BugStatDimension[],
+    trend?: { unit: 'week' | 'month'; timezone: string },
+  ) => Promise<RawBugStats>;
   save: (issue: IssueEntity) => Promise<void>;
   update: (issue: IssueEntity) => Promise<void>;
   delete: (id: string) => Promise<void>;

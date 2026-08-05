@@ -5,6 +5,7 @@ import { UniqueEntityID } from '@core/domain';
 import { BaseRepository } from '@core/infrastructure/database/mongoose/base';
 import { IApiKeyRepository } from '@application/api-keys/repositories/api-key.repository';
 import { ApiKeyEntity } from '@application/api-keys/domain/api-key.entity';
+import { ApiKeyScope } from '@application/api-keys/domain/api-key.enums';
 import { ApiKeyDoc } from '../entities/api-key.schema';
 
 @Injectable()
@@ -24,6 +25,11 @@ export class ApiKeyRepository
         keyHash: doc.keyHash,
         prefix: doc.prefix,
         createdBy: doc.createdBy,
+        // Grandfather: keys written before `scope` existed deserialize with
+        // `scope === undefined` (Mongoose `default` only fires on insert, and we
+        // read with `.lean()`). Treating absent as read-only would break every
+        // running MCP integration, so pre-existing keys keep full ability.
+        scope: doc.scope ?? ApiKeyScope.READ_WRITE_DELETE,
         lastUsedAt: doc.lastUsedAt,
         createdAt: doc.createdAt,
       },
@@ -41,6 +47,7 @@ export class ApiKeyRepository
       keyHash: key.keyHash,
       prefix: key.prefix,
       createdBy: key.createdBy,
+      scope: key.scope,
       lastUsedAt: key.lastUsedAt,
       createdAt: key.createdAt,
     };

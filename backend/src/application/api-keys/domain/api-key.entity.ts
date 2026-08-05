@@ -2,6 +2,7 @@ import { AggregateRoot, UniqueEntityID } from '@core/domain';
 import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
 import { ApiKeyProps } from './api-key.props';
+import { ApiKeyScope } from './api-key.enums';
 
 /** A per-tenant API key. Only its hash is stored. */
 export class ApiKeyEntity extends AggregateRoot<ApiKeyProps> {
@@ -16,6 +17,7 @@ export class ApiKeyEntity extends AggregateRoot<ApiKeyProps> {
       keyHash: string;
       prefix: string;
       createdBy: string;
+      scope?: ApiKeyScope;
       lastUsedAt?: Date | null;
       createdAt?: Date;
     },
@@ -38,6 +40,7 @@ export class ApiKeyEntity extends AggregateRoot<ApiKeyProps> {
           keyHash: props.keyHash,
           prefix: props.prefix,
           createdBy: props.createdBy,
+          scope: props.scope ?? ApiKeyScope.READ_ONLY,
           lastUsedAt: props.lastUsedAt ?? null,
           createdAt: props.createdAt || new Date(),
         },
@@ -63,6 +66,9 @@ export class ApiKeyEntity extends AggregateRoot<ApiKeyProps> {
   }
   get createdBy(): string {
     return this.props.createdBy;
+  }
+  get scope(): ApiKeyScope {
+    return this.props.scope;
   }
   get lastUsedAt(): Date | null {
     return this.props.lastUsedAt;

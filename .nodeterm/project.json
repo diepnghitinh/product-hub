@@ -1,18 +1,77 @@
 {
   "version": 1,
-  "rev": 591,
-  "savedAt": "2026-07-31T04:45:20.221Z",
-  "id": "project-mrwvv6c7-1",
+  "rev": 342,
+  "savedAt": "2026-08-04T07:54:56.537Z",
+  "id": "project-mrwvv6c7-1-lnvsdb",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": -33.71847393519522,
-    "y": 2660.7997197651125,
-    "zoom": 0.8488645334121577
+    "x": -1098.076488769082,
+    "y": 3891.6921293016003,
+    "zoom": 1.3636363636363635
   },
-  "nodes": [],
+  "nodes": [
+    {
+      "id": "term-msclhnh1-1",
+      "kind": "terminal",
+      "position": {
+        "x": 1044.6894250973269,
+        "y": -2779.040894821174
+      },
+      "size": {
+        "width": 968,
+        "height": 588
+      },
+      "title": "Terminal 1",
+      "titleAuto": true,
+      "color": "#0a84ff",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": "."
+    },
+    {
+      "id": "term-mse1ffpl-1",
+      "kind": "terminal",
+      "position": {
+        "x": 2247.092218034106,
+        "y": -2764.8607401798304
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Terminal 2",
+      "titleAuto": true,
+      "color": "#32d74b",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": "."
+    },
+    {
+      "id": "term-mse5s6lc-2",
+      "kind": "terminal",
+      "position": {
+        "x": 135.75609176399354,
+        "y": -2243.107471969611
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Terminal 3",
+      "titleAuto": true,
+      "color": "#ffd60a",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": "."
+    }
+  ],
   "bridges": [],
   "ropes": [],
+  "dinoHighScore": 1612,
   "kanban": {
     "columns": [
       {
@@ -33,7 +92,7 @@
     ],
     "assignments": [
       {
-        "nodeId": "term-mrwvvcey-2",
+        "nodeId": "term-msclhnh1-1",
         "columnId": "kcol-si39u19f"
       }
     ]

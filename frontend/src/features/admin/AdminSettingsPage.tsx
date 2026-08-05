@@ -41,6 +41,8 @@ import { PageHeader } from '@/layouts/headers/PageHeader';
 import { timeAgo } from '@/lib/format';
 import { env } from '@/lib/env';
 import {
+  ApiKeyScope,
+  API_KEY_SCOPE_LABEL,
   builtinStatusKeys,
   CUSTOM_FIELD_TYPE_LABEL,
   CUSTOM_FIELD_TYPES,
@@ -862,12 +864,19 @@ function ApiKeysSection() {
 
   function onGenerate() {
     if (!name.trim()) return;
-    generate.mutate(name.trim(), {
-      onSuccess: (k) => {
-        setCreated(k);
-        setName('');
+    // Keys minted here are for the public API (the set-result endpoint), which
+    // doesn't check scope — so they carry full ability. MCP-scoped keys are
+    // created from the MCP tab, which offers the scope choice. (Whether scope
+    // should also gate the public API is an open product decision.)
+    generate.mutate(
+      { name: name.trim(), scope: ApiKeyScope.READ_WRITE_DELETE },
+      {
+        onSuccess: (k) => {
+          setCreated(k);
+          setName('');
+        },
       },
-    });
+    );
   }
 
   return (
@@ -903,6 +912,9 @@ function ApiKeysSection() {
                   <span className="font-medium">{k.name}</span>
                   <span className="font-mono text-xs text-muted-foreground">{k.prefix}</span>
                 </div>
+                <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                  {API_KEY_SCOPE_LABEL[k.scope]}
+                </span>
                 <span className="text-xs text-muted-foreground">
                   {t('settings.lastUsed')}: {k.lastUsedAt ? timeAgo(k.lastUsedAt) : t('settings.never')}
                 </span>

@@ -10,13 +10,14 @@ import {
   CardTitle,
   Dialog,
   Input,
+  Select,
 } from '@/components/ui';
 import { Icon, type IconName } from '@/components/Icon';
 import { RowsSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { env } from '@/lib/env';
 import { timeAgo } from '@/lib/format';
-import { McpEntity } from '@/types/enums';
+import { ApiKeyScope, API_KEY_SCOPES, API_KEY_SCOPE_LABEL, McpEntity } from '@/types/enums';
 import type { CreatedApiKeyDto } from '@/types/dto';
 import { useGenerateApiKey } from '@/features/api-keys/api';
 import { useMcpEvents } from '@/features/mcp/api';
@@ -37,7 +38,18 @@ const ENTITY_ICON: Record<McpEntity, IconName> = {
   [McpEntity.BUG]: 'bug',
   [McpEntity.BACKLOG_ITEM]: 'roadmap',
   [McpEntity.DOC]: 'docs',
+  [McpEntity.COMMENT]: 'comment',
 };
+
+/** The verb a history row leads with, read from the event's `tool`. Robots now
+ *  edit and delete too, so a row can no longer be assumed to be a "create". */
+function toolVerb(tool: string): string {
+  if (tool === 'add_comment') return t('settings.mcpVerbCommented');
+  if (tool === 'set_issue_status') return t('settings.mcpVerbMoved');
+  if (tool.startsWith('update_')) return t('settings.mcpVerbUpdated');
+  if (tool.startsWith('delete_')) return t('settings.mcpVerbDeleted');
+  return t('settings.mcpVerbCreated');
+}
 
 /**
  * Settings → MCP.
@@ -54,6 +66,7 @@ const ENTITY_ICON: Record<McpEntity, IconName> = {
 export function McpSection() {
   const generate = useGenerateApiKey();
   const [name, setName] = useState(t('settings.mcpKeyNameDefault'));
+  const [scope, setScope] = useState<ApiKeyScope>(ApiKeyScope.READ_ONLY);
   const [created, setCreated] = useState<CreatedApiKeyDto | null>(null);
   const [endpoint, setEndpoint] = useState(
     () => localStorage.getItem(ENDPOINT_KEY) || defaultEndpoint(),
@@ -78,7 +91,7 @@ export function McpSection() {
 
   function onGenerate() {
     if (!name.trim()) return;
-    generate.mutate(name.trim(), { onSuccess: setCreated });
+    generate.mutate({ name: name.trim(), scope }, { onSuccess: setCreated });
   }
 
   return (
@@ -100,6 +113,26 @@ export function McpSection() {
               <Button className="sm:shrink-0" onClick={onGenerate} loading={generate.isPending}>
                 {t('settings.generateKey')}
               </Button>
+            </div>
+            <div className="mt-3 sm:max-w-lg">
+              <label
+                htmlFor="mcp-scope"
+                className="mb-1.5 block text-xs font-medium text-muted-foreground"
+              >
+                {t('settings.mcpKeyScope')}
+              </label>
+              <Select
+                id="mcp-scope"
+                value={scope}
+                onValueChange={(v) => setScope(v as ApiKeyScope)}
+                options={API_KEY_SCOPES.map((s) => ({
+                  value: s,
+                  label: API_KEY_SCOPE_LABEL[s],
+                }))}
+              />
+              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                {t('settings.mcpKeyScopeHint')}
+              </p>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">{t('settings.mcpKeysNote')}</p>
           </Step>
@@ -173,7 +206,9 @@ export function McpSection() {
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="truncate font-medium">{e.entityTitle}</span>
                         <span className="truncate text-xs text-muted-foreground">
-                          {[e.entityRef, e.contextLabel, e.userName].filter(Boolean).join(' · ')}
+                          {[toolVerb(e.tool), e.entityRef, e.contextLabel, e.userName]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </span>
                         <span className="flex items-center gap-2 pt-1 sm:hidden">{trail}</span>
                       </span>
