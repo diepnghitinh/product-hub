@@ -27,6 +27,7 @@ import {
   McpUpdateDocDto,
   McpUpdateIssueDto,
 } from '@application/mcp/dtos/mcp.dtos';
+import { McpListCyclesDto } from '@application/mcp/dtos/mcp-analytics.dtos';
 import {
   McpBacklogItemBriefDto,
   McpBacklogItemResponseDto,
@@ -43,6 +44,7 @@ import {
   McpUnlinkResultDto,
   McpUpdatedDocResponseDto,
 } from '@application/mcp/dtos/mcp.response.dto';
+import { McpCycleSummaryDto } from '@application/mcp/dtos/mcp-analytics.response.dto';
 import {
   GetMcpContextUseCase,
   McpActor,
@@ -56,6 +58,7 @@ import {
   McpLinkIssuesUseCase,
   McpListBacklogItemsUseCase,
   McpListCommentsUseCase,
+  McpListCyclesUseCase,
   McpListLinksUseCase,
   McpSearchIssuesUseCase,
   McpSetStatusUseCase,
@@ -118,6 +121,7 @@ export class McpController {
     private readonly linkIssues: McpLinkIssuesUseCase,
     private readonly listLinks: McpListLinksUseCase,
     private readonly unlinkIssues: McpUnlinkIssuesUseCase,
+    private readonly listCycles: McpListCyclesUseCase,
   ) {}
 
   @Get('context')
@@ -161,6 +165,17 @@ export class McpController {
     @Query() query: McpListBacklogItemsDto,
   ): Promise<McpBacklogItemBriefDto[]> {
     const result = await this.listBacklogItems.execute({ actor: actorOf(req), dto: query });
+    if (result.isFailure) throw new ValidationException(result.error as string);
+    return result.getValue();
+  }
+
+  @Get('cycles')
+  @ApiOperation({ summary: 'A team’s sprints — dates, status, goal, rollups (API key)' })
+  async cycles(
+    @Req() req: McpRequest,
+    @Query() query: McpListCyclesDto,
+  ): Promise<McpCycleSummaryDto[]> {
+    const result = await this.listCycles.execute({ actor: actorOf(req), dto: query });
     if (result.isFailure) throw new ValidationException(result.error as string);
     return result.getValue();
   }

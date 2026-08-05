@@ -7,6 +7,7 @@ import { ApplicationRoadmapsModule } from '@application/roadmaps/roadmaps.module
 import { ApplicationDocsModule } from '@application/docs/docs.module';
 import { ApplicationActivityModule } from '@application/activity/activity.module';
 import { ApplicationIssueLinksModule } from '@application/issue-links/issue-links.module';
+import { ApplicationCyclesModule } from '@application/cycles/cycles.module';
 import {
   GetMcpContextUseCase,
   GetMcpEventsUseCase,
@@ -20,6 +21,7 @@ import {
   McpLinkIssuesUseCase,
   McpListBacklogItemsUseCase,
   McpListCommentsUseCase,
+  McpListCyclesUseCase,
   McpListLinksUseCase,
   McpSearchIssuesUseCase,
   McpSetStatusUseCase,
@@ -49,6 +51,7 @@ const useCases = [
   McpLinkIssuesUseCase,
   McpListLinksUseCase,
   McpUnlinkIssuesUseCase,
+  McpListCyclesUseCase,
 ];
 
 @Module({
@@ -67,6 +70,9 @@ const useCases = [
     ApplicationActivityModule,
     // The 3 issue-link use-cases (create/get/delete) the link wrappers delegate to.
     ApplicationIssueLinksModule,
+    // Ba tool analytics đọc sprint qua GetTeamCyclesUseCase / GetCycleBurndownUseCase.
+    // An toàn về vòng lặp: ApplicationIssuesModule mới là bên import Cycles, MCP là lá.
+    ApplicationCyclesModule,
   ],
   providers: [...useCases],
   exports: [...useCases],

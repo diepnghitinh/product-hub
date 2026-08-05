@@ -225,3 +225,22 @@ export const backlogItemLink = (roadmapId: string, itemId: string): string =>
 
 /** A doc is only ever read through a page, so link to the one that was written. */
 export const docPageLink = (docId: string, pageId: string): string => `/docs/${docId}/${pageId}`;
+
+/**
+ * Giải tên team khi *chưa biết* team đó quản task hay bug — thứ `resolveTeam`
+ * luôn cần. Cycle thuộc về team bất kể loại issue, nên analytics phải hỏi được
+ * "team QC" mà không phải đoán trước.
+ *
+ * Khác `resolveTeam` một điểm quan trọng: ref rỗng trả `null` chứ không rơi về
+ * team mặc định. Ở đây `team` là tham số bắt buộc — im lặng đọc nhầm team là
+ * kiểu sai tệ nhất cho một tool báo số.
+ */
+export function resolveTeamAnyKind(teams: TeamEntity[], ref: string): TeamEntity | null {
+  if (!ref?.trim()) return null;
+  return resolveTeam(teams, ref, IssueKind.TASK) ?? resolveTeam(teams, ref, IssueKind.BUG);
+}
+
+/** Mọi team chưa lưu trữ, cả hai loại — danh sách cho `didYouMean`. */
+export function anyTeamChoices(teams: TeamEntity[]): string[] {
+  return [...teamChoices(teams, IssueKind.TASK), ...teamChoices(teams, IssueKind.BUG)];
+}

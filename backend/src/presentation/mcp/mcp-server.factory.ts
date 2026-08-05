@@ -27,6 +27,7 @@ import {
   McpUpdateDocDto,
   McpUpdateIssueDto,
 } from '@application/mcp/dtos/mcp.dtos';
+import { McpListCyclesDto } from '@application/mcp/dtos/mcp-analytics.dtos';
 import {
   McpBacklogItemBriefDto,
   McpBacklogItemResponseDto,
@@ -43,6 +44,7 @@ import {
   McpUnlinkResultDto,
   McpUpdatedDocResponseDto,
 } from '@application/mcp/dtos/mcp.response.dto';
+import { McpCycleSummaryDto } from '@application/mcp/dtos/mcp-analytics.response.dto';
 import {
   GetMcpContextUseCase,
   McpActor,
@@ -56,6 +58,7 @@ import {
   McpLinkIssuesUseCase,
   McpListBacklogItemsUseCase,
   McpListCommentsUseCase,
+  McpListCyclesUseCase,
   McpListLinksUseCase,
   McpSearchIssuesUseCase,
   McpSetStatusUseCase,
@@ -146,6 +149,7 @@ export class McpServerFactory {
     private readonly linkIssues: McpLinkIssuesUseCase,
     private readonly listLinks: McpListLinksUseCase,
     private readonly unlinkIssues: McpUnlinkIssuesUseCase,
+    private readonly listCycles: McpListCyclesUseCase,
     config: ConfigService,
   ) {
     this.appUrl = (config.get<string>('APP_BASE_URL') ?? 'http://localhost:3001').replace(/\/$/, '');
@@ -192,6 +196,7 @@ export class McpServerFactory {
     this.registerLinkIssues(server, run);
     this.registerListLinks(server, run);
     this.registerUnlinkIssues(server, run);
+    this.registerListCycles(server, run);
 
     return server;
   }
@@ -756,6 +761,35 @@ export class McpServerFactory {
     );
   }
 
+  private registerListCycles(server: McpServer, run: Run): void {
+    registerTool<McpListCyclesDto>(
+      server,
+      'list_cycles',
+      {
+        title: 'List a team’s sprints',
+        description:
+          'The sprint (cycle) history of one team, newest window first — number, name, dates, ' +
+          'status (upcoming/active/completed), the sprint goal, and how much was planned vs ' +
+          'finished. Call this to find a sprint before get_cycle_burndown, or to answer "what ' +
+          'is the team working on this sprint". A team with cycles switched off says so rather ' +
+          'than returning an empty list.',
+        inputSchema: {
+          team: z.string().describe('Team name or id — required'),
+          limit: z.number().int().min(1).max(50).optional().describe('Default 10'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      (dto) =>
+        run<McpCycleSummaryDto[]>(
+          (actor) => this.listCycles.execute({ actor, dto }),
+          (cycles) =>
+            cycles.length
+              ? `${cycles.length} sprint(s):\n\n${cycles.map((c) => this.describeCycle(c)).join('\n\n')}`
+              : 'No sprints yet.',
+        ),
+    );
+  }
+
   /* ── Formatting ─────────────────────────────────────────────────────────── */
 
   private url(path: string): string {
@@ -823,6 +857,23 @@ export class McpServerFactory {
       `  ${i.roadmapTitle} → ${i.phase} · ${i.status} · RICE ${i.riceScore}`,
       `  ${this.url(i.link)}`,
     ].join('\n');
+  }
+
+  private describeCycle(c: McpCycleSummaryDto): string {
+    const label = c.name || `Cycle ${c.number}`;
+    // Điểm chỉ có nghĩa khi team thật sự chấm điểm — scopePoints 0 thì báo theo
+    // số việc, đừng in "0 pts" như thể team không làm gì.
+    const unit =
+      c.scopePoints > 0
+        ? `${c.completedPoints}/${c.scopePoints} pts`
+        : `${c.completedCount}/${c.scopeCount} issues`;
+    return [
+      `${label} · ${c.status}`,
+      `  ${c.startDate} → ${c.endDate} · ${unit}`,
+      c.goal ? `  goal: ${c.goal}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
   }
 
   private describeLink(l: McpIssueLinkDto): string {
