@@ -461,8 +461,11 @@ export class IssueRepository
         { $project: { _id: 0, bucket: '$_id', count: 1 } },
       ];
       // resolvedAt null = chưa đóng (hoặc đã mở lại — entity xoá mốc khi bug rời
-      // cột done). Nhánh này cố ý *không* lọc theo cửa sổ createdAt ở trên: bug mở
-      // quý trước mà đóng quý này vẫn phải tính vào số đã đóng của quý này.
+      // cột done). `$facet` chia sẻ chung một luồng input từ `$match` phía trên,
+      // nên nhánh này KHÔNG THỂ có cửa sổ createdAt riêng — nó vẫn bị giới hạn
+      // bởi since/until (lọc theo ngày mở), dù về mặt dữ liệu đúng ra "closed"
+      // nên tính theo ngày đóng. Hạn chế này được chấp nhận (không tách pipeline
+      // để sửa) — xem mô tả tool `get_bug_stats` để biết caveat được nêu cho caller.
       facet.closed = [
         { $match: { resolvedAt: { $ne: null } } },
         { $group: { _id: bucket('$resolvedAt'), count: { $sum: 1 } } },

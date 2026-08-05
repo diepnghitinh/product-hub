@@ -1,5 +1,5 @@
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { IsArray, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { BUG_STAT_DIMENSIONS, BugStatDimension } from '../domain/mcp-bug-stats';
 
@@ -68,6 +68,10 @@ export class McpBugStatsDto {
     description: 'Chiều gom nhóm; mặc định status + severity',
   })
   @IsOptional()
+  // `?groupBy=status&groupBy=severity` arrives as an array, but a single
+  // `?groupBy=status` arrives as a bare string — coerce before `@IsArray()`
+  // runs, or a lone value fails validation before the handler ever sees it.
+  @Transform(({ value }) => (value === undefined ? value : [value].flat()))
   @IsArray()
   groupBy?: BugStatDimension[];
 

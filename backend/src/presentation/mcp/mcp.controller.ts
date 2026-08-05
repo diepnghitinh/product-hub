@@ -225,13 +225,10 @@ export class McpController {
     @Req() req: McpRequest,
     @Query() query: McpBugStatsDto,
   ): Promise<McpBugStatsResponseDto> {
-    // `?groupBy=status&groupBy=severity` arrives as a string when there's only one
-    // value — ValidationPipe's `transform: true` doesn't coerce a lone query value
-    // into an array on its own, so normalize here rather than silently grouping by
-    // one dimension when the caller asked for exactly one.
-    const groupBy = query.groupBy ? [query.groupBy].flat() : undefined;
-    const dto = { ...query, groupBy } as McpBugStatsDto;
-    const result = await this.bugStats.execute({ actor: actorOf(req), dto });
+    // `McpBugStatsDto.groupBy` normalizes a lone `?groupBy=status` into an array
+    // via `@Transform` before `@IsArray()` runs, so `query.groupBy` is already an
+    // array (or undefined) here — no further normalization needed.
+    const result = await this.bugStats.execute({ actor: actorOf(req), dto: query });
     if (result.isFailure) throw new ValidationException(result.error as string);
     return result.getValue();
   }

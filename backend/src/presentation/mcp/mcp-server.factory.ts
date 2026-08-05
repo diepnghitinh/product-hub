@@ -883,7 +883,9 @@ export class McpServerFactory {
           'week or month, and whether the backlog is growing. Ask only for the dimensions you ' +
           'need; each one adds to the reply. `since`/`until` filter by when a bug was OPENED. ' +
           'Note: a bug reopened later loses its close date, so a past period’s "closed" count ' +
-          'can change — say so if you quote these numbers in a report.',
+          'can change — say so if you quote these numbers in a report. Also: when `since`/`until` ' +
+          'are set, `trend`\'s "closed" counts still only cover bugs that were OPENED inside that ' +
+          'window, so a bug opened earlier and closed inside the window is missing from it.',
         inputSchema: {
           team: z.string().optional().describe('Bug team name or id; omit for the whole workspace'),
           since: z.string().optional().describe('YYYY-MM-DD — bugs opened on or after'),
@@ -1061,9 +1063,14 @@ export class McpServerFactory {
   }
 
   private describeBugStats(s: McpBugStatsResponseDto): string {
-    const scope = [s.teamName || 'whole workspace', s.since && `opened ${s.since} → ${s.until}`]
-      .filter(Boolean)
-      .join(' · ');
+    const dateFilter = s.since && s.until
+      ? `opened ${s.since} → ${s.until}`
+      : s.since
+        ? `opened on or after ${s.since}`
+        : s.until
+          ? `opened on or before ${s.until}`
+          : '';
+    const scope = [s.teamName || 'whole workspace', dateFilter].filter(Boolean).join(' · ');
     const out = [`${s.total} bug(s) · ${scope}`];
 
     for (const d of s.dimensions) {
