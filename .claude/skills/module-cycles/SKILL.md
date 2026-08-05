@@ -1,6 +1,6 @@
 ---
 name: module-cycles
-description: Use when working on Cycles (Sprints) — Scrum sprint scheduling and history for a team, at backend/src/application/cycles (+ presentation/teams/team-cycles.controller.ts) and frontend/src/features/cycles. Related to module-teams (rhythm config lives on TeamEntity), module-issues (cycleId, rollover), module-admin (TeamCyclesEditor is the only UI for the rhythm).
+description: Use when working on Cycles (Sprints) — Scrum sprint scheduling and history for a team, at backend/src/application/cycles (+ presentation/teams/team-cycles.controller.ts) and frontend/src/features/cycles. Related to module-teams (rhythm config lives on TeamEntity), module-issues (cycleId, rollover), module-admin (TeamCyclesEditor is the only UI for the rhythm), module-mcp (read-only cycle/burndown/velocity tools).
 ---
 
 # Module: Cycles (Sprints)
@@ -44,6 +44,12 @@ All nested under `/teams` (`TeamCyclesController`):
 - **Team board views**: the `cycleId` list filter (with `current`/`upcoming`/`none` sentinels) is how a team board scopes to a sprint; new-issue auto-add and "the current cycle" answer all resolve through `CycleSchedulerService.resolveCycleFilter`. (Not [[module-my-team]] — that view has no cycle filter at all; it's a person-workload derivation from the unrestricted issue list.)
 - **[[module-planning]]**: manual-cadence teams plan cycles by hand (`CreateCycleUseCase`/`UpdateCycleUseCase`), the same flow that seeds a Scrum backlog into a sprint.
 - **[[module-admin]]**: `TeamCyclesEditor` (in `AdminSettingsPage.tsx`) is the only UI for a team's sprint rhythm — auto vs. manual, cadence, cooldown — and calls `useUpdateCycleConfig`; when the team is manual it embeds this module's own `TeamCyclePlanner` for hand-planning.
+- **[[module-mcp]]**: three read-only tools (`list_cycles`, `get_cycle_burndown`,
+  `get_team_velocity`) call `GetTeamCyclesUseCase` / `GetCycleBurndownUseCase`. MCP
+  **does not** use `CycleSchedulerService.resolveCycleFilter` — it resolves `current`/`next`/
+  `last` itself on the already-fetched cycle list, to avoid running the lazy scheduler a second
+  time within one call. `last` (the most recently completed sprint, by `endDate`) is an
+  MCP-only sentinel that has no equivalent in the app's own filters.
 
 ## Gotchas & conventions
 - No cron: every read that touches cycles calls `ensureCyclesCurrent` first (lazy scheduler) — idempotent, cheap when nothing's due, safe under concurrency (unique `(teamId, number)` index for generation, write-once `closedAt` for stat-freezing).
@@ -54,4 +60,4 @@ All nested under `/teams` (`TeamCyclesController`):
 - Follow CLAUDE.md's flat-DTO rule: `CycleResponseDto`/`CycleBurndownResponseDto` are flat, no nested objects.
 
 ## Related skills
-[[module-teams]] [[module-issues]] [[module-planning]] [[module-projects]] [[module-labels]] [[module-admin]]
+[[module-teams]] [[module-issues]] [[module-planning]] [[module-projects]] [[module-labels]] [[module-admin]] [[module-mcp]]

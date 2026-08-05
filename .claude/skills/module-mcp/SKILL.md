@@ -1,6 +1,6 @@
 ---
 name: module-mcp
-description: Use when working on the MCP server — the Model Context Protocol surface at /v1/mcp that lets an AI assistant read workspace context and create/update/delete issues, subtasks, comments, backlog items and docs, authenticated by an API key whose scope (read-only | read-write | read-write-delete) gates every write. Related to module-api-keys, module-issues, module-activity, module-roadmaps, module-docs.
+description: Use when working on the MCP server — the Model Context Protocol surface at /v1/mcp that lets an AI assistant read workspace context and create/update/delete issues, subtasks, comments, backlog items and docs, and read cycle/velocity/bug analytics, authenticated by an API key whose scope (read-only | read-write | read-write-delete) gates every write. Related to module-api-keys, module-issues, module-activity, module-roadmaps, module-docs, module-cycles.
 ---
 
 # Module: MCP Server
@@ -35,8 +35,13 @@ ADMIN/PRODUCT, a personal task stays private to its owner).
   `GetMcpContextUseCase`, `McpSearchIssuesUseCase`, `McpGetIssueUseCase`, `McpCreateIssueUseCase`,
   `McpUpdateIssueUseCase`, `McpSetStatusUseCase`, `McpDeleteIssueUseCase`,
   `McpListCommentsUseCase`, `McpAddCommentUseCase`, `McpUpdateCommentUseCase`,
-  `McpDeleteCommentUseCase`, `McpCreateBacklogItemUseCase`, `McpCreateDocUseCase`,
-  `McpUpdateDocUseCase`, `GetMcpEventsUseCase`. Name resolution ("QC", "Next", "Aaron" → real
+  `McpDeleteCommentUseCase`, `McpCreateBacklogItemUseCase`, `McpListBacklogItemsUseCase`,
+  `McpCreateDocUseCase`, `McpUpdateDocUseCase`, `McpLinkIssuesUseCase`, `McpListLinksUseCase`,
+  `McpUnlinkIssuesUseCase`, `GetMcpEventsUseCase`. The four analytics use-cases —
+  `McpListCyclesUseCase`, `McpGetCycleBurndownUseCase`, `McpGetTeamVelocityUseCase`,
+  `McpGetBugStatsUseCase` — live in their own file, `use-cases/mcp-analytics.use-cases.ts`, with
+  the pure calculation for the last one (dimension folding, trend range/merge, the 10-bucket and
+  26-period caps) in `domain/mcp-bug-stats.ts`. Name resolution ("QC", "Next", "Aaron" → real
   ids), `resolveIssueRef` (ref→uuid) and `resolveMentions` (names/emails → userIds) live in
   `domain/mcp-resolve.ts`; Markdown/HTML/Mermaid doc-body conversion lives in
   `domain/mcp-doc-body.ts`. Comment use-cases come from [[module-activity]]
@@ -55,8 +60,9 @@ ADMIN/PRODUCT, a personal task stays private to its owner).
 header or the MCP handshake's client info, e.g. `claude-code/2.1.0`), `tool` (free string —
 any of the write tools: `create_issue` | `update_issue` | `set_issue_status` | `delete_issue`
 | `add_comment` | `update_comment` | `delete_comment` | `create_backlog_item` | `create_doc` |
-`update_doc`, from the `McpTool` enum vocabulary — stored as a plain string so a new tool needs
-no migration), `entity` (`McpEntity`: `task` | `bug` | `backlog-item` | `doc` | `comment` —
+`update_doc` | `link_issues` | `unlink_issues`, from the `McpTool` enum vocabulary — stored as
+a plain string so a new tool needs no migration; the four analytics tools never appear here,
+see Gotchas), `entity` (`McpEntity`: `task` | `bug` | `backlog-item` | `doc` | `comment` | `link` —
 the issue values are deliberately the same strings as `IssueKind` for icon selection),
 `entityId`, `entityRef` (`TSK-…`/`BUG-…`/`RM-…`, empty for docs/comments), `entityTitle`,
 `contextLabel` (team name, roadmap title, doc tags, or the issue ref for a comment), `link`
@@ -74,9 +80,17 @@ the issue values are deliberately the same strings as `IssueKind` for icon selec
   column) · `DELETE /mcp/issues/:issue` (delete — refused while subtasks exist).
 - Comments: `GET /mcp/issues/:issue/comments` · `POST …/comments` (add; `mentions` by
   name/email) · `PATCH …/comments/:comment` · `DELETE …/comments/:comment`.
-- `POST /v1/mcp/backlog-items` — add a roadmap backlog item.
+- `POST /v1/mcp/backlog-items` — add a roadmap backlog item · `GET /v1/mcp/backlog-items` —
+  browse the backlog (ref, RICE, status).
+- Links: `GET /v1/mcp/issues/:issue/links` (list an issue's relations) · `POST /v1/mcp/links`
+  (create a typed relation) · `DELETE /v1/mcp/links/:link` (remove one — write scope only, no
+  delete needed, since it detaches rather than destroys anything).
 - `POST /v1/mcp/docs` — write a new doc · `PATCH /v1/mcp/docs/:doc` — edit an existing doc
   (title/tags, a page's content, or append a page).
+- `GET /v1/mcp/cycles` — a team's sprint history · `GET /v1/mcp/cycles/:cycle/burndown` — one
+  sprint's burn-up series + breakdowns · `GET /v1/mcp/velocity` — a team's velocity across
+  recent completed sprints · `GET /v1/mcp/bug-stats` — bug distribution by dimension plus
+  opened/closed flow.
 - `GET /v1/mcp/events` — JWT-guarded (not API key) history of everything MCP has done;
   read by the Settings screen only, so one key can never enumerate another's activity.
 
@@ -84,13 +98,15 @@ Writes (`POST`/`PATCH`) require a key scope ≥ `read-write`; `DELETE` requires
 `read-write-delete` — enforced in the REST mirror by `guardWrite`/`guardDelete` and in the
 JSON-RPC tools by `gated`/`gatedDelete`. Reads are ungated.
 
-The **14 MCP tools** registered by `McpServerFactory` (same use-cases as the REST routes):
+The **22 MCP tools** registered by `McpServerFactory` (same use-cases as the REST routes):
 `list_workspace`, `search_issues`, `get_issue`, `create_issue`, `update_issue`,
 `set_issue_status`, `delete_issue`, `list_comments`, `add_comment`, `update_comment`,
-`delete_comment`, `create_backlog_item`, `create_doc`, `update_doc`. (Subtasks have **no
-dedicated tool** — a subtask is an issue with a `parent`, so it is created via `create_issue`
-+ `parent`, listed via `search_issues` + `parent`, and edited/deleted/commented with the
-ordinary issue/comment tools on the subtask's ref.)
+`delete_comment`, `create_backlog_item`, `list_backlog_items`, `create_doc`, `update_doc`,
+`link_issues`, `list_links`, `unlink_issues`, `list_cycles`, `get_cycle_burndown`,
+`get_team_velocity`, `get_bug_stats`. (Subtasks have **no dedicated tool** — a subtask is an
+issue with a `parent`, so it is created via `create_issue` + `parent`, listed via
+`search_issues` + `parent`, and edited/deleted/commented with the ordinary issue/comment tools
+on the subtask's ref.)
 
 ## Relationships to other modules
 - [[module-issues]] — `create_issue`/`update_issue`/`set_issue_status`/`delete_issue` call
@@ -111,6 +127,10 @@ ordinary issue/comment tools on the subtask's ref.)
 - [[module-teams]] — team/status names ("QC", "In progress") are resolved against
   `GetTeamsUseCase`'s output; an unresolvable name fails with the valid choices
   (`didYouMean`) rather than a silent fallback.
+- [[module-cycles]] — `list_cycles`/`get_cycle_burndown`/`get_team_velocity` call
+  `GetTeamCyclesUseCase`/`GetCycleBurndownUseCase` directly; a team with `cyclesEnabled: false`
+  fails with a "does not run sprints" message rather than an empty list. `get_bug_stats` does
+  not touch cycles at all.
 - [[module-docs]] — `create_doc` calls `CreateDocUseCase` then `UpdateDocPageUseCase` to write
   the body into the doc's first page; Markdown/HTML and ```mermaid fences are converted via
   `docBodyToHtml`.
@@ -157,6 +177,24 @@ ordinary issue/comment tools on the subtask's ref.)
   context.
 - `McpEventDto`/`McpEventEntity` fields are intentionally denormalized (`keyName`, `userName`)
   so history stays readable after a key is revoked or a user is removed.
+- **Analytics is read-only, and logs nothing.** `list_cycles`, `get_cycle_burndown`,
+  `get_team_velocity`, `get_bug_stats` all run with a `read-only` key scope and are NOT wrapped
+  in `gated()` — same convention as every other read tool, no `McpEvent` is appended.
+- **`list_cycles` is a read with a write side effect.** `GetTeamCyclesUseCase` runs the same
+  lazy scheduler every cycle-touching read in the app runs, so listing sprints can create a new
+  cycle and freeze rollups for one that just expired — this is not unique to MCP, see
+  [[module-cycles]].
+- **`get_bug_stats` does not inherit the 100-user ceiling.** Other MCP tools cap people lookups
+  via `ALL_USERS = { page: 1, limit: 100 }`, but assignee names here come from
+  `assignees[].name`, denormalized directly on the issue document — no user-list call at all.
+- **The "closed" counts in `get_bug_stats`'s trend are not immutable.** Reopening a bug clears
+  its `resolvedAt`, so a past period's closed count can change on a later call. The tool's
+  description warns about this so an assistant doesn't quote it as a fixed historical fact.
+- **MCP resolves `current`/`next`/`last` itself, on the already-fetched cycle list**
+  (`resolveCycleRef` in `mcp-analytics.use-cases.ts`), instead of calling
+  `CycleSchedulerService.resolveCycleFilter` — calling that a second time within one request
+  would re-run the lazy scheduler needlessly. `last` (the most recently completed sprint by
+  `endDate`) is an MCP-only sentinel; the app's own filters have no equivalent.
 
 ## Related skills
-[[module-issues]] [[module-activity]] [[module-roadmaps]] [[module-teams]] [[module-docs]] [[module-users]] [[module-api-keys]] [[module-admin]]
+[[module-issues]] [[module-activity]] [[module-roadmaps]] [[module-teams]] [[module-docs]] [[module-users]] [[module-api-keys]] [[module-admin]] [[module-cycles]]

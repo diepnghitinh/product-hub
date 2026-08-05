@@ -129,6 +129,10 @@ All under `/v1/issues` (`IssuesController`, no path decorator — prefix supplie
 - [[module-inbox]] — `GetInboxUseCase` injects `IIssueRepository` as a read-only
   consumer (only calls `findByTenant`, never writes) to compute "assigned bug"
   notifications.
+- [[module-mcp]] — `IIssueRepository.bugStats(tenantId, filter, dimensions, trend?)` runs a
+  multi-dimension bug distribution in a single `$facet`; only the dimensions asked for are
+  built into the pipeline. Cap and empty-bucket rules live in
+  `application/mcp/domain/mcp-bug-stats.ts`, not in the repository. Used by `get_bug_stats`.
 
 ## Gotchas & conventions
 - **teamId fallback gotcha** (CLAUDE.md): `CreateIssueUseCase` resolves
@@ -156,4 +160,4 @@ All under `/v1/issues` (`IssuesController`, no path decorator — prefix supplie
   tasks from team boards.
 
 ## Related skills
-[[module-teams]] [[module-cycles]] [[module-roadmaps]] [[module-projects]] [[module-reports]] [[module-issue-links]] [[module-labels]] [[module-custom-fields]] [[module-users]] [[module-webhooks]] [[module-activity]] [[module-favourites]] [[module-reactions]] [[module-docs]] [[module-inbox]]
+[[module-teams]] [[module-cycles]] [[module-roadmaps]] [[module-projects]] [[module-reports]] [[module-issue-links]] [[module-labels]] [[module-custom-fields]] [[module-users]] [[module-webhooks]] [[module-activity]] [[module-favourites]] [[module-reactions]] [[module-docs]] [[module-inbox]] [[module-mcp]]
