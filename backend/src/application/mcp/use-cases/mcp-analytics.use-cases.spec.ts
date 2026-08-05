@@ -4,6 +4,7 @@ import { CycleStatus } from '@application/cycles/domain/enums/cycle.enums';
 import { TeamIssueType } from '@application/teams/domain/enums/team.enums';
 import {
   McpGetCycleBurndownUseCase,
+  McpGetTeamVelocityUseCase,
   McpListCyclesUseCase,
   resolveCycleRef,
   type McpActor,
@@ -161,5 +162,71 @@ describe('McpGetCycleBurndownUseCase', () => {
     const res = await useCase.execute({ actor, dto: { team: 'Engineering', cycle: 'Sprint 99' } });
     expect(res.isFailure).toBe(true);
     expect(res.error).toContain('current');
+  });
+});
+
+describe('McpGetTeamVelocityUseCase', () => {
+  const build = (cycles: unknown[]) => {
+    const getTeams = { execute: jest.fn().mockResolvedValue(Result.ok([team('t1', 'Engineering')])) };
+    const getCycles = { execute: jest.fn().mockResolvedValue(Result.ok(cycles)) };
+    return { useCase: new McpGetTeamVelocityUseCase(getTeams as never, getCycles as never) };
+  };
+
+  const done = (n: number, scopePoints: number, completedPoints: number, completedCount = 5) => ({
+    ...cycle(n, CycleStatus.COMPLETED, `2026-0${n}-01`),
+    id: `c${n}`,
+    scopePoints,
+    completedPoints,
+    completedCount,
+    scopeCount: 8,
+  });
+
+  it('tính trung bình và dải theo điểm khi team có chấm điểm', async () => {
+    const { useCase } = build([done(1, 30, 20), done(2, 30, 30), done(3, 30, 25)]);
+    const res = await useCase.execute({ actor, dto: { team: 'Engineering' } });
+    const v = res.getValue();
+    expect(v.unit).toBe('points');
+    expect(v.average).toBe(25);
+    expect(v.min).toBe(20);
+    expect(v.max).toBe(30);
+    expect(v.sprintsCounted).toBe(3);
+  });
+
+  it('team không chấm điểm → đo bằng số việc, không phải 0 điểm', async () => {
+    const { useCase } = build([done(1, 0, 0, 6), done(2, 0, 0, 4)]);
+    const v = (await useCase.execute({ actor, dto: { team: 'Engineering' } })).getValue();
+    expect(v.unit).toBe('count');
+    expect(v.average).toBe(5);
+  });
+
+  it('sprint lẫn lộn → báo theo điểm và chỉ ra sprint thiếu điểm', async () => {
+    const { useCase } = build([done(1, 30, 30), done(2, 0, 0, 4)]);
+    const v = (await useCase.execute({ actor, dto: { team: 'Engineering' } })).getValue();
+    expect(v.unit).toBe('points');
+    expect(v.unpointedSprints).toEqual([2]);
+  });
+
+  it('bỏ qua sprint chưa đóng', async () => {
+    const { useCase } = build([
+      { ...cycle(9, CycleStatus.ACTIVE, '2026-09-01'), id: 'c9', scopePoints: 30, completedPoints: 99 },
+      done(1, 30, 20),
+    ]);
+    const v = (await useCase.execute({ actor, dto: { team: 'Engineering' } })).getValue();
+    expect(v.sprintsCounted).toBe(1);
+    expect(v.average).toBe(20);
+  });
+
+  it('chưa có sprint nào đóng → lỗi rõ nghĩa, không chia cho 0', async () => {
+    const { useCase } = build([{ ...cycle(1, CycleStatus.ACTIVE, '2026-01-01'), id: 'c1' }]);
+    const res = await useCase.execute({ actor, dto: { team: 'Engineering' } });
+    expect(res.isFailure).toBe(true);
+    expect(res.error).toMatch(/no completed sprint/i);
+  });
+
+  it('chỉ lấy N sprint đóng gần nhất', async () => {
+    const { useCase } = build([done(3, 30, 30), done(2, 30, 20), done(1, 30, 10)]);
+    const v = (await useCase.execute({ actor, dto: { team: 'Engineering', cycles: 2 } })).getValue();
+    expect(v.sprintsCounted).toBe(2);
+    expect(v.average).toBe(25);
   });
 });

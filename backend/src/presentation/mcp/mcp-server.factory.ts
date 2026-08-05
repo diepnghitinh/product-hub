@@ -27,7 +27,11 @@ import {
   McpUpdateDocDto,
   McpUpdateIssueDto,
 } from '@application/mcp/dtos/mcp.dtos';
-import { McpCycleBurndownDto, McpListCyclesDto } from '@application/mcp/dtos/mcp-analytics.dtos';
+import {
+  McpCycleBurndownDto,
+  McpListCyclesDto,
+  McpTeamVelocityDto,
+} from '@application/mcp/dtos/mcp-analytics.dtos';
 import {
   McpBacklogItemBriefDto,
   McpBacklogItemResponseDto,
@@ -44,7 +48,10 @@ import {
   McpUnlinkResultDto,
   McpUpdatedDocResponseDto,
 } from '@application/mcp/dtos/mcp.response.dto';
-import { McpCycleSummaryDto } from '@application/mcp/dtos/mcp-analytics.response.dto';
+import {
+  McpCycleSummaryDto,
+  McpVelocityResponseDto,
+} from '@application/mcp/dtos/mcp-analytics.response.dto';
 import {
   CycleBurndownGroupDto,
   CycleBurndownResponseDto,
@@ -60,6 +67,7 @@ import {
   McpDeleteIssueUseCase,
   McpGetCycleBurndownUseCase,
   McpGetIssueUseCase,
+  McpGetTeamVelocityUseCase,
   McpLinkIssuesUseCase,
   McpListBacklogItemsUseCase,
   McpListCommentsUseCase,
@@ -156,6 +164,7 @@ export class McpServerFactory {
     private readonly unlinkIssues: McpUnlinkIssuesUseCase,
     private readonly listCycles: McpListCyclesUseCase,
     private readonly cycleBurndown: McpGetCycleBurndownUseCase,
+    private readonly velocity: McpGetTeamVelocityUseCase,
     config: ConfigService,
   ) {
     this.appUrl = (config.get<string>('APP_BASE_URL') ?? 'http://localhost:3001').replace(/\/$/, '');
@@ -204,6 +213,7 @@ export class McpServerFactory {
     this.registerUnlinkIssues(server, run);
     this.registerListCycles(server, run);
     this.registerCycleBurndown(server, run);
+    this.registerVelocity(server, run);
 
     return server;
   }
@@ -823,6 +833,38 @@ export class McpServerFactory {
     );
   }
 
+  private registerVelocity(server: McpServer, run: Run): void {
+    registerTool<McpTeamVelocityDto>(
+      server,
+      'get_team_velocity',
+      {
+        title: 'Read a team’s velocity',
+        description:
+          'How much a team actually finishes per sprint, across its recent completed sprints — ' +
+          'per-sprint committed vs delivered, plus the average and the range. Use it to answer ' +
+          '"is the team slower than usual" or to size the next sprint. Only completed sprints ' +
+          'count (a running one is not done yet). Reported in story points when the team points ' +
+          'its work, otherwise in issue count.',
+        inputSchema: {
+          team: z.string().describe('Team name or id'),
+          cycles: z
+            .number()
+            .int()
+            .min(1)
+            .max(24)
+            .optional()
+            .describe('How many recent completed sprints; default 6'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      (dto) =>
+        run<McpVelocityResponseDto>(
+          (actor) => this.velocity.execute({ actor, dto }),
+          (v) => this.describeVelocity(v),
+        ),
+    );
+  }
+
   /* ── Formatting ─────────────────────────────────────────────────────────── */
 
   private url(path: string): string {
@@ -953,6 +995,29 @@ export class McpServerFactory {
       ...group('By assignee', b.assignees),
       ...group('By label', b.labels),
       ...group('By project', b.projects),
+    ].join('\n');
+  }
+
+  private describeVelocity(v: McpVelocityResponseDto): string {
+    const u = v.unit === 'points' ? 'pts' : 'issues';
+    const rows = v.sprints.map((s) => {
+      const label = s.name || `Cycle ${s.number}`;
+      const [did, planned] =
+        v.unit === 'points' ? [s.completedPoints, s.scopePoints] : [s.completedCount, s.scopeCount];
+      return `  ${label} (${s.endDate}) · ${did}/${planned} ${u}`;
+    });
+    const warn = v.unpointedSprints.length
+      ? [
+          '',
+          `Note: sprint(s) ${v.unpointedSprints.join(', ')} carry no story points, so they count ` +
+            `as 0 and pull the average down.`,
+        ]
+      : [];
+    return [
+      `${v.teamName} · average ${v.average} ${u} over ${v.sprintsCounted} sprint(s) · range ${v.min}–${v.max}`,
+      '',
+      ...rows,
+      ...warn,
     ].join('\n');
   }
 

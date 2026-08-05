@@ -19,6 +19,7 @@ import {
   McpDeleteIssueUseCase,
   McpGetCycleBurndownUseCase,
   McpGetIssueUseCase,
+  McpGetTeamVelocityUseCase,
   McpLinkIssuesUseCase,
   McpListBacklogItemsUseCase,
   McpListCommentsUseCase,
@@ -54,6 +55,7 @@ const useCases = [
   McpUnlinkIssuesUseCase,
   McpListCyclesUseCase,
   McpGetCycleBurndownUseCase,
+  McpGetTeamVelocityUseCase,
 ];
 
 @Module({

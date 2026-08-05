@@ -27,7 +27,11 @@ import {
   McpUpdateDocDto,
   McpUpdateIssueDto,
 } from '@application/mcp/dtos/mcp.dtos';
-import { McpCycleBurndownDto, McpListCyclesDto } from '@application/mcp/dtos/mcp-analytics.dtos';
+import {
+  McpCycleBurndownDto,
+  McpListCyclesDto,
+  McpTeamVelocityDto,
+} from '@application/mcp/dtos/mcp-analytics.dtos';
 import { CycleBurndownResponseDto } from '@application/cycles/dtos/cycle.dtos';
 import {
   McpBacklogItemBriefDto,
@@ -45,7 +49,10 @@ import {
   McpUnlinkResultDto,
   McpUpdatedDocResponseDto,
 } from '@application/mcp/dtos/mcp.response.dto';
-import { McpCycleSummaryDto } from '@application/mcp/dtos/mcp-analytics.response.dto';
+import {
+  McpCycleSummaryDto,
+  McpVelocityResponseDto,
+} from '@application/mcp/dtos/mcp-analytics.response.dto';
 import {
   GetMcpContextUseCase,
   McpActor,
@@ -57,6 +64,7 @@ import {
   McpDeleteIssueUseCase,
   McpGetCycleBurndownUseCase,
   McpGetIssueUseCase,
+  McpGetTeamVelocityUseCase,
   McpLinkIssuesUseCase,
   McpListBacklogItemsUseCase,
   McpListCommentsUseCase,
@@ -125,6 +133,7 @@ export class McpController {
     private readonly unlinkIssues: McpUnlinkIssuesUseCase,
     private readonly listCycles: McpListCyclesUseCase,
     private readonly cycleBurndown: McpGetCycleBurndownUseCase,
+    private readonly velocity: McpGetTeamVelocityUseCase,
   ) {}
 
   @Get('context')
@@ -191,6 +200,17 @@ export class McpController {
     @Query('team') team: string,
   ): Promise<CycleBurndownResponseDto> {
     const result = await this.cycleBurndown.execute({ actor: actorOf(req), dto: { team, cycle } });
+    if (result.isFailure) throw new ValidationException(result.error as string);
+    return result.getValue();
+  }
+
+  @Get('velocity')
+  @ApiOperation({ summary: 'A team’s velocity across recent completed sprints (API key)' })
+  async velocityRoute(
+    @Req() req: McpRequest,
+    @Query() query: McpTeamVelocityDto,
+  ): Promise<McpVelocityResponseDto> {
+    const result = await this.velocity.execute({ actor: actorOf(req), dto: query });
     if (result.isFailure) throw new ValidationException(result.error as string);
     return result.getValue();
   }

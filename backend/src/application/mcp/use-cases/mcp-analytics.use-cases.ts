@@ -9,8 +9,12 @@ import {
 import { CycleResponseDto, CycleBurndownResponseDto } from '@application/cycles/dtos/cycle.dtos';
 import { CycleStatus } from '@application/cycles/domain/enums/cycle.enums';
 import { anyTeamChoices, didYouMean, resolveTeamAnyKind } from '../domain/mcp-resolve';
-import { McpCycleBurndownDto, McpListCyclesDto } from '../dtos/mcp-analytics.dtos';
-import { McpCycleSummaryDto } from '../dtos/mcp-analytics.response.dto';
+import {
+  McpCycleBurndownDto,
+  McpListCyclesDto,
+  McpTeamVelocityDto,
+} from '../dtos/mcp-analytics.dtos';
+import { McpCycleSummaryDto, McpVelocityResponseDto } from '../dtos/mcp-analytics.response.dto';
 
 import type { McpActor } from './mcp.use-cases';
 
@@ -190,5 +194,79 @@ export class McpGetCycleBurndownUseCase
     }
 
     return this.getBurndown.execute({ tenantId: actor.tenantId, teamId, cycleId: cycle.id });
+  }
+}
+
+/** Số sprint đã đóng velocity nhìn lại khi không nói rõ. */
+const DEFAULT_VELOCITY_CYCLES = 6;
+
+/**
+ * Velocity của một team qua các sprint đã đóng gần nhất: trung bình, min/max,
+ * và đơn vị (points hay count) theo cách team thật sự đo — xem
+ * `cycle-burndown.ts:218`.
+ */
+@Injectable()
+export class McpGetTeamVelocityUseCase
+  implements
+    IUsecaseExecute<{ actor: McpActor; dto: McpTeamVelocityDto }, Result<McpVelocityResponseDto>>
+{
+  constructor(
+    private readonly getTeams: GetTeamsUseCase,
+    private readonly getCycles: GetTeamCyclesUseCase,
+  ) {}
+
+  async execute({
+    actor,
+    dto,
+  }: {
+    actor: McpActor;
+    dto: McpTeamVelocityDto;
+  }): Promise<Result<McpVelocityResponseDto>> {
+    const teams = (await this.getTeams.execute({ tenantId: actor.tenantId })).getValue();
+    const team = resolveTeamAnyKind(teams, dto.team);
+    if (!team) return Result.fail(didYouMean('team', dto.team, anyTeamChoices(teams)));
+    if (!team.cyclesEnabled) return Result.fail(cyclesOff(team.name));
+
+    const all = (
+      await this.getCycles.execute({ tenantId: actor.tenantId, teamId: team.id.toString() })
+    ).getValue();
+
+    // Chỉ sprint đã đóng: số của chúng đã đông cứng lúc close. Sprint đang chạy
+    // có rollup tính sống, đưa vào trung bình sẽ kéo tụt vì chưa xong.
+    const closed = all
+      .filter((c) => c.status === CycleStatus.COMPLETED)
+      .sort((a, b) => b.endDate.localeCompare(a.endDate))
+      .slice(0, dto.cycles ?? DEFAULT_VELOCITY_CYCLES);
+
+    if (!closed.length) {
+      return Result.fail(
+        `Team "${team.name}" has no completed sprint yet — velocity needs at least one finished cycle.`,
+      );
+    }
+
+    // Đơn vị theo team, không mặc định là điểm: `cycle-burndown.ts:218` suy ra
+    // đúng như vậy. Team không chấm điểm mà báo theo điểm thì ra 0 vĩnh viễn.
+    const unit: 'points' | 'count' = closed.some((c) => c.scopePoints > 0) ? 'points' : 'count';
+    const valueOf = (c: CycleResponseDto) =>
+      unit === 'points' ? c.completedPoints : c.completedCount;
+
+    const values = closed.map(valueOf);
+    const average = Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+
+    return Result.ok({
+      teamName: team.name,
+      unit,
+      average,
+      min: Math.min(...values),
+      max: Math.max(...values),
+      sprintsCounted: closed.length,
+      // Chỉ có nghĩa khi đang báo theo điểm — mấy sprint này đóng góp 0 vào
+      // trung bình dù thật ra có làm việc.
+      unpointedSprints:
+        unit === 'points'
+          ? closed.filter((c) => c.scopePoints === 0).map((c) => c.number)
+          : [],
+      sprints: closed.map(toCycleSummary),
+    });
   }
 }
