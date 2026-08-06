@@ -627,6 +627,14 @@ figure.mermaid-block[data-mermaid-error='true'] > .mermaid-source {
 .mermaid-render svg {
   max-width: 100%;
   height: auto;
+  /* Same affordance an image gets in the read view: the picture opens full size
+     in the lightbox, where it can be zoomed. The cursor is the only hint there
+     is — a diagram carries no chrome of its own. */
+  cursor: zoom-in;
+}
+/* Except when the "diagram" is mermaid's parse error, which is text to read. */
+figure.mermaid-block[data-mermaid-error='true'] .mermaid-render svg {
+  cursor: default;
 }
 figure.mermaid-block[data-mermaid-error='true'] .mermaid-render {
   display: block;

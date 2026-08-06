@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, type MouseEvent } from 'react';
+import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { enhanceCodeBlocks } from '@/lib/enhanceCodeBlocks';
 import { foldListIndents, normalizeSpaces } from '@/lib/editorjs';
@@ -7,7 +8,7 @@ import { renderMermaidBlocks } from '@/lib/mermaid';
 // diagrams both need these rules, on pages that never mount the editor itself.
 import '@/styles/rich-text-editor.css';
 import { isWebLink, resolveHref, useExternalLink } from './ExternalLink';
-import { collectImages, useLightbox } from './Lightbox';
+import { collectDiagram, collectImages, useLightbox } from './Lightbox';
 
 /** Shared prose styling for editor HTML — links, images (click-to-zoom cursor).
  *  `rich-text-content` is the read-view half of the content rules the editor
@@ -29,6 +30,8 @@ export interface RichTextProps {
  * one place so every description/detail surface reads identically:
  *  · links open in a new tab (`rel=noopener`); off-domain links ask first;
  *  · embedded images open in a lightbox — click any image, arrow through the rest;
+ *  · diagrams open there too, on their own, where they can be zoomed and panned —
+ *    a flowchart drawn at column width has labels too small to read in place;
  *  · code blocks get the same hover "copy" button as the editor.
  *
  * Drop-in for the old `<div className="[&_a]… [&_img]…" dangerouslySetInnerHTML>`
@@ -69,13 +72,23 @@ export function RichText({ html, className }: RichTextProps) {
       if (!root) return;
       const el = e.target as HTMLElement;
 
+      // Diagram → open it on its own, where it can be zoomed and panned. Checked
+      // before the image below because a diagram is an SVG: `closest` walking out
+      // of one would never reach an <img> anyway, and the order says so.
+      const svg = el.closest('.mermaid-render > svg');
+      if (svg && root.contains(svg)) {
+        e.preventDefault();
+        lightbox.open(collectDiagram(svg as SVGElement, t('editor.blockDiagram')));
+        return;
+      }
+
       // Image → open the lightbox, seeded with every image in this block so the
       // reader can arrow through them from wherever they clicked.
       const img = el.closest('img');
       if (img && root.contains(img)) {
-        const { images, indexOf } = collectImages(root);
+        const { items, indexOf } = collectImages(root);
         e.preventDefault();
-        lightbox.open(images, indexOf(img as HTMLImageElement));
+        lightbox.open(items, indexOf(img as HTMLImageElement));
         return;
       }
 

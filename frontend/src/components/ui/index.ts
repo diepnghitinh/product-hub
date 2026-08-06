@@ -18,8 +18,8 @@ export {
 } from './DateRangePicker';
 export { RichTextEditor, type RichTextEditorProps } from './RichTextEditor';
 export { RichText, type RichTextProps } from './RichText';
-export { useLightbox, collectImages, type LightboxImage } from './Lightbox';
-export { useImageZoom } from './ImageZoom';
+export { useLightbox, collectImages, collectDiagram, type LightboxItem } from './Lightbox';
+export { useFigureZoom } from './FigureZoom';
 export { useExternalLink, type ExternalLinkGuard } from './ExternalLink';
 export { MultiSelect, type MultiSelectOption, type MultiSelectProps } from './MultiSelect';
 export { TagInput, type TagInputProps } from './TagInput';

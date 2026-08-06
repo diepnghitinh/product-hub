@@ -2,29 +2,41 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ZoomIn } from 'lucide-react';
 import { t } from '@/i18n';
-import { collectImages, useLightbox } from './Lightbox';
+import { collectDiagram, collectImages, useLightbox } from './Lightbox';
 
-/** Button box and how far it sits inside the image's top-right corner. */
+/** Button box and how far it sits inside the figure's top-right corner. */
 const BTN = 32;
 const INSET = 6;
 /** Anything smaller would be swallowed whole by the button — skip it. */
 const MIN_SIZE = 48;
 
+/**
+ * What counts as a diagram: the SVG the editor's Mermaid block draws into
+ * (`.mermaid-tool-preview`) or the one a stored block renders (`.mermaid-render`).
+ * Never the source textarea, and never the message a broken diagram prints in the
+ * picture's place — that isn't an SVG, so there is nothing to enlarge.
+ */
+const DIAGRAM = '.mermaid-tool-preview > svg, .mermaid-render > svg';
+
 interface Spot {
-  el: HTMLImageElement;
+  el: HTMLElement;
+  /** Images open the document's gallery; a diagram opens on its own. */
+  diagram: boolean;
   top: number;
   left: number;
 }
 
 /**
- * Hover-to-zoom for images inside an *editable* surface.
+ * Hover-to-zoom for figures inside an *editable* surface — images and diagrams.
  *
- * The read view (`RichText`) can simply take the click on an image, but inside a
- * contenteditable a click means "put the caret here / select this block" — so a
- * picture you're writing around has no way to be seen full size. This adds the
- * missing affordance: hover an image, a magnifier appears over its corner, and
- * clicking it opens the same lightbox the read view uses, seeded with every image
- * in the surface so ←/→ still walk the document.
+ * The read view (`RichText`) can simply take the click on a figure, but inside a
+ * contenteditable a click already means something else: put the caret here, select
+ * this block, or — on a diagram — open its source for editing. So a picture you're
+ * writing around has no way to be seen full size. This adds the missing
+ * affordance: hover it, a magnifier appears over its corner, and clicking that
+ * opens the same viewer the read view uses. An image is seeded with every image in
+ * the surface, so ←/→ still walk the document; a diagram opens alone, and can be
+ * zoomed and panned once it's there.
  *
  * The button is rendered through a portal to `<body>`, never into the editor's
  * DOM: markup injected inside a block would be saved back into the document's
@@ -34,40 +46,48 @@ interface Spot {
  *
  * Pass the container to watch; render the returned `node` in your tree.
  */
-export function useImageZoom(containerRef: { current: HTMLElement | null }) {
+export function useFigureZoom(containerRef: { current: HTMLElement | null }) {
   const lightbox = useLightbox();
   const [spot, setSpot] = useState<Spot | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
   // What the pointer is on *right now*, tracked outside React state so a queued
   // frame can tell whether it's still wanted — see the scroll effect below.
-  const hoveredRef = useRef<HTMLImageElement | null>(null);
+  const hoveredRef = useRef<{ el: HTMLElement; diagram: boolean } | null>(null);
 
   /** Pin the button to `el`'s top-right corner — or take it away (`null`). */
-  const place = useCallback((el: HTMLImageElement | null) => {
+  const place = useCallback((el: HTMLElement | null, diagram = false) => {
     const r = el?.getBoundingClientRect();
     if (!el || !r || r.width < MIN_SIZE || r.height < MIN_SIZE) {
       hoveredRef.current = null;
       setSpot(null);
       return;
     }
-    hoveredRef.current = el;
-    setSpot({ el, top: r.top + INSET, left: r.right - BTN - INSET });
+    hoveredRef.current = { el, diagram };
+    setSpot({ el, diagram, top: r.top + INSET, left: r.right - BTN - INSET });
   }, []);
 
   useEffect(() => {
     const root = containerRef.current;
     if (!root) return;
 
-    // `pointerover` bubbles (unlike enter), so one listener covers every image
-    // the editor renders later — block images and the ones a `/` menu drops into
-    // a table cell alike.
+    // `pointerover` bubbles (unlike enter), so one listener covers every figure
+    // the editor renders later — block images, diagrams drawn once the lazy
+    // mermaid import lands, and the ones a `/` menu drops into a table cell.
     const onOver = (e: PointerEvent) => {
-      const img = (e.target as HTMLElement | null)?.closest?.('img') as HTMLImageElement | null;
+      const target = e.target as HTMLElement | null;
+      // A diagram is checked first: `closest` from inside an SVG walks out
+      // through the diagram before it could ever reach an <img>.
+      const svg = target?.closest?.(DIAGRAM) as HTMLElement | null;
+      if (svg && root.contains(svg)) {
+        place(svg, true);
+        return;
+      }
+      const img = target?.closest?.('img') as HTMLImageElement | null;
       place(img && root.contains(img) && (img.currentSrc || img.getAttribute('src')) ? img : null);
     };
 
     // Leaving the container hides the button — except when the pointer is landing
-    // on the button itself, which sits over the image and outside this subtree.
+    // on the button itself, which sits over the figure and outside this subtree.
     const onLeave = (e: PointerEvent) => {
       const to = e.relatedTarget as Node | null;
       if (to && btnRef.current?.contains(to)) return;
@@ -89,12 +109,12 @@ export function useImageZoom(containerRef: { current: HTMLElement | null }) {
     };
   }, [containerRef, place]);
 
-  // Follow the image while the page scrolls under the pointer. Subscribed on the
+  // Follow the figure while the page scrolls under the pointer. Subscribed on the
   // element rather than on `spot` — re-placing makes a new object every frame,
   // and depending on that would re-bind these listeners just as often.
   //
   // The frame re-reads `hoveredRef` instead of closing over the element: scrolling
-  // an image into view is itself what moves the pointer onto the *next* one, so a
+  // a figure into view is itself what moves the pointer onto the *next* one, so a
   // frame queued a moment ago must not put the button back on the one just left.
   const hovered = spot?.el ?? null;
   useEffect(() => {
@@ -103,7 +123,8 @@ export function useImageZoom(containerRef: { current: HTMLElement | null }) {
     const sync = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        if (hoveredRef.current) place(hoveredRef.current);
+        const on = hoveredRef.current;
+        if (on) place(on.el, on.diagram);
       });
     };
     window.addEventListener('scroll', sync, true);
@@ -118,10 +139,14 @@ export function useImageZoom(containerRef: { current: HTMLElement | null }) {
   const zoom = useCallback(() => {
     const root = containerRef.current;
     if (!root || !spot) return;
-    const { images, indexOf } = collectImages(root);
-    lightbox.open(images, indexOf(spot.el));
+    if (spot.diagram) {
+      lightbox.open(collectDiagram(spot.el as unknown as SVGElement, t('editor.blockDiagram')));
+    } else {
+      const { items, indexOf } = collectImages(root);
+      lightbox.open(items, indexOf(spot.el as HTMLImageElement));
+    }
     // The viewer takes over from here; drop the hover state so closing it doesn't
-    // leave the button hanging over an image the pointer has since left.
+    // leave the button hanging over a figure the pointer has since left.
     place(null);
   }, [containerRef, lightbox, place, spot]);
 
