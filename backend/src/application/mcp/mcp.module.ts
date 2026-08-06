@@ -11,6 +11,8 @@ import {
   McpCreateBacklogItemUseCase,
   McpCreateDocUseCase,
   McpCreateIssueUseCase,
+  McpGetBacklogItemUseCase,
+  McpGetIssueUseCase,
   McpSearchIssuesUseCase,
 } from './use-cases';
 
@@ -20,6 +22,8 @@ const useCases = [
   McpCreateBacklogItemUseCase,
   McpCreateDocUseCase,
   McpCreateIssueUseCase,
+  McpGetBacklogItemUseCase,
+  McpGetIssueUseCase,
   McpSearchIssuesUseCase,
 ];
 

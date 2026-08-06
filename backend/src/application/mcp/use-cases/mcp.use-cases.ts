@@ -4,6 +4,7 @@ import { Result } from '@shared/logic/result';
 import { PaginationDto } from '@module-shared/modules/pagination/pagination.dto';
 import { CreateIssueUseCase } from '@application/issues/use-cases/create-issue.use-case';
 import { GetIssuesUseCase } from '@application/issues/use-cases/get-issues.use-case';
+import { GetIssueUseCase } from '@application/issues/use-cases/get-issue.use-case';
 import { CreateIssueDto } from '@application/issues/dtos/create-issue.dto';
 import { QueryIssueDto } from '@application/issues/dtos/query-issue.dto';
 import { IssueEntity } from '@application/issues/domain/entities/issue.entity';
@@ -27,7 +28,7 @@ import { UpdateDocPageUseCase } from '@application/docs/use-cases/doc-page.use-c
 import { CreateDocDto, UpdateDocPageDto } from '@application/docs/dtos/doc.dtos';
 import { McpEventEntity } from '../domain/entities/mcp-event.entity';
 import { McpEntity, McpTool } from '../domain/enums/mcp.enums';
-import { docBodyToHtml, stripEchoedTitle } from '../domain/mcp-doc-body';
+import { docBodyToHtml, htmlToReadableText, stripEchoedTitle } from '../domain/mcp-doc-body';
 import {
   backlogItemLink,
   columnsOf,
@@ -45,6 +46,8 @@ import {
   McpCreateBacklogItemDto,
   McpCreateDocDto,
   McpCreateIssueDto,
+  McpGetBacklogItemDto,
+  McpGetIssueDto,
   McpSearchIssuesDto,
 } from '../dtos/mcp.dtos';
 import {
@@ -73,9 +76,10 @@ export interface McpActor {
 const ALL_USERS = { page: 1, limit: 100 } as QueryUserDto;
 
 @Injectable()
-export class GetMcpContextUseCase
-  implements IUsecaseExecute<{ actor: McpActor }, Result<McpContextResponseDto>>
-{
+export class GetMcpContextUseCase implements IUsecaseExecute<
+  { actor: McpActor },
+  Result<McpContextResponseDto>
+> {
   constructor(
     private readonly getTeams: GetTeamsUseCase,
     private readonly getRoadmaps: GetRoadmapsUseCase,
@@ -120,10 +124,10 @@ export class GetMcpContextUseCase
 }
 
 @Injectable()
-export class McpCreateIssueUseCase
-  implements
-    IUsecaseExecute<{ actor: McpActor; dto: McpCreateIssueDto }, Result<McpIssueResponseDto>>
-{
+export class McpCreateIssueUseCase implements IUsecaseExecute<
+  { actor: McpActor; dto: McpCreateIssueDto },
+  Result<McpIssueResponseDto>
+> {
   constructor(
     private readonly getTeams: GetTeamsUseCase,
     private readonly getRoadmaps: GetRoadmapsUseCase,
@@ -252,13 +256,10 @@ export class McpCreateIssueUseCase
 }
 
 @Injectable()
-export class McpCreateBacklogItemUseCase
-  implements
-    IUsecaseExecute<
-      { actor: McpActor; dto: McpCreateBacklogItemDto },
-      Result<McpBacklogItemResponseDto>
-    >
-{
+export class McpCreateBacklogItemUseCase implements IUsecaseExecute<
+  { actor: McpActor; dto: McpCreateBacklogItemDto },
+  Result<McpBacklogItemResponseDto>
+> {
   constructor(
     private readonly getRoadmaps: GetRoadmapsUseCase,
     private readonly addItem: AddRoadmapItemUseCase,
@@ -342,24 +343,15 @@ export class McpCreateBacklogItemUseCase
     });
     if (event.isSuccess) await this.events.append(event.getValue());
 
-    return Result.ok({
-      id: item.id,
-      shortId: item.shortId ?? '',
-      roadmapId,
-      roadmapTitle: roadmap.title,
-      title: item.title,
-      phase: item.phase,
-      status: item.status,
-      riceScore: riceScore(item),
-      link,
-    });
+    return Result.ok(toBacklogItemResponse(item, roadmapId, roadmap.title));
   }
 }
 
 @Injectable()
-export class McpCreateDocUseCase
-  implements IUsecaseExecute<{ actor: McpActor; dto: McpCreateDocDto }, Result<McpDocResponseDto>>
-{
+export class McpCreateDocUseCase implements IUsecaseExecute<
+  { actor: McpActor; dto: McpCreateDocDto },
+  Result<McpDocResponseDto>
+> {
   constructor(
     private readonly createDoc: CreateDocUseCase,
     private readonly updatePage: UpdateDocPageUseCase,
@@ -428,10 +420,10 @@ export class McpCreateDocUseCase
 }
 
 @Injectable()
-export class McpSearchIssuesUseCase
-  implements
-    IUsecaseExecute<{ actor: McpActor; dto: McpSearchIssuesDto }, Result<McpIssueResponseDto[]>>
-{
+export class McpSearchIssuesUseCase implements IUsecaseExecute<
+  { actor: McpActor; dto: McpSearchIssuesDto },
+  Result<McpIssueResponseDto[]>
+> {
   constructor(
     private readonly getTeams: GetTeamsUseCase,
     private readonly getIssues: GetIssuesUseCase,
@@ -478,11 +470,112 @@ export class McpSearchIssuesUseCase
   }
 }
 
+/**
+ * One issue, in full.
+ *
+ * `search_issues` answers "which one?" and deliberately stays terse; this
+ * answers "what does it say?" — the description is the reason to call it, and
+ * it is the one field search omits.
+ */
 @Injectable()
-export class GetMcpEventsUseCase
-  implements
-    IUsecaseExecute<{ tenantId: string; query: PaginationDto }, Result<McpEventPaginationResponse>>
-{
+export class McpGetIssueUseCase implements IUsecaseExecute<
+  { actor: McpActor; dto: McpGetIssueDto },
+  Result<McpIssueResponseDto>
+> {
+  constructor(
+    private readonly getTeams: GetTeamsUseCase,
+    private readonly getIssue: GetIssueUseCase,
+  ) {}
+
+  async execute({
+    actor,
+    dto,
+  }: {
+    actor: McpActor;
+    dto: McpGetIssueDto;
+  }): Promise<Result<McpIssueResponseDto>> {
+    // requesterId '' / isAdmin false is the same stance `search_issues` takes:
+    // a key is not a person, so a personal task stays invisible to it. The
+    // use-case answers "not found" rather than "forbidden", which is what we
+    // want to pass on — a key shouldn't learn that a private ref exists.
+    const found = await this.getIssue.execute({
+      id: dto.ref.trim(),
+      tenantId: actor.tenantId,
+      requesterId: '',
+      isAdmin: false,
+    });
+    if (found.isFailure) {
+      return Result.fail(
+        `No issue ${dto.ref}. Refs look like TSK-6HCUHKX or BUG-6HCUHKX — search_issues finds one by title.`,
+      );
+    }
+
+    const issue = found.getValue();
+    const teams = (await this.getTeams.execute({ tenantId: actor.tenantId })).getValue();
+    const teamName = teams.find((t) => t.id.toString() === issue.teamId)?.name ?? '';
+    return Result.ok(toIssueResponse(issue, teamName));
+  }
+}
+
+/**
+ * One backlog item, in full. Items live inside their roadmap aggregate rather
+ * than in a collection of their own, so this scans the tenant's roadmaps — a
+ * workspace has a handful, and it means a ref alone is enough to find one.
+ */
+@Injectable()
+export class McpGetBacklogItemUseCase implements IUsecaseExecute<
+  { actor: McpActor; dto: McpGetBacklogItemDto },
+  Result<McpBacklogItemResponseDto>
+> {
+  constructor(private readonly getRoadmaps: GetRoadmapsUseCase) {}
+
+  async execute({
+    actor,
+    dto,
+  }: {
+    actor: McpActor;
+    dto: McpGetBacklogItemDto;
+  }): Promise<Result<McpBacklogItemResponseDto>> {
+    const roadmaps = (await this.getRoadmaps.execute({ tenantId: actor.tenantId })).getValue();
+    const ref = dto.ref.trim();
+
+    for (const roadmap of roadmaps) {
+      const item = findRoadmapItem(roadmap.items, ref);
+      if (item) return Result.ok(toBacklogItemResponse(item, roadmap.id.toString(), roadmap.title));
+    }
+
+    // A ref is exact; a title is how a person actually refers to an item, so
+    // fall back to one before giving up. Exact title first, then a unique
+    // partial — an ambiguous partial names its candidates instead of guessing.
+    const wanted = ref.toLowerCase();
+    const scan = roadmaps.flatMap((roadmap) => roadmap.items.map((item) => ({ item, roadmap })));
+    const exact = scan.filter(({ item }) => item.title.trim().toLowerCase() === wanted);
+    const partial = exact.length
+      ? exact
+      : scan.filter(({ item }) => item.title.toLowerCase().includes(wanted));
+
+    if (partial.length === 1) {
+      const { item, roadmap } = partial[0];
+      return Result.ok(toBacklogItemResponse(item, roadmap.id.toString(), roadmap.title));
+    }
+    if (partial.length > 1) {
+      return Result.fail(
+        `Several backlog items match "${ref}": ${partial
+          .map(({ item }) => `${item.shortId || item.id} (${item.title})`)
+          .join(', ')}. Use a ref.`,
+      );
+    }
+    return Result.fail(
+      `No backlog item ${ref}. Refs look like RM-6HCUHKX; list_workspace names the roadmaps.`,
+    );
+  }
+}
+
+@Injectable()
+export class GetMcpEventsUseCase implements IUsecaseExecute<
+  { tenantId: string; query: PaginationDto },
+  Result<McpEventPaginationResponse>
+> {
   constructor(@Inject(IMcpEventRepository) private readonly events: IMcpEventRepository) {}
 
   async execute({
@@ -494,6 +587,33 @@ export class GetMcpEventsUseCase
   }): Promise<Result<McpEventPaginationResponse>> {
     return Result.ok(await this.events.findByTenant(tenantId, query));
   }
+}
+
+/** One backlog-item shape for every MCP reply — create and read the same. */
+function toBacklogItemResponse(
+  item: RoadmapItemData,
+  roadmapId: string,
+  roadmapTitle: string,
+): McpBacklogItemResponseDto {
+  return {
+    id: item.id,
+    shortId: item.shortId ?? '',
+    roadmapId,
+    roadmapTitle,
+    title: item.title,
+    // Both are typed as required and both can be absent on a row written before
+    // they existed. A read tool that prints "column: undefined" is worse than
+    // one that says nothing, so an old item reports what it has and no more.
+    phase: item.phase ?? '',
+    status: item.status ?? '',
+    riceScore: riceScore(item),
+    description: htmlToReadableText(item.description),
+    difficulty: item.difficulty ?? '',
+    progress: item.progress ?? 0,
+    startDate: item.startDate ?? '',
+    endDate: item.endDate ?? '',
+    link: backlogItemLink(roadmapId, item.shortId || item.id),
+  };
 }
 
 /** One issue shape for every MCP reply — create and search read the same. */
@@ -511,6 +631,7 @@ function toIssueResponse(issue: IssueEntity, teamName: string): McpIssueResponse
     estimate: issue.estimate ?? 0,
     startDate: issue.startDate ?? '',
     endDate: issue.endDate ?? '',
+    description: htmlToReadableText(issue.description),
     link: issueLink(issue.shortId || issue.id.toString()),
     updatedAt: issue.updatedAt,
   };

@@ -112,6 +112,13 @@ export class McpIssueResponseDto {
   @ApiProperty()
   endDate: string;
 
+  @ApiProperty({
+    description:
+      'The body as plain text (diagrams as ```mermaid fences). Read tools print it; ' +
+      'search deliberately does not, so a result list stays scannable.',
+  })
+  description: string;
+
   @ApiProperty({ description: 'In-app path, e.g. /issues/TSK-6HCUHKX' })
   link: string;
 
@@ -161,6 +168,21 @@ export class McpBacklogItemResponseDto {
 
   @ApiProperty({ description: 'RICE, derived from reach × impact × confidence ÷ effort' })
   riceScore: number;
+
+  @ApiProperty({ description: 'The body as plain text (diagrams as ```mermaid fences)' })
+  description: string;
+
+  @ApiProperty({ description: 'How hard the team judged it' })
+  difficulty: string;
+
+  @ApiProperty({ description: '0–100' })
+  progress: number;
+
+  @ApiProperty({ description: 'ISO YYYY-MM-DD, empty when nobody has scheduled it' })
+  startDate: string;
+
+  @ApiProperty({ description: 'ISO YYYY-MM-DD, empty when nobody has scheduled it' })
+  endDate: string;
 
   @ApiProperty({ description: 'In-app path, e.g. /roadmaps/<id>/items/<itemId>' })
   link: string;

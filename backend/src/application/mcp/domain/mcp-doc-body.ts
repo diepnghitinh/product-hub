@@ -26,7 +26,9 @@ const FENCE = /^\s*```(\w*)/;
 /** Whole fenced blocks, used to keep their contents out of prose-level checks. */
 const FENCED_BLOCK = /```[\s\S]*?```/g;
 
-/** Marks a stashed code span. A NUL can't occur in prose, so it can't collide. */
+/** Marks something stashed out of the text while the rules around it run — an
+ *  inline code span on the way in, a whole fenced block on the way back out. A
+ *  NUL can't occur in prose, so a placeholder can't collide with real content. */
 const SENTINEL = '\u0000';
 const RESTORE_SPAN = /\u0000(\d+)\u0000/g;
 
@@ -52,7 +54,9 @@ export function docBodyToHtml(body: string | undefined): string {
 export function stripEchoedTitle(html: string, title: string): string {
   const opening = html.match(/^\s*<h([12])>([\s\S]*?)<\/h\1>/i);
   if (!opening) return html;
-  const heading = unescapeHtml(opening[2].replace(/<[^>]+>/g, '')).trim().toLowerCase();
+  const heading = unescapeHtml(opening[2].replace(/<[^>]+>/g, ''))
+    .trim()
+    .toLowerCase();
   if (heading !== title.trim().toLowerCase()) return html;
   return html.slice(opening[0].length).trim();
 }
@@ -94,6 +98,97 @@ function promoteMermaid(html: string): string {
     return mermaidFigure(unescapeHtml(body.replace(/<[^>]+>/g, '')));
   });
 }
+
+/* ── Reading it back ──────────────────────────────────────────────────────── */
+
+/**
+ * Stored HTML as the plain text an assistant can actually use.
+ *
+ * The read tools answer in prose, and handing back `<p>`-soup spends tokens on
+ * markup and invites the model to quote tags at the user. This is the inverse of
+ * `docBodyToHtml`: what comes out is roughly what an assistant would have
+ * written going in, which is also why a diagram comes back as a ```mermaid
+ * fence rather than as its bare source — that is the form it round-trips in.
+ *
+ * Approximate by design. It reads descriptions written by our own editor, not
+ * arbitrary web HTML, so the tag subset here is the tag subset that exists.
+ */
+export function htmlToReadableText(html: string | undefined): string {
+  const value = (html ?? '').trim();
+  if (!value) return '';
+
+  // Fenced blocks are lifted out whole before anything else runs, and put back
+  // at the very end. Two reasons, both real: indentation is content inside a
+  // fence (flatten a mermaid `subgraph` body and it stops being that diagram),
+  // and a class diagram's `A <|-- B` looks exactly like the start of a tag — the
+  // `<[^>]+>` sweep below would eat everything up to the next `>`, which in a
+  // flowchart is several lines away.
+  const fences: string[] = [];
+  const park = (lang: string, source: string): string => {
+    fences.push(
+      `\`\`\`${lang}\n${decodeEntities(strip(source)).replace(/^\n+|\s+$/g, '')}\n\`\`\``,
+    );
+    return `\n\n${SENTINEL}${fences.length - 1}${SENTINEL}\n\n`;
+  };
+
+  const text = value
+    // Diagrams first: the figure wraps a <pre> that the generic rule below would
+    // otherwise turn into an unlabelled code fence, losing the fact that it was
+    // ever a picture.
+    .replace(
+      new RegExp(
+        `<figure[^>]*\\b${MERMAID_BLOCK_CLASS}\\b[^>]*>[\\s\\S]*?<pre[^>]*>\\s*(?:<code[^>]*>)?([\\s\\S]*?)(?:</code>\\s*)?</pre>[\\s\\S]*?</figure>`,
+        'gi',
+      ),
+      (_, source: string) => park('mermaid', source),
+    )
+    .replace(HTML_PRE, (_, __, ___, body: string) => park('', body))
+    .replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_, level: string, body: string) =>
+      body.trim() ? `\n\n${'#'.repeat(Number(level))} ${strip(body).trim()}\n\n` : '',
+    )
+    .replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_, body: string) => `\n- ${strip(body).trim()}`)
+    .replace(
+      /<blockquote[^>]*>([\s\S]*?)<\/blockquote>/gi,
+      (_, body: string) => `\n\n> ${strip(body).trim()}\n\n`,
+    )
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|ul|ol|table|tr|figure|h[1-6])>/gi, '\n\n')
+    .replace(/<\/t[dh]>/gi, ' | ')
+    // An image carries no text, but "there is a picture here" is information.
+    .replace(/<img[^>]*\balt\s*=\s*["']([^"']+)["'][^>]*>/gi, '[image: $1]')
+    .replace(/<img[^>]*>/gi, '[image]')
+    .replace(/<[^>]+>/g, '')
+    .split('\n')
+    .map((line) =>
+      decodeEntities(line)
+        .replace(/[ \t]+/g, ' ')
+        .trimEnd(),
+    )
+    .join('\n')
+    // Three or more newlines is always an artefact of the rules above, never
+    // something the author typed.
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return text.replace(RESTORE_SPAN, (_, i: string) => fences[Number(i)]);
+}
+
+/** Tags only — entities are decoded separately, after the line is assembled. */
+const strip = (s: string): string => s.replace(/<[^>]+>/g, '');
+
+/**
+ * Fuller than `unescapeHtml`, which is the exact inverse of `escapeHtml` and has
+ * to stay that way. Reading real content means meeting `&nbsp;` and friends,
+ * and `&amp;` goes last so `&amp;lt;` decodes to `&lt;` and not to `<`.
+ */
+const decodeEntities = (s: string): string =>
+  s
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&amp;/g, '&');
 
 const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

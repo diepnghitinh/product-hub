@@ -40,12 +40,16 @@ export class McpCreateIssueDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: "Team id or name. Defaults to the workspace's team for the kind" })
+  @ApiPropertyOptional({
+    description: "Team id or name. Defaults to the workspace's team for the kind",
+  })
   @IsOptional()
   @IsString()
   team?: string;
 
-  @ApiPropertyOptional({ description: "Status key or column label. Defaults to the team's first column" })
+  @ApiPropertyOptional({
+    description: "Status key or column label. Defaults to the team's first column",
+  })
   @IsOptional()
   @IsString()
   status?: string;
@@ -91,7 +95,9 @@ export class McpCreateBacklogItemDto {
   @IsNotEmpty()
   title: string;
 
-  @ApiPropertyOptional({ description: 'Roadmap id or title. Defaults to the only roadmap when there is one' })
+  @ApiPropertyOptional({
+    description: 'Roadmap id or title. Defaults to the only roadmap when there is one',
+  })
   @IsOptional()
   @IsString()
   roadmap?: string;
@@ -214,4 +220,18 @@ export class McpSearchIssuesDto {
   @Min(1)
   @Max(50)
   limit?: number = 20;
+}
+
+/** Read one issue. A ref is the whole input — the tool answers, it doesn't search. */
+export class McpGetIssueDto {
+  @ApiProperty({ example: 'TSK-6HCUHKX', description: 'Issue ref, or its uuid' })
+  @IsString()
+  ref: string;
+}
+
+/** Read one backlog item, by ref or (failing that) by title. */
+export class McpGetBacklogItemDto {
+  @ApiProperty({ example: 'RM-6HCUHKX', description: 'Backlog item ref, uuid, or exact title' })
+  @IsString()
+  ref: string;
 }
