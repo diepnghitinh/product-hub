@@ -19,6 +19,14 @@ export const en = {
   'nav.allIssues': 'All issues',
   'nav.today': 'Today & Overdue',
   'nav.personalList': 'Personal List',
+  'nav.calendar': 'Calendar',
+  // The Calendar panel's three rows: the page, and the same page at each of its
+  // two sources. "Personal"/"Team tasks" rather than repeating "Personal List"
+  // and "Assigned to me" — those labels belong to the list pages in Home, and
+  // two rows reading the same in two panels is how a menu stops being trusted.
+  'nav.mySchedule': 'My schedule',
+  'nav.calendarPersonal': 'Personal only',
+  'nav.calendarAssigned': 'Team tasks',
   'nav.designPatterns': 'Design patterns',
   'nav.signOut': 'Sign out',
   'nav.collapse': 'Collapse sidebar',
@@ -40,6 +48,7 @@ export const en = {
   'navarea.workspace': 'Home',
   'navarea.discovery': 'Discovery',
   'navarea.quality': 'Quality',
+  'navarea.calendar': 'Calendar',
   'navarea.more': 'More',
 
   'theme.toggle': 'Toggle light / dark',
@@ -124,8 +133,7 @@ export const en = {
   'projects.info': 'info',
   'projects.updated': 'Updated',
   'projects.confirmArchive': 'Archive this project? You can restore it later from the archive.',
-  'projects.confirmDelete':
-    'Permanently delete this project? This cannot be undone.',
+  'projects.confirmDelete': 'Permanently delete this project? This cannot be undone.',
   'projects.openProject': 'Open project',
 
   'groups.title': 'Groups',
@@ -169,7 +177,8 @@ export const en = {
   'report.owner': 'Owner',
   'report.import': 'Import',
   'report.importCases': 'Import test cases',
-  'report.importHint': 'Drop an Excel, CSV, or JSON file. Columns are matched by header (Area, Type, Result, Owner, Steps, Expected…).',
+  'report.importHint':
+    'Drop an Excel, CSV, or JSON file. Columns are matched by header (Area, Type, Result, Owner, Steps, Expected…).',
   'report.importParsed': 'parsed',
   'report.importDone': 'Imported {n} cases ({skipped} skipped).',
   'report.chooseFile': 'Choose file',
@@ -181,7 +190,8 @@ export const en = {
   'report.excelTemplate': 'Excel template',
   'report.jsonTemplate': 'JSON template',
   'report.importUnsupported': 'Unsupported file. Choose an .xlsx, .xls, .csv, or .json file.',
-  'report.importEmpty': 'No rows found. Make sure your file has a header and at least one data row.',
+  'report.importEmpty':
+    'No rows found. Make sure your file has a header and at least one data row.',
   'report.importReady': 'ready',
   'report.importSkipped': 'skipped',
   'report.importMoreRows': 'more rows',
@@ -540,7 +550,8 @@ export const en = {
   'roadmaps.timingInfoCycle': 'Cycle time — from Started (In progress) to Completed.',
   'roadmaps.viewWorkflow': 'Workflow',
   'roadmaps.completedItems': 'Completed',
-  'roadmaps.noCompleted': 'No completed items yet — mark an item Done to see its lead & cycle time.',
+  'roadmaps.noCompleted':
+    'No completed items yet — mark an item Done to see its lead & cycle time.',
   'roadmaps.inFlight': 'In progress',
   'roadmaps.item': 'Item',
   'roadmaps.addItem': 'Add item',
@@ -566,7 +577,8 @@ export const en = {
   'roadmaps.newColumn': 'New column',
   'roadmaps.columnName': 'Column name',
   'roadmaps.columnColor': 'Column color',
-  'roadmaps.columnsHint': 'Removing a column with items lets you move them to another column first.',
+  'roadmaps.columnsHint':
+    'Removing a column with items lets you move them to another column first.',
   'roadmaps.moveItemsTitle': 'Move items first',
   'roadmaps.moveItemsStillHas': 'still has',
   'roadmaps.itemSingular': 'item',
@@ -898,7 +910,7 @@ export const en = {
   'settings.apiGuideResultsSuffix': 'values:',
   'settings.mcp': 'MCP',
   'settings.mcpHint':
-    'Connect Claude — or any assistant that speaks MCP — so it can file tasks, bugs and backlog items and write docs here straight from a conversation.',
+    'Connect Claude — or any assistant that speaks MCP — so it can read what is already here, and file tasks, bugs and backlog items and write docs, straight from a conversation.',
   'settings.mcpKeyNameDefault': 'Claude MCP',
   'settings.mcpStep1': 'Generate a key',
   'settings.mcpStep1Hint':
@@ -911,9 +923,10 @@ export const en = {
     'Where the assistant reaches this API. Change it if the machine running Claude can’t use the address your browser is on — it needs a URL of its own.',
   'settings.mcpDesktopNote':
     'Works with Claude Code and any client that can send a header. Claude Desktop’s custom connectors expect an OAuth sign-in rather than a key, so they can’t use this URL yet.',
-  'settings.mcpKeysNote': 'MCP uses the same keys as the API — revoke one under Settings → API keys.',
+  'settings.mcpKeysNote':
+    'MCP uses the same keys as the API — revoke one under Settings → API keys.',
   'settings.mcpTools':
-    'Then ask it to “list my Product OS workspace”, “file a bug for QC”, “add a backlog item”, or “write this up as a doc — with a diagram of the flow”. Team, status and assignee accept plain names; an unknown one comes back with the valid choices instead of guessing.',
+    'Then ask it to “list my Product OS workspace”, “read TSK-6HCUHKX”, “what does that backlog item propose?”, “file a bug for QC”, or “write this up as a doc — with a diagram of the flow”. Reads come back as plain text, diagrams included. Team, status and assignee accept plain names; an unknown one comes back with the valid choices instead of guessing.',
   'settings.mcpReady': 'Your key is ready',
   'settings.mcpReadyHint': 'This command already contains it — run it in your terminal.',
   'settings.mcpHistory': 'Created via MCP',
@@ -935,7 +948,8 @@ export const en = {
   'settings.storageMaxVideo': 'Max video size (MB)',
   'settings.storageMaxImage': 'Max image size (MB)',
   'settings.storageMaxDoc': 'Max file size (MB)',
-  'settings.storageMaxDocHint': 'Files attached to a doc page — PDF, Word, Excel, PowerPoint, text.',
+  'settings.storageMaxDocHint':
+    'Files attached to a doc page — PDF, Word, Excel, PowerPoint, text.',
   'settings.storageSecretKept': 'Leave blank to keep the saved value.',
   'settings.storageTest': 'Test connection',
   'settings.storageTestOk': 'Connection successful.',
@@ -967,7 +981,8 @@ export const en = {
   'uploads.previewPrev': 'Previous file',
   'uploads.previewNext': 'Next file',
   'uploads.previewOf': '{i} of {n}',
-  'uploads.previewTruncated': 'Showing the first {rows} rows and {cols} columns — download the file to see all of it.',
+  'uploads.previewTruncated':
+    'Showing the first {rows} rows and {cols} columns — download the file to see all of it.',
   'settings.webhooksHint': 'Send notifications to a channel for the events you choose below.',
   'settings.addWebhook': 'Add webhook',
   'settings.webhookName': 'Name',
@@ -978,7 +993,8 @@ export const en = {
   'settings.noWebhooks': 'No webhooks configured.',
   'settings.webhookLarkDesc': 'Sends a text message via Lark Incoming Webhook Bot.',
   'settings.webhookTelegramDesc': 'Sends a message to a chat via a Telegram Bot.',
-  'settings.webhookLarkUrlHint': 'Create a bot in your Lark group chat and copy its webhook URL here.',
+  'settings.webhookLarkUrlHint':
+    'Create a bot in your Lark group chat and copy its webhook URL here.',
   'settings.webhookTelegramToken': 'Bot token',
   'settings.webhookTelegramChatId': 'Chat ID',
   'settings.webhookTelegramHint':
@@ -1012,7 +1028,8 @@ export const en = {
   // Task labels — tenant-defined, no built-ins
   'labels.title': 'Labels',
   'labels.hint': 'Labels you can put on tasks. Add your own — there are no built-in labels.',
-  'labels.teamHint': 'Labels for this team’s items. Every task or bug in the team can use them — there are no built-ins, so add your own.',
+  'labels.teamHint':
+    'Labels for this team’s items. Every task or bug in the team can use them — there are no built-ins, so add your own.',
   'labels.empty': 'No labels yet.',
   'labels.add': 'Add label',
   'labels.name': 'Label name',
@@ -1045,19 +1062,19 @@ export const en = {
   'cycles.enableHint':
     'Enabling creates the current cycle and the next two. Disabling keeps past cycles readable but deletes the upcoming ones.',
   'cycles.cadence': 'Cadence',
-  'cycles.cadenceHint': 'Who decides when a cycle starts and ends. Cycles always end by themselves.',
+  'cycles.cadenceHint':
+    'Who decides when a cycle starts and ends. Cycles always end by themselves.',
   'cycles.cadenceAuto': 'Automatic rhythm',
-  'cycles.cadenceAutoHint': 'Cycles start, end and repeat on the schedule below — nobody plans them.',
+  'cycles.cadenceAutoHint':
+    'Cycles start, end and repeat on the schedule below — nobody plans them.',
   'cycles.cadenceManual': 'Manual',
   'cycles.cadenceManualHint':
     'You plan each cycle yourself, right below. The rhythm settings stop applying.',
-  'cycles.manualNote':
-    'Switching back to the automatic rhythm keeps everything already planned.',
+  'cycles.manualNote': 'Switching back to the automatic rhythm keeps everything already planned.',
   'cycles.planned': 'Planned cycles',
   'cycles.plannedHint':
     'This team’s calendar. Adding, editing or deleting a cycle here takes effect straight away.',
-  'cycles.plannedSaveFirst':
-    'Save the cadence first — then this team’s cycles are planned here.',
+  'cycles.plannedSaveFirst': 'Save the cadence first — then this team’s cycles are planned here.',
   'cycles.length': 'Cycle length',
   'cycles.cooldown': 'Cooldown',
   'cycles.cooldownRowHint': 'A gap between cycles with no current cycle — a catch-up week.',
@@ -1117,7 +1134,8 @@ export const en = {
   'cycles.prevCycle': 'Previous cycle',
   'cycles.nextCycle': 'Next cycle',
   'cycles.carriedOver': 'Carried over',
-  'cycles.carriedOverHint': 'Still unfinished when its cycle ended, so it rolled into the next cycle.',
+  'cycles.carriedOverHint':
+    'Still unfinished when its cycle ended, so it rolled into the next cycle.',
   // The closed-cycle "who left" strip (frozen unfinishedIds)
   'cycles.carriedAtClose': 'Carried over when this cycle closed',
   'cycles.returnedAtClose': 'Returned to backlog when this cycle closed',
@@ -1156,7 +1174,8 @@ export const en = {
 
   // Teams — each team is an area with its own issue list
   'teams.title': 'Teams',
-  'teams.hint': 'A team is an area with its own issue list. QC and Engineering always exist and can be renamed but not archived.',
+  'teams.hint':
+    'A team is an area with its own issue list. QC and Engineering always exist and can be renamed but not archived.',
   'teams.notFound': 'Team not found.',
   'teams.issuesSubtitle': 'This team’s issues.',
   'teams.add': 'Add team',
@@ -1171,7 +1190,8 @@ export const en = {
   'teams.save': 'Save teams',
 
   'settings.taskStatuses': 'Task board columns',
-  'settings.taskStatusesHint': 'Rename, recolor, reorder, or add custom columns for the Tasks board.',
+  'settings.taskStatusesHint':
+    'Rename, recolor, reorder, or add custom columns for the Tasks board.',
   'settings.saveTaskStatuses': 'Save columns',
   'settings.resetDefaults': 'Reset to defaults',
   'settings.statusColor': 'Column color',
@@ -1202,7 +1222,8 @@ export const en = {
   'boards.viewTimeline': 'Timeline',
   'boards.timelineIssue': 'Issue',
   'boards.timelineEmpty': 'Nothing to schedule yet',
-  'boards.timelineEmptyHint': 'Issues appear here once they exist — give one a start or due date to place it on the timeline.',
+  'boards.timelineEmptyHint':
+    'Issues appear here once they exist — give one a start or due date to place it on the timeline.',
   'boards.timelineNoDates': 'No dates',
   'boards.timelineLegendBar': 'Scheduled (start → due)',
   'boards.timelineLegendMarker': 'Single date',
@@ -1247,7 +1268,7 @@ export const en = {
   'common.details': 'Details',
   'common.error': 'Something went wrong.',
   'error.title': 'This page hit a problem',
-  'error.body': "The rest of the app still works — you can go back, or try rendering it again.",
+  'error.body': 'The rest of the app still works — you can go back, or try rendering it again.',
   'teams.iconTab': 'Icon',
   'teams.color': 'Symbol colour',
   'common.reset': 'Reset',
@@ -1275,6 +1296,47 @@ export const en = {
   'board.createdOn': 'Created',
   'tasks.addToColumn': 'Add task',
   'bugs.addToColumn': 'Add bug',
+
+  // Calendar — the personal board + the tasks assigned to you, laid out on days.
+  'calendar.title': 'Calendar',
+  'calendar.subtitle': 'Your work on a calendar — drag a task to move it.',
+  'calendar.search': 'Search tasks',
+  'calendar.month': 'Month',
+  'calendar.week': 'Week',
+  'calendar.today': 'Today',
+  'calendar.previous': 'Previous period',
+  'calendar.next': 'Next period',
+  'calendar.new': 'New task',
+  'calendar.private': 'Private',
+  // The two sources. "Personal" is your private board; "Assigned to me" is the
+  // team work — the same two lists the Home panel links to.
+  'calendar.sourcePersonal': 'Personal',
+  'calendar.sourceAssigned': 'Assigned to me',
+  'calendar.addOn': 'Add a task on {date}',
+  'calendar.more': '+{n} more',
+  'calendar.noneOnDay': 'Nothing scheduled on this day.',
+  'calendar.quickAddTitle': 'New task',
+  'calendar.addTo': 'Add to',
+  'calendar.addToPersonal': 'Personal (private)',
+  'calendar.moreOptions': 'More options — open the full form',
+  'calendar.rescheduleFailed': 'Could not move that task',
+  // Tasks with no dates can't be drawn on a grid of days; the toolbar counts
+  // them so they're never silently missing.
+  'calendar.unscheduled': 'Unscheduled',
+  'calendar.unscheduledCount': '{n} unscheduled',
+  'calendar.unscheduledHint':
+    'These tasks have no dates, so they don’t appear on the calendar. Give one a date to schedule it.',
+  'calendar.unscheduledNone': 'Everything has a date.',
+  'calendar.schedule': 'Schedule',
+  // The workload layer — the "Assigned to me" calendar only, where a task has a
+  // team and an estimate to report.
+  'calendar.overdue': 'Overdue',
+  'calendar.overdueCount': '{n} overdue',
+  'calendar.overdueGoto': 'Go to the earliest overdue task',
+  'calendar.pointsShort': '{n} pt',
+  // Phrased to sidestep plurals, like `calendar.more` and `unscheduledCount` —
+  // "1 scheduled · 2 pt" and "4 scheduled · 9 pt" both read correctly.
+  'calendar.loadTooltip': '{c} scheduled · {n} pt',
 
   // Personal board — a private, owner-managed task board (only you + admins).
   'personal.title': 'Personal',
@@ -1312,7 +1374,8 @@ export const en = {
 
   // Rich-text read view — off-domain link guard.
   'richText.externalTitle': 'Open external link?',
-  'richText.externalBody': 'This link leads to a site outside this workspace. Open it in a new tab?',
+  'richText.externalBody':
+    'This link leads to a site outside this workspace. Open it in a new tab?',
   'richText.externalOpen': 'Open link',
 
   // Image lightbox.

@@ -83,6 +83,18 @@ module.exports = {
           ring: 'hsl(var(--sidebar-ring))',
         },
       },
+      // `text-destructive` alone resolves to the red *ink* token, while
+      // `bg-destructive` / `border-destructive` keep the red *surface* above.
+      // A single red can't clear 4.5:1 both as text and under white button
+      // text — see the --destructive-text comment in tailwind.css. `foreground`
+      // is repeated because extending a key here replaces it for text utilities,
+      // and `text-destructive-foreground` labels every destructive button.
+      textColor: {
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive-text))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',

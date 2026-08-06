@@ -60,6 +60,70 @@ export function BoardSkeleton({ columns = 4 }: { columns?: number }) {
   );
 }
 
+// A fixed, uneven spread of bars per week row — enough to read as a calendar
+// with work on it, and stable across renders.
+const WEEK_BARS = [
+  [
+    { from: 1, span: 3 },
+    { from: 5, span: 2 },
+  ],
+  [
+    { from: 0, span: 2 },
+    { from: 3, span: 4 },
+  ],
+  [
+    { from: 2, span: 1 },
+    { from: 4, span: 3 },
+  ],
+  [{ from: 0, span: 5 }],
+  [{ from: 3, span: 2 }],
+];
+
+/**
+ * The calendar mid-load: the weekday strip over a grid of day cells with a few
+ * spanning bars. Mirrors `CalendarGrid` — same seven columns, same day-number
+ * corner, same bar height — so the real grid lands without the page moving.
+ */
+export function CalendarSkeleton({ weeks = 5 }: { weeks?: number }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="grid shrink-0 grid-cols-7 border-y">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className={cn('flex justify-center px-2 py-2', i < 6 && 'border-r')}>
+            <Skeleton className="h-3 w-8" />
+          </div>
+        ))}
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {Array.from({ length: weeks }).map((_, w) => (
+          <div key={w} className="relative grid min-h-[104px] flex-1 grid-cols-7 border-b">
+            {Array.from({ length: 7 }).map((__, d) => (
+              <div key={d} className={cn('p-1.5', d < 6 && 'border-r')}>
+                <Skeleton className="size-[18px] rounded-full" />
+              </div>
+            ))}
+            <div className="pointer-events-none absolute inset-0">
+              {WEEK_BARS[w % WEEK_BARS.length].map((bar, i) => (
+                <div
+                  key={i}
+                  className="absolute px-[3px]"
+                  style={{
+                    left: `${(bar.from / 7) * 100}%`,
+                    width: `${(bar.span / 7) * 100}%`,
+                    top: 26 + i * 23,
+                  }}
+                >
+                  <Skeleton className="h-[19px] w-full rounded-md" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** One issue-list row: leading dot, title, and a couple of trailing chips. */
 function ListRowSkeleton() {
   return (
@@ -91,7 +155,13 @@ export function ListSkeleton({ rows = 8, inset = false }: { rows?: number; inset
 // Staggered bar offsets/widths (in %), fixed so the timeline reads like a real
 // schedule and stays stable across renders.
 const TIMELINE_BARS: Array<[number, number]> = [
-  [8, 40], [24, 32], [4, 28], [36, 44], [16, 36], [48, 30], [12, 52],
+  [8, 40],
+  [24, 32],
+  [4, 28],
+  [36, 44],
+  [16, 36],
+  [48, 30],
+  [12, 52],
 ];
 
 /**

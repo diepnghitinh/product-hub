@@ -17,6 +17,7 @@ import { IssueDetailPage } from '@/features/issues/IssueDetailPage';
 import { MyTaskListView } from '@/features/tasks/MyTaskListView';
 import { PersonalBoardPage } from '@/features/tasks/PersonalBoardPage';
 import { NewTaskPage } from '@/features/tasks/NewTaskPage';
+import { CalendarPage } from '@/features/calendar/CalendarPage';
 import { MyTeamPage } from '@/features/my-team/MyTeamPage';
 import { TeamBoardPage } from '@/features/teams/TeamBoardPage';
 import { TeamCyclesPage } from '@/features/cycles/TeamCyclesPage';
@@ -102,6 +103,9 @@ export default function App() {
           <Route path="/tasks/today" element={<Navigate to="/issues/today" replace />} />
           <Route path="/tasks/personal" element={<Navigate to="/issues/personal" replace />} />
           <Route path="/tasks/:taskId" element={<IssueRefRedirect />} />
+          {/* The same personal + assigned tasks laid out on days. Its whole state
+              (period, view, sources) rides in the query string — see CalendarPage. */}
+          <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/my-team" element={<MyTeamPage />} />
           {/* A team's own issue list — renders the bug or task board by issueType. */}
           <Route path="/teams/:teamId" element={<TeamBoardPage />} />
