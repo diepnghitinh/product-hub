@@ -406,8 +406,9 @@ export function CollabDocEditor({
         placeholder={t('docs.write')}
         onComment={onComment}
         commentLabel={t('docs.comments.add')}
-        // A doc page *is* the document — the skin drops the frame + focus ring
-        // and reads at body size (see rich-text-editor.css).
+        // A doc page *is* the document — the skin drops the resting frame and
+        // reads at body size. Focus still answers "you're writing here", as an
+        // outline held off the text (see rich-text-editor.css).
         className={cn('doc-page', className)}
       />
     </div>

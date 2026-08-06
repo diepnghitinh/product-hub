@@ -504,7 +504,10 @@ export function MilestoneDetailPage() {
                   <input
                     defaultValue={o.notes}
                     placeholder={t('milestones.notesPlaceholder')}
-                    className="min-w-0 flex-1 bg-transparent text-muted-foreground outline-none placeholder:text-muted-foreground/70"
+                    // Frameless until you're in it, then the same brand ring
+                    // every other writing surface uses. The padding is cancelled
+                    // by an equal negative margin so the note doesn't shift.
+                    className="-mx-1.5 -my-0.5 min-w-0 flex-1 rounded bg-transparent px-1.5 py-0.5 text-muted-foreground outline-none transition-shadow placeholder:text-muted-foreground/70 focus-visible:ring-1 focus-visible:ring-ring"
                     onBlur={(e) =>
                       e.target.value !== o.notes && patchObjective(o.id, { notes: e.target.value })
                     }
