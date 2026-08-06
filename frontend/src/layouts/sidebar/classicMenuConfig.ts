@@ -47,6 +47,12 @@ export const NAV_GROUPS: NavGroup[] = [
           { path: '/issues/personal', labelKey: 'nav.personalList', icon: 'user-list' },
         ],
       },
+      // Directly under My Tasks, because it's the same work seen by date. Only
+      // the one row: the two-level menu gives Calendar an area whose panel can
+      // hold its `?source=` scopes, and this menu has no panel to hold them —
+      // they're a scope of this page, reachable from its own toolbar, not three
+      // separate destinations to stack in a flat list.
+      { path: '/calendar', labelKey: 'nav.calendar', icon: 'calendar' },
       // Level 0, beside My Team — these three are the app's scopes, and reading
       // them down the rail widens: my work, everyone's work, my team's people.
       // `end` keeps this row dark while you're on one of My Tasks' /issues/*

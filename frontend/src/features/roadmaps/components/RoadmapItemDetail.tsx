@@ -35,7 +35,13 @@ import { firstImageUrl } from '@/lib/editorjs';
 import { daysBetween, formatDate } from '@/lib/format';
 import { useUsers } from '@/features/users/api';
 import { useMilestones } from '@/features/milestones/api';
-import { DetailGrid, PropField, PropSection, PropSidebar, PropValue } from '@/features/issues/IssueDetail';
+import {
+  DetailGrid,
+  PropField,
+  PropSection,
+  PropSidebar,
+  PropValue,
+} from '@/features/issues/IssueDetail';
 import { TaskPanel } from '@/features/tasks/components/TaskPanel';
 import { issueRefsInText, useLinkIssuesByRef } from '@/features/tasks/api';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
@@ -152,7 +158,11 @@ export function RoadmapItemDetail({
   };
 
   // Backlog templates (User Story / JTBD) — the shared picker, same as a bug's.
-  const seed = useTemplateSeed(item?.description ?? '', (html) => save({ description: html }), itemId);
+  const seed = useTemplateSeed(
+    item?.description ?? '',
+    (html) => save({ description: html }),
+    itemId,
+  );
 
   if (isLoading) {
     return <DetailSkeleton />;
@@ -220,7 +230,8 @@ export function RoadmapItemDetail({
    *  workspace no longer lists rather than blanking it. */
   const toAssignee = (id: string) => ({
     id,
-    name: users.find((u) => u.id === id)?.name ?? item.assignees.find((a) => a.id === id)?.name ?? '',
+    name:
+      users.find((u) => u.id === id)?.name ?? item.assignees.find((a) => a.id === id)?.name ?? '',
   });
 
   // ── OKR link ────────────────────────────────────────────────────────────────
@@ -366,7 +377,9 @@ export function RoadmapItemDetail({
               value={progressDraft}
               disabled={!canWrite}
               onChange={(e) => setProgressDraft(Number(e.target.value) || 0)}
-              onPointerUp={() => progressDraft !== item.progress && save({ progress: progressDraft })}
+              onPointerUp={() =>
+                progressDraft !== item.progress && save({ progress: progressDraft })
+              }
               onKeyUp={() => progressDraft !== item.progress && save({ progress: progressDraft })}
               className="h-1.5 flex-1 cursor-pointer accent-primary"
               aria-label={t('roadmaps.progress')}
@@ -550,7 +563,10 @@ export function RoadmapItemDetail({
 
       {/* Standalone route: lift the favourite star + the ⋯ menu up beside the
           breadcrumb (the crumbActions slot), matching task/bug detail. */}
-      {menuTarget === 'topbar' && crumbActions && favourite && createPortal(favourite, crumbActions)}
+      {menuTarget === 'topbar' &&
+        crumbActions &&
+        favourite &&
+        createPortal(favourite, crumbActions)}
       {menuTarget === 'topbar' && crumbActions && overflow && createPortal(overflow, crumbActions)}
 
       {/* Drawer (single-column) layout: Properties sit inline under the title, in
@@ -572,6 +588,9 @@ export function RoadmapItemDetail({
               placeholder={t('roadmaps.description')}
               minHeight={80}
               images
+              // A backlog item is where a flow gets described before it's built,
+              // so it gets the diagram block too. See IssueDetailMain.
+              diagrams
               // `@` names a person here too — a reference in the text, not a ping.
               mentions
               className="border-0"

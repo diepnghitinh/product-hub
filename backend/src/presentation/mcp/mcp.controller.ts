@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
 import { Public } from '@core/decorators';
 import { ValidationException } from '@core/exceptions';
@@ -21,6 +21,8 @@ import {
   McpCreateBacklogItemUseCase,
   McpCreateDocUseCase,
   McpCreateIssueUseCase,
+  McpGetBacklogItemUseCase,
+  McpGetIssueUseCase,
   McpSearchIssuesUseCase,
 } from '@application/mcp/use-cases';
 import { ApiAuth, ApiKeyGuard } from '@presentation/api-keys/api-key.guard';
@@ -50,6 +52,8 @@ export class McpController {
     private readonly createBacklogItem: McpCreateBacklogItemUseCase,
     private readonly createDoc: McpCreateDocUseCase,
     private readonly searchIssues: McpSearchIssuesUseCase,
+    private readonly getIssue: McpGetIssueUseCase,
+    private readonly getBacklogItem: McpGetBacklogItemUseCase,
   ) {}
 
   @Get('context')
@@ -97,6 +101,27 @@ export class McpController {
     @Query() query: McpSearchIssuesDto,
   ): Promise<McpIssueResponseDto[]> {
     const result = await this.searchIssues.execute({ actor: actorOf(req), dto: query });
+    if (result.isFailure) throw new ValidationException(result.error as string);
+    return result.getValue();
+  }
+
+  // Declared after `GET issues` so the search route keeps the bare path; the ref
+  // is a path segment because it is the whole request — this reads one issue.
+  @Get('issues/:ref')
+  @ApiOperation({ summary: 'Read one issue in full, description included' })
+  async issue(@Req() req: McpRequest, @Param('ref') ref: string): Promise<McpIssueResponseDto> {
+    const result = await this.getIssue.execute({ actor: actorOf(req), dto: { ref } });
+    if (result.isFailure) throw new ValidationException(result.error as string);
+    return result.getValue();
+  }
+
+  @Get('backlog-items/:ref')
+  @ApiOperation({ summary: 'Read one backlog item in full, by ref or exact title' })
+  async backlogItem(
+    @Req() req: McpRequest,
+    @Param('ref') ref: string,
+  ): Promise<McpBacklogItemResponseDto> {
+    const result = await this.getBacklogItem.execute({ actor: actorOf(req), dto: { ref } });
     if (result.isFailure) throw new ValidationException(result.error as string);
     return result.getValue();
   }

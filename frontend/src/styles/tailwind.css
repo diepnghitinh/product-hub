@@ -46,6 +46,11 @@
     --accent-foreground: 0 0% 9%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+    /* Red *ink*, not the red surface. One value can't do both jobs: a red light
+       enough to carry white button text is too light to read as text itself
+       (--destructive is 3.76:1 on white, 1.98:1 on the dark background). So
+       `bg-destructive` keeps --destructive and `text-destructive` uses this. */
+    --destructive-text: 0 72% 50%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
     --ring: 252 60% 59%;
@@ -93,6 +98,10 @@
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
+    /* Lighter than the light-theme ink, and much lighter than the dark surface
+       red it sits beside — on a near-black background red text has to come up,
+       not down. 6.02:1. */
+    --destructive-text: 0 84% 65%;
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
     --ring: 252 60% 59%;
@@ -132,7 +141,9 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: 'rlig' 1, 'calt' 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }

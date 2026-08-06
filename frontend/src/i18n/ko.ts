@@ -27,6 +27,14 @@ export const ko: Record<I18nKey, string> = {
   'nav.allIssues': '모든 이슈',
   'nav.today': '오늘 및 기한 초과',
   'nav.personalList': '개인 목록',
+  'nav.calendar': '캘린더',
+  // The Calendar panel's three rows: the page, and the same page at each of its
+  // two sources. "Personal"/"Team tasks" rather than repeating "Personal List"
+  // and "Assigned to me" — those labels belong to the list pages in Home, and
+  // two rows reading the same in two panels is how a menu stops being trusted.
+  'nav.mySchedule': '내 일정',
+  'nav.calendarPersonal': '개인만',
+  'nav.calendarAssigned': '팀 태스크',
   'nav.designPatterns': '디자인 패턴',
   'nav.signOut': '로그아웃',
   'nav.collapse': '사이드바 접기',
@@ -42,6 +50,7 @@ export const ko: Record<I18nKey, string> = {
   'navarea.workspace': '홈',
   'navarea.discovery': '디스커버리',
   'navarea.quality': '품질',
+  'navarea.calendar': '캘린더',
   'navarea.more': '더보기',
 
   'theme.toggle': '라이트 / 다크 전환',
@@ -178,7 +187,8 @@ export const ko: Record<I18nKey, string> = {
   'report.importTemplatesLabel': '시작할 양식이 필요하신가요?',
   'report.excelTemplate': 'Excel 템플릿',
   'report.jsonTemplate': 'JSON 템플릿',
-  'report.importUnsupported': '지원하지 않는 파일입니다. .xlsx, .xls, .csv, .json 파일을 선택하세요.',
+  'report.importUnsupported':
+    '지원하지 않는 파일입니다. .xlsx, .xls, .csv, .json 파일을 선택하세요.',
   'report.importEmpty': '행을 찾지 못했습니다. 헤더와 데이터 한 줄 이상이 있는지 확인하세요.',
   'report.importReady': '준비됨',
   'report.importSkipped': '건너뜀',
@@ -563,7 +573,8 @@ export const ko: Record<I18nKey, string> = {
   'roadmaps.newColumn': '새 컬럼',
   'roadmaps.columnName': '컬럼 이름',
   'roadmaps.columnColor': '컬럼 색상',
-  'roadmaps.columnsHint': '항목이 있는 컬럼을 지울 때는 항목을 먼저 다른 컬럼으로 옮길 수 있습니다.',
+  'roadmaps.columnsHint':
+    '항목이 있는 컬럼을 지울 때는 항목을 먼저 다른 컬럼으로 옮길 수 있습니다.',
   'roadmaps.moveItemsTitle': '항목을 먼저 옮기세요',
   'roadmaps.moveItemsStillHas': '에 아직',
   'roadmaps.itemSingular': '항목',
@@ -894,7 +905,7 @@ export const ko: Record<I18nKey, string> = {
   'settings.apiGuideResultsSuffix': '값:',
   'settings.mcp': 'MCP',
   'settings.mcpHint':
-    'Claude — 또는 MCP를 지원하는 어떤 어시스턴트든 — 를 연결하면 대화에서 바로 태스크, 버그, 백로그 항목을 만들고 문서를 작성할 수 있습니다.',
+    'Claude — 또는 MCP를 지원하는 어떤 어시스턴트든 — 를 연결하면 대화에서 바로 기존 내용을 읽고, 태스크, 버그, 백로그 항목을 만들며 문서를 작성할 수 있습니다.',
   'settings.mcpKeyNameDefault': 'Claude MCP',
   'settings.mcpStep1': '키 생성하기',
   'settings.mcpStep1Hint':
@@ -909,7 +920,7 @@ export const ko: Record<I18nKey, string> = {
     'Claude Code를 비롯해 헤더를 보낼 수 있는 클라이언트에서 동작합니다. Claude Desktop의 커스텀 커넥터는 키 대신 OAuth 로그인을 요구하므로 아직 이 URL을 쓸 수 없습니다.',
   'settings.mcpKeysNote': 'MCP는 API와 같은 키를 씁니다 — 설정 → API 키에서 해지할 수 있습니다.',
   'settings.mcpTools':
-    '그런 다음 “내 Product OS 워크스페이스를 보여줘”, “QC에 버그를 등록해줘”, “백로그 항목을 추가해줘”, “이걸 문서로 정리해줘”처럼 요청하세요. 팀, 상태, 담당자는 이름 그대로 받으며, 알 수 없는 값이면 추측하지 않고 가능한 선택지를 알려줍니다.',
+    '그런 다음 “내 Product OS 워크스페이스를 보여줘”, “TSK-6HCUHKX 읽어줘”, “그 백로그 항목은 무엇을 제안해?”, “QC에 버그를 등록해줘”, “이걸 문서로 정리해줘”처럼 요청하세요. 읽은 내용은 다이어그램을 포함해 평문으로 돌아옵니다. 팀, 상태, 담당자는 이름 그대로 받으며, 알 수 없는 값이면 추측하지 않고 가능한 선택지를 알려줍니다.',
   'settings.mcpReady': '키가 준비되었습니다',
   'settings.mcpReadyHint': '이 명령에 키가 이미 들어 있습니다 — 터미널에서 실행하세요.',
   'settings.mcpHistory': 'MCP로 만든 항목',
@@ -931,7 +942,8 @@ export const ko: Record<I18nKey, string> = {
   'settings.storageMaxVideo': '최대 동영상 크기 (MB)',
   'settings.storageMaxImage': '최대 이미지 크기 (MB)',
   'settings.storageMaxDoc': '최대 파일 크기 (MB)',
-  'settings.storageMaxDocHint': '문서 페이지에 첨부하는 파일 — PDF, Word, Excel, PowerPoint, 텍스트.',
+  'settings.storageMaxDocHint':
+    '문서 페이지에 첨부하는 파일 — PDF, Word, Excel, PowerPoint, 텍스트.',
   'settings.storageSecretKept': '비워 두면 저장된 값을 유지합니다.',
   'settings.storageTest': '연결 테스트',
   'settings.storageTestOk': '연결에 성공했습니다.',
@@ -963,7 +975,8 @@ export const ko: Record<I18nKey, string> = {
   'uploads.previewPrev': '이전 파일',
   'uploads.previewNext': '다음 파일',
   'uploads.previewOf': '{n}개 중 {i}번째',
-  'uploads.previewTruncated': '처음 {rows}행 {cols}열만 표시합니다 — 전체를 보려면 파일을 다운로드하세요.',
+  'uploads.previewTruncated':
+    '처음 {rows}행 {cols}열만 표시합니다 — 전체를 보려면 파일을 다운로드하세요.',
   'settings.webhooksHint': '아래에서 고른 이벤트를 채널로 알립니다.',
   'settings.addWebhook': '웹훅 추가',
   'settings.webhookName': '이름',
@@ -1042,7 +1055,8 @@ export const ko: Record<I18nKey, string> = {
   'cycles.enableHint':
     '켜면 현재 사이클과 다음 두 사이클이 만들어집니다. 끄면 지난 사이클은 그대로 볼 수 있지만 예정된 사이클은 삭제됩니다.',
   'cycles.cadence': '진행 방식',
-  'cycles.cadenceHint': '사이클의 시작과 끝을 누가 정하는지입니다. 사이클은 언제나 스스로 끝납니다.',
+  'cycles.cadenceHint':
+    '사이클의 시작과 끝을 누가 정하는지입니다. 사이클은 언제나 스스로 끝납니다.',
   'cycles.cadenceAuto': '자동 리듬',
   'cycles.cadenceAutoHint': '아래 일정에 따라 사이클이 스스로 시작하고 끝나고 반복됩니다.',
   'cycles.cadenceManual': '직접 계획',
@@ -1051,7 +1065,8 @@ export const ko: Record<I18nKey, string> = {
   'cycles.manualNote': '자동 리듬으로 되돌려도 이미 계획한 사이클은 그대로 남습니다.',
   'cycles.planned': '계획한 사이클',
   'cycles.plannedHint': '이 팀의 일정입니다. 여기서 사이클을 추가·수정·삭제하면 바로 반영됩니다.',
-  'cycles.plannedSaveFirst': '진행 방식을 먼저 저장하면 여기에서 이 팀의 사이클을 계획할 수 있습니다.',
+  'cycles.plannedSaveFirst':
+    '진행 방식을 먼저 저장하면 여기에서 이 팀의 사이클을 계획할 수 있습니다.',
   'cycles.length': '사이클 길이',
   'cycles.cooldown': '쿨다운',
   'cycles.cooldownRowHint': '사이클 사이의 빈 기간 — 현재 사이클이 없는 정리 주간입니다.',
@@ -1273,6 +1288,46 @@ export const ko: Record<I18nKey, string> = {
   'tasks.addToColumn': '태스크 추가',
   'bugs.addToColumn': '버그 추가',
 
+  // Calendar — the personal board + the tasks assigned to you, laid out on days.
+  'calendar.title': '캘린더',
+  'calendar.subtitle': '캘린더로 보는 내 업무 — 태스크를 드래그해 옮기세요.',
+  'calendar.search': '태스크 검색',
+  'calendar.month': '월간',
+  'calendar.week': '주간',
+  'calendar.today': '오늘',
+  'calendar.previous': '이전 기간',
+  'calendar.next': '다음 기간',
+  'calendar.new': '새 태스크',
+  'calendar.private': '비공개',
+  // The two sources. "Personal" is your private board; "Assigned to me" is the
+  // team work — the same two lists the Home panel links to.
+  'calendar.sourcePersonal': '개인',
+  'calendar.sourceAssigned': '나에게 배정됨',
+  'calendar.addOn': '{date}에 태스크 추가',
+  /** The unit trails the number in Korean — "+3개 더", not "+더 3". */
+  'calendar.more': '+{n}개 더',
+  'calendar.noneOnDay': '이 날짜에 예정된 일이 없습니다.',
+  'calendar.quickAddTitle': '새 태스크',
+  'calendar.addTo': '추가할 위치',
+  'calendar.addToPersonal': '개인 (비공개)',
+  'calendar.moreOptions': '추가 옵션 — 전체 양식 열기',
+  'calendar.rescheduleFailed': '태스크를 옮기지 못했습니다',
+  // Tasks with no dates can't be drawn on a grid of days; the toolbar counts
+  // them so they're never silently missing.
+  'calendar.unscheduled': '일정 미정',
+  'calendar.unscheduledCount': '일정 미정 {n}개',
+  'calendar.unscheduledHint':
+    '날짜가 없어 캘린더에 표시되지 않는 태스크입니다. 날짜를 지정하면 일정에 나타납니다.',
+  'calendar.unscheduledNone': '모든 태스크에 날짜가 있습니다.',
+  'calendar.schedule': '일정 지정',
+  // The workload layer — the "Assigned to me" calendar only, where a task has a
+  // team and an estimate to report.
+  'calendar.overdue': '기한 초과',
+  'calendar.overdueCount': '기한 초과 {n}개',
+  'calendar.overdueGoto': '가장 먼저 기한이 지난 태스크로 이동',
+  'calendar.pointsShort': '{n}점',
+  'calendar.loadTooltip': '{c}개 예정 · {n}점',
+
   // Personal board — a private, owner-managed task board (only you + admins).
   'personal.title': '개인',
   'personal.subtitle': '나만의 보드입니다 — 나와 관리자만 볼 수 있습니다.',
@@ -1308,8 +1363,7 @@ export const ko: Record<I18nKey, string> = {
 
   // Rich-text read view — off-domain link guard.
   'richText.externalTitle': '외부 링크를 열까요?',
-  'richText.externalBody':
-    '이 링크는 이 워크스페이스 밖의 사이트로 연결됩니다. 새 탭에서 열까요?',
+  'richText.externalBody': '이 링크는 이 워크스페이스 밖의 사이트로 연결됩니다. 새 탭에서 열까요?',
   'richText.externalOpen': '링크 열기',
 
   // Image lightbox.

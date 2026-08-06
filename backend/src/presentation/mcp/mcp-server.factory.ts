@@ -12,6 +12,8 @@ import {
   McpCreateBacklogItemDto,
   McpCreateDocDto,
   McpCreateIssueDto,
+  McpGetBacklogItemDto,
+  McpGetIssueDto,
   McpSearchIssuesDto,
 } from '@application/mcp/dtos/mcp.dtos';
 import {
@@ -26,6 +28,8 @@ import {
   McpCreateBacklogItemUseCase,
   McpCreateDocUseCase,
   McpCreateIssueUseCase,
+  McpGetBacklogItemUseCase,
+  McpGetIssueUseCase,
   McpSearchIssuesUseCase,
 } from '@application/mcp/use-cases';
 
@@ -80,9 +84,14 @@ export class McpServerFactory {
     private readonly createBacklogItem: McpCreateBacklogItemUseCase,
     private readonly createDoc: McpCreateDocUseCase,
     private readonly searchIssues: McpSearchIssuesUseCase,
+    private readonly getIssue: McpGetIssueUseCase,
+    private readonly getBacklogItem: McpGetBacklogItemUseCase,
     config: ConfigService,
   ) {
-    this.appUrl = (config.get<string>('APP_BASE_URL') ?? 'http://localhost:3001').replace(/\/$/, '');
+    this.appUrl = (config.get<string>('APP_BASE_URL') ?? 'http://localhost:3001').replace(
+      /\/$/,
+      '',
+    );
   }
 
   create(holder: McpActorHolder): McpServer {
@@ -110,6 +119,8 @@ export class McpServerFactory {
 
     this.registerListWorkspace(server, run);
     this.registerSearchIssues(server, run);
+    this.registerGetIssue(server, run);
+    this.registerGetBacklogItem(server, run);
     this.registerCreateIssue(server, run);
     this.registerCreateBacklogItem(server, run);
     this.registerCreateDoc(server, run);
@@ -163,6 +174,52 @@ export class McpServerFactory {
             issues.length
               ? `${issues.length} issue(s):\n\n${issues.map((i) => this.describeIssue(i)).join('\n\n')}`
               : 'No matching issues.',
+        ),
+    );
+  }
+
+  private registerGetIssue(server: McpServer, run: Run): void {
+    registerTool<McpGetIssueDto>(
+      server,
+      'get_issue',
+      {
+        title: 'Read a task or bug',
+        description:
+          'The full text of one issue by its ref (TSK-6HCUHKX, BUG-6HCUHKX) — description included, ' +
+          'with any diagram as a ```mermaid fence. Use it to answer questions about an issue or to ' +
+          'work from what it actually says; search_issues finds the ref when you only know a title.',
+        inputSchema: {
+          ref: z.string().min(1).describe('Issue ref (TSK-6HCUHKX / BUG-6HCUHKX) or its id'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      (dto) =>
+        run<McpIssueResponseDto>(
+          (actor) => this.getIssue.execute({ actor, dto }),
+          (issue) => this.describeIssueInFull(issue),
+        ),
+    );
+  }
+
+  private registerGetBacklogItem(server: McpServer, run: Run): void {
+    registerTool<McpGetBacklogItemDto>(
+      server,
+      'get_backlog_item',
+      {
+        title: 'Read a backlog item',
+        description:
+          'The full text of one roadmap backlog item by ref (RM-6HCUHKX) or exact title — the ' +
+          'opportunity as written, with its RICE inputs, column and dates. Use it before adding ' +
+          'delivery work under an item, or to answer what the item actually proposes.',
+        inputSchema: {
+          ref: z.string().min(1).describe('Backlog item ref (RM-6HCUHKX), id, or its exact title'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      (dto) =>
+        run<McpBacklogItemResponseDto>(
+          (actor) => this.getBacklogItem.execute({ actor, dto }),
+          (item) => this.describeBacklogItemInFull(item),
         ),
     );
   }
@@ -293,6 +350,47 @@ export class McpServerFactory {
 
   private url(path: string): string {
     return `${this.appUrl}${path}`;
+  }
+
+  /** The long form: everything `describeIssue` prints, plus what it leaves out. */
+  private describeIssueInFull(i: McpIssueResponseDto): string {
+    const dates = [i.startDate, i.endDate].filter(Boolean).join(' → ');
+    const facts = [
+      `kind: ${i.kind}`,
+      `team: ${i.teamName || 'none'}`,
+      `status: ${i.status}`,
+      `assignees: ${i.assigneeNames.join(', ') || 'unassigned'}`,
+      i.severity ? `severity: ${i.severity}` : '',
+      i.estimate ? `estimate: ${i.estimate} point(s)` : '',
+      dates ? `dates: ${dates}` : '',
+    ].filter(Boolean);
+    return [
+      `${i.shortId} · ${i.title}`,
+      facts.map((f) => `  ${f}`).join('\n'),
+      `  ${this.url(i.link)}`,
+      '',
+      i.description || '(no description)',
+    ].join('\n');
+  }
+
+  private describeBacklogItemInFull(b: McpBacklogItemResponseDto): string {
+    const dates = [b.startDate, b.endDate].filter(Boolean).join(' → ');
+    const facts = [
+      `roadmap: ${b.roadmapTitle}`,
+      b.phase ? `column: ${b.phase}` : '',
+      b.status ? `status: ${b.status}` : '',
+      b.difficulty ? `difficulty: ${b.difficulty}` : '',
+      `RICE: ${b.riceScore}`,
+      b.progress ? `progress: ${b.progress}%` : '',
+      dates ? `dates: ${dates}` : '',
+    ].filter(Boolean);
+    return [
+      `${b.shortId || b.id} · ${b.title}`,
+      facts.map((f) => `  ${f}`).join('\n'),
+      `  ${this.url(b.link)}`,
+      '',
+      b.description || '(no description)',
+    ].join('\n');
   }
 
   private describeIssue(i: McpIssueResponseDto): string {

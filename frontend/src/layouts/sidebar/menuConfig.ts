@@ -198,6 +198,44 @@ export const NAV_AREAS: NavArea[] = [
     ],
   },
   {
+    // Calendar — the same work as Home's My Tasks, laid out on days instead of in
+    // columns. It earns a rail stop rather than a row inside Workspace because
+    // "when is my week" is a different question from "what is on my list", asked
+    // often enough to deserve one click.
+    //
+    // Its three rows are one page at three scopes, exactly as Quality's Bugs row
+    // is the Issues board narrowed by `search`. Nothing is duplicated: the scope
+    // rows carry `?source=`, so only the one matching the live URL lights up
+    // (see `queryRowClaims`), and the toolbar's own toggle writes the same
+    // param — the sidebar and the page can't disagree about what's shown.
+    id: 'calendar',
+    labelKey: 'navarea.calendar',
+    icon: 'calendar',
+    path: '/calendar',
+    sections: [
+      {
+        key: 'calendar.main',
+        items: [
+          { path: '/calendar', labelKey: 'nav.mySchedule', icon: 'calendar', end: true },
+          {
+            path: '/calendar',
+            search: 'source=personal',
+            labelKey: 'nav.calendarPersonal',
+            icon: 'user-list',
+            end: true,
+          },
+          {
+            path: '/calendar',
+            search: 'source=assigned',
+            labelKey: 'nav.calendarAssigned',
+            icon: 'checks',
+            end: true,
+          },
+        ],
+      },
+    ],
+  },
+  {
     // More — running the workspace. Admin-only, and the *one* home for People and
     // Settings: they used to sit in the profile menu, which mixed "who I am" with
     // "how the workspace is configured".
@@ -256,7 +294,6 @@ export function queryRowClaims(peers: NavItem[], pathname: string, search: strin
     (i) => i.search !== undefined && i.path === pathname && searchMatches(search, i.search),
   );
 }
-
 
 /**
  * How specifically a row claims `pathname` — the length of the matching route,

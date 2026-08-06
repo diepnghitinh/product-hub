@@ -204,6 +204,10 @@ export function NewBugPage() {
               placeholder={t('bugs.description')}
               minHeight={80}
               images
+              // Same field the detail view edits, so it gets the same blocks —
+              // otherwise a repro diagram is only possible *after* filing. See
+              // IssueDetailMain.
+              diagrams
               // `@` names a person here too — a reference in the text, not a ping.
               mentions
               className="border-0"

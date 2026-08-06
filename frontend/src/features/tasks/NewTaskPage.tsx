@@ -49,6 +49,9 @@ export function NewTaskPage() {
   // A cycle-filtered board creates INTO its cycle (already resolved to a
   // concrete id by the board) — otherwise the new card would vanish from it.
   const presetCycleId = searchParams.get('cycleId') || undefined;
+  // The day a calendar quick-add was opened on, so "More options" keeps it.
+  const presetStart = searchParams.get('startDate') || '';
+  const presetEnd = searchParams.get('endDate') || '';
 
   const create = useCreateTask();
   const { data: roadmaps } = useRoadmaps();
@@ -61,8 +64,8 @@ export function NewTaskPage() {
   const [status, setStatus] = useState<string | undefined>(presetStatus);
   // Starts on you — the common case is filing your own work; add anyone else.
   const [assigneeIds, setAssigneeIds] = useState<string[]>(user ? [user.id] : []);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(presetStart);
+  const [endDate, setEndDate] = useState(presetEnd);
   const [estimate, setEstimate] = useState(0);
   const [itemId, setItemId] = useState('');
   // Seeded from the board that opened this (a cycle-filtered board), and editable
@@ -199,6 +202,9 @@ export function NewTaskPage() {
               placeholder={t('tasks.addDescription')}
               minHeight={80}
               images
+              // Same field the detail view edits, so it gets the same blocks.
+              // See IssueDetailMain.
+              diagrams
               // `@` names a person here too — a reference in the text, not a ping.
               mentions
               className="border-0"
