@@ -674,6 +674,11 @@ export const en = {
   'issues.cappedHint': 'shown — narrow it with search or filters.',
   'issues.kindTasks': 'Tasks',
   'issues.kindBugs': 'Bugs',
+  // The copy menu at the top right of an issue's detail. "Copied!" is common.copied.
+  'issues.copyMenu': 'Copy',
+  'issues.copyUrl': 'Copy issue URL',
+  'issues.copyId': 'Copy issue ID',
+  'issues.copyBranch': 'Copy git branch name',
   // Bulk actions — the List-view multi-select toolbar. Count words compose with a
   // number in code (`3 selected`, `2 updated`), so they carry no placeholder.
   'bulk.selected': 'selected',

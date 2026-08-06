@@ -670,6 +670,10 @@ export const ko: Record<I18nKey, string> = {
   'issues.cappedHint': '표시됨 — 검색이나 필터로 범위를 좁히세요.',
   'issues.kindTasks': '태스크',
   'issues.kindBugs': '버그',
+  'issues.copyMenu': '복사',
+  'issues.copyUrl': '이슈 URL 복사',
+  'issues.copyId': '이슈 ID 복사',
+  'issues.copyBranch': 'Git 브랜치 이름 복사',
   // Bulk actions — the List-view multi-select toolbar. Count words compose with a
   // number in code (`3 selected`, `2 updated`), so they carry no placeholder.
   'bulk.selected': '개 선택됨',
