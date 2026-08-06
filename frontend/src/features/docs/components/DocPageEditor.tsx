@@ -9,7 +9,14 @@ import {
 } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, History, Image as ImageIcon, Link2, Loader2, Paintbrush, X } from 'lucide-react';
-import { Button, Drawer, RichText, RichTextEditor, SymbolPicker } from '@/components/ui';
+import {
+  Button,
+  Drawer,
+  RichText,
+  RichTextEditor,
+  SymbolPicker,
+  TITLE_FIELD,
+} from '@/components/ui';
 import { MediaUploader } from '@/components/MediaUploader';
 import { ProseSkeleton } from '@/components/Skeletons';
 import { TeamSymbol, TEAM_SYMBOL_NAMES } from '@/components/TeamSymbol';
@@ -599,7 +606,10 @@ export function DocPageEditor({
                 onBlur={() => void flush()}
                 aria-label={t('docs.pageTitle')}
                 placeholder={t('docs.untitled')}
-                className="min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/60 sm:text-3xl"
+                className={cn(
+                  TITLE_FIELD,
+                  'flex-1 resize-none overflow-hidden placeholder:text-muted-foreground/60 sm:text-3xl',
+                )}
               />
             </div>
           )}
@@ -726,8 +736,10 @@ export function DocPageEditor({
                 onChange={(html) => queue({ content: html })}
                 onComment={canComment ? (range) => commentOnRange(range) : undefined}
                 commentLabel={t('docs.comments.add')}
-                // A doc page *is* the document — the skin drops the frame + focus
-                // ring and reads at body size (see rich-text-editor.css).
+                // A doc page *is* the document — the skin drops the resting frame
+                // and reads at body size. Focus still answers "you're writing
+                // here", as an outline held off the text rather than a ring
+                // hugging it (see rich-text-editor.css).
                 className="doc-page"
               />
             ) : (

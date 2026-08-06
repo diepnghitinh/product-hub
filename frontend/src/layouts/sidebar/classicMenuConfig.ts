@@ -1,5 +1,6 @@
 import type { I18nKey } from '@/i18n/en';
 import type { NavItem } from '@/layouts/sidebar/menuConfig';
+import { designPatternsEnabled } from '@/lib/env';
 
 /**
  * The **classic** side menu's model: one column, every section of the app stacked
@@ -92,10 +93,21 @@ export const NAV_GROUPS: NavGroup[] = [
  *
  * Design patterns is here because More is its *only* link: without this row,
  * choosing the classic menu would leave a page in the app you can reach solely by
- * typing its URL. Anything More gains later needs the same thought.
+ * typing its URL. Anything More gains later needs the same thought. It drops out
+ * of both menus in a built app, where the page doesn't exist — see
+ * `designPatternsEnabled`.
  */
 export const PROFILE_NAV_ITEMS: NavItem[] = [
   { path: '/admin/people', labelKey: 'nav.people', icon: 'people', adminOnly: true },
   { path: '/admin/settings', labelKey: 'nav.settings', icon: 'settings', adminOnly: true },
-  { path: '/design-patterns', labelKey: 'nav.designPatterns', icon: 'sparkles', adminOnly: true },
+  ...(designPatternsEnabled
+    ? [
+        {
+          path: '/design-patterns',
+          labelKey: 'nav.designPatterns',
+          icon: 'sparkles',
+          adminOnly: true,
+        } satisfies NavItem,
+      ]
+    : []),
 ];

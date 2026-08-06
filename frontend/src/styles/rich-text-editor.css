@@ -11,7 +11,18 @@
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   line-height: 1.6;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    outline-color 150ms ease;
 }
+/* "You are writing here" — the whole field is framed in the brand ring while it
+   holds the caret, the same 1px the plain Input and the comment composer use.
+   Drawn as a box-shadow rather than a thicker border so nothing under it moves.
+
+   Variants that drop the resting border (`border-0`, `.doc-page`) still get this
+   frame: without a resting shape to light up, focus is the *only* thing telling
+   you which surface has the caret. */
 .rich-text-editor:focus-within {
   border-color: hsl(var(--ring));
   box-shadow: 0 0 0 1px hsl(var(--ring));
@@ -483,8 +494,8 @@
   color: hsl(var(--muted-foreground) / 0.6);
 }
 
-/* Docs workspace: a doc page *is* the document, so the editor drops its frame,
-   focus ring and inner padding, and reads at body size rather than form size.
+/* Docs workspace: a doc page *is* the document, so the editor drops its resting
+   frame and inner padding, and reads at body size rather than form size.
    Applied via `<RichTextEditor className="doc-page" />`. */
 .rich-text-editor.doc-page {
   border: 0;
@@ -496,9 +507,16 @@
      can't, this rule would win. Alone (no wrapper) it still reads at 1rem. */
   font-size: var(--doc-font-size, 1rem);
 }
+/* It still answers "you're writing here", but the page carries no padding of its
+   own, so the frame is an outline held off the text rather than a ring hugging
+   the first character. Outlines take no space at all, which is what lets a
+   full-width page be framed without the column reflowing. */
 .rich-text-editor.doc-page:focus-within {
   border-color: transparent;
   box-shadow: none;
+  outline: 1px solid hsl(var(--ring));
+  outline-offset: 0.75rem;
+  border-radius: 0.5rem;
 }
 
 /* The reader's half of `.doc-page` — `<RichText className="doc-page-read" />`,

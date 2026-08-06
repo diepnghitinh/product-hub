@@ -22,6 +22,7 @@ import {
   RichText,
   RichTextEditor,
   Select,
+  TITLE_FIELD,
   formatDateRange,
 } from '@/components/ui';
 import { AssigneeField, fallbackNames } from '@/components/AssigneeField';
@@ -541,7 +542,7 @@ export function RoadmapItemDetail({
         {canWrite ? (
           <input
             key={item.id}
-            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground"
+            className={cn(TITLE_FIELD, 'flex-1')}
             defaultValue={item.title}
             placeholder={t('roadmaps.itemTitlePlaceholder')}
             aria-label={t('roadmaps.itemTitle')}

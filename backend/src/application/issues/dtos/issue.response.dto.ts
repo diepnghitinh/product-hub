@@ -149,4 +149,26 @@ export class IssueResponseDto {
       'cleared again if it is reopened. Server-owned: a client cannot set it.',
   })
   resolvedAt: Date | null;
+
+  @ApiProperty({
+    description:
+      'CI/CD state of the latest pipeline that named this issue — running | ' +
+      'passed | failed | canceled, or "" when no connected repo has built it. ' +
+      'Set only by an inbound GitHub/GitLab webhook (Settings → Integrations), ' +
+      'matched to the issue by its ref appearing in the branch name, the ' +
+      'MR/PR title or a commit message. A client cannot set it.',
+  })
+  ciStatus: string;
+
+  @ApiProperty({ description: 'Link to the run on the git host; "" if none.' })
+  ciUrl: string;
+
+  @ApiProperty({ description: 'github | gitlab — which host reported the run.' })
+  ciProvider: string;
+
+  @ApiProperty({ description: 'Branch the run was on.' })
+  ciBranch: string;
+
+  @ApiProperty({ nullable: true, description: 'When that run was reported.' })
+  ciUpdatedAt: Date | null;
 }

@@ -5,10 +5,12 @@ import { BugStatusConfig, DEFAULT_BUG_STATUSES } from '@application/bugs/domain/
 import { TaskStatusConfig, DEFAULT_TASK_STATUSES } from '@application/tasks/domain/enums/task.enums';
 import { WebhookConfig, normalizeWebhook } from './webhook.types';
 import { CloudStorageConfig, defaultStorageConfig } from './storage.types';
+import { GitIntegrationConfig } from './integration.types';
 
 interface AppSettingsProps {
   tenantId: string;
   webhooks: WebhookConfig[];
+  integrations: GitIntegrationConfig[];
   bugStatuses: BugStatusConfig[];
   taskStatuses: TaskStatusConfig[];
   storage: CloudStorageConfig;
@@ -27,6 +29,7 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
     props: {
       tenantId: string;
       webhooks?: WebhookConfig[];
+      integrations?: GitIntegrationConfig[];
       bugStatuses?: BugStatusConfig[];
       taskStatuses?: TaskStatusConfig[];
       storage?: CloudStorageConfig;
@@ -43,6 +46,7 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
         {
           tenantId: props.tenantId,
           webhooks: (props.webhooks ?? []).map(normalizeWebhook),
+          integrations: props.integrations ?? [],
           // Fall back to the shipped defaults for tenants that predate the field.
           bugStatuses: props.bugStatuses?.length ? props.bugStatuses : DEFAULT_BUG_STATUSES,
           taskStatuses: props.taskStatuses?.length ? props.taskStatuses : DEFAULT_TASK_STATUSES,
@@ -68,6 +72,9 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
   get webhooks(): WebhookConfig[] {
     return this.props.webhooks;
   }
+  get integrations(): GitIntegrationConfig[] {
+    return this.props.integrations;
+  }
   get bugStatuses(): BugStatusConfig[] {
     return this.props.bugStatuses;
   }
@@ -86,6 +93,25 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
 
   setWebhooks(webhooks: WebhookConfig[]): void {
     this.props.webhooks = webhooks;
+    this.props.updatedAt = new Date();
+  }
+
+  setIntegrations(integrations: GitIntegrationConfig[]): void {
+    this.props.integrations = integrations;
+    this.props.updatedAt = new Date();
+  }
+
+  /**
+   * Stamp "we heard from this repo" after a delivery. Separate from
+   * `setIntegrations` because it's written by the *webhook* path, which must
+   * never touch the rest of an admin's configuration — the two writers can
+   * legitimately race, and only one of them is the user.
+   */
+  recordIntegrationDelivery(id: string, summary: string): void {
+    const at = new Date().toISOString();
+    this.props.integrations = this.props.integrations.map((i) =>
+      i.id === id ? { ...i, lastEventAt: at, lastEventSummary: summary } : i,
+    );
     this.props.updatedAt = new Date();
   }
 

@@ -670,6 +670,10 @@ export const ko: Record<I18nKey, string> = {
   'issues.cappedHint': '표시됨 — 검색이나 필터로 범위를 좁히세요.',
   'issues.kindTasks': '태스크',
   'issues.kindBugs': '버그',
+  'issues.copyMenu': '복사',
+  'issues.copyUrl': '이슈 URL 복사',
+  'issues.copyId': '이슈 ID 복사',
+  'issues.copyBranch': 'Git 브랜치 이름 복사',
   // Bulk actions — the List-view multi-select toolbar. Count words compose with a
   // number in code (`3 selected`, `2 updated`), so they carry no placeholder.
   'bulk.selected': '개 선택됨',
@@ -1009,6 +1013,41 @@ export const ko: Record<I18nKey, string> = {
   'settings.webhookAddMember': '멤버 추가',
   'settings.webhookRemoveMember': '멤버 제거',
   'settings.webhooksSaved': '웹훅 설정을 저장했습니다.',
+  // Integrations — inbound git webhooks (GitHub / GitLab)
+  'settings.integrations': '연동',
+  'settings.integrationsHint':
+    '저장소를 연결하면 이슈에 빌드 상태가 표시됩니다. 저희가 git 호스트를 호출하지 않고 액세스 토큰도 저장하지 않습니다 — 저장소가 저희에게 보냅니다.',
+  'settings.integrationsHow': '동작 방식',
+  'settings.integrationsHowSteps':
+    '아래에서 저장소를 추가하고, URL과 시크릿을 해당 저장소의 웹훅 설정에 붙여넣은 뒤, 브랜치 이름·MR/PR 제목·커밋 메시지에 이슈 참조를 넣으세요. 그 참조를 언급한 파이프라인의 상태가 해당 이슈에 기록됩니다.',
+  'settings.integrationsRefExample': '예: feature/TSK-6HCUHKX-login 또는 "fix BUG-2KP9QTM: retry"',
+  'settings.integrationsAdd': '저장소 연결',
+  'settings.integrationsEmpty': '아직 연결된 저장소가 없습니다.',
+  'settings.integrationProvider': 'Git 호스트',
+  'settings.integrationName': '저장소',
+  'settings.integrationNamePlaceholder': 'acme/web',
+  'settings.integrationNameHint': '표시용 이름입니다 — 페이로드와 대조하지 않습니다.',
+  'settings.integrationWebhookUrl': 'Payload URL',
+  'settings.integrationSecret': '시크릿 토큰',
+  'settings.integrationSecretShow': '표시',
+  'settings.integrationSecretHide': '숨기기',
+  'settings.integrationSetupGithub':
+    'GitHub: Settings → Webhooks → Add webhook. URL과 시크릿을 붙여넣고, Content type을 application/json으로 설정한 뒤 개별 이벤트에서 "Workflow runs"를 선택하세요.',
+  'settings.integrationSetupGitlab':
+    'GitLab: Settings → Webhooks → Add new webhook. URL을 붙여넣고 시크릿을 "Secret token"에 넣은 뒤 "Pipeline events"를 체크하세요.',
+  'settings.integrationRotate': '시크릿 재발급',
+  'settings.integrationRotateConfirm':
+    'URL과 시크릿이 새로 발급됩니다. 두 값을 다시 붙여넣기 전까지 저장소의 전송이 중단됩니다. 계속할까요?',
+  'settings.integrationRotated': '새 URL과 시크릿을 발급했습니다 — 저장소에 붙여넣으세요.',
+  'settings.integrationDelete': '연결 해제',
+  'settings.integrationDeleteConfirm':
+    '이 저장소의 연결을 해제할까요? 전송이 즉시 중단됩니다. 이미 이슈에 남은 빌드 라벨은 그대로 유지됩니다.',
+  'settings.integrationDeleted': '저장소 연결을 해제했습니다.',
+  'settings.integrationSaved': '저장소를 연결했습니다.',
+  'settings.integrationNameRequired': '저장소 이름을 입력하세요.',
+  'settings.integrationWaiting': '첫 전송을 기다리는 중',
+  'settings.integrationLastEvent': '최근 전송',
+  'settings.integrationDisabled': '일시 중지됨 — 전송이 거부됩니다.',
   'settings.bugStatuses': '버그 보드 컬럼',
   'settings.bugStatusesHint':
     '버그 보드의 컬럼 이름·색상·순서를 바꿀 수 있습니다. 내부 워크플로는 그대로라 필터와 리포트는 계속 동작합니다.',
@@ -1574,4 +1613,12 @@ export const ko: Record<I18nKey, string> = {
   'enum.webhookEvent.bugCreated': '버그 생성',
   'enum.webhookEvent.bugAssigned': '버그 배정',
   'enum.webhookEvent.commentMention': '댓글 멘션',
+
+  'enum.pipeline.running': '빌드 중',
+  'enum.pipeline.passed': '빌드 성공',
+  'enum.pipeline.failed': '빌드 실패',
+  'enum.pipeline.canceled': '빌드 취소됨',
+
+  'issue.ciStatus': 'CI/CD',
+  'issue.ciOpenRun': '파이프라인 열기',
 };

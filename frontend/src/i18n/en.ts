@@ -674,6 +674,11 @@ export const en = {
   'issues.cappedHint': 'shown — narrow it with search or filters.',
   'issues.kindTasks': 'Tasks',
   'issues.kindBugs': 'Bugs',
+  // The copy menu at the top right of an issue's detail. "Copied!" is common.copied.
+  'issues.copyMenu': 'Copy',
+  'issues.copyUrl': 'Copy issue URL',
+  'issues.copyId': 'Copy issue ID',
+  'issues.copyBranch': 'Copy git branch name',
   // Bulk actions — the List-view multi-select toolbar. Count words compose with a
   // number in code (`3 selected`, `2 updated`), so they carry no placeholder.
   'bulk.selected': 'selected',
@@ -1016,6 +1021,41 @@ export const en = {
   'settings.webhookAddMember': 'Add member',
   'settings.webhookRemoveMember': 'Remove member',
   'settings.webhooksSaved': 'Webhook settings saved.',
+  // Integrations — inbound git webhooks (GitHub / GitLab)
+  'settings.integrations': 'Integrations',
+  'settings.integrationsHint':
+    'Connect a repository so an issue shows its build status. We never call out to your git host and never store an access token — the repo posts to us.',
+  'settings.integrationsHow': 'How it works',
+  'settings.integrationsHowSteps':
+    'Add the repo below, copy the URL and secret into its webhook settings, then put an issue ref in your branch name, MR/PR title or commit message. Every pipeline that mentions it stamps its state on that issue.',
+  'settings.integrationsRefExample': 'e.g. feature/TSK-6HCUHKX-login or "fix BUG-2KP9QTM: retry"',
+  'settings.integrationsAdd': 'Connect a repository',
+  'settings.integrationsEmpty': 'No repositories connected yet.',
+  'settings.integrationProvider': 'Git host',
+  'settings.integrationName': 'Repository',
+  'settings.integrationNamePlaceholder': 'acme/web',
+  'settings.integrationNameHint': 'A label for you — it is never matched against the payload.',
+  'settings.integrationWebhookUrl': 'Payload URL',
+  'settings.integrationSecret': 'Secret token',
+  'settings.integrationSecretShow': 'Show',
+  'settings.integrationSecretHide': 'Hide',
+  'settings.integrationSetupGithub':
+    'In GitHub: Settings → Webhooks → Add webhook. Paste the URL, paste the secret, set Content type to application/json, and pick the individual event "Workflow runs".',
+  'settings.integrationSetupGitlab':
+    'In GitLab: Settings → Webhooks → Add new webhook. Paste the URL, paste the secret into "Secret token", and tick "Pipeline events".',
+  'settings.integrationRotate': 'Rotate secret',
+  'settings.integrationRotateConfirm':
+    'This mints a new URL and secret. The repo stops delivering until you paste both in again. Continue?',
+  'settings.integrationRotated': 'New URL and secret generated — paste them into the repo.',
+  'settings.integrationDelete': 'Disconnect',
+  'settings.integrationDeleteConfirm':
+    'Disconnect this repository? Deliveries stop immediately. Build labels already on issues stay as they are.',
+  'settings.integrationDeleted': 'Repository disconnected.',
+  'settings.integrationSaved': 'Repository connected.',
+  'settings.integrationNameRequired': 'Give the repository a name.',
+  'settings.integrationWaiting': 'Waiting for the first delivery',
+  'settings.integrationLastEvent': 'Last delivery',
+  'settings.integrationDisabled': 'Paused — deliveries are rejected.',
   'settings.bugStatuses': 'Bug board columns',
   'settings.bugStatusesHint':
     'Rename, recolor, and reorder the columns on your Bugs board. The underlying workflow stays the same, so filters and reports keep working.',
@@ -1587,6 +1627,14 @@ export const en = {
   'enum.webhookEvent.bugCreated': 'Bug created',
   'enum.webhookEvent.bugAssigned': 'Bug assigned',
   'enum.webhookEvent.commentMention': 'Comment mention',
+
+  'enum.pipeline.running': 'Building',
+  'enum.pipeline.passed': 'Build passed',
+  'enum.pipeline.failed': 'Build failed',
+  'enum.pipeline.canceled': 'Build canceled',
+
+  'issue.ciStatus': 'CI/CD',
+  'issue.ciOpenRun': 'Open the pipeline',
 } as const;
 
 export type I18nKey = keyof typeof en;

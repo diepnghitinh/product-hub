@@ -11,7 +11,9 @@ import {
   RichTextEditor,
   Select,
   Skeleton,
+  TITLE_FIELD,
 } from '@/components/ui';
+import { cn } from '@/lib/utils';
 import { AssigneeField } from '@/components/AssigneeField';
 import { DescriptionTemplates, useTemplateSeed } from '@/components/DescriptionTemplates';
 import { t } from '@/i18n';
@@ -183,7 +185,7 @@ export function NewBugPage() {
           )}
 
           <input
-            className="w-full min-w-0 border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground"
+            className={cn(TITLE_FIELD, 'w-full')}
             value={title}
             placeholder={t('bugs.title2')}
             aria-label={t('bugs.title2')}

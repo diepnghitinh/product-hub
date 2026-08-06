@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost, apiPut } from '@/lib/api';
-import type { AppSettingsDto, WebhookConfig } from '@/types/dto';
-import type { StorageProvider } from '@/types/enums';
+import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
+import type { AppSettingsDto, GitIntegrationDto, WebhookConfig } from '@/types/dto';
+import type { GitProvider, StorageProvider } from '@/types/enums';
 
 export function useSettings(enabled = true) {
   return useQuery({
@@ -52,4 +52,61 @@ export function useTestStorageConnection() {
     mutationFn: (input: UpdateStoragePayload) =>
       apiPost<{ ok: true }>('/uploads/test-connection', input),
   });
+}
+
+// ── Git integrations ─────────────────────────────────────────────────────────
+const INTEGRATIONS_KEY = ['settings', 'integrations'];
+
+/**
+ * Connected GitHub/GitLab repos. A separate query from `useSettings` because the
+ * response carries each repo's signing secret — it should be fetched by the one
+ * screen that shows it, not by every consumer of app settings.
+ */
+export function useIntegrations(enabled = true) {
+  return useQuery({
+    queryKey: INTEGRATIONS_KEY,
+    queryFn: () => apiGet<GitIntegrationDto[]>('/settings/integrations'),
+    enabled,
+  });
+}
+
+/**
+ * Add or rename a repo. `token`/`secret` are deliberately absent: the server
+ * mints them, and an edit leaves the existing pair alone so the webhook already
+ * pasted into the repo keeps working.
+ */
+export interface SaveIntegrationPayload {
+  /** Omit to add; pass an existing id to edit. */
+  id?: string;
+  provider: GitProvider;
+  name: string;
+  enabled?: boolean;
+}
+
+/** Every mutation returns the full list, so the cache is set, not invalidated. */
+function useIntegrationMutation<TInput>(fn: (input: TInput) => Promise<GitIntegrationDto[]>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (list) => qc.setQueryData(INTEGRATIONS_KEY, list),
+  });
+}
+
+export function useSaveIntegration() {
+  return useIntegrationMutation((input: SaveIntegrationPayload) =>
+    apiPut<GitIntegrationDto[]>('/settings/integrations', input),
+  );
+}
+
+/** Mint a new URL + secret for one repo — both change, so the repo must be re-pasted. */
+export function useRotateIntegrationSecret() {
+  return useIntegrationMutation((id: string) =>
+    apiPost<GitIntegrationDto[]>(`/settings/integrations/${id}/rotate`, {}),
+  );
+}
+
+export function useDeleteIntegration() {
+  return useIntegrationMutation((id: string) =>
+    apiDelete<GitIntegrationDto[]>(`/settings/integrations/${id}`),
+  );
 }

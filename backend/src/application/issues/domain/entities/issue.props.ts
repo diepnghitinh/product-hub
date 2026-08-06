@@ -130,4 +130,24 @@ export interface IssueProps {
    * never set or backdate it.
    */
   resolvedAt: Date | null;
+
+  // ── CI/CD ──────────────────────────────────────────────────────────────────
+  /**
+   * The latest pipeline that named this issue, as reported by a connected
+   * GitHub / GitLab repo (a `PipelineState` value; '' when none ever has).
+   *
+   * Server-owned like {@link resolvedAt}, but written by a different hand: the
+   * inbound webhook, not the entity. A client can never set it — there is no
+   * field for it on any update DTO, because the build is a fact about the repo
+   * and not an opinion the workspace gets to hold.
+   */
+  ciStatus: string;
+  /** Link to the run on the git host; '' when the payload carried none. */
+  ciUrl: string;
+  /** `github` | `gitlab` — which host reported it. */
+  ciProvider: string;
+  /** Branch it ran on. Shown beside the label, so a run from an old branch
+   *  reads as what it is rather than as the current state of the work. */
+  ciBranch: string;
+  ciUpdatedAt: Date | null;
 }

@@ -172,6 +172,23 @@ the compose variant; the image's own `nginx.conf` has the proxy commented out (n
 upstreams at config load, so a hard-coded `api` host would stop the container booting
 anywhere that name doesn't exist).
 
+On the swarm deployment it is the **`productos-admin`** service in
+`docker-compose.internal-tools.stack.yml`, on its own hostname. There is no nginx config to mount
+there: the image keeps `/v1` and Traefik routes `/v1` **on the console's host** to the API service,
+so it is same-origin the same way, and needs no CORS entry. Build and push it with
+`./build-and-push.sh admin`.
+
+`.env.prod` is that build's config — `VITE_API_URL` and `VITE_APP_URL`, inlined by Vite when the
+image builds in `--mode prod`. It is the one file `.dockerignore` lets through its `.env.*` rule,
+because the build must see it.
+
+**It is not in git**, the same way `frontend/.env.prod` isn't: the root `.gitignore` ignores
+`.env.prod` at any depth. It lives on whichever machine builds the image. Neither value is a
+secret — both end up in the client bundle — so `git add -f saas-admin/.env.prod` is a reasonable
+call if you'd rather the deployment's config travelled with the repo. Where it's absent the build
+warns and falls back to `/v1` with the app links hidden, rather than failing the way the tenant
+app's build does. For a one-off, `ADMIN_API_URL` / `ADMIN_APP_URL` override it without editing it.
+
 In production:
 
 1. Give it **its own hostname** (`admin.yourdomain.com`), never a path under the app.

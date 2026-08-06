@@ -2,5 +2,8 @@ node_modules
 dist
 .env
 .env.*
+# …except the production build config, which the image's build MUST see: it is
+# where VITE_API_URL and VITE_APP_URL come from (same exception frontend makes).
+!.env.prod
 *.local
 README.md

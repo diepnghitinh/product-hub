@@ -11,7 +11,9 @@ import {
   RichTextEditor,
   Select,
   Skeleton,
+  TITLE_FIELD,
 } from '@/components/ui';
+import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { Icon } from '@/components/Icon';
@@ -187,7 +189,7 @@ export function NewTaskPage() {
           )}
 
           <input
-            className="w-full min-w-0 border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground"
+            className={cn(TITLE_FIELD, 'w-full')}
             value={title}
             placeholder={t('tasks.titleLabel')}
             aria-label={t('tasks.titleLabel')}

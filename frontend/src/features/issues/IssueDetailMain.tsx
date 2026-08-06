@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
-import { Menu, RichText, RichTextEditor, type MenuItem } from '@/components/ui';
+import { Menu, RichText, RichTextEditor, TITLE_FIELD, type MenuItem } from '@/components/ui';
 import {
   DescriptionTemplates,
   useTemplateSeed,
@@ -24,6 +24,7 @@ import {
   Avatar,
   type Person,
 } from '@/features/activity/CommentThread';
+import { IssueCopyMenu } from './IssueCopyMenu';
 
 export interface IssueDetailMainProps {
   /** Which thread the comments belong to — routes + cache keys differ. */
@@ -156,17 +157,26 @@ export function IssueDetailMain({
       />
     ) : null;
 
+  // URL · ID · branch name. On a standalone route the title row's right side is
+  // empty (favourite and ⋯ have gone up to the topbar), so this pins to the top
+  // right corner over it; in the drawer that corner is taken, so it joins the
+  // title row inline, ahead of the actions already there.
+  const copyMenu = <IssueCopyMenu issueId={issueId} shortId={shortId} title={title} />;
+  const pinned = menuTarget === 'topbar';
+
   return (
-    <div className="min-w-0">
+    <div className={cn('min-w-0', pinned && 'relative')}>
+      {pinned && <div className="absolute right-0 top-0 z-10">{copyMenu}</div>}
       {shortId && (
         <span className="mb-1 block font-mono text-xs text-muted-foreground">{shortId}</span>
       )}
       {/* Title row — the ⋯ overflow menu (Delete, …) sits at its right, like an
-          issue header. Hidden when there are no actions the viewer may take. */}
-      <div className="flex items-center gap-2">
+          issue header. Hidden when there are no actions the viewer may take.
+          `pr-10` keeps a long title clear of the pinned copy button above it. */}
+      <div className={cn('flex items-center gap-2', pinned && 'pr-10')}>
         {canWrite ? (
           <input
-            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-2xl font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground"
+            className={cn(TITLE_FIELD, 'flex-1')}
             defaultValue={title}
             placeholder={titlePlaceholder}
             aria-label={titlePlaceholder}
@@ -179,7 +189,8 @@ export function IssueDetailMain({
         ) : (
           <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight">{title}</h1>
         )}
-        {/* Inbox pane (no topbar): favourite + ⋯ sit inline in the title row. */}
+        {/* Inbox pane (no topbar): copy + favourite + ⋯ sit inline in the title row. */}
+        {!pinned && copyMenu}
         {menuTarget === 'header' && favourite && currentUserId && (
           <FavouriteButton
             kind={favourite.kind}

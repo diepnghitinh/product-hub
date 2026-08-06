@@ -17,6 +17,22 @@ export const env = {
 /** Whether real-time collaborative doc editing is available in this build. */
 export const collabEnabled = (): boolean => !!env.collabUrl;
 
+/**
+ * Whether `/design-patterns` — the component gallery we build the UI against —
+ * exists in this build. It is a *development* reference, not a product feature:
+ * useful while writing components, noise in a workspace someone actually works in.
+ * So it ships in `npm run dev` and in nothing else.
+ *
+ * `import.meta.env.DEV` is false for any `vite build`, whatever `--mode` names it
+ * (the Docker image builds `--mode prod`; see frontend/Dockerfile). Read it as
+ * "the dev server is serving this", not "the mode string says production".
+ *
+ * A plain `const`, deliberately: Vite substitutes the literal `false` at build
+ * time, so the route and both menu rows fold away and the page itself is dropped
+ * from the bundle — it isn't hidden behind a check, it isn't there.
+ */
+export const designPatternsEnabled: boolean = import.meta.env.DEV;
+
 /** `/collab` → `wss://app.acme.com/collab`; an absolute URL is left alone. */
 export function collabWsUrl(): string {
   const configured = env.collabUrl.replace(/\/+$/, '');

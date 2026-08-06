@@ -71,6 +71,11 @@ export class IssueRepository
         // tells a stored row from a brand-new issue and so doesn't stamp an old
         // already-resolved bug with today's date on load — see IssueEntity.create.
         resolvedAt: doc.resolvedAt ?? null,
+        ciStatus: doc.ciStatus,
+        ciUrl: doc.ciUrl,
+        ciProvider: doc.ciProvider,
+        ciBranch: doc.ciBranch,
+        ciUpdatedAt: doc.ciUpdatedAt ?? null,
       },
       new UniqueEntityID(doc._id),
     );
@@ -119,7 +124,36 @@ export class IssueRepository
       createdAt: issue.createdAt,
       updatedAt: issue.updatedAt,
       resolvedAt: issue.resolvedAt,
+      // No `ci*` here on purpose. Mongoose treats this object as a `$set`, so
+      // fields it omits are left untouched — and that's the point: the webhook
+      // is the only writer of the build state. If an ordinary save carried them
+      // too, a teammate editing a title with a page loaded five minutes ago
+      // would quietly stamp that stale build back over a newer one.
     };
+  }
+
+  /**
+   * Record a pipeline's outcome against every issue it named.
+   *
+   * Matched by `shortId` because that's what a branch name carries. Scoped to
+   * the tenant that owns the integration — the refs came off the public
+   * internet, so a ref that exists in *another* workspace must not resolve here.
+   * Returns how many issues were actually updated, which is what the settings
+   * page shows back as "2 issues updated".
+   */
+  async applyPipelineState(
+    tenantId: string,
+    shortIds: string[],
+    state: { ciStatus: string; ciUrl: string; ciProvider: string; ciBranch: string },
+  ): Promise<number> {
+    if (!shortIds.length) return 0;
+    const res = await this.model
+      .updateMany(
+        { tenantId, shortId: { $in: shortIds } },
+        { $set: { ...state, ciUpdatedAt: new Date() } },
+      )
+      .exec();
+    return res.modifiedCount ?? 0;
   }
 
   async findById(id: string): Promise<IssueEntity | null> {

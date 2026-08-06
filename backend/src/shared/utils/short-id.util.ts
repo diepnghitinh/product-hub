@@ -25,6 +25,41 @@ export function randomRef(prefix: string): string {
   return `${prefix}-${nano()}`;
 }
 
+/**
+ * Every issue ref mentioned in a piece of free text — a git branch name, a
+ * merge-request title, a commit message — uppercased and de-duplicated.
+ *
+ * This is the whole of how a pipeline finds its issue: nobody links anything by
+ * hand, they just name the branch `feat/TSK-6HCUHKX-import-parser` the way
+ * `issueBranchName` already suggests, and the CI label follows.
+ *
+ * Matches both ref generations — the random suffix minted by {@link randomRef}
+ * and the legacy sequential ids (`TSK-7`) — because both are still live in
+ * URLs and branch names. A ref that doesn't resolve is simply dropped by the
+ * lookup, so the pattern errs wide rather than clever: it has no way to know
+ * which ids a tenant actually has.
+ */
+export function issueRefsInText(...texts: (string | null | undefined)[]): string[] {
+  const found = new Set<string>();
+  // Case-insensitive, because a branch is very often all-lowercase
+  // (`fix/tsk-6hcuhkx-retry`) even when the ref that named it wasn't — the match
+  // is uppercased below, so the lookup still sees the canonical ref.
+  //
+  // The suffix is either all digits (a legacy sequential id, `TSK-7`) or 7-12
+  // characters (a `randomRef`, widened to 12 only on collision). Nothing
+  // shorter, which is what stops the case-insensitive form from reading
+  // `bug-fix` and `bug-report` — ordinary branch names — as issue refs.
+  //
+  // The trailing boundary is what lets `TSK-6HCUHKX-import-parser` end at the
+  // ref: a hyphen is a word boundary, so the branch's own words never run in.
+  const re = /\b(TSK|BUG)-(\d+|[A-Za-z0-9]{7,12})\b/gi;
+  for (const text of texts) {
+    if (!text) continue;
+    for (const m of text.matchAll(re)) found.add(`${m[1]}-${m[2]}`.toUpperCase());
+  }
+  return [...found];
+}
+
 // A share link is pasted into chat, read off a screen and typed by hand, so it
 // uses the same unambiguous alphabet rather than a 36-character UUID. Longer
 // than a ref because the token *is* the access control: 31^14 ≈ 7.6 × 10^20

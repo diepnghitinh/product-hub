@@ -1,0 +1,212 @@
+version: '3.8'
+
+networks:
+  prod_linkadz:
+    external: true
+  traefik_proxy:
+    external: true
+
+services:
+  productos-fe:
+    image: 680543267295.dkr.ecr.ap-northeast-2.amazonaws.com/tools:product-hub-frontend
+    networks:
+      - traefik_proxy
+      - prod_linkadz
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.prod-productos-fe-app.rule=Host(`team.linkadz.store`)"
+        - "traefik.http.routers.prod-productos-fe-app.entrypoints=web"
+        - "traefik.http.routers.prod-productos-fe-app.service=prod-productos-fe-app-svc"
+        - "traefik.http.services.prod-productos-fe-app-svc.loadbalancer.server.port=80"
+
+  productos-be:
+    image: 680543267295.dkr.ecr.ap-northeast-2.amazonaws.com/tools:product-hub-backend
+    networks:
+      - traefik_proxy
+      - prod_linkadz
+    env_file:
+      # Not in the repo — lives on the swarm host. Two keys matter for the
+      # platform console below and neither fails loudly if you skip it:
+      #   PLATFORM_JWT_SECRET  set it, and to something other than JWT_SECRET.
+      #                        Unset, the API derives "<JWT_SECRET>::platform"
+      #                        and console login still works — so nothing tells
+      #                        you the vendor console's tokens are keyed off the
+      #                        tenant secret.
+      #   ALLOWED_ORIGINS      must already list https://team.linkadz.store (the
+      #                        app calls the API cross-origin). The console does
+      #                        NOT need an entry — it is same-origin by routing.
+      # Operators are not signed up, and the runtime image can't seed one (it
+      # ships the build output + prod deps only — no ts-node, no scripts/).
+      # Create the first one from a repo checkout that can reach this database:
+      #   cd backend && NODE_ENV=prod MONGODB_URI=<prod uri> \
+      #     npm run seed:platform -- --email … --password '…' --name '…'
+      # Re-running with the same email resets that password — the only recovery
+      # path there is.
+      - ./env/internal-product-os.env
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.prod-productos-be-app.rule=Host(`team-api.linkadz.store`)"
+        - "traefik.http.routers.prod-productos-be-app.entrypoints=web"
+        - "traefik.http.routers.prod-productos-be-app.service=prod-productos-be-app-svc"
+        - "traefik.http.services.prod-productos-be-app-svc.loadbalancer.server.port=8080"
+
+  # Platform console — the VENDOR's admin SPA (source: ./saas-admin, built from
+  # ./saas-admin/Dockerfile). Not a feature of the product: it lists every
+  # workspace on this deployment, holds the plan catalog, assigns subscriptions
+  # and reports usage. It gets its own hostname and never a path under the app —
+  # a workspace user must have no URL on team.linkadz.store that serves this
+  # bundle, and that separation IS the security model (saas-admin/README.md).
+  productos-admin:
+    # Built and pushed by ./build-and-push.sh (target: admin) — the tag is that
+    # script's ADMIN_IMAGE default, so the two stay in step. Its config is baked
+    # in at build time from saas-admin/.env.prod (VITE_API_URL=/v1 — the router
+    # below is what serves it — and VITE_APP_URL=https://team.linkadz.store for
+    # the "open workspace" links), so a plain `./build-and-push.sh admin` is the
+    # whole build. ADMIN_API_URL / ADMIN_APP_URL override that file for a one-off.
+    image: 680543267295.dkr.ecr.ap-northeast-2.amazonaws.com/tools:product-hub-saas-admin
+    networks:
+      - traefik_proxy
+      - prod_linkadz
+    healthcheck:
+      # busybox wget, already in the nginx:alpine base — nothing to install.
+      #
+      # 127.0.0.1, NOT localhost: the container's /etc/hosts maps localhost to
+      # ::1 as well, busybox wget tries that one first, and this nginx listens on
+      # IPv4 only (`listen 80;` in saas-admin/nginx.conf). The image says so on
+      # every boot — "10-listen-on-ipv6-by-default.sh: … differs from the
+      # packaged version" is its entrypoint declining to add the IPv6 listener to
+      # a config it didn't ship. Against `localhost` the check gets connection
+      # refused forever: the task never turns healthy, swarm kills and replaces
+      # it on a loop, and the only symptom is a task log that stops right after
+      # that line with the server actually serving fine.
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:80/']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        # ── The console itself ──────────────────────────────────────────────
+        # Needs its own DNS record (team-admin → the swarm ingress). Changing
+        # this hostname means changing it in BOTH rules below, or the SPA loads
+        # and every API call falls through to the SPA router and answers
+        # index.html — which the console shows as "login failed", not as a
+        # routing mistake.
+        - "traefik.http.routers.prod-productos-admin-app.rule=Host(`team-admin.linkadz.store`)"
+        - "traefik.http.routers.prod-productos-admin-app.entrypoints=web"
+        - "traefik.http.routers.prod-productos-admin-app.service=prod-productos-admin-app-svc"
+        - "traefik.http.services.prod-productos-admin-app-svc.loadbalancer.server.port=80"
+        # ── /v1 on this host → the API ──────────────────────────────────────
+        # Same-origin by routing, not by rebuilding: the console keeps
+        # VITE_API_URL=/v1, and Traefik hands /v1 on the console host to the
+        # backend service defined above. That is why this service needs no CORS
+        # entry in the API's ALLOWED_ORIGINS and no API hostname baked into its
+        # bundle — unlike the tenant app, which calls team-api.linkadz.store
+        # cross-origin (frontend/.env.prod).
+        #
+        # `service=` deliberately points at the BACKEND's Traefik service:
+        # routers and services share one namespace across the whole stack. If
+        # you ever delete productos-be, this router goes with it.
+        - "traefik.http.routers.prod-productos-admin-api.rule=Host(`team-admin.linkadz.store`) && PathPrefix(`/v1`)"
+        - "traefik.http.routers.prod-productos-admin-api.entrypoints=web"
+        # Explicit for the same reason as the realtime router below: Traefik's
+        # default priority is rule length, which usually wins here — and losing
+        # this race is silent, because the SPA answers 200 index.html to an API
+        # call rather than an error anyone would notice.
+        - "traefik.http.routers.prod-productos-admin-api.priority=100"
+        - "traefik.http.routers.prod-productos-admin-api.service=prod-productos-be-app-svc"
+        # ── Optional: restrict who can reach the console ────────────────────
+        # The login page is the only thing between the internet and every
+        # tenant's data, so an IP allowlist is worth having. Traefik v2 label
+        # (v3 renames it to ipallowlist). Set the ranges before enabling, and
+        # put it on BOTH routers — the console alone leaves /v1/platform open
+        # on this host. Note this hides the UI only: /v1/platform is served by
+        # the same API that is already public at team-api.linkadz.store, so the
+        # allowlist is defence in depth, not the boundary. Behind another proxy
+        # (Cloudflare, an ALB) also set .ipstrategy.depth or every request looks
+        # like it came from that proxy.
+        # - "traefik.http.middlewares.admin-allowlist.ipwhitelist.sourcerange=203.0.113.4/32,10.0.0.0/8"
+        # - "traefik.http.routers.prod-productos-admin-app.middlewares=admin-allowlist"
+        # - "traefik.http.routers.prod-productos-admin-api.middlewares=admin-allowlist"
+
+  # Realtime — the Yjs sync server behind collaborative doc editing (source:
+  # ./collab, built from ./collab/Dockerfile). Browsers hold one WebSocket per
+  # open doc page straight to this service; nothing server-side calls it, so it
+  # needs the ingress overlay plus whatever network reaches Mongo. Traefik v2
+  # upgrades WebSockets with no extra label, and Hocuspocus pings on its own, so
+  # an editing session left open never idles out.
+  realtime:
+    # Built and pushed by ./build-and-push.sh (target: realtime) — the tag is that
+    # script's REALTIME_IMAGE default, so the two stay in step.
+    image: 680543267295.dkr.ecr.ap-northeast-2.amazonaws.com/tools:product-hub-realtime
+    env_file:
+      # Not in the repo — lives on the swarm host beside the other env files.
+      #   MONGODB_URI     (required) the SAME database the API writes docpages to;
+      #                   this service mirrors rendered HTML back into that
+      #                   collection, so a separate database looks fine and
+      #                   quietly loses every doc
+      #   JWT_SECRET      (required) byte-identical to the API's — editors
+      #                   authenticate here with the very access token they use for
+      #                   REST calls, so a mismatch presents as every editor
+      #                   silently failing to connect, with nothing in the UI to
+      #                   say why
+      #   ALLOWED_ORIGINS not needed while the app is same-origin (below): the
+      #                   browser makes no cross-origin request, and this service
+      #                   only *adds* CORS headers, it never refuses on origin.
+      #                   Set it only if you also expose the service on its own host.
+      #   STORE_DEBOUNCE_MS / STORE_MAX_DEBOUNCE_MS   optional, default 2s / 10s
+      - ./env/product-os-realtime.env
+    environment:
+      NODE_ENV: production
+      PORT: '3002'
+    networks:
+      - traefik_proxy
+      - prod_linkadz
+    healthcheck:
+      # Node 22 has global fetch — nothing extra to install in the alpine image.
+      # `localhost` is safe here where it isn't for nginx above: this server binds
+      # dual-stack (listen with no host), so ::1 answers.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:3002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    deploy:
+      # One replica, deliberately — this is a correctness bound, not a capacity
+      # choice. Each instance keeps a page's Y.Doc in memory and there is no
+      # Redis extension, so a second replica would put two people editing the
+      # same page on two documents that never see each other, and whichever
+      # wrote to Mongo last would erase the other's work. Scale only after
+      # adding @hocuspocus/extension-redis.
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        # Same origin as the app, not a host of its own: the SPA connects to
+        # wss://<app host>/collab (frontend/.env.prod → VITE_COLLAB_URL=/collab),
+        # so there is no second DNS record, no second certificate, and no CORS —
+        # the browser never makes a cross-origin request at all.
+        - "traefik.http.routers.prod-realtime.rule=Host(`team.linkadz.store`) && PathPrefix(`/collab`)"
+        - "traefik.http.routers.prod-realtime.entrypoints=web"
+        # Explicit, because losing this race is silent: without it Traefik could
+        # hand /collab to the SPA's own router, the SPA would answer index.html,
+        # and every doc page would sit on "offline" with nothing in any log to say
+        # why. Traefik's default priority is rule length, which usually wins here —
+        # usually is not good enough when the app's router lives in another stack.
+        - "traefik.http.routers.prod-realtime.priority=100"
+        # Hand the service the paths it actually serves: /collab → / (the
+        # WebSocket) and /collab/presence → /presence. Exactly what the trailing
+        # slash on nginx's proxy_pass does for compose (deploy/nginx.web.conf).
+        - "traefik.http.routers.prod-realtime.middlewares=collab-strip"
+        - "traefik.http.middlewares.collab-strip.stripprefix.prefixes=/collab"
+        - "traefik.http.routers.prod-realtime.service=prod-realtime-svc"
+        - "traefik.http.services.prod-realtime-svc.loadbalancer.server.port=3002"
