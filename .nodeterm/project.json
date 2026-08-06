@@ -1,16 +1,77 @@
 {
   "version": 1,
-  "rev": 591,
-  "savedAt": "2026-07-31T04:45:20.221Z",
+  "rev": 665,
+  "savedAt": "2026-08-06T19:15:56.007Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": -33.71847393519522,
-    "y": 2660.7997197651125,
-    "zoom": 0.8488645334121577
+    "x": -732.437211910152,
+    "y": 2442.4158693872355,
+    "zoom": 0.9231404514889284
   },
-  "nodes": [],
+  "nodes": [
+    {
+      "id": "term-msgwe2g0-1",
+      "kind": "terminal",
+      "position": {
+        "x": 1121.861178641421,
+        "y": -2924.415727156804
+      },
+      "size": {
+        "width": 926,
+        "height": 646
+      },
+      "title": "Thêm feature calendar schedule cho task",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-mshvm6o8-1",
+      "kind": "terminal",
+      "position": {
+        "x": 1125.500539801591,
+        "y": -2224.7738115943566
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Fix icon in Integrations settings",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-mshvnihc-2",
+      "kind": "terminal",
+      "position": {
+        "x": 1840.4513351388437,
+        "y": -2226.940329155985
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Design-patterns feature không hiển thị ở chế độ prod",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    }
+  ],
   "bridges": [],
   "ropes": [],
   "kanban": {

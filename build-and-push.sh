@@ -2,9 +2,10 @@
 #
 # build-and-push.sh — build the product-hub images and push them to a registry.
 #
-#   REGISTRY=<host>/<repo> ./build-and-push.sh                    # all three images (one tag each)
+#   REGISTRY=<host>/<repo> ./build-and-push.sh                    # all four images (one tag each)
 #   REGISTRY=<host>/<repo> ./build-and-push.sh backend            # just the API
 #   REGISTRY=<host>/<repo> ./build-and-push.sh realtime           # just the sync server
+#   REGISTRY=<host>/<repo> ./build-and-push.sh admin              # just the platform console
 #   REGISTRY=<host>/<repo> VITE_API_URL=https://api.acme.com/v1 ./build-and-push.sh
 #   REGISTRY=<host>/<repo> PUSH=0 ./build-and-push.sh             # build only, no push
 #
@@ -12,7 +13,9 @@
 #   $REGISTRY:product-hub-backend
 #   $REGISTRY:product-hub-frontend
 #   $REGISTRY:product-hub-realtime    the collab/ Yjs sync server — deployed as the
-#                                     `realtime` service (docker-compose.demo.stack.yml)
+#                                     `realtime` service (docker-compose.internal-tools.stack.yml)
+#   $REGISTRY:product-hub-saas-admin  the saas-admin/ vendor console — deployed as the
+#                                     `productos-admin` service, on its own hostname
 #
 # After each build it reports the image's content digest (sha256) — an immutable
 # handle on that exact image — so you can pin a deployment to
@@ -30,10 +33,23 @@
 #                   from .env.prod). Note an EMPTY value here means "don't override",
 #                   not "ship without collaboration" — to build an image that never
 #                   talks to the realtime service, blank it in frontend/.env.prod.
-#   BUILD_MODE      Vite build mode → picks frontend/.env.<mode> (default prod)
+#   BUILD_MODE      Vite build mode → picks frontend/.env.<mode> and
+#                   saas-admin/.env.<mode> (default prod)
+#   ADMIN_API_URL   platform console API base URL. Unset by default → the value in
+#                   saas-admin/.env.prod (/v1 = same origin, which is what the stack
+#                   routes to the API). Set it only where /v1 on the console's host
+#                   can't reach the API — and then add that host to the API's
+#                   ALLOWED_ORIGINS, or every console login fails on CORS.
+#   ADMIN_APP_URL   tenant app URL the console's "open workspace" links point at, e.g.
+#                   https://team.example.com. Unset → the .env.prod value; empty there
+#                   hides those links.
+#                   Deliberately separate from the frontend's VITE_* vars: the two SPAs
+#                   are different origins with different config, and sharing one variable
+#                   would silently rewire the console when you rebuild the app.
 #   BACKEND_IMAGE   backend tag            (default product-hub-backend)
 #   FRONTEND_IMAGE  frontend tag           (default product-hub-frontend)
 #   REALTIME_IMAGE  sync server tag        (default product-hub-realtime)
+#   ADMIN_IMAGE     platform console tag   (default product-hub-saas-admin)
 #   DIGEST_FILE     optional path; when set, each image's pinnable
 #                   "<name>\t<ref>@sha256:…" line is written here as well as printed
 #   REGISTRY_USER / REGISTRY_PASSWORD   if both set, the script `docker login`s first
@@ -55,9 +71,12 @@ PLATFORM="${PLATFORM:-linux/amd64}"
 VITE_API_URL="${VITE_API_URL:-}"          # empty → use frontend/.env.prod
 VITE_COLLAB_URL="${VITE_COLLAB_URL:-}"    # empty → use frontend/.env.prod (/collab)
 BUILD_MODE="${BUILD_MODE:-prod}"          # Vite mode → frontend/.env.<mode>
+ADMIN_API_URL="${ADMIN_API_URL:-}"        # empty → the console's own /v1 default (same origin)
+ADMIN_APP_URL="${ADMIN_APP_URL:-}"        # empty → console hides its "open workspace" links
 BACKEND_IMAGE="${BACKEND_IMAGE:-product-hub-backend}"
 FRONTEND_IMAGE="${FRONTEND_IMAGE:-product-hub-frontend}"
 REALTIME_IMAGE="${REALTIME_IMAGE:-product-hub-realtime}"
+ADMIN_IMAGE="${ADMIN_IMAGE:-product-hub-saas-admin}"
 DIGEST_FILE="${DIGEST_FILE:-}"          # optional file to also write pinnable ref@digest lines to
 TARGET="${1:-all}"
 
@@ -95,7 +114,7 @@ image_digest() {
 
 # ── Validate ──────────────────────────────────────────────────────────────
 [ -n "$REGISTRY" ] || die "REGISTRY is required — e.g. REGISTRY=myacr.azurecr.io ./build-and-push.sh"
-case "$TARGET" in all|backend|frontend|realtime) ;; *) die "unknown target '$TARGET' — use: all | backend | frontend | realtime" ;; esac
+case "$TARGET" in all|backend|frontend|realtime|admin) ;; *) die "unknown target '$TARGET' — use: all | backend | frontend | realtime | admin" ;; esac
 command -v docker >/dev/null 2>&1 || die "docker not found on PATH"
 docker buildx version >/dev/null 2>&1 || die "docker buildx is required (it ships with modern Docker/OrbStack)"
 REGISTRY="${REGISTRY%/}"   # trim any trailing slash
@@ -158,6 +177,16 @@ if [ "$TARGET" = "all" ] || [ "$TARGET" = "realtime" ]; then
   # PORT and ALLOWED_ORIGINS from the environment at start-up, so one image is
   # good for every environment — unlike the frontend, whose config Vite inlines.
   build "$REALTIME_IMAGE" "$ROOT/collab"
+fi
+if [ "$TARGET" = "all" ] || [ "$TARGET" = "admin" ]; then
+  # The vendor console (saas-admin/). Same shape as the frontend: BUILD_MODE picks
+  # the .env file Vite loads, and the two overrides are passed only when set — an
+  # empty --build-arg does not mean "no override", it blanks what .env.<mode> said
+  # (Vite applies process.env VITE_* after the file).
+  admin_args=( --build-arg "BUILD_MODE=$BUILD_MODE" )
+  [ -n "$ADMIN_API_URL" ] && admin_args+=( --build-arg "VITE_API_URL=$ADMIN_API_URL" )
+  [ -n "$ADMIN_APP_URL" ] && admin_args+=( --build-arg "VITE_APP_URL=$ADMIN_APP_URL" )
+  build "$ADMIN_IMAGE" "$ROOT/saas-admin" "${admin_args[@]}"
 fi
 
 if [ "$PUSH" = "1" ]; then

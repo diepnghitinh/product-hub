@@ -167,9 +167,7 @@ export function IntegrationsSection() {
           <Select
             id="integration-provider"
             value={editing?.provider ?? GitProvider.GITHUB}
-            onValueChange={(v) =>
-              setEditing((s) => (s ? { ...s, provider: v as GitProvider } : s))
-            }
+            onValueChange={(v) => setEditing((s) => (s ? { ...s, provider: v as GitProvider } : s))}
             options={GIT_PROVIDERS.map((p) => ({
               value: p,
               label: (
@@ -249,11 +247,15 @@ function IntegrationCard({
               </Button>
             }
             items={[
-              { label: t('common.edit'), icon: <Pencil />, onClick: onRename },
-              { label: t('settings.integrationRotate'), icon: <RefreshCw />, onClick: onRotate },
+              { label: t('common.edit'), icon: <Pencil className="size-4" />, onClick: onRename },
+              {
+                label: t('settings.integrationRotate'),
+                icon: <RefreshCw className="size-4" />,
+                onClick: onRotate,
+              },
               {
                 label: t('settings.integrationDelete'),
-                icon: <Trash2 />,
+                icon: <Trash2 className="size-4" />,
                 danger: true,
                 onClick: onDelete,
               },

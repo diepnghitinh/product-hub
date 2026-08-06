@@ -6,6 +6,7 @@ import { RegisterPage } from '@/features/auth/RegisterPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
 import { DesignPatternsPage } from '@/pages/DesignPatternsPage';
+import { designPatternsEnabled } from '@/lib/env';
 import { ProjectLayout } from '@/features/projects/ProjectLayout';
 import { FeatureSummary } from '@/features/projects/FeatureSummary';
 import { ReportView } from '@/features/reports/ReportView';
@@ -124,7 +125,14 @@ export default function App() {
           <Route path="/admin/people" element={<AdminPeoplePage />} />
           <Route path="/admin/settings" element={<AdminSettingsPage />} />
           <Route path="/profile" element={<MyProfilePage />} />
-          <Route path="/design-patterns" element={<DesignPatternsPage />} />
+          {/* The component gallery is a dev-time reference and is not part of a
+              built app — see `designPatternsEnabled`. With the route gone, a
+              stale bookmark falls through to `*` and lands on Home rather than
+              a dead screen. (`<Routes>` skips non-element children, so a
+              `false` here is a supported way to leave a route out.) */}
+          {designPatternsEnabled && (
+            <Route path="/design-patterns" element={<DesignPatternsPage />} />
+          )}
         </Route>
       </Route>
 

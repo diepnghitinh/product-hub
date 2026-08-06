@@ -1,5 +1,6 @@
 import type { IconName } from '@/components/Icon';
 import type { I18nKey } from '@/i18n/en';
+import { designPatternsEnabled } from '@/lib/env';
 
 /**
  * The sidebar's information architecture, in two levels.
@@ -250,12 +251,19 @@ export const NAV_AREAS: NavArea[] = [
         items: [
           { path: '/admin/people', labelKey: 'nav.people', icon: 'people', adminOnly: true },
           { path: '/admin/settings', labelKey: 'nav.settings', icon: 'settings', adminOnly: true },
-          {
-            path: '/design-patterns',
-            labelKey: 'nav.designPatterns',
-            icon: 'sparkles',
-            adminOnly: true,
-          },
+          // Design patterns is a dev-time gallery, so the row exists only where
+          // the page does — `npm run dev`. In a built app the route is gone too
+          // (App.tsx), which is what keeps the menu from offering a dead link.
+          ...(designPatternsEnabled
+            ? [
+                {
+                  path: '/design-patterns',
+                  labelKey: 'nav.designPatterns',
+                  icon: 'sparkles',
+                  adminOnly: true,
+                } satisfies NavItem,
+              ]
+            : []),
         ],
       },
     ],

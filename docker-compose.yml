@@ -145,7 +145,14 @@ services:
       # image's baked-in nginx.conf production-clean.
       - ./deploy/nginx.web.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
-      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:80/']
+      # 127.0.0.1, NOT localhost: the container's /etc/hosts also maps localhost
+      # to ::1, busybox wget tries that first, and these nginx configs listen on
+      # IPv4 only (`listen 80;`). The nginx image would have added an IPv6
+      # listener to its own default.conf, but ours replaces it — which is what
+      # "10-listen-on-ipv6-by-default.sh: … differs from the packaged version"
+      # in the boot log means. Against localhost the check never passes and the
+      # container sits unhealthy while serving every request fine.
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:80/']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -159,10 +166,15 @@ services:
     build:
       context: ./saas-admin
       args:
+        # Both are overrides of saas-admin/.env.prod, which is the image's own
+        # build config (that file points at the deployed hosts; compose wants the
+        # local ones). Passed here because they're right for compose, not because
+        # the build needs them.
+        #
         # /v1 = same origin; this container's nginx proxies it to the api.
         VITE_API_URL: '/v1'
-        # Where "open workspace" links point. Empty hides them — set it only if
-        # the tenant app is reachable from wherever operators sit.
+        # Where "open workspace" links point. Set ADMIN_APP_URL empty and the
+        # .env.prod value applies instead — to hide the links, blank it there.
         VITE_APP_URL: ${ADMIN_APP_URL:-http://localhost:8080}
     image: product-hub-saas-admin:local
     container_name: producthub-admin
@@ -177,7 +189,8 @@ services:
       # `web` does. The image's own nginx.conf stays deployment-neutral.
       - ./deploy/nginx.admin.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
-      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:80/']
+      # 127.0.0.1 for the same reason as `web` above — IPv4-only nginx.
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:80/']
       interval: 10s
       timeout: 5s
       retries: 5

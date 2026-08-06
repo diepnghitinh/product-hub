@@ -57,8 +57,15 @@ export function Menu({
   // this, that late focus-return silently blurs the new field.
   const yieldFocus = useRef(false);
 
+  // The box is 4, but an unsized lucide icon defaults to 24 and spills out of
+  // it — so size the glyph here too. `:not([class*='size-'])` leaves the call
+  // sites that pass a deliberately smaller icon (the priority dot, the flag)
+  // alone.
   const glyph = (icon: ReactNode) => (
-    <span className="grid size-4 shrink-0 place-items-center" aria-hidden>
+    <span
+      className="grid size-4 shrink-0 place-items-center [&>svg:not([class*='size-'])]:size-4"
+      aria-hidden
+    >
       {icon}
     </span>
   );
@@ -68,7 +75,10 @@ export function Menu({
     if (item.children?.length) {
       return (
         <DropdownMenu.Sub key={key}>
-          <DropdownMenu.SubTrigger disabled={item.disabled} className={cn(ROW, item.danger && DANGER)}>
+          <DropdownMenu.SubTrigger
+            disabled={item.disabled}
+            className={cn(ROW, item.danger && DANGER)}
+          >
             {item.icon && glyph(item.icon)}
             <span className="flex-1">{item.label}</span>
             <ChevronRight className="ml-auto size-4 text-muted-foreground" aria-hidden />
