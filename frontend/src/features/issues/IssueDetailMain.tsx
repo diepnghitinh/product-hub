@@ -18,7 +18,12 @@ import { ReactionBar } from '@/features/reactions/ReactionBar';
 import { LinkedDocsSection } from '@/features/docs/components/LinkedDocsSection';
 import type { AttachedFile, CommentDto } from '@/types/dto';
 import { type IssueSubject } from '@/features/activity/api';
-import { ActivityHeader, CommentThread, Avatar, type Person } from '@/features/activity/CommentThread';
+import {
+  ActivityHeader,
+  CommentThread,
+  Avatar,
+  type Person,
+} from '@/features/activity/CommentThread';
 
 export interface IssueDetailMainProps {
   /** Which thread the comments belong to — routes + cache keys differ. */
@@ -138,7 +143,7 @@ export function IssueDetailMain({
               <span
                 className={cn(
                   'flex h-5 w-5 items-center justify-center rounded-sm',
-                  'hover:bg-accent/60 hover:text-accent-foreground'
+                  'hover:bg-accent/60 hover:text-accent-foreground',
                 )}
               >
                 <MoreHorizontal className="size-4" aria-hidden />
@@ -166,7 +171,9 @@ export function IssueDetailMain({
             placeholder={titlePlaceholder}
             aria-label={titlePlaceholder}
             onBlur={(e) =>
-              e.target.value.trim() && e.target.value !== title && onSaveTitle(e.target.value.trim())
+              e.target.value.trim() &&
+              e.target.value !== title &&
+              onSaveTitle(e.target.value.trim())
             }
           />
         ) : (
@@ -203,7 +210,10 @@ export function IssueDetailMain({
           />,
           crumbActionsSlot,
         )}
-      {menuTarget === 'topbar' && overflow && crumbActionsSlot && createPortal(overflow, crumbActionsSlot)}
+      {menuTarget === 'topbar' &&
+        overflow &&
+        crumbActionsSlot &&
+        createPortal(overflow, crumbActionsSlot)}
 
       {/* Drawer (single-column) layout: Properties sit inline under the title, in a
           self-contained band, rather than in a right-hand sidebar. */}
@@ -226,6 +236,10 @@ export function IssueDetailMain({
               placeholder={descriptionPlaceholder}
               minHeight={80}
               images
+              // A description explains a flow as often as a doc page does — a repro
+              // path, a state machine, the sequence a bug breaks. Same block as docs
+              // get; mermaid itself still only loads once a diagram is drawn.
+              diagrams
               // `@` names a person in the description the same way it does in a
               // comment. The chip is a reference, not a ping — only comments notify.
               mentions
@@ -241,11 +255,7 @@ export function IssueDetailMain({
 
       {/* Reactions — social-style quick reactions, directly under the description. */}
       {currentUserId && (
-        <ReactionBar
-          targetType={ReactionTargetType.ISSUE}
-          targetId={issueId}
-          className="mt-3"
-        />
+        <ReactionBar targetType={ReactionTargetType.ISSUE} targetId={issueId} className="mt-3" />
       )}
 
       {/* Logs, screenshots, the spreadsheet the bug was found in — opened in the
@@ -284,7 +294,9 @@ export function IssueDetailMain({
           </div>
 
           <CommentThread
-            source={subject === 'bug' ? { kind: 'bug', id: issueId } : { kind: 'task', id: issueId }}
+            source={
+              subject === 'bug' ? { kind: 'bug', id: issueId } : { kind: 'task', id: issueId }
+            }
             users={users}
             canWrite={canWrite}
             isAdmin={isAdmin}
@@ -296,4 +308,3 @@ export function IssueDetailMain({
     </div>
   );
 }
-
