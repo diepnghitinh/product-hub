@@ -86,6 +86,11 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
       createdAt?: Date;
       updatedAt?: Date;
       resolvedAt?: Date | null;
+      ciStatus?: string;
+      ciUrl?: string;
+      ciProvider?: string;
+      ciBranch?: string;
+      ciUpdatedAt?: Date | null;
     },
     id?: UniqueEntityID,
   ): Result<IssueEntity> {
@@ -160,6 +165,13 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
               : isCompletedStatus(props.kind, status)
                 ? now
                 : null,
+          // Read-through only — a create never has a pipeline, and every write
+          // to these goes straight to the store from the webhook.
+          ciStatus: props.ciStatus ?? '',
+          ciUrl: props.ciUrl ?? '',
+          ciProvider: props.ciProvider ?? '',
+          ciBranch: props.ciBranch ?? '',
+          ciUpdatedAt: props.ciUpdatedAt ?? null,
         },
         id,
       ),
@@ -295,6 +307,21 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
   /** When it became finished (`null` while open) — see {@link setStatus}. */
   get resolvedAt(): Date | null {
     return this.props.resolvedAt;
+  }
+  get ciStatus(): string {
+    return this.props.ciStatus;
+  }
+  get ciUrl(): string {
+    return this.props.ciUrl;
+  }
+  get ciProvider(): string {
+    return this.props.ciProvider;
+  }
+  get ciBranch(): string {
+    return this.props.ciBranch;
+  }
+  get ciUpdatedAt(): Date | null {
+    return this.props.ciUpdatedAt;
   }
   /** In a done column right now (resolved/closed for a bug, done for a task). */
   get isCompleted(): boolean {

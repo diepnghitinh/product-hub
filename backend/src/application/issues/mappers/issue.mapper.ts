@@ -43,6 +43,11 @@ export class IssueMapper {
       createdAt: issue.createdAt,
       updatedAt: issue.updatedAt,
       resolvedAt: issue.resolvedAt,
+      ciStatus: issue.ciStatus,
+      ciUrl: issue.ciUrl,
+      ciProvider: issue.ciProvider,
+      ciBranch: issue.ciBranch,
+      ciUpdatedAt: issue.ciUpdatedAt,
     };
   }
 

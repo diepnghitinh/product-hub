@@ -208,6 +208,24 @@ export enum WebhookProvider {
   TELEGRAM = 'telegram',
 }
 
+/** Git hosts that can deliver a pipeline event to us. */
+export enum GitProvider {
+  GITHUB = 'github',
+  GITLAB = 'gitlab',
+}
+
+/**
+ * The CI/CD state shown as a label on an issue. Four, not the dozen each host
+ * emits: anything queued/pending/preparing reads as RUNNING, and a run that
+ * never happened (skipped, manual) produces no label at all.
+ */
+export enum PipelineState {
+  RUNNING = 'running',
+  PASSED = 'passed',
+  FAILED = 'failed',
+  CANCELED = 'canceled',
+}
+
 export enum RoadmapPhase {
   NOW = 'now',
   NEXT = 'next',
@@ -799,4 +817,29 @@ export const WEBHOOK_EVENT_LABEL: Record<WebhookEvent, string> = {
   [WebhookEvent.BUG_CREATED]: t('enum.webhookEvent.bugCreated'),
   [WebhookEvent.BUG_ASSIGNED]: t('enum.webhookEvent.bugAssigned'),
   [WebhookEvent.COMMENT_MENTION]: t('enum.webhookEvent.commentMention'),
+};
+
+// ── Git integrations ─────────────────────────────────────────────────────────
+export const GIT_PROVIDERS: GitProvider[] = [GitProvider.GITHUB, GitProvider.GITLAB];
+
+/** Brand name, as each host writes it. Not translated — it's a product name. */
+export const GIT_PROVIDER_LABEL: Record<GitProvider, string> = {
+  [GitProvider.GITHUB]: 'GitHub',
+  [GitProvider.GITLAB]: 'GitLab',
+};
+
+export const PIPELINE_STATE_LABEL: Record<PipelineState, string> = {
+  [PipelineState.RUNNING]: t('enum.pipeline.running'),
+  [PipelineState.PASSED]: t('enum.pipeline.passed'),
+  [PipelineState.FAILED]: t('enum.pipeline.failed'),
+  [PipelineState.CANCELED]: t('enum.pipeline.canceled'),
+};
+
+/** Build state → semantic colour, the same ramp `TEST_RESULT_COLOR` uses, so a
+ *  green pipeline and a green test read as the same kind of "good". */
+export const PIPELINE_STATE_COLOR: Record<PipelineState, string> = {
+  [PipelineState.RUNNING]: 'hsl(var(--info))',
+  [PipelineState.PASSED]: 'hsl(var(--success))',
+  [PipelineState.FAILED]: 'hsl(var(--destructive))',
+  [PipelineState.CANCELED]: 'hsl(var(--muted-foreground))',
 };

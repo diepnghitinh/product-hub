@@ -14,10 +14,12 @@ import {
   DocPageWidth,
   FavouriteKind,
   FeatureStatus,
+  GitProvider,
   InboxKind,
   IssueKind,
   McpEntity,
   MilestoneStatus,
+  PipelineState,
   ProjectEnvironment,
   RelationType,
   RoadmapDifficulty,
@@ -311,6 +313,19 @@ export interface BugDto {
    * status move) — what the board's "Solved date" filter ranges over.
    */
   resolvedAt: string | null;
+  /**
+   * Last CI/CD run that mentioned this issue's ref ('' when none ever has).
+   * Written only by an inbound GitHub/GitLab webhook — see Settings →
+   * Integrations — so it's read-only everywhere in the UI.
+   */
+  ciStatus: PipelineState | '';
+  /** Link to that run on the git host ('' if the payload carried none). */
+  ciUrl: string;
+  /** Which host reported it ('' when nothing has). */
+  ciProvider: GitProvider | '';
+  /** Branch the run was on. */
+  ciBranch: string;
+  ciUpdatedAt: string | null;
 }
 
 /**
@@ -527,6 +542,19 @@ export interface TaskDto {
   order: number;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Last CI/CD run that mentioned this issue's ref ('' when none ever has).
+   * Written only by an inbound GitHub/GitLab webhook — see Settings →
+   * Integrations — so it's read-only everywhere in the UI.
+   */
+  ciStatus: PipelineState | '';
+  /** Link to that run on the git host ('' if the payload carried none). */
+  ciUrl: string;
+  /** Which host reported it ('' when nothing has). */
+  ciProvider: GitProvider | '';
+  /** Branch the run was on. */
+  ciBranch: string;
+  ciUpdatedAt: string | null;
 }
 
 // ── Issues (unified task + bug) ───────────────────────────────────────────────
@@ -607,6 +635,19 @@ export interface IssueDto {
   updatedAt: string;
   /** When it was solved — see {@link BugDto.resolvedAt}. */
   resolvedAt: string | null;
+  /**
+   * Last CI/CD run that mentioned this issue's ref ('' when none ever has).
+   * Written only by an inbound GitHub/GitLab webhook — see Settings →
+   * Integrations — so it's read-only everywhere in the UI.
+   */
+  ciStatus: PipelineState | '';
+  /** Link to that run on the git host ('' if the payload carried none). */
+  ciUrl: string;
+  /** Which host reported it ('' when nothing has). */
+  ciProvider: GitProvider | '';
+  /** Branch the run was on. */
+  ciBranch: string;
+  ciUpdatedAt: string | null;
 }
 
 // ── Milestones (OKR) ─────────────────────────────────────────────────────────
@@ -709,6 +750,30 @@ export interface WebhookConfig {
   events: WebhookEvent[];
   enabled: boolean;
   memberMappings?: WebhookMemberMapping[];
+}
+
+// ── Git integrations ─────────────────────────────────────────────────────────
+/**
+ * One connected repo, as `GET /settings/integrations` returns it (admin-only —
+ * it carries the signing secret).
+ *
+ * `webhookUrl` and `secret` are the two strings an admin pastes into the repo's
+ * webhook settings. Both are minted server-side and can't be sent back up: an
+ * edit posts only the name/provider/enabled, and losing them means Rotate.
+ */
+export interface GitIntegrationDto {
+  id: string;
+  provider: GitProvider;
+  /** What the admin calls the repo — `acme/web`. Display only. */
+  name: string;
+  webhookUrl: string;
+  secret: string;
+  enabled: boolean;
+  createdAt: string;
+  /** '' until a delivery lands — the "did I wire this up right?" signal. */
+  lastEventAt: string;
+  /** That delivery in one line, e.g. `main · passed · 2 issues updated`. */
+  lastEventSummary: string;
 }
 
 // ── Teams ────────────────────────────────────────────────────────────────────

@@ -31,6 +31,7 @@ import {
 } from '@/types/enums';
 import { useUsers } from '@/features/users/api';
 import { IssueDetail, PropField, PropSection, PropValue } from '@/features/issues/IssueDetail';
+import { CiStatusField } from '@/features/issues/CiStatusField';
 import { useTeams, useTeamStatuses, useTeamLabels, useTeamCustomFields } from '@/features/teams/api';
 import { CyclePropField } from '@/features/cycles/CycleControls';
 import { LabelChips, resolveLabels } from '@/features/labels/LabelChips';
@@ -241,6 +242,8 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header', dense = fal
                 {bug.reporterName || '—'}
               </PropValue>
             </PropField>
+
+            <CiStatusField issue={bug} />
 
             <CustomFields
               fields={teamCustomFields}

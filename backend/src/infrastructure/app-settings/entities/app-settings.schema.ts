@@ -4,11 +4,14 @@ import { BugStatusConfig } from '@application/bugs/domain/enums/bug.enums';
 import { TaskStatusConfig, TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import { WebhookConfig } from '@application/app-settings/domain/webhook.types';
 import { CloudStorageConfig } from '@application/app-settings/domain/storage.types';
+import { GitIntegrationConfig } from '@application/app-settings/domain/integration.types';
 
 export interface AppSettingsDoc {
   _id: string;
   tenantId: string;
   webhooks: WebhookConfig[];
+  /** Connected GitHub / GitLab repos. Absent on tenants that predate the field. */
+  integrations?: GitIntegrationConfig[];
   bugStatuses: BugStatusConfig[];
   taskStatuses: TaskStatusConfig[];
   /** Legacy: workspace-wide task labels, now per-team. Read once by the boot
@@ -24,6 +27,7 @@ export const AppSettingsSchema = new Schema<AppSettingsDoc>(
     _id: { type: String, default: () => uuid() },
     tenantId: { type: String, required: true, unique: true, index: true },
     webhooks: { type: [Schema.Types.Mixed], default: [] } as unknown as WebhookConfig[],
+    integrations: { type: [Schema.Types.Mixed], default: [] } as unknown as GitIntegrationConfig[],
     // Left undefined until customized — the domain seeds the shipped defaults.
     bugStatuses: { type: [Schema.Types.Mixed], default: undefined } as unknown as BugStatusConfig[],
     taskStatuses: { type: [Schema.Types.Mixed], default: undefined } as unknown as TaskStatusConfig[],
@@ -34,3 +38,9 @@ export const AppSettingsSchema = new Schema<AppSettingsDoc>(
   },
   { timestamps: true },
 );
+
+// An inbound pipeline delivery carries nothing but the token in its URL — no
+// session, no tenant header — so this is the lookup that resolves the workspace
+// on every event. Multikey (the field is an array), sparse because most tenants
+// have no integrations at all.
+AppSettingsSchema.index({ 'integrations.token': 1 }, { sparse: true });

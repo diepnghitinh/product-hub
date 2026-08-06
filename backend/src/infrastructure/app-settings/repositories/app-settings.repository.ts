@@ -14,6 +14,7 @@ export class AppSettingsRepository implements IAppSettingsRepository {
     const result = AppSettingsEntity.create({
       tenantId: doc.tenantId,
       webhooks: doc.webhooks ?? [],
+      integrations: doc.integrations ?? [],
       bugStatuses: doc.bugStatuses,
       taskStatuses: doc.taskStatuses,
       storage: doc.storage,
@@ -29,6 +30,19 @@ export class AppSettingsRepository implements IAppSettingsRepository {
     return doc ? this.toDomain(doc) : null;
   }
 
+  async findByIntegrationToken(token: string): Promise<AppSettingsEntity | null> {
+    // Guard the empty string explicitly: `{ 'integrations.token': '' }` would
+    // happily match a malformed stored config, and this is an unauthenticated
+    // lookup — the token is the only thing standing between a caller and a
+    // tenant, so it is never allowed to be blank.
+    if (!token) return null;
+    const doc = await this.model
+      .findOne({ 'integrations.token': token })
+      .lean<AppSettingsDoc>()
+      .exec();
+    return doc ? this.toDomain(doc) : null;
+  }
+
   async save(settings: AppSettingsEntity): Promise<void> {
     // Singleton per tenant — upsert by tenantId.
     await this.model
@@ -37,6 +51,7 @@ export class AppSettingsRepository implements IAppSettingsRepository {
         {
           tenantId: settings.tenantId,
           webhooks: settings.webhooks,
+          integrations: settings.integrations,
           bugStatuses: settings.bugStatuses,
           taskStatuses: settings.taskStatuses,
           storage: settings.storage,

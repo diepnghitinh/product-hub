@@ -5,6 +5,7 @@ import {
   ArrowUp,
   Cloud,
   Copy,
+  GitBranch,
   KeyRound,
   Plug,
   Plus,
@@ -68,6 +69,7 @@ import { TeamCyclePlanner } from '@/features/cycles/components/TeamCyclePlanner'
 import type { TeamDto } from '@/types/dto';
 import type { CustomFieldConfig, TaskLabelConfig } from '@/types/enums';
 import { CloudStorageSection } from './CloudStorageSection';
+import { IntegrationsSection } from './IntegrationsSection';
 import { McpSection } from './McpSection';
 import { WebhooksSection } from './WebhooksSection';
 import { CenteredPageLayout } from '@/layouts/shared';
@@ -93,6 +95,9 @@ const TABS: {
   // are `@Roles(ADMIN)` — the tab would render a Generate button that 403s.
   { key: 'mcp', labelKey: 'settings.mcp', icon: Plug, Section: McpSection, adminOnly: true },
   { key: 'webhooks', labelKey: 'settings.webhooks', icon: Webhook, Section: WebhooksSection, adminOnly: true },
+  // Admin-only for the same reason as the rest: the response carries each
+  // repo's signing secret, which is the whole of its authentication.
+  { key: 'integrations', labelKey: 'settings.integrations', icon: GitBranch, Section: IntegrationsSection, adminOnly: true },
   { key: 'storage', labelKey: 'settings.storage', icon: Cloud, Section: CloudStorageSection, adminOnly: true },
 ];
 

@@ -53,6 +53,19 @@ export interface IssueDoc {
   updatedAt: Date;
   /** When it entered a done status and stayed there; null while open. */
   resolvedAt: Date | null;
+  // ── CI/CD ──────────────────────────────────────────────────────────────────
+  // The *latest* pipeline that named this issue, denormalized onto the issue so
+  // the label costs no extra read. Only ever written by an inbound webhook; an
+  // issue nobody has built carries '' and renders no label at all.
+  /** A `PipelineState` value, or '' when no pipeline has reported. */
+  ciStatus: string;
+  /** Link out to the run on GitHub / GitLab. */
+  ciUrl: string;
+  /** `github` | `gitlab` — which host reported it. */
+  ciProvider: string;
+  /** Branch the run was on, shown next to the label so a stale one is obvious. */
+  ciBranch: string;
+  ciUpdatedAt: Date | null;
 }
 
 export const IssueSchema = new Schema<IssueDoc>(
@@ -125,6 +138,14 @@ export const IssueSchema = new Schema<IssueDoc>(
     // "Solved date" filter ranges over. Absent on a pre-`resolvedAt` row reads
     // as null; `backfill:issue-resolved-at` stamps those from their updatedAt.
     resolvedAt: { type: Date, default: null, index: true },
+    // Latest CI/CD run for this issue — see the interface above. Not indexed:
+    // nothing queries by build state, the label is only ever read alongside the
+    // issue it belongs to.
+    ciStatus: { type: String, default: '' },
+    ciUrl: { type: String, default: '' },
+    ciProvider: { type: String, default: '' },
+    ciBranch: { type: String, default: '' },
+    ciUpdatedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

@@ -57,6 +57,13 @@ export abstract class IIssueRepository {
   ) => Promise<number>;
   /** Detach every issue pointing at these cycles (deleted upcoming cycles). */
   clearCycleIds: (tenantId: string, cycleIds: string[]) => Promise<number>;
+  /** Stamp a pipeline's outcome onto every issue whose ref it named. Tenant-
+   *  scoped — the refs arrived from a public webhook. Returns rows updated. */
+  applyPipelineState: (
+    tenantId: string,
+    shortIds: string[],
+    state: { ciStatus: string; ciUrl: string; ciProvider: string; ciBranch: string },
+  ) => Promise<number>;
   save: (issue: IssueEntity) => Promise<void>;
   update: (issue: IssueEntity) => Promise<void>;
   delete: (id: string) => Promise<void>;
