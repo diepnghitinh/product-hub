@@ -3,7 +3,14 @@ import { MoveHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { t } from '@/i18n';
 import { formatDate } from '@/lib/format';
-import { GanttChart, GANTT_DAY, firstEpoch, isEpoch, toEpoch, type GanttRow } from '@/components/GanttChart';
+import {
+  GanttChart,
+  GANTT_DAY,
+  firstEpoch,
+  isEpoch,
+  toEpoch,
+  type GanttRow,
+} from '@/components/GanttChart';
 import { useTasks, useUpdateTask } from '@/features/tasks/api';
 import { useTeamStatusesLookup } from '@/features/teams/api';
 import { useAuth } from '@/lib/auth';
@@ -68,9 +75,9 @@ interface RoadmapGanttProps {
   onTaskDatesChange?: (task: TaskDto, next: DateWindow) => void;
   /**
    * The same for a backlog item's own bar. An item stores its own start/end pair,
-   * so dragging writes them straight back; an item that has never been scheduled
-   * by hand still shows the derived bar until it is dragged, and dragging is what
-   * commits that window. Omit for the public view.
+   * so dragging writes them straight back. Only an item that already *has* a
+   * window can be dragged — an unscheduled one has no bar to take hold of, and its
+   * dates are set in the detail panel. Omit for the public view.
    */
   onItemDatesChange?: (item: RoadmapItem, next: DateWindow) => void;
   isLoading?: boolean;
@@ -83,13 +90,17 @@ interface RoadmapGanttProps {
  * tasks, their statuses) is injected so the same view serves the authenticated
  * board (with task markers) and the public share page (bars only).
  *
- * Bars are drawn from whatever dates exist:
- *   • item bar — from its start (startDate › startedAt › createdAt) to its own
- *     `endDate` when it has one, else derived: its completedAt, else the latest
- *     linked task's end date, else +2 weeks. Filled to `progress`.
+ * **Nothing here is drawn from a date nobody set.** Items and tasks follow one
+ * rule: both dates → a bar, one date → a diamond on it, neither → the row is
+ * listed but not placed. A chart that invents a window is worse than a chart
+ * with a gap in it — the gap is the true answer to "when is this happening?",
+ * and it's the one that makes someone go and schedule the thing.
+ *
+ *   • item bar — its own `startDate` → `endDate`, filled to `progress`. An item
+ *     that never set them falls back to `startedAt`/`completedAt`, which are
+ *     facts it recorded about itself, and to nothing else.
  *   • task — a solid bar across its own start → end, exactly like the issue
- *     timeline draws it. A task with only one of the two dates falls back to a
- *     diamond on that date; one with neither is listed but not placed.
+ *     timeline draws it.
  *
  * Colours are reused, not invented: the item bar takes the "Now" column colour,
  * task bars/markers take their team-status colour.
@@ -114,14 +125,15 @@ export function RoadmapGantt({
   const rows: GanttRow[] = [];
   for (const item of nowItems) {
     const tasks = (tasksByItem?.get(item.id) ?? []).slice().sort(byDate);
-    let start = firstEpoch(item.startDate, item.startedAt, item.createdAt);
-    if (!isEpoch(start)) start = Date.now();
-    // The item's own end wins when it has one — a window somebody set by hand (or
-    // dragged) is intent, not a guess. Everything after it is the fallback chain.
-    const ends = tasks.map(taskEnd).filter(isEpoch);
-    let end = firstEpoch(item.endDate, item.completedAt);
-    if (!isEpoch(end)) end = ends.length ? Math.max(...ends) : start + 14 * GANTT_DAY;
-    if (end < start) end = start + GANTT_DAY; // guard odd data (e.g. an end before the start)
+    // An item is placed by its own dates and nothing else. `startedAt`/`completedAt`
+    // stand in because they are dates the item recorded about itself; `createdAt`,
+    // today and "+2 weeks" used to fill the gaps, which drew a confident two-week
+    // bar for an item nobody had scheduled. That bar was a guess wearing the same
+    // clothes as a plan, and there is no way to tell them apart by looking.
+    const start = firstEpoch(item.startDate, item.startedAt);
+    const rawEnd = firstEpoch(item.endDate, item.completedAt);
+    // Guard odd data (an end before the start) — but only between two real dates.
+    const end = isEpoch(start) && isEpoch(rawEnd) && rawEnd < start ? start + GANTT_DAY : rawEnd;
 
     const itemRow: GanttRow = {
       id: item.id,
@@ -132,13 +144,24 @@ export function RoadmapGantt({
           : t('roadmaps.ganttNoTasks')
       }`,
       onClick: () => onOpenItem(item.id),
-      bar: { start, end, color: barColor, progress: item.progress },
     };
-    // Dragging an item's bar commits the window it's showing — including a derived
-    // one, which is the point: the derived bar is the proposal, the drag accepts it.
-    if (onItemDatesChange) {
-      itemRow.onBarChange = (n) =>
-        onItemDatesChange(item, { startDate: isoDay(n.start), endDate: isoDay(n.end) });
+    if (isEpoch(start) && isEpoch(end)) {
+      itemRow.bar = { start, end, color: barColor, progress: item.progress };
+      // Drag moves a window that exists. An unscheduled item has nothing to take
+      // hold of, so its dates are set in the detail panel — which is also the only
+      // place they can be set deliberately rather than by nudging a bar.
+      if (onItemDatesChange) {
+        itemRow.onBarChange = (n) =>
+          onItemDatesChange(item, { startDate: isoDay(n.start), endDate: isoDay(n.end) });
+      }
+    } else if (isEpoch(end)) {
+      const when = t('roadmaps.ganttDue').replace('{date}', formatDate(new Date(end)));
+      itemRow.marker = { at: end, color: barColor, tooltip: `${itemRow.label} · ${when}` };
+    } else if (isEpoch(start)) {
+      const when = t('roadmaps.ganttStarts').replace('{date}', formatDate(new Date(start)));
+      itemRow.marker = { at: start, color: barColor, tooltip: `${itemRow.label} · ${when}` };
+    } else {
+      itemRow.emptyText = t('roadmaps.ganttNoDates');
     }
     rows.push(itemRow);
 
@@ -159,7 +182,12 @@ export function RoadmapGantt({
         // No `progress`: a task bar is a schedule, not a fill level — the same
         // solid block the issue timeline draws for the same two dates.
         const range = `${formatDate(new Date(s))} – ${formatDate(new Date(e))}`;
-        row.bar = { start: s, end: e, color: st.color, tooltip: `${tk.title} · ${range} · ${st.label}` };
+        row.bar = {
+          start: s,
+          end: e,
+          color: st.color,
+          tooltip: `${tk.title} · ${range} · ${st.label}`,
+        };
         // Only a task that already has both dates can be rescheduled by drag —
         // a single-date task is a diamond, and there's no window to move.
         if (onTaskDatesChange) {
@@ -179,6 +207,10 @@ export function RoadmapGantt({
     }
   }
 
+  // Every legend line is earned by something actually on the chart. Item bars used
+  // to be guaranteed — now a roadmap of unscheduled items has none, and a key
+  // explaining a bar you cannot see is just noise to read past.
+  const hasItemBars = rows.some((r) => !(r.depth ?? 0) && r.bar);
   const hasTaskBars = rows.some((r) => (r.depth ?? 0) > 0 && r.bar);
   const hasMarkers = rows.some((r) => r.marker);
 
@@ -190,15 +222,23 @@ export function RoadmapGantt({
       empty={{ title: t('roadmaps.ganttEmpty'), hint: t('roadmaps.ganttEmptyHint') }}
       legend={
         <>
-          <span className="flex items-center gap-1.5">
-            {/* Two layers, like the bar itself: a translucent track with a fill —
-                so the swatch reads apart from a task's solid bar below it. */}
-            <span className="relative h-2.5 w-6" aria-hidden>
-              <span className="absolute inset-0 rounded-full" style={{ backgroundColor: barColor, opacity: 0.18 }} />
-              <span className="absolute inset-y-0 left-0 w-3 rounded-full" style={{ backgroundColor: barColor }} />
+          {hasItemBars && (
+            <span className="flex items-center gap-1.5">
+              {/* Two layers, like the bar itself: a translucent track with a fill —
+                  so the swatch reads apart from a task's solid bar below it. */}
+              <span className="relative h-2.5 w-6" aria-hidden>
+                <span
+                  className="absolute inset-0 rounded-full"
+                  style={{ backgroundColor: barColor, opacity: 0.18 }}
+                />
+                <span
+                  className="absolute inset-y-0 left-0 w-3 rounded-full"
+                  style={{ backgroundColor: barColor }}
+                />
+              </span>
+              {t('roadmaps.ganttLegendBar')}
             </span>
-            {t('roadmaps.ganttLegendBar')}
-          </span>
+          )}
           {hasTaskBars && (
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-6 rounded-full bg-muted-foreground" aria-hidden />
@@ -213,7 +253,7 @@ export function RoadmapGantt({
           )}
           {/* Drag isn't discoverable on its own — say it, but only to someone who
               actually has an editable bar in front of them. */}
-          {(onItemDatesChange || (hasTaskBars && onTaskDatesChange)) && (
+          {((hasItemBars && onItemDatesChange) || (hasTaskBars && onTaskDatesChange)) && (
             <span className="flex items-center gap-1.5">
               <MoveHorizontal className="size-3.5" aria-hidden />
               {t('roadmaps.ganttDragHint')}
@@ -329,7 +369,10 @@ export function RoadmapGanttView({ roadmapId, items, columns }: RoadmapGanttView
           // Every row here is a task: the query above is `useTasks`, which is bound
           // to `kind: task`, so the status comes from the team's *task* columns.
           const cfg = statusesFor(tk.teamId, TeamIssueType.TASK).find((c) => c.key === tk.status);
-          return { color: cfg?.color ?? 'hsl(var(--muted-foreground))', label: cfg?.label ?? tk.status };
+          return {
+            color: cfg?.color ?? 'hsl(var(--muted-foreground))',
+            label: cfg?.label ?? tk.status,
+          };
         }}
         onOpenTask={(tk) =>
           setTaskPeek({

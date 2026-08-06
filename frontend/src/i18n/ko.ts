@@ -565,11 +565,11 @@ export const ko: Record<I18nKey, string> = {
   'roadmaps.ganttTasks': '태스크 {count}개',
   'roadmaps.ganttDue': '마감 {date}',
   'roadmaps.ganttStarts': '시작 {date}',
-  'roadmaps.ganttLegendBar': '막대 = 항목 (시작 → 마지막 태스크 종료), 진행률만큼 채워짐',
+  'roadmaps.ganttLegendBar': '막대 = 항목이 지정한 시작 → 종료, 진행률만큼 채워짐',
   'roadmaps.ganttLegendTaskBar': '채워진 막대 = 태스크의 시작 → 종료',
   'roadmaps.ganttDragHint': '막대를 끌면 이동하고, 끝을 끌면 그 날짜가 바뀝니다',
   'roadmaps.ganttSaveFailed': '날짜를 변경하지 못했습니다 — 되돌립니다.',
-  'roadmaps.ganttLegendMarker': '다이아몬드 = 날짜가 하나뿐인 태스크',
+  'roadmaps.ganttLegendMarker': '다이아몬드 = 날짜가 하나만 지정됨',
   'roadmaps.newColumn': '새 컬럼',
   'roadmaps.columnName': '컬럼 이름',
   'roadmaps.columnColor': '컬럼 색상',
@@ -1371,6 +1371,9 @@ export const ko: Record<I18nKey, string> = {
   'lightbox.close': '닫기',
   'lightbox.prev': '이전 이미지',
   'lightbox.next': '다음 이미지',
+  'lightbox.zoomIn': '확대',
+  'lightbox.zoomOut': '축소',
+  'lightbox.zoomFit': '맞춤',
 
   // Relative time ("updated 3d ago"). The number is substituted in code, so a
   // locale is free to put it wherever its grammar wants it.

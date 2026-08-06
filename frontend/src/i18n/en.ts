@@ -569,11 +569,11 @@ export const en = {
   'roadmaps.ganttTasks': '{count} tasks',
   'roadmaps.ganttDue': 'Due {date}',
   'roadmaps.ganttStarts': 'Starts {date}',
-  'roadmaps.ganttLegendBar': 'Bar = item (start → last task end), filled by progress',
+  'roadmaps.ganttLegendBar': 'Bar = item’s own start → end, filled by progress',
   'roadmaps.ganttLegendTaskBar': 'Solid bar = a task’s start → end',
   'roadmaps.ganttDragHint': 'Drag a bar to move it, or an edge to change that date',
   'roadmaps.ganttSaveFailed': 'Couldn’t change those dates — put them back.',
-  'roadmaps.ganttLegendMarker': 'Diamond = a task with only one date',
+  'roadmaps.ganttLegendMarker': 'Diamond = only one date set',
   'roadmaps.newColumn': 'New column',
   'roadmaps.columnName': 'Column name',
   'roadmaps.columnColor': 'Column color',
@@ -1378,11 +1378,15 @@ export const en = {
     'This link leads to a site outside this workspace. Open it in a new tab?',
   'richText.externalOpen': 'Open link',
 
-  // Image lightbox.
+  // Image lightbox. The zoom controls only appear for a diagram — an image is
+  // already shown at the size it was uploaded.
   'lightbox.title': 'Image',
   'lightbox.close': 'Close',
   'lightbox.prev': 'Previous image',
   'lightbox.next': 'Next image',
+  'lightbox.zoomIn': 'Zoom in',
+  'lightbox.zoomOut': 'Zoom out',
+  'lightbox.zoomFit': 'Fit',
 
   // Relative time ("updated 3d ago"). The number is substituted in code, so a
   // locale is free to put it wherever its grammar wants it.
