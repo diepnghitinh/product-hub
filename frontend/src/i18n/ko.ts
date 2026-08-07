@@ -1082,9 +1082,19 @@ export const ko: Record<I18nKey, string> = {
   'settings.integrationWaiting': '첫 전송을 기다리는 중',
   'settings.integrationLastEvent': '최근 전송',
   'settings.integrationDisabled': '일시 중지됨 — 전송이 거부됩니다.',
+  // External tools — Product OS 밖의 제품을 레코드에 연결하는 카테고리
+  'settings.externalTools': '외부 도구',
+  'settings.externalToolsHint':
+    '팀이 Product OS 밖에서 사용하는 제품입니다. 그곳의 작업을 이슈나 백로그 항목에 연결하면 그 상태가 내 것 옆에 그대로 비쳐 보입니다. 단방향입니다 — 되돌려 쓰는 일은 없으며, 외부 상태가 내 보드의 항목을 옮기지도 않습니다.',
+  'settings.externalToolsMore': '더 많은 도구를 준비 중입니다',
+  'settings.externalToolsMoreHint':
+    'Jira, Linear, Asana도 같은 방식으로 연동되어 이곳에 추가됩니다. 어떤 것이 먼저 필요한지 알려주세요.',
+  'settings.toolConnected': '연결됨',
+  'settings.toolNotConnected': '연결 안 됨',
+  'settings.toolPaused': '일시 중지됨',
   'settings.clickup': 'ClickUp',
   'settings.clickupHint':
-    'ClickUp 작업을 이슈나 백로그 항목에 연결하면 그 상태를 나란히 볼 수 있습니다. 단방향입니다 — ClickUp이 변경을 알려주면 그대로 비춰 보여줍니다. ClickUp으로 되돌려 쓰는 일은 없으며, ClickUp 상태가 내 보드의 항목을 옮기지도 않습니다.',
+    'ClickUp 작업을 이슈나 백로그 항목에 연결하면 그 상태를 나란히 볼 수 있습니다.',
   'settings.clickupHow': '작동 방식',
   'settings.clickupHowSteps':
     'ClickUp 개인 API 토큰을 붙여넣고, 접근 가능한 워크스페이스를 고른 뒤 연결하세요. 해당 워크스페이스에 웹훅을 등록해 작업 변경을 받습니다. 그다음 아무 이슈나 백로그 항목에서 ClickUp 패널에 작업 링크를 붙여넣으면 됩니다.',
