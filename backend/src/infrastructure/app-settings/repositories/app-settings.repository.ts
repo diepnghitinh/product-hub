@@ -15,6 +15,7 @@ export class AppSettingsRepository implements IAppSettingsRepository {
       tenantId: doc.tenantId,
       webhooks: doc.webhooks ?? [],
       integrations: doc.integrations ?? [],
+      clickup: doc.clickup ?? null,
       bugStatuses: doc.bugStatuses,
       taskStatuses: doc.taskStatuses,
       storage: doc.storage,
@@ -43,18 +44,39 @@ export class AppSettingsRepository implements IAppSettingsRepository {
     return doc ? this.toDomain(doc) : null;
   }
 
+  async findByClickUpToken(token: string): Promise<AppSettingsEntity | null> {
+    // Guarded exactly like `findByIntegrationToken`: `{ 'clickup.urlToken': '' }`
+    // would happily match a malformed stored config, and this is an
+    // unauthenticated lookup where the token is the only thing standing between
+    // a caller and a tenant.
+    if (!token) return null;
+    const doc = await this.model
+      .findOne({ 'clickup.urlToken': token })
+      .lean<AppSettingsDoc>()
+      .exec();
+    return doc ? this.toDomain(doc) : null;
+  }
+
   async save(settings: AppSettingsEntity): Promise<void> {
+    const clickup = settings.clickup;
     // Singleton per tenant — upsert by tenantId.
     await this.model
       .findOneAndUpdate(
         { tenantId: settings.tenantId },
         {
-          tenantId: settings.tenantId,
-          webhooks: settings.webhooks,
-          integrations: settings.integrations,
-          bugStatuses: settings.bugStatuses,
-          taskStatuses: settings.taskStatuses,
-          storage: settings.storage,
+          $set: {
+            tenantId: settings.tenantId,
+            webhooks: settings.webhooks,
+            integrations: settings.integrations,
+            bugStatuses: settings.bugStatuses,
+            taskStatuses: settings.taskStatuses,
+            storage: settings.storage,
+            ...(clickup ? { clickup } : {}),
+          },
+          // Disconnecting has to *remove* the field, not write null: the
+          // `clickup.urlToken` index is sparse, and a null would leave a
+          // document in it that an empty-token lookup could still reach.
+          ...(clickup ? {} : { $unset: { clickup: 1 } }),
         },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       )

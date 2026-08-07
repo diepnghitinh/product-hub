@@ -24,7 +24,7 @@ import {
   Avatar,
   type Person,
 } from '@/features/activity/CommentThread';
-import { IssueCopyMenu } from './IssueCopyMenu';
+import { IssueCopyActions } from './IssueCopyActions';
 
 export interface IssueDetailMainProps {
   /** Which thread the comments belong to — routes + cache keys differ. */
@@ -51,6 +51,13 @@ export interface IssueDetailMainProps {
   comments?: CommentDto[];
   onSaveTitle: (title: string) => void;
   onSaveDescription: (html: string) => void;
+  /** The git branch name the API reports for this issue. Omit and the copy
+   *  cluster derives it from the ref + title, as it always did. */
+  branch?: string;
+  /** Saves a renamed branch (`''` reverts to the derived name); resolve/reject
+   *  with the mutation so the popover can show a 409. Omit to keep the branch
+   *  read-only — the public dialog and any view without a write path do. */
+  onSaveBranchName?: (name: string) => Promise<unknown>;
   /** Starter structures offered above the description — a bug's repro-steps
    *  shapes (`bugs/bugTemplates`). Omit for issues that have none; the picker
    *  renders nothing rather than an empty strip. */
@@ -105,6 +112,8 @@ export function IssueDetailMain({
   comments,
   onSaveTitle,
   onSaveDescription,
+  branch,
+  onSaveBranchName,
   templates = [],
   menuItems,
   menuTarget = 'header',
@@ -157,23 +166,34 @@ export function IssueDetailMain({
       />
     ) : null;
 
-  // URL · ID · branch name. On a standalone route the title row's right side is
-  // empty (favourite and ⋯ have gone up to the topbar), so this pins to the top
-  // right corner over it; in the drawer that corner is taken, so it joins the
-  // title row inline, ahead of the actions already there.
-  const copyMenu = <IssueCopyMenu issueId={issueId} shortId={shortId} title={title} />;
-  const pinned = menuTarget === 'topbar';
+  // URL · ID · branch name. On a standalone route the page owns this cluster and
+  // pins it to its own top-right corner, clear of the Properties sidebar (see
+  // <IssueDetail>); everywhere the main column stands alone — the peek drawer,
+  // the public dialog — it rides the ref row above the title, same corner, same
+  // order, just scoped to what's actually there.
+  const inlineCopy = menuTarget === 'header';
 
   return (
-    <div className={cn('min-w-0', pinned && 'relative')}>
-      {pinned && <div className="absolute right-0 top-0 z-10">{copyMenu}</div>}
-      {shortId && (
-        <span className="mb-1 block font-mono text-xs text-muted-foreground">{shortId}</span>
+    <div className="min-w-0">
+      {(shortId || inlineCopy) && (
+        <div className="mb-1 flex min-h-8 items-center gap-2">
+          {shortId && <span className="font-mono text-xs text-muted-foreground">{shortId}</span>}
+          {inlineCopy && (
+            <IssueCopyActions
+              issueId={issueId}
+              shortId={shortId}
+              title={title}
+              branch={branch}
+              onSaveBranchName={onSaveBranchName}
+              canWrite={canWrite}
+              className="ml-auto"
+            />
+          )}
+        </div>
       )}
       {/* Title row — the ⋯ overflow menu (Delete, …) sits at its right, like an
-          issue header. Hidden when there are no actions the viewer may take.
-          `pr-10` keeps a long title clear of the pinned copy button above it. */}
-      <div className={cn('flex items-center gap-2', pinned && 'pr-10')}>
+          issue header. Hidden when there are no actions the viewer may take. */}
+      <div className="flex items-center gap-2">
         {canWrite ? (
           <input
             className={cn(TITLE_FIELD, 'flex-1')}
@@ -189,8 +209,7 @@ export function IssueDetailMain({
         ) : (
           <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight">{title}</h1>
         )}
-        {/* Inbox pane (no topbar): copy + favourite + ⋯ sit inline in the title row. */}
-        {!pinned && copyMenu}
+        {/* Inbox pane (no topbar): favourite + ⋯ sit inline in the title row. */}
         {menuTarget === 'header' && favourite && currentUserId && (
           <FavouriteButton
             kind={favourite.kind}

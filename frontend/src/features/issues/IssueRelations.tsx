@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { t } from '@/i18n';
+import { CiStatusChip } from '@/components/CiStatus';
 import { IssueKind, RELATION_TYPES, RELATION_TYPE_LABEL } from '@/types/enums';
 import { useDeleteIssueRelation, useIssueRelations } from './relations.api';
 
@@ -11,13 +12,7 @@ import { useDeleteIssueRelation, useIssueRelations } from './relations.api';
  * so each routes by the linked issue's own `targetKind`. Renders nothing when the
  * issue has no relations.
  */
-export function IssueRelations({
-  issueId,
-  canWrite,
-}: {
-  issueId: string;
-  canWrite: boolean;
-}) {
+export function IssueRelations({ issueId, canWrite }: { issueId: string; canWrite: boolean }) {
   const { data: relations } = useIssueRelations(issueId);
   const del = useDeleteIssueRelation();
 
@@ -53,6 +48,19 @@ export function IssueRelations({
                 </span>
                 <span className="truncate">{r.targetTitle}</span>
               </Link>
+              {/* The linked issue's build. The dot alone — this list lives in a
+                  ~260px sidebar where a word would push the title out — with the
+                  state, branch and age in the tooltip. Outside the <Link> so it
+                  reads as a signal about the row, not part of the destination. */}
+              <CiStatusChip
+                issue={{
+                  ciStatus: r.targetCiStatus,
+                  ciBranch: r.targetCiBranch,
+                  ciUpdatedAt: r.targetCiUpdatedAt,
+                }}
+                labelled={false}
+                className="shrink-0"
+              />
               {canWrite && (
                 <button
                   type="button"

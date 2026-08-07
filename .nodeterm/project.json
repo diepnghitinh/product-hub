@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "rev": 665,
-  "savedAt": "2026-08-06T19:15:56.007Z",
+  "rev": 689,
+  "savedAt": "2026-08-07T06:44:38.121Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": -732.437211910152,
-    "y": 2442.4158693872355,
-    "zoom": 0.9231404514889284
+    "x": -304.46778038129867,
+    "y": 1533.592791109148,
+    "zoom": 0.6861691223137765
   },
   "nodes": [
     {
@@ -63,6 +63,46 @@
         "height": 400
       },
       "title": "Design-patterns feature không hiển thị ở chế độ prod",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-mshwpgl5-3",
+      "kind": "terminal",
+      "position": {
+        "x": 2112.8909185135694,
+        "y": -2646.4488212434503
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Fix GitLab payload URL localhost configuration",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-msiis4nd-1",
+      "kind": "terminal",
+      "position": {
+        "x": 1125.9863181862293,
+        "y": -1744.2152038788618
+      },
+      "size": {
+        "width": 592,
+        "height": 424
+      },
+      "title": "Thêm integrations Clickup cho link task",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,

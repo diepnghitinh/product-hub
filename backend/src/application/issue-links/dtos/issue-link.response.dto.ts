@@ -30,4 +30,17 @@ export class IssueLinkResponseDto {
 
   @ApiProperty()
   targetStatus: string;
+
+  @ApiProperty({
+    description:
+      "The linked issue's last reported pipeline state ('' when none ever has) — so a " +
+      'relation row can show whether the thing blocking you is green.',
+  })
+  targetCiStatus: string;
+
+  @ApiProperty({ description: "Branch that run was on; '' when unknown." })
+  targetCiBranch: string;
+
+  @ApiProperty({ description: 'When that state was reported; null when never.' })
+  targetCiUpdatedAt: Date | null;
 }

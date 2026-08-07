@@ -6,11 +6,14 @@ import { TaskStatusConfig, DEFAULT_TASK_STATUSES } from '@application/tasks/doma
 import { WebhookConfig, normalizeWebhook } from './webhook.types';
 import { CloudStorageConfig, defaultStorageConfig } from './storage.types';
 import { GitIntegrationConfig } from './integration.types';
+import { ClickUpConfig } from './clickup.types';
 
 interface AppSettingsProps {
   tenantId: string;
   webhooks: WebhookConfig[];
   integrations: GitIntegrationConfig[];
+  /** The connected ClickUp workspace, or `null` when there isn't one. */
+  clickup: ClickUpConfig | null;
   bugStatuses: BugStatusConfig[];
   taskStatuses: TaskStatusConfig[];
   storage: CloudStorageConfig;
@@ -30,6 +33,7 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
       tenantId: string;
       webhooks?: WebhookConfig[];
       integrations?: GitIntegrationConfig[];
+      clickup?: ClickUpConfig | null;
       bugStatuses?: BugStatusConfig[];
       taskStatuses?: TaskStatusConfig[];
       storage?: CloudStorageConfig;
@@ -47,6 +51,7 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
           tenantId: props.tenantId,
           webhooks: (props.webhooks ?? []).map(normalizeWebhook),
           integrations: props.integrations ?? [],
+          clickup: props.clickup ?? null,
           // Fall back to the shipped defaults for tenants that predate the field.
           bugStatuses: props.bugStatuses?.length ? props.bugStatuses : DEFAULT_BUG_STATUSES,
           taskStatuses: props.taskStatuses?.length ? props.taskStatuses : DEFAULT_TASK_STATUSES,
@@ -74,6 +79,9 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
   }
   get integrations(): GitIntegrationConfig[] {
     return this.props.integrations;
+  }
+  get clickup(): ClickUpConfig | null {
+    return this.props.clickup;
   }
   get bugStatuses(): BugStatusConfig[] {
     return this.props.bugStatuses;
@@ -112,6 +120,29 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
     this.props.integrations = this.props.integrations.map((i) =>
       i.id === id ? { ...i, lastEventAt: at, lastEventSummary: summary } : i,
     );
+    this.props.updatedAt = new Date();
+  }
+
+  /** Connect, reconfigure, or (with `null`) disconnect the ClickUp workspace. */
+  setClickUp(clickup: ClickUpConfig | null): void {
+    this.props.clickup = clickup;
+    this.props.updatedAt = new Date();
+  }
+
+  /**
+   * Stamp "we heard from ClickUp" after a delivery. Separate from
+   * {@link setClickUp} for the same reason `recordIntegrationDelivery` is
+   * separate: this one is written by the *webhook* path, which must never touch
+   * the admin's configuration — the two writers can legitimately race, and only
+   * one of them is the user. A no-op when nothing is connected.
+   */
+  recordClickUpDelivery(summary: string): void {
+    if (!this.props.clickup) return;
+    this.props.clickup = {
+      ...this.props.clickup,
+      lastEventAt: new Date().toISOString(),
+      lastEventSummary: summary,
+    };
     this.props.updatedAt = new Date();
   }
 

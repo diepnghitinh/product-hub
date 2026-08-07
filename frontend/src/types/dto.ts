@@ -4,6 +4,7 @@ import {
   BugSeverity,
   BugStatus,
   BugStatusConfig,
+  ClickUpLinkTarget,
   CustomFieldConfig,
   CustomFieldValue,
   CycleMode,
@@ -62,6 +63,11 @@ export interface IssueRelationDto {
   targetShortId: string;
   targetTitle: string;
   targetStatus: string;
+  /** The linked issue's last reported pipeline state ('' when none ever has), so
+   *  a relation row can show whether the thing blocking you is green. */
+  targetCiStatus: PipelineState | '';
+  targetCiBranch: string;
+  targetCiUpdatedAt: string | null;
 }
 
 export interface UserDto {
@@ -275,6 +281,10 @@ export interface BugDto {
   shortId: string;
   title: string;
   description: string;
+  /** The branch name someone chose; '' while it's still derived. See {@link IssueDto}. */
+  branchName: string;
+  /** The branch name in effect — chosen, or the derived default. Read-only. */
+  branch: string;
   severity: BugSeverity;
   /** Built-in `BugStatus` or a custom column key. */
   status: string;
@@ -505,6 +515,10 @@ export interface TaskDto {
   shortId: string;
   title: string;
   description: string;
+  /** The branch name someone chose; '' while it's still derived. See {@link IssueDto}. */
+  branchName: string;
+  /** The branch name in effect — chosen, or the derived default. Read-only. */
+  branch: string;
   /** Built-in `TaskStatus` or a custom column key. */
   status: string;
   roadmapId: string;
@@ -587,6 +601,13 @@ export interface IssueDto {
   shortId: string;
   title: string;
   description: string;
+  /** The branch name someone chose for this issue; '' while it's still derived
+   *  from the ref and title. Unique per workspace when set — PATCH it to change
+   *  it, and read {@link branch} to know what the issue actually answers to. */
+  branchName: string;
+  /** The branch name in effect — the chosen one, or the derived default.
+   *  Read-only: server-computed, so it stays right when the title changes. */
+  branch: string;
   /** Status column key — built-in or a team's custom slug (spans both kinds). */
   status: string;
   roadmapId: string;
@@ -774,6 +795,85 @@ export interface GitIntegrationDto {
   lastEventAt: string;
   /** That delivery in one line, e.g. `main · passed · 2 issues updated`. */
   lastEventSummary: string;
+}
+
+// ── ClickUp ──────────────────────────────────────────────────────────────────
+/**
+ * The connected ClickUp workspace, as `GET /settings/clickup` returns it
+ * (admin-only).
+ *
+ * Note the field that doesn't exist: the API token. It is stored server-side and
+ * never serialised — `tokenPreview` is its last four characters and that is all
+ * you can ever read back. Connecting therefore always sends a full token; there
+ * is nothing to round-trip.
+ */
+export interface ClickUpSettingsDto {
+  /** false → every other field is empty. */
+  connected: boolean;
+  /** `…a4f9`, or ''. */
+  tokenPreview: string;
+  workspaceId: string;
+  workspaceName: string;
+  /** Where ClickUp posts. We register it ourselves; shown so it can be verified. */
+  webhookUrl: string;
+  /** false when registration failed — links then refresh by hand only. */
+  webhookActive: boolean;
+  enabled: boolean;
+  connectedAt: string;
+  /** '' until the first delivery lands. */
+  lastEventAt: string;
+  lastEventSummary: string;
+  /** Only on the connect response: registration failed but the connection saved. */
+  webhookWarning?: string;
+}
+
+/** What everyone else may know: whether the Link button should exist at all. */
+export interface ClickUpStatusDto {
+  available: boolean;
+  workspaceName: string;
+}
+
+/** One workspace a pasted token can see, for the connect form's picker. */
+export interface ClickUpWorkspaceDto {
+  id: string;
+  name: string;
+  color: string;
+}
+
+/**
+ * One ClickUp task linked to an issue or a backlog item.
+ *
+ * Everything below is a **mirror**: what ClickUp said at `lastSyncedAt`, not a
+ * live read. Nothing here has ever moved this workspace's own status — the whole
+ * integration is display-only and one-way.
+ */
+export interface ClickUpLinkDto {
+  id: string;
+  clickupTaskId: string;
+  targetType: ClickUpLinkTarget;
+  targetId: string;
+  /** '' for an issue. */
+  roadmapId: string;
+  taskName: string;
+  taskUrl: string;
+  /** `DEV-123`, or '' unless the workspace uses custom ids. */
+  customId: string;
+  status: string;
+  /** ClickUp's own colour for that status — used as-is, it's their brand. */
+  statusColor: string;
+  /** open · custom · done · closed. */
+  statusType: string;
+  assignees: string[];
+  priority: string;
+  /** `YYYY-MM-DD`, or ''. */
+  dueDate: string;
+  listName: string;
+  spaceName: string;
+  /** '' when healthy; otherwise why the mirror stopped. */
+  unavailableReason: string;
+  createdByName: string;
+  createdAt: string;
+  lastSyncedAt: string;
 }
 
 // ── Teams ────────────────────────────────────────────────────────────────────

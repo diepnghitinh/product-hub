@@ -2,7 +2,8 @@ import { ExternalLink, GitBranch } from 'lucide-react';
 import { t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
 import { GitProviderIcon } from '@/components/GitProviderIcon';
-import { GitProvider, PIPELINE_STATE_COLOR, PIPELINE_STATE_LABEL, PipelineState } from '@/types/enums';
+import { CiStatusDot, ciState } from '@/components/CiStatus';
+import { GitProvider, PIPELINE_STATE_COLOR, PIPELINE_STATE_LABEL } from '@/types/enums';
 import type { IssueDto } from '@/types/dto';
 import { PropField, PropValue } from './IssueDetail';
 
@@ -20,30 +21,18 @@ type IssueCi = Pick<IssueDto, 'ciStatus' | 'ciUrl' | 'ciProvider' | 'ciBranch' |
  * did it would be indistinguishable from "the build hasn't run yet".
  */
 export function CiStatusField({ issue }: { issue: IssueCi }) {
-  const state = issue.ciStatus as PipelineState | '';
+  const state = ciState(issue);
   if (!state) return null;
 
-  const running = state === PipelineState.RUNNING;
   const color = PIPELINE_STATE_COLOR[state];
   const provider = issue.ciProvider as GitProvider | '';
 
   const label = (
     <span className="flex min-w-0 items-center gap-2">
       {/* A dot, not a badge: it's the same colour language the board columns and
-          test results already speak, and it survives a 130px-wide sidebar cell. */}
-      <span
-        className="relative grid size-2 shrink-0 place-items-center rounded-full"
-        style={{ backgroundColor: color }}
-      >
-        {/* Only a live build pulses — a finished one shouldn't keep drawing the
-            eye. `motion-safe` so it stays still for prefers-reduced-motion. */}
-        {running && (
-          <span
-            className="absolute inset-0 rounded-full motion-safe:animate-ping"
-            style={{ backgroundColor: color }}
-          />
-        )}
-      </span>
+          test results already speak, and it survives a 130px-wide sidebar cell.
+          Shared with the board card + sub-task rows, so they can't drift. */}
+      <CiStatusDot state={state} />
       <span className="min-w-0 truncate font-medium" style={{ color }}>
         {PIPELINE_STATE_LABEL[state]}
       </span>

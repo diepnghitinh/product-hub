@@ -226,6 +226,26 @@ export enum PipelineState {
   CANCELED = 'canceled',
 }
 
+/** What a ClickUp task can be linked to on our side. */
+export enum ClickUpLinkTarget {
+  /** A task or a bug — both live in the unified issues collection. */
+  ISSUE = 'issue',
+  /** A backlog item, embedded in its roadmap (hence `roadmapId` on the link). */
+  ROADMAP_ITEM = 'roadmap_item',
+}
+
+/**
+ * ClickUp's own status buckets. `done`/`closed` are the two finished ones —
+ * which is the only judgement we make about a ClickUp status. It never moves
+ * anything on this board; it decides whether to strike the mirrored row through.
+ */
+export enum ClickUpStatusType {
+  OPEN = 'open',
+  CUSTOM = 'custom',
+  DONE = 'done',
+  CLOSED = 'closed',
+}
+
 export enum RoadmapPhase {
   NOW = 'now',
   NEXT = 'next',

@@ -19,6 +19,8 @@ export interface IssueDoc {
   shortId: string;
   title: string;
   description: string;
+  /** Chosen git branch name; '' (or absent) = derived from the ref + title. */
+  branchName: string;
   /** Built-in status or a custom column key. */
   status: string;
   roadmapId: string;
@@ -87,6 +89,10 @@ export const IssueSchema = new Schema<IssueDoc>(
     shortId: { type: String, default: '' },
     title: { type: String, required: true, maxlength: 200 },
     description: { type: String, default: '' },
+    // Only a *chosen* branch name is stored — '' means "derive it from the ref and
+    // title", which is what every issue does until someone renames one. Unique per
+    // tenant via the partial index below.
+    branchName: { type: String, default: '' },
     // No enum: a built-in status or a tenant's custom column key.
     status: { type: String, default: TaskStatus.TODO },
     roadmapId: { type: String, default: '', index: true },
@@ -157,6 +163,16 @@ export const IssueSchema = new Schema<IssueDoc>(
 IssueSchema.index(
   { tenantId: 1, shortId: 1 },
   { unique: true, partialFilterExpression: { shortId: { $gt: '' } } },
+);
+
+// One branch, one issue. Same `partialFilterExpression` reasoning as the shortId
+// index above: an issue with no chosen name stores '', and every one of those
+// would collide under a plain unique index. This is the hard backstop behind the
+// use-case's check — two people renaming to the same branch at the same moment
+// get one winner and one 409 rather than two issues answering to one branch.
+IssueSchema.index(
+  { tenantId: 1, branchName: 1 },
+  { unique: true, partialFilterExpression: { branchName: { $gt: '' } } },
 );
 
 // Co-assignee lookups ("everything Nguyen is on", My Team, the assignee filter).

@@ -45,14 +45,23 @@ export class GetIssueLinksUseCase
         targetShortId: issue.shortId,
         targetTitle: issue.title,
         targetStatus: issue.status,
+        targetCiStatus: issue.ciStatus,
+        targetCiBranch: issue.ciBranch,
+        targetCiUpdatedAt: issue.ciUpdatedAt,
       });
     }
     return Result.ok(out);
   }
 
-  private async resolve(
-    id: string,
-  ): Promise<{ kind: IssueKind; shortId: string; title: string; status: string } | null> {
+  private async resolve(id: string): Promise<{
+    kind: IssueKind;
+    shortId: string;
+    title: string;
+    status: string;
+    ciStatus: string;
+    ciBranch: string;
+    ciUpdatedAt: Date | null;
+  } | null> {
     const issue = await this.issues.findById(id);
     if (!issue) return null;
     return {
@@ -60,6 +69,11 @@ export class GetIssueLinksUseCase
       shortId: issue.shortId,
       title: issue.title,
       status: issue.status,
+      // Carried so the sidebar row can show the linked issue's build without a
+      // second fetch per relation — the list is already one resolve per row.
+      ciStatus: issue.ciStatus,
+      ciBranch: issue.ciBranch,
+      ciUpdatedAt: issue.ciUpdatedAt,
     };
   }
 }

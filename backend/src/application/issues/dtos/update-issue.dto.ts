@@ -17,6 +17,7 @@ import {
 import { MAX_ATTACHMENTS } from '@application/storage/domain/stored-file.type';
 import { CustomFieldValue } from '@application/teams/domain/enums/custom-field.enums';
 import { BugSeverity, TASK_ESTIMATE_VALUES } from '../domain/enums/issue.enums';
+import { BRANCH_NAME_MAX } from '../domain/branch-name';
 
 /** One attachment on an issue — matches the upload endpoint's response shape. */
 export class IssueAttachmentDto {
@@ -61,6 +62,19 @@ export class UpdateIssueDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'The git branch name for this issue. Slugged to something git accepts, then ' +
+      'stored only if it differs from the derived default — send "" (or that default) ' +
+      'to go back to deriving it from the ref and title. Must be free within the ' +
+      'workspace and must not name another issue: 409 otherwise.',
+    example: 'feat/tsk-6hcuhkx-import-parser',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(BRANCH_NAME_MAX)
+  branchName?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

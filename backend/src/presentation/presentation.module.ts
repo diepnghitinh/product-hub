@@ -21,6 +21,7 @@ import { ApiKeysPresentationModule } from './api-keys/api-keys.module';
 import { McpPresentationModule } from './mcp/mcp.module';
 import { PublicPresentationModule } from './public/public.module';
 import { AppSettingsPresentationModule } from './app-settings/app-settings.module';
+import { IntegrationsPresentationModule } from './integrations/integrations.module';
 import { StoragePresentationModule } from './storage/storage.module';
 import { PlatformPresentationModule } from './platform/platform.module';
 
@@ -56,6 +57,9 @@ import { PlatformPresentationModule } from './platform/platform.module';
     McpPresentationModule,
     PublicPresentationModule,
     AppSettingsPresentationModule,
+    // Controller is @Controller('clickup/links') → /v1/clickup/links, so no
+    // RouterModule prefix.
+    IntegrationsPresentationModule,
     // Controller is @Controller('uploads') → /v1/uploads, so it's imported like
     // AppSettings (no RouterModule prefix entry needed).
     StoragePresentationModule,

@@ -24,13 +24,17 @@ async function bootstrap() {
   const bodyLimit = config.get<string>('MAX_REQUEST_BODY_SIZE', '10mb');
   app.useBodyParser('json', {
     limit: bodyLimit,
-    // Keep the raw bytes for inbound git webhooks. GitHub signs the body exactly
-    // as it sent it, so re-serialising the parsed JSON — different key order,
-    // different whitespace — produces a different HMAC and every delivery fails
-    // verification. Scoped to that one path so we're not holding a second copy
-    // of every request body in memory for the rest of the API.
+    // Keep the raw bytes for inbound webhooks. GitHub, GitLab and ClickUp all
+    // sign the body exactly as they sent it, so re-serialising the parsed JSON —
+    // different key order, different whitespace — produces a different HMAC and
+    // every delivery fails verification. Scoped to those paths so we're not
+    // holding a second copy of every request body in memory for the rest of the
+    // API.
     verify: (req: { url?: string; rawBody?: Buffer }, _res: unknown, buf: Buffer) => {
-      if (req.url?.startsWith('/v1/public/git/')) req.rawBody = buf;
+      const url = req.url ?? '';
+      if (url.startsWith('/v1/public/git/') || url.startsWith('/v1/public/clickup/')) {
+        req.rawBody = buf;
+      }
     },
   });
   app.useBodyParser('urlencoded', { limit: bodyLimit, extended: true });

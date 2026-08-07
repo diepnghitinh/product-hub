@@ -29,6 +29,7 @@ import { AssigneeField, fallbackNames } from '@/components/AssigneeField';
 import { DetailSkeleton } from '@/components/Skeletons';
 import { DescriptionTemplates, useTemplateSeed } from '@/components/DescriptionTemplates';
 import { AttachmentsRow } from '@/components/AttachmentsRow';
+import { ClickUpLinkPanel } from '@/features/clickup/ClickUpLinkPanel';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { usePageChrome } from '@/layouts/headers/PageChrome';
@@ -50,6 +51,7 @@ import { ReactionBar } from '@/features/reactions/ReactionBar';
 import { ActivityHeader, CommentThread } from '@/features/activity/CommentThread';
 import { LinkedDocsSection } from '@/features/docs/components/LinkedDocsSection';
 import {
+  ClickUpLinkTarget,
   DEFAULT_ROADMAP_COLUMNS,
   FavouriteKind,
   ReactionTargetType,
@@ -528,6 +530,16 @@ export function RoadmapItemDetail({
           </div>
         </section>
       )}
+
+      {/* A backlog item is the other thing a ClickUp task can hang off — same
+          panel as an issue's, told which roadmap owns this item because items
+          are embedded and the item id alone doesn't locate one. */}
+      <ClickUpLinkPanel
+        targetType={ClickUpLinkTarget.ROADMAP_ITEM}
+        targetId={item.id}
+        roadmapId={roadmap.id}
+        canWrite={canWrite}
+      />
     </>
   );
 

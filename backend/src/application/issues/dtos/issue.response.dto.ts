@@ -46,6 +46,20 @@ export class IssueResponseDto {
   @ApiProperty()
   description: string;
 
+  @ApiProperty({
+    description:
+      'The git branch name someone chose for this issue; "" when it is still derived from the ref and title. Unique per tenant when set.',
+    example: '',
+  })
+  branchName: string;
+
+  @ApiProperty({
+    description:
+      'The branch name this issue actually answers to — the chosen one, or the derived default. Read-only; PATCH `branchName` to change it.',
+    example: 'tsk-6hcuhkx-wire-up-the-import-parser',
+  })
+  branch: string;
+
   @ApiProperty({ description: 'Status column key (built-in or custom slug)' })
   status: string;
 

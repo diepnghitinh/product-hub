@@ -654,6 +654,20 @@ export const en = {
   'relations.none': 'Search an issue to link.',
   'relations.remove': 'Remove relation',
   'relations.kindBug': 'Bug',
+  // ClickUp panel — on an issue's and a backlog item's Properties sidebar
+  'clickup.title': 'ClickUp',
+  'clickup.link': 'Link a ClickUp task',
+  'clickup.linked': 'ClickUp task linked.',
+  'clickup.none': 'No ClickUp task linked.',
+  'clickup.reference': 'Task link or ID',
+  'clickup.referenceHint': 'A ClickUp task URL, a task ID, or a custom ID like DEV-123.',
+  'clickup.referenceRequired': 'Paste a ClickUp task link or ID.',
+  'clickup.oneWayNote':
+    'Display only. The task’s status shows here and updates when it changes in ClickUp — it never moves this item, and nothing is written back to ClickUp.',
+  'clickup.open': 'Open in ClickUp',
+  'clickup.refresh': 'Refresh from ClickUp',
+  'clickup.unlink': 'Remove link',
+  'clickup.lastSynced': 'Last refreshed',
   'tasks.assign': 'Assign',
   'tasks.unassigned': 'Unassigned',
   'tasks.assignMe': 'Assign to me',
@@ -674,11 +688,19 @@ export const en = {
   'issues.cappedHint': 'shown — narrow it with search or filters.',
   'issues.kindTasks': 'Tasks',
   'issues.kindBugs': 'Bugs',
-  // The copy menu at the top right of an issue's detail. "Copied!" is common.copied.
-  'issues.copyMenu': 'Copy',
+  // The copy buttons at the top right of an issue's detail — each label is the
+  // button's tooltip and its aria-label. "Copied!" is common.copied.
   'issues.copyUrl': 'Copy issue URL',
   'issues.copyId': 'Copy issue ID',
   'issues.copyBranch': 'Copy git branch name',
+  // The branch button's popover — read the name, copy it, or rename it. The hint
+  // line shows one of these: `branchDefault` composes with the derived name in
+  // code (`Default: tsk-6hcuhkx-…`), and `branchTaken` is only the fallback if a
+  // clash somehow comes back without the API's own message.
+  'issues.branchName': 'Git branch name',
+  'issues.branchHint': 'Must be unique in this workspace. Clear it to use the default.',
+  'issues.branchDefault': 'Default:',
+  'issues.branchTaken': 'Another issue already uses that branch name.',
   // Bulk actions — the List-view multi-select toolbar. Count words compose with a
   // number in code (`3 selected`, `2 updated`), so they carry no placeholder.
   'bulk.selected': 'selected',
@@ -1056,6 +1078,30 @@ export const en = {
   'settings.integrationWaiting': 'Waiting for the first delivery',
   'settings.integrationLastEvent': 'Last delivery',
   'settings.integrationDisabled': 'Paused — deliveries are rejected.',
+  // ClickUp — the one integration that stores an outbound credential
+  'settings.clickup': 'ClickUp',
+  'settings.clickupHint':
+    'Link a ClickUp task to an issue or a backlog item and see its status beside your own. One-way: ClickUp tells us it changed, we mirror it. Nothing is ever written back to ClickUp, and a ClickUp status never moves anything on your board.',
+  'settings.clickupHow': 'How it works',
+  'settings.clickupHowSteps':
+    'Paste a ClickUp personal API token, pick the workspace it can see, and connect. We register a webhook in that workspace so task changes reach us. Then, on any issue or backlog item, paste a ClickUp task link into the ClickUp panel.',
+  'settings.clickupConnect': 'Connect ClickUp',
+  'settings.clickupToken': 'API token',
+  'settings.clickupTokenHint':
+    'In ClickUp: your avatar → Settings → Apps → Generate. The token is stored encrypted at rest and never shown again — only its last four characters.',
+  'settings.clickupTokenRequired': 'Paste your ClickUp API token.',
+  'settings.clickupCheck': 'Check token',
+  'settings.clickupWorkspace': 'Workspace',
+  'settings.clickupConnected': 'ClickUp connected.',
+  'settings.clickupPaused': 'Paused — task changes are ignored.',
+  'settings.clickupWebhookUrl': 'Webhook URL',
+  'settings.clickupNoWebhook':
+    'We could not register the webhook, so links will not update on their own — refresh a link by hand from its row. This is normal on a machine ClickUp cannot reach from the internet.',
+  'settings.clickupWaiting': 'Waiting for the first task change',
+  'settings.clickupDisconnect': 'Disconnect ClickUp',
+  'settings.clickupDisconnectConfirm':
+    'Disconnect ClickUp? The webhook is removed, the token is deleted, and every linked task disappears from your issues and backlog items. Nothing in ClickUp is touched.',
+  'settings.clickupDisconnected': 'ClickUp disconnected.',
   'settings.bugStatuses': 'Bug board columns',
   'settings.bugStatusesHint':
     'Rename, recolor, and reorder the columns on your Bugs board. The underlying workflow stays the same, so filters and reports keep working.',

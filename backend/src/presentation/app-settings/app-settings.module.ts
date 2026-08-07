@@ -3,9 +3,10 @@ import { ApplicationAppSettingsModule } from '@application/app-settings/app-sett
 import { ApplicationIntegrationsModule } from '@application/integrations/integrations.module';
 import { AppSettingsController } from './app-settings.controller';
 import { IntegrationsController } from './integrations.controller';
+import { ClickUpController } from './clickup.controller';
 
 @Module({
   imports: [ApplicationAppSettingsModule, ApplicationIntegrationsModule],
-  controllers: [AppSettingsController, IntegrationsController],
+  controllers: [AppSettingsController, IntegrationsController, ClickUpController],
 })
 export class AppSettingsPresentationModule {}

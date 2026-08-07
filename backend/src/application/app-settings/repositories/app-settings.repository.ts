@@ -13,6 +13,8 @@ export abstract class IAppSettingsRepository {
    * the unguessable share alphabet rather than being anything derivable.
    */
   findByIntegrationToken: (token: string) => Promise<AppSettingsEntity | null>;
+  /** The same resolution for an inbound ClickUp delivery, keyed on its own token. */
+  findByClickUpToken: (token: string) => Promise<AppSettingsEntity | null>;
   /**
    * Legacy: task labels used to live on settings (workspace-wide). They're now
    * per-team, so the boot backfill reads any stored ones to seed teams, then

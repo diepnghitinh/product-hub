@@ -18,14 +18,20 @@
 }
 /* "You are writing here" — the whole field is framed in the brand ring while it
    holds the caret, the same 1px the plain Input and the comment composer use.
-   Drawn as a box-shadow rather than a thicker border so nothing under it moves.
-
-   Variants that drop the resting border (`border-0`, `.doc-page`) still get this
-   frame: without a resting shape to light up, focus is the *only* thing telling
-   you which surface has the caret. */
+   Drawn as a box-shadow rather than a thicker border so nothing under it moves. */
 .rich-text-editor:focus-within {
   border-color: hsl(var(--ring));
   box-shadow: 0 0 0 1px hsl(var(--ring));
+}
+
+/* …but only where there was a border to light up. A description editor drops its
+   resting one (`border-0`) so it reads as the page's body text rather than a form
+   field — and there the ring fires as a full-width violet rectangle around prose
+   you were already typing in, which is loud and answers a question nobody asked.
+   The caret says "you're writing here" on its own once the surface has no chrome. */
+.rich-text-editor.border-0:focus-within {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 /* Embedded in a container that already owns the chrome — the comment composer

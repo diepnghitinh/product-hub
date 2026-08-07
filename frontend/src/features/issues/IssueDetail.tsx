@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui';
 import { IssueDetailMain, type IssueDetailMainProps } from './IssueDetailMain';
+import { IssueCopyActions } from './IssueCopyActions';
 
 /**
  * Wraps a Properties row whose label isn't drawn — a {@link PropField bare} row, or
@@ -194,7 +195,9 @@ export function PropSection({
  * page keeps its own main (issue body, or the roadmap item's RICE/timing).
  */
 export function DetailGrid({ children }: { children: ReactNode }) {
-  return <div className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_260px]">{children}</div>;
+  return (
+    <div className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_260px]">{children}</div>
+  );
 }
 
 /**
@@ -229,11 +232,34 @@ interface IssueDetailProps extends IssueDetailMainProps {
  */
 export function IssueDetail({ sidebar, dense = false, ...main }: IssueDetailProps) {
   // Drawer: one column — Properties inline under the title, no right sidebar.
+  // The copy cluster rides the main column's ref row there; see IssueDetailMain.
   if (dense) return <IssueDetailMain {...main} propertiesInline={sidebar} />;
   return (
-    <DetailGrid>
-      <IssueDetailMain {...main} />
-      <PropSidebar>{sidebar}</PropSidebar>
-    </DetailGrid>
+    <div className="relative">
+      {/* URL · ID · branch — pinned to the page's own top-right corner rather than
+          given a row of its own. Taking a row cost every issue ~40px of blank band
+          above the title for three buttons nobody looks at until they need one;
+          out of flow, the content starts at the top of the page where it belongs.
+
+          Desktop lifts it into the layout's top padding, so it sits under the
+          topbar and clear of the Properties sidebar underneath. Below `md` the
+          sidebar drops below the main column, freeing the empty right half of the
+          ref row — so there it simply sits on that line. */}
+      {main.menuTarget === 'topbar' && (
+        <IssueCopyActions
+          issueId={main.issueId}
+          shortId={main.shortId}
+          title={main.title}
+          branch={main.branch}
+          onSaveBranchName={main.onSaveBranchName}
+          canWrite={main.canWrite}
+          className="absolute right-0 top-0 z-10 md:-top-7"
+        />
+      )}
+      <DetailGrid>
+        <IssueDetailMain {...main} />
+        <PropSidebar>{sidebar}</PropSidebar>
+      </DetailGrid>
+    </div>
   );
 }

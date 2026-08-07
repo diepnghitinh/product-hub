@@ -12,6 +12,7 @@ import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
 import { Icon } from '@/components/Icon';
 import { BackLink } from '@/components/BackLink';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
+import { CiStatusChip } from '@/components/CiStatus';
 import { LabelChips } from '@/features/labels/LabelChips';
 import {
   FilterMenu,
@@ -79,6 +80,9 @@ export function BugCard({
       }
       metaTrailing={
         <>
+          {/* First in the cluster: of the three, the build is the one that can
+              change what you do next. Renders nothing until a run reports. */}
+          <CiStatusChip issue={bug} />
           <CarryOverBadge count={bug.carryOverCount} />
           <BoardCardAge createdAt={bug.createdAt} />
         </>

@@ -37,6 +37,11 @@ services:
       #   ALLOWED_ORIGINS      must already list https://team.linkadz.store (the
       #                        app calls the API cross-origin). The console does
       #                        NOT need an entry — it is same-origin by routing.
+      #   API_BASE_URL         optional. The webhook URL in Settings →
+      #                        Integrations otherwise uses the address the request
+      #                        arrived on — here https://team-api.linkadz.store,
+      #                        via the X-Forwarded-* headers Traefik sets. Set it
+      #                        only to override that.
       # Operators are not signed up, and the runtime image can't seed one (it
       # ships the build output + prod deps only — no ts-node, no scripts/).
       # Create the first one from a repo checkout that can reach this database:

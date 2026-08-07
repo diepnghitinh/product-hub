@@ -69,6 +69,9 @@ export interface CreateBugInput {
 export interface UpdateBugInput {
   title?: string;
   description?: string;
+  /** Rename the git branch — `''` goes back to deriving it from the ref and
+   *  title. Must be free within the workspace; the API answers 409 if it isn't. */
+  branchName?: string;
   severity?: BugSeverity;
   type?: string;
   projectId?: string;
