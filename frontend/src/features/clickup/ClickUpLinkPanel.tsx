@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { ExternalLink, Plus, RefreshCw, X } from 'lucide-react';
 import { Button, Dialog, Field, Input } from '@/components/ui';
 import { ClickUpIcon } from '@/components/ClickUpIcon';
+import { PropSection } from '@/features/issues/IssueDetail';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { timeAgo } from '@/lib/format';
@@ -71,37 +72,41 @@ export function ClickUpLinkPanel({
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <PropSection
+      label={
+        <span className="flex min-w-0 items-center gap-1.5">
           <ClickUpIcon className="size-3.5 shrink-0" />
           <span className="truncate">{t('clickup.title')}</span>
         </span>
-        {canWrite && status?.available && (
+      }
+      trailing={
+        canWrite && status?.available ? (
           <Button
             variant="ghost"
             size="icon"
-            className="size-6 shrink-0 text-muted-foreground"
+            className="size-6 text-muted-foreground"
             onClick={() => setAdding(true)}
             aria-label={t('clickup.link')}
           >
             <Plus className="size-4" />
           </Button>
-        )}
-      </div>
-
+        ) : undefined
+      }
+    >
       {rows.length === 0 ? (
         <p className="text-xs text-muted-foreground">{t('clickup.none')}</p>
       ) : (
-        rows.map((row) => (
-          <ClickUpLinkRow
-            key={row.id}
-            row={row}
-            targetType={targetType}
-            targetId={targetId}
-            canWrite={canWrite}
-          />
-        ))
+        <div className="flex flex-col gap-2">
+          {rows.map((row) => (
+            <ClickUpLinkRow
+              key={row.id}
+              row={row}
+              targetType={targetType}
+              targetId={targetId}
+              canWrite={canWrite}
+            />
+          ))}
+        </div>
       )}
 
       <Dialog
@@ -136,7 +141,7 @@ export function ClickUpLinkPanel({
           {t('clickup.oneWayNote')}
         </p>
       </Dialog>
-    </div>
+    </PropSection>
   );
 }
 

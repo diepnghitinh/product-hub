@@ -639,9 +639,8 @@ export const en = {
   'roadmaps.addAssignee': '+ Add assignee…',
   'roadmaps.okr': 'OKR',
   'roadmaps.keyResult': 'Key result',
-  'roadmaps.linkOkr': 'Link to an objective…',
+  'roadmaps.noOkr': 'No OKR',
   'roadmaps.wholeObjective': 'Whole objective',
-  'roadmaps.unlinkOkr': 'Unlink OKR',
   'roadmaps.reachHelp': 'How many people this reaches — rate 1 (few) to 5 (many).',
   'roadmaps.impactHelp': 'Impact when reached — rate 1 (low) to 5 (massive).',
   'roadmaps.confidenceHelp': 'Confidence in the estimates — rate 1 (low) to 5 (high).',
@@ -1098,10 +1097,24 @@ export const en = {
   'settings.integrationWaiting': 'Waiting for the first delivery',
   'settings.integrationLastEvent': 'Last delivery',
   'settings.integrationDisabled': 'Paused — deliveries are rejected.',
-  // ClickUp — the one integration that stores an outbound credential
+  // External tools — products outside Product OS that a record can point at.
+  // The tab is the category; ClickUp is the first tool inside it.
+  'settings.externalTools': 'External tools',
+  'settings.externalToolsHint':
+    'The products your team works in outside Product OS. Link a task there to an issue or a backlog item and its status is mirrored here, beside your own. Mirroring is one-way: nothing is ever written back, and an external status never moves anything on your board.',
+  'settings.externalToolsMore': 'More tools are on the way',
+  'settings.externalToolsMoreHint':
+    'Jira, Linear and Asana mirror the same way and will appear here. Tell us which one you need first.',
+  'settings.toolConnected': 'Connected',
+  'settings.toolNotConnected': 'Not connected',
+  'settings.toolPaused': 'Paused',
+  // ClickUp — the one external tool that stores an outbound credential
   'settings.clickup': 'ClickUp',
+  // Deliberately short: the one-way promise is made once, by the section above.
+  // Repeating it here made the page stutter — two paragraphs saying the same
+  // thing before a single control.
   'settings.clickupHint':
-    'Link a ClickUp task to an issue or a backlog item and see its status beside your own. One-way: ClickUp tells us it changed, we mirror it. Nothing is ever written back to ClickUp, and a ClickUp status never moves anything on your board.',
+    'Link a ClickUp task to an issue or a backlog item and see its status beside your own.',
   'settings.clickupHow': 'How it works',
   'settings.clickupHowSteps':
     'Paste a ClickUp personal API token, pick the workspace it can see, and connect. We register a webhook in that workspace so task changes reach us. Then, on any issue or backlog item, paste a ClickUp task link into the ClickUp panel.',
@@ -1369,6 +1382,8 @@ export const en = {
   'common.create': 'Create',
   'common.edit': 'Edit',
   'common.more': 'More',
+  'common.expand': 'Expand',
+  'common.collapse': 'Collapse',
   'common.delete': 'Delete',
   'common.openFull': 'Open full page',
   'common.details': 'Details',

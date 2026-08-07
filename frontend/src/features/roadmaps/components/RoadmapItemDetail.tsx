@@ -6,14 +6,11 @@ import {
   CalendarRange,
   CircleDot,
   Gauge,
-  HelpCircle,
   Layers,
   MoreHorizontal,
   Plus,
   Target,
   Trash2,
-  Users,
-  X,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
@@ -380,8 +377,16 @@ export function RoadmapItemDetail({
           )}
         </PropField>
 
-        <PropField label={t('roadmaps.progress')} icon={<Activity />} align="stack">
-          <div className="flex items-center gap-3">
+        {/* A slider has no value to sit beside an icon, so it keeps the icon
+            gutter inline (matching PropValue's `min-h-9 … px-3`) rather than
+            spending a whole label row above itself. */}
+        <PropField bare label={t('roadmaps.progress')}>
+          <div className="flex min-h-9 items-center gap-2 px-3">
+            <Activity
+              className="size-4 shrink-0 text-muted-foreground/70"
+              aria-hidden
+              role="presentation"
+            />
             <input
               type="range"
               min={0}
@@ -393,16 +398,16 @@ export function RoadmapItemDetail({
                 progressDraft !== item.progress && save({ progress: progressDraft })
               }
               onKeyUp={() => progressDraft !== item.progress && save({ progress: progressDraft })}
-              className="h-1.5 flex-1 cursor-pointer accent-primary"
+              className="h-1.5 min-w-0 flex-1 cursor-pointer accent-primary"
               aria-label={t('roadmaps.progress')}
             />
-            <span className="w-10 text-right text-sm tabular-nums text-muted-foreground">
+            <span className="w-9 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
               {progressDraft}%
             </span>
           </div>
         </PropField>
 
-        <PropField label={t('roadmaps.assignees')} icon={<Users />} align="stack">
+        <PropField bare label={t('roadmaps.assignees')}>
           {/* Several people, one control — the same picker the issue sidebars use,
               in multi mode. Names are stored alongside the ids (denormalised on
               the item), so they survive here even for someone since removed. */}
@@ -420,9 +425,9 @@ export function RoadmapItemDetail({
         {/* Which bet this belongs to. Sits beside the OKR link because they answer
             the same kind of question — what larger thing is this part of — and
             unlike the OKR the epic is a live pointer, never a copied label. */}
-        <PropField label={t('roadmaps.epic')} icon={<Layers />} align="stack">
+        <PropField bare label={t('roadmaps.epic')}>
           {canWrite ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               <div className="min-w-0 flex-1">
                 <Select
                   value={item.epicId || UNGROUPED}
@@ -443,7 +448,7 @@ export function RoadmapItemDetail({
                 <button
                   type="button"
                   onClick={() => setEpicsOpen(true)}
-                  className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                  className="grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   aria-label={t('roadmaps.manageEpics')}
                   title={t('roadmaps.manageEpics')}
                 >
@@ -451,38 +456,30 @@ export function RoadmapItemDetail({
                 </button>
               )}
             </div>
-          ) : epic ? (
-            <DotLabel color={epic.color}>{epic.label}</DotLabel>
           ) : (
-            <span className="text-sm text-muted-foreground">—</span>
+            <PropValue icon={<Layers />} muted={!epic}>
+              {epic ? <DotLabel color={epic.color}>{epic.label}</DotLabel> : t('roadmaps.noEpic')}
+            </PropValue>
           )}
         </PropField>
 
-        <PropField label={t('roadmaps.okr')} icon={<Target />} align="stack">
+        <PropField bare label={t('roadmaps.okr')}>
           {canWrite ? (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-1.5">
-                <div className="min-w-0 flex-1">
-                  <Select
-                    value={item.objectiveId}
-                    onValueChange={linkObjective}
-                    placeholder={t('roadmaps.linkOkr')}
-                    aria-label={t('roadmaps.okr')}
-                    options={objectiveOptions.map(({ value, label }) => ({ value, label }))}
-                  />
-                </div>
-                {item.objectiveId && (
-                  <button
-                    type="button"
-                    onClick={clearOkr}
-                    className="shrink-0 text-muted-foreground transition-colors hover:text-destructive"
-                    aria-label={t('roadmaps.unlinkOkr')}
-                    title={t('roadmaps.unlinkOkr')}
-                  >
-                    <X className="size-4" />
-                  </button>
-                )}
-              </div>
+            <div className="flex flex-col gap-1">
+              {/* "No OKR" is a real option rather than a placeholder, and unlinking
+                  is picking it rather than a separate ×. Both because a bare row has
+                  no drawn label to fall back on: `Select` bridges '' to a sentinel,
+                  so an unset value with no option to match it renders an empty box
+                  that says nothing about what the row is. Same shape as Epic above. */}
+              <Select
+                value={item.objectiveId}
+                onValueChange={(v) => (v ? linkObjective(v) : clearOkr())}
+                aria-label={t('roadmaps.okr')}
+                options={[
+                  { value: '', label: t('roadmaps.noOkr') },
+                  ...objectiveOptions.map(({ value, label }) => ({ value, label })),
+                ]}
+              />
               {linkedObjective && linkedObjective.keyResults.length > 0 && (
                 <Select
                   value={item.keyResultId || OKR_WHOLE}
@@ -495,31 +492,42 @@ export function RoadmapItemDetail({
                 />
               )}
             </div>
-          ) : item.okrLabel ? (
-            <span className="inline-flex min-w-0 items-center gap-1.5 text-sm">
-              <Target className="size-3.5 shrink-0 text-primary" aria-hidden />
-              <span className="truncate">{item.okrLabel}</span>
-            </span>
           ) : (
-            <span className="text-sm text-muted-foreground">—</span>
+            <PropValue icon={<Target />} muted={!item.okrLabel}>
+              {item.okrLabel || t('roadmaps.noOkr')}
+            </PropValue>
           )}
         </PropField>
       </PropSection>
 
-      {/* RICE */}
-      <section className="rounded-xl border border-border p-3">
-        <span className="inline-block rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {t('roadmaps.rice')}
-        </span>
-        <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+      {/* RICE — the score is what gets read; the four inputs are set once during
+          a prioritisation pass, so they fold away behind it. */}
+      <PropSection
+        label={t('roadmaps.rice')}
+        collapsible
+        defaultOpen={false}
+        storageKey="roadmap-rice"
+        trailing={
+          <span className="font-mono text-sm font-bold tabular-nums text-primary">
+            {score.toFixed(1)}
+          </span>
+        }
+      >
+        {/* Four across: at 260px each cell still fits a two-digit score, and one
+            row costs what a single 2×2 cell used to. */}
+        <div className="grid grid-cols-4 gap-1.5">
           {RICE_FIELDS.map(([key, labelKey, helpKey]) => (
-            <div key={key}>
-              <label className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+            <div key={key} className="min-w-0">
+              <label
+                htmlFor={`rice-${key}`}
+                className="mb-0.5 block truncate text-[10px] text-muted-foreground"
+                title={t(helpKey)}
+              >
                 {t(labelKey)}
-                <HelpCircle className="size-3" aria-hidden />
-                <span className="sr-only">{t(helpKey)}</span>
+                <span className="sr-only"> — {t(helpKey)}</span>
               </label>
               <Input
+                id={`rice-${key}`}
                 key={`${item.id}-${key}`}
                 type="number"
                 min={1}
@@ -532,25 +540,41 @@ export function RoadmapItemDetail({
                   if (v !== item[key]) save({ [key]: v } as Partial<RoadmapItem>);
                   e.target.value = String(v);
                 }}
-                className="h-9"
+                className="h-8 px-1 text-center tabular-nums"
                 title={t(helpKey)}
               />
             </div>
           ))}
         </div>
-        <div className="mt-2.5 flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-1.5">
-          <span className="text-sm text-muted-foreground">{t('roadmaps.score')}</span>
-          <span className="font-mono text-base font-bold text-primary">{score.toFixed(1)}</span>
-        </div>
-      </section>
+      </PropSection>
 
-      {/* Timing — driven by status, stamped server-side. */}
+      {/* Timing — driven by status, stamped server-side. The two durations are
+          the answer; the three stamps they're derived from fold away. */}
       {item.createdAt && (
-        <section className="rounded-xl border border-border p-3">
-          <span className="inline-block rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t('roadmaps.timing')}
-          </span>
-          <dl className="mt-2.5 space-y-1 text-sm">
+        <PropSection
+          label={t('roadmaps.timing')}
+          collapsible
+          defaultOpen={false}
+          storageKey="roadmap-timing"
+          summary={
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+              {(
+                [
+                  { label: t('roadmaps.leadTime'), value: dur(item.createdAt, item.completedAt) },
+                  { label: t('roadmaps.cycleTime'), value: dur(item.startedAt, item.completedAt) },
+                ] as const
+              ).map(({ label, value }) => (
+                <span key={label} className="whitespace-nowrap">
+                  {label}{' '}
+                  <span className="font-mono font-semibold tabular-nums text-foreground">
+                    {value}
+                  </span>
+                </span>
+              ))}
+            </div>
+          }
+        >
+          <dl className="mt-1.5 space-y-0.5 text-xs">
             {(
               [
                 { label: t('roadmaps.requested'), value: item.createdAt },
@@ -564,21 +588,7 @@ export function RoadmapItemDetail({
               </div>
             ))}
           </dl>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-            <div className="rounded-lg border border-border bg-muted/40 px-3 py-1.5">
-              <div className="text-xs text-muted-foreground">{t('roadmaps.leadTime')}</div>
-              <div className="font-mono text-base font-bold text-primary">
-                {dur(item.createdAt, item.completedAt)}
-              </div>
-            </div>
-            <div className="rounded-lg border border-border bg-muted/40 px-3 py-1.5">
-              <div className="text-xs text-muted-foreground">{t('roadmaps.cycleTime')}</div>
-              <div className="font-mono text-base font-bold text-primary">
-                {dur(item.startedAt, item.completedAt)}
-              </div>
-            </div>
-          </div>
-        </section>
+        </PropSection>
       )}
 
       {/* A backlog item is the other thing a ClickUp task can hang off — same

@@ -1,48 +1,28 @@
 {
   "version": 1,
-  "rev": 716,
-  "savedAt": "2026-08-07T08:57:35.136Z",
+  "rev": 752,
+  "savedAt": "2026-08-07T10:43:59.926Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": -833.3653022518993,
-    "y": 1398.1666956866757,
-    "zoom": 0.8368883312421581
+    "x": -1235.663279485712,
+    "y": 898.1521535400095,
+    "zoom": 0.8672302759312172
   },
   "nodes": [
     {
-      "id": "term-msgwe2g0-1",
+      "id": "term-msirizwq-6",
       "kind": "terminal",
       "position": {
-        "x": 1121.861178641421,
-        "y": -2924.415727156804
-      },
-      "size": {
-        "width": 926,
-        "height": 646
-      },
-      "title": "Thêm feature calendar schedule cho task",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
-      "collapsed": false,
-      "cwd": ".",
-      "agentId": "claude"
-    },
-    {
-      "id": "term-mshvm6o8-1",
-      "kind": "terminal",
-      "position": {
-        "x": 1125.500539801591,
-        "y": -2224.7738115943566
+        "x": 1844.0916730056426,
+        "y": -895.632468459191
       },
       "size": {
         "width": 600,
         "height": 400
       },
-      "title": "Fix icon in Integrations settings",
+      "title": "Integrate ClickUp as external tool",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,
@@ -52,97 +32,17 @@
       "agentId": "claude"
     },
     {
-      "id": "term-mshvnihc-2",
+      "id": "term-msirq2ox-7",
       "kind": "terminal",
       "position": {
-        "x": 1840.4513351388437,
-        "y": -2226.940329155985
+        "x": 2557.105034882508,
+        "y": -897.1078659683499
       },
       "size": {
         "width": 600,
         "height": 400
       },
-      "title": "Design-patterns feature không hiển thị ở chế độ prod",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
-      "collapsed": false,
-      "cwd": ".",
-      "agentId": "claude"
-    },
-    {
-      "id": "term-mshwpgl5-3",
-      "kind": "terminal",
-      "position": {
-        "x": 2112.8909185135694,
-        "y": -2646.4488212434503
-      },
-      "size": {
-        "width": 600,
-        "height": 400
-      },
-      "title": "Fix GitLab payload URL localhost configuration",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
-      "collapsed": false,
-      "cwd": ".",
-      "agentId": "claude"
-    },
-    {
-      "id": "term-msiis4nd-1",
-      "kind": "terminal",
-      "position": {
-        "x": 1125.9863181862293,
-        "y": -1744.2152038788618
-      },
-      "size": {
-        "width": 592,
-        "height": 424
-      },
-      "title": "Thêm integrations Clickup cho link task",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
-      "collapsed": false,
-      "cwd": ".",
-      "agentId": "claude"
-    },
-    {
-      "id": "term-msin4lrc-3",
-      "kind": "terminal",
-      "position": {
-        "x": 1845.010713485403,
-        "y": -1747.1299371930859
-      },
-      "size": {
-        "width": 683,
-        "height": 797
-      },
-      "title": "Hỗ trợ gom nhóm Epic trong backlog",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
-      "collapsed": false,
-      "cwd": ".",
-      "agentId": "claude"
-    },
-    {
-      "id": "term-msinoyjf-4",
-      "kind": "terminal",
-      "position": {
-        "x": 1121.966472194514,
-        "y": -1208.9757147747841
-      },
-      "size": {
-        "width": 600,
-        "height": 400
-      },
-      "title": "Lưu trữ trạng thái menu mở rộng và thu gọn",
+      "title": "Rút gọn UI/UX menu bên",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,

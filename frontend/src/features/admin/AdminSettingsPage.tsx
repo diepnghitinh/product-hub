@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   ArrowDown,
   ArrowUp,
+  Blocks,
   Cloud,
   Copy,
   GitBranch,
@@ -10,7 +11,6 @@ import {
   Plug,
   Plus,
   RotateCcw,
-  SquareCheckBig,
   Trash2,
   Users,
   Webhook,
@@ -71,7 +71,7 @@ import type { TeamDto } from '@/types/dto';
 import type { CustomFieldConfig, TaskLabelConfig } from '@/types/enums';
 import { CloudStorageSection } from './CloudStorageSection';
 import { IntegrationsSection } from './IntegrationsSection';
-import { ClickUpSection } from './ClickUpSection';
+import { ExternalToolsSection } from './ExternalToolsSection';
 import { McpSection } from './McpSection';
 import { WebhooksSection } from './WebhooksSection';
 import { CenteredPageLayout } from '@/layouts/shared';
@@ -100,12 +100,19 @@ const TABS: {
   // Admin-only for the same reason as the rest: the response carries each
   // repo's signing secret, which is the whole of its authentication.
   { key: 'integrations', labelKey: 'settings.integrations', icon: GitBranch, Section: IntegrationsSection, adminOnly: true },
-  // Admin-only and then some: this is the one integration that stores an
-  // outbound credential, and a ClickUp personal token can read every task the
-  // person who minted it can see.
-  { key: 'clickup', labelKey: 'settings.clickup', icon: SquareCheckBig, Section: ClickUpSection, adminOnly: true },
+  // The category, holding ClickUp today. Admin-only and then some: an external
+  // tool is the one kind that stores an *outbound* credential, and a ClickUp
+  // personal token can read every task the person who minted it can see.
+  { key: 'external-tools', labelKey: 'settings.externalTools', icon: Blocks, Section: ExternalToolsSection, adminOnly: true },
   { key: 'storage', labelKey: 'settings.storage', icon: Cloud, Section: CloudStorageSection, adminOnly: true },
 ];
+
+/**
+ * Tabs that moved, so a bookmark or a pasted link still lands somewhere true.
+ * Without this a stale `?tab=clickup` resolves to nothing and silently falls
+ * back to Teams — which reads as "the ClickUp settings are gone".
+ */
+const MOVED_TABS: Record<string, string> = { clickup: 'external-tools' };
 
 /** A team's own settings live at ?tab=team:<id>. */
 const TEAM_TAB = 'team:';
@@ -123,7 +130,8 @@ export function AdminSettingsPage() {
   // Which section is open lives in the URL (?tab=api-keys), so it survives a
   // reload and is linkable — same pattern as the boards' ?view=.
   const [searchParams, setSearchParams] = useSearchParams();
-  const param = searchParams.get('tab');
+  const raw = searchParams.get('tab');
+  const param = raw ? (MOVED_TABS[raw] ?? raw) : raw;
   const activeTeam = param?.startsWith(TEAM_TAB)
     ? activeTeams.find((x) => x.id === param.slice(TEAM_TAB.length))
     : undefined;
