@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { t } from '@/i18n';
 import { CiStatusChip } from '@/components/CiStatus';
 import { IssueKind, RELATION_TYPES, RELATION_TYPE_LABEL } from '@/types/enums';
+import { PropSection } from './IssueDetail';
 import { useDeleteIssueRelation, useIssueRelations } from './relations.api';
 
 /**
@@ -24,12 +25,9 @@ export function IssueRelations({ issueId, canWrite }: { issueId: string; canWrit
   })).filter((g) => g.items.length > 0);
 
   return (
-    <div className="flex flex-col gap-2">
-      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {t('relations.title')}
-      </span>
+    <PropSection label={t('relations.title')}>
       {groups.map((g) => (
-        <div key={g.type} className="flex flex-col gap-1">
+        <div key={g.type} className="flex flex-col gap-1 [&+&]:mt-2">
           <span className="text-[11px] font-medium text-muted-foreground">
             {RELATION_TYPE_LABEL[g.type]}
           </span>
@@ -75,6 +73,6 @@ export function IssueRelations({ issueId, canWrite }: { issueId: string; canWrit
           ))}
         </div>
       ))}
-    </div>
+    </PropSection>
   );
 }
