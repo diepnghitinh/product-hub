@@ -13,6 +13,8 @@ export class IssueMapper {
       shortId: issue.shortId,
       title: issue.title,
       description: issue.description,
+      branchName: issue.branchName,
+      branch: issue.branch,
       status: issue.status,
       roadmapId: issue.roadmapId,
       roadmapItemId: issue.roadmapItemId,

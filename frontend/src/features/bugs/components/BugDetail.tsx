@@ -25,6 +25,7 @@ import {
   BUG_SEVERITY_COLOR,
   BUG_SEVERITY_LABEL,
   BugSeverity,
+  ClickUpLinkTarget,
   FavouriteKind,
   IssueKind,
   TeamIssueType,
@@ -32,7 +33,12 @@ import {
 import { useUsers } from '@/features/users/api';
 import { IssueDetail, PropField, PropSection, PropValue } from '@/features/issues/IssueDetail';
 import { CiStatusField } from '@/features/issues/CiStatusField';
-import { useTeams, useTeamStatuses, useTeamLabels, useTeamCustomFields } from '@/features/teams/api';
+import {
+  useTeams,
+  useTeamStatuses,
+  useTeamLabels,
+  useTeamCustomFields,
+} from '@/features/teams/api';
 import { CyclePropField } from '@/features/cycles/CycleControls';
 import { LabelChips, resolveLabels } from '@/features/labels/LabelChips';
 import { CustomFields } from '@/features/custom-fields/CustomFields';
@@ -41,6 +47,7 @@ import { BUG_TEMPLATES } from '../bugTemplates';
 import { SeverityBadge } from './SeverityBadge';
 import { useRelationActions } from '@/features/issues/useRelationActions';
 import { IssueRelations } from '@/features/issues/IssueRelations';
+import { ClickUpLinkPanel } from '@/features/clickup/ClickUpLinkPanel';
 
 interface BugDetailProps {
   /** Bug shortId or uuid (`useBug` resolves either). */
@@ -62,7 +69,12 @@ interface BugDetailProps {
  * Extracted from the route page so the inbox can render it inline in its detail
  * pane; the route page wraps this with the breadcrumb + Esc handling.
  */
-export function BugDetail({ bugId, onDeleted, menuTarget = 'header', dense = false }: BugDetailProps) {
+export function BugDetail({
+  bugId,
+  onDeleted,
+  menuTarget = 'header',
+  dense = false,
+}: BugDetailProps) {
   const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
 
   const { data: bug, isLoading } = useBug(bugId);
@@ -123,6 +135,10 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header', dense = fal
       users={users}
       onSaveTitle={(title) => save({ title })}
       onSaveDescription={(description) => save({ description })}
+      branch={bug.branch}
+      // Awaited, unlike the other saves: a branch name can come back 409 (taken)
+      // and the editor shows that under the field instead of a toast.
+      onSaveBranchName={(branchName) => update.mutateAsync({ id: bug.id, input: { branchName } })}
       attachments={bug.attachments}
       onAttachmentsChange={(attachments) => save({ attachments })}
       // Repro-steps shapes, offered on an empty description the way a backlog
@@ -294,6 +310,11 @@ export function BugDetail({ bugId, onDeleted, menuTarget = 'header', dense = fal
           </PropSection>
 
           <IssueRelations issueId={bug.id} canWrite={canWrite} />
+          <ClickUpLinkPanel
+            targetType={ClickUpLinkTarget.ISSUE}
+            targetId={bug.id}
+            canWrite={canWrite}
+          />
           {picker}
         </>
       }

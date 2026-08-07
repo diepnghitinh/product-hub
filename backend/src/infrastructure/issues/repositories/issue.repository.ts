@@ -36,6 +36,7 @@ export class IssueRepository
         shortId: doc.shortId,
         title: doc.title,
         description: doc.description,
+        branchName: doc.branchName,
         status: doc.status,
         roadmapId: doc.roadmapId,
         roadmapItemId: doc.roadmapItemId,
@@ -94,6 +95,7 @@ export class IssueRepository
       shortId: issue.shortId,
       title: issue.title,
       description: issue.description,
+      branchName: issue.branchName,
       status: issue.status,
       roadmapId: issue.roadmapId,
       roadmapItemId: issue.roadmapItemId,
@@ -166,6 +168,12 @@ export class IssueRepository
     const doc =
       (await this.model.findOne({ tenantId, shortId: ref }).lean<IssueDoc>().exec()) ??
       (await this.model.findOne({ tenantId, _id: ref }).lean<IssueDoc>().exec());
+    return doc ? this.toDomain(doc) : null;
+  }
+
+  async findByBranchName(tenantId: string, branchName: string): Promise<IssueEntity | null> {
+    if (!branchName) return null;
+    const doc = await this.model.findOne({ tenantId, branchName }).lean<IssueDoc>().exec();
     return doc ? this.toDomain(doc) : null;
   }
 

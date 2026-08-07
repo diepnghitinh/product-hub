@@ -11,6 +11,7 @@ import {
   isCompletedStatus,
 } from '../enums/issue.enums';
 import { IssueAssignee, IssueProps } from './issue.props';
+import { derivedBranchName, normalizeBranchName } from '../branch-name';
 
 /**
  * Normalizes whatever a caller had into the canonical assignee list: the list if
@@ -54,6 +55,8 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
       shortId?: string;
       title: string;
       description?: string;
+      /** A chosen git branch name; omit (or '') to keep deriving it. */
+      branchName?: string;
       status?: string;
       roadmapId?: string;
       roadmapItemId?: string;
@@ -119,6 +122,7 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
           shortId: props.shortId || '',
           title: props.title.trim(),
           description: props.description?.trim() || '',
+          branchName: normalizeBranchName(props.branchName || ''),
           status,
           roadmapId: props.roadmapId || '',
           roadmapItemId: props.roadmapItemId || '',
@@ -215,6 +219,15 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
   }
   get description(): string {
     return this.props.description;
+  }
+  /** The *chosen* branch name — '' when it is still derived. See {@link branch}. */
+  get branchName(): string {
+    return this.props.branchName;
+  }
+  /** The branch name this issue actually answers to: the chosen one, or the one
+   *  derived from its ref and title. */
+  get branch(): string {
+    return this.props.branchName || this.derivedBranch;
   }
   get status(): string {
     return this.props.status;
@@ -414,6 +427,29 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
     if (nowCompleted && !wasCompleted) this.props.resolvedAt = new Date();
     else if (!nowCompleted && wasCompleted) this.props.resolvedAt = null;
     this.touch();
+  }
+
+  /**
+   * Choose the branch name for this issue's work, or hand it back to the default.
+   *
+   * The input is slugged to something `git branch` will accept (see
+   * {@link normalizeBranchName}) — a caller may pass what a person typed. Passing
+   * '', or the very name this issue would derive anyway, clears the override
+   * instead of freezing it: opening the editor and saving without a real change
+   * shouldn't quietly stop the name from following the title.
+   *
+   * Uniqueness is not decided here — the entity can't see the other issues. The
+   * use-case checks, and the collection's partial unique index is the backstop.
+   */
+  setBranchName(name: string): void {
+    const next = normalizeBranchName(name);
+    this.props.branchName = next === this.derivedBranch ? '' : next;
+    this.touch();
+  }
+
+  /** What this issue's branch name would be with no override. */
+  private get derivedBranch(): string {
+    return derivedBranchName(this.props.shortId || this.id.toString(), this.props.title);
   }
 
   setOrder(order: number): void {

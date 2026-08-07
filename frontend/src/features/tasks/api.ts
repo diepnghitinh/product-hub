@@ -82,6 +82,9 @@ export interface CreateTaskInput {
 export interface UpdateTaskInput {
   title?: string;
   description?: string;
+  /** Rename the git branch — `''` goes back to deriving it from the ref and
+   *  title. Must be free within the workspace; the API answers 409 if it isn't. */
+  branchName?: string;
   /** Set/clear the parent task (empty string detaches this sub-task). */
   parentId?: string;
   roadmapId?: string;

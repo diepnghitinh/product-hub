@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
-import type { AppSettingsDto, GitIntegrationDto, WebhookConfig } from '@/types/dto';
+import type {
+  AppSettingsDto,
+  ClickUpSettingsDto,
+  ClickUpWorkspaceDto,
+  GitIntegrationDto,
+  WebhookConfig,
+} from '@/types/dto';
 import type { GitProvider, StorageProvider } from '@/types/enums';
 
 export function useSettings(enabled = true) {
@@ -109,4 +115,67 @@ export function useDeleteIntegration() {
   return useIntegrationMutation((id: string) =>
     apiDelete<GitIntegrationDto[]>(`/settings/integrations/${id}`),
   );
+}
+
+// ── ClickUp ──────────────────────────────────────────────────────────────────
+const CLICKUP_KEY = ['settings', 'clickup'];
+
+/** The connected workspace (admin). Its own query — see `useIntegrations`. */
+export function useClickUpSettings(enabled = true) {
+  return useQuery({
+    queryKey: CLICKUP_KEY,
+    queryFn: () => apiGet<ClickUpSettingsDto>('/settings/clickup'),
+    enabled,
+  });
+}
+
+/**
+ * Step one of connecting: hand a token to the server, get back the workspaces
+ * it can see. A mutation rather than a query because it has to be *run*, and
+ * because caching a response keyed by a credential is a thing not to do.
+ */
+export function useProbeClickUp() {
+  return useMutation({
+    mutationFn: (apiToken: string) =>
+      apiPost<ClickUpWorkspaceDto[]>('/settings/clickup/probe', { apiToken }),
+  });
+}
+
+export interface ConnectClickUpPayload {
+  apiToken: string;
+  workspaceId: string;
+  workspaceName?: string;
+}
+
+/** Every mutation returns the whole object, so the cache is set, not invalidated. */
+function useClickUpMutation<TInput>(fn: (input: TInput) => Promise<ClickUpSettingsDto>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (settings) => {
+      qc.setQueryData(CLICKUP_KEY, settings);
+      // The Link button on every issue keys off `status`, and the link rows
+      // themselves are gone after a disconnect. Connecting, pausing and
+      // disconnecting all change one or both, so all three refetch them.
+      qc.invalidateQueries({ queryKey: ['clickup', 'status'] });
+      qc.invalidateQueries({ queryKey: ['clickup', 'links'] });
+    },
+  });
+}
+
+export function useConnectClickUp() {
+  return useClickUpMutation((input: ConnectClickUpPayload) =>
+    apiPost<ClickUpSettingsDto>('/settings/clickup', input),
+  );
+}
+
+export function useSetClickUpEnabled() {
+  return useClickUpMutation((enabled: boolean) =>
+    apiPut<ClickUpSettingsDto>('/settings/clickup', { enabled }),
+  );
+}
+
+/** Deletes the webhook in ClickUp, drops the token, and removes every link. */
+export function useDisconnectClickUp() {
+  return useClickUpMutation(() => apiDelete<ClickUpSettingsDto>('/settings/clickup'));
 }

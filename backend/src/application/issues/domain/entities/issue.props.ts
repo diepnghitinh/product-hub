@@ -35,6 +35,16 @@ export interface IssueProps {
   shortId: string;
   title: string;
   description: string;
+  /**
+   * The git branch name this issue's work goes on, **when someone has chosen one**.
+   * `''` — the normal case — means it is derived from the ref and the title
+   * (`derivedBranchName`), so it keeps following a retitled issue for free.
+   *
+   * Unique per tenant when set (a partial index on the collection backs it up):
+   * a branch belongs to one issue, or the CI label and every "which issue is this?"
+   * question after it has two answers.
+   */
+  branchName: string;
   /** Column key: a built-in status (`TaskStatus`/`BugStatus`) or a custom slug. */
   status: string;
 

@@ -10,6 +10,7 @@ import {
   Plug,
   Plus,
   RotateCcw,
+  SquareCheckBig,
   Trash2,
   Users,
   Webhook,
@@ -70,6 +71,7 @@ import type { TeamDto } from '@/types/dto';
 import type { CustomFieldConfig, TaskLabelConfig } from '@/types/enums';
 import { CloudStorageSection } from './CloudStorageSection';
 import { IntegrationsSection } from './IntegrationsSection';
+import { ClickUpSection } from './ClickUpSection';
 import { McpSection } from './McpSection';
 import { WebhooksSection } from './WebhooksSection';
 import { CenteredPageLayout } from '@/layouts/shared';
@@ -98,6 +100,10 @@ const TABS: {
   // Admin-only for the same reason as the rest: the response carries each
   // repo's signing secret, which is the whole of its authentication.
   { key: 'integrations', labelKey: 'settings.integrations', icon: GitBranch, Section: IntegrationsSection, adminOnly: true },
+  // Admin-only and then some: this is the one integration that stores an
+  // outbound credential, and a ClickUp personal token can read every task the
+  // person who minted it can see.
+  { key: 'clickup', labelKey: 'settings.clickup', icon: SquareCheckBig, Section: ClickUpSection, adminOnly: true },
   { key: 'storage', labelKey: 'settings.storage', icon: Cloud, Section: CloudStorageSection, adminOnly: true },
 ];
 

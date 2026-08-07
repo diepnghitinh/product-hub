@@ -15,6 +15,7 @@ import { PublicRoadmapsController } from './public-roadmaps.controller';
 import { PublicTeamsController } from './public-teams.controller';
 import { PublicDocsController } from './public-docs.controller';
 import { GitWebhooksController } from './git-webhooks.controller';
+import { ClickUpWebhooksController } from './clickup-webhooks.controller';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { GitWebhooksController } from './git-webhooks.controller';
     PublicTeamsController,
     PublicDocsController,
     GitWebhooksController,
+    ClickUpWebhooksController,
   ],
   providers: [ApiKeyGuard],
 })

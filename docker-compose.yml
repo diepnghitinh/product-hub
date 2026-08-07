@@ -63,6 +63,12 @@ services:
       # Same-origin means CORS isn't needed for either SPA; this only matters if
       # you call the API cross-origin (e.g. straight from :3000 or another host).
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:8081}
+      # Public origin of this API, used to print the webhook URL in
+      # Settings → Integrations. Empty on purpose: the API then uses the address
+      # each request arrived on (the web container forwards Host + X-Forwarded-*),
+      # which is right for this topology. Set it if the git host must reach the
+      # API by another address.
+      API_BASE_URL: ${API_BASE_URL:-}
       # Optional Azure Blob storage for bug attachments. When unset the API falls
       # back to inline base64 data URLs, so the stack runs fine without it.
       AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}

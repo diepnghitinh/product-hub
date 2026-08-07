@@ -5,6 +5,7 @@ import { Badge, Button, Dialog, DotLabel, Input, Menu, Select } from '@/componen
 import { BoardSkeleton, ListSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
+import { CiStatusChip } from '@/components/CiStatus';
 import { PersonalColumnsDialog } from './components/PersonalColumnsDialog';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -154,14 +155,24 @@ export function PersonalBoardPage() {
 }
 
 /** Personal-board card — deliberately lean: no team, assignee or labels apply to
- *  a private task, so it's just the title and its age (the shortId badge is
- *  hidden on cards board-wide). */
+ *  a private task, so it's just the title, its build state and its age (the
+ *  shortId badge is hidden on cards board-wide).
+ *
+ *  CI earns its place on even this card: a personal task still has a `TSK-` ref,
+ *  and `applyPipelineState` matches refs tenant-wide without regard to `ownerId`
+ *  — so a private task really can carry a build state, and leaving it off here
+ *  would be the one board that hides one it has. */
 function PersonalCard({ task, overlay = false }: { task: TaskDto; overlay?: boolean }) {
   return (
     <BoardCard
       overlay={overlay}
       title={task.title}
-      metaTrailing={<BoardCardAge createdAt={task.createdAt} />}
+      metaTrailing={
+        <>
+          <CiStatusChip issue={task} />
+          <BoardCardAge createdAt={task.createdAt} />
+        </>
+      }
     />
   );
 }

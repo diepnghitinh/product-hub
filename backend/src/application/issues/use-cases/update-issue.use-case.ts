@@ -1,11 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
+import { ConflictException } from '@core/exceptions';
 import { Result } from '@shared/logic/result';
+import { issueRefsInText } from '@module-shared/utils/short-id.util';
 import { IUserRepository } from '@application/users/repositories/user.repository';
 import { ICycleRepository } from '@application/cycles/repositories/cycle.repository';
 import { CycleStatus } from '@application/cycles/domain/enums/cycle.enums';
 import { todayISO } from '@application/cycles/domain/cycle-dates';
 import { UpdateIssueDto } from '../dtos/update-issue.dto';
+import { normalizeBranchName } from '../domain/branch-name';
 import { IssueEntity } from '../domain/entities/issue.entity';
 import { IIssueRepository } from '../repositories/issue.repository';
 import { resolveIssueAssignees } from './resolve-assignees';
@@ -20,16 +23,23 @@ export interface UpdateIssueRequest {
 }
 
 @Injectable()
-export class UpdateIssueUseCase
-  implements IUsecaseExecute<UpdateIssueRequest, Result<IssueEntity>>
-{
+export class UpdateIssueUseCase implements IUsecaseExecute<
+  UpdateIssueRequest,
+  Result<IssueEntity>
+> {
   constructor(
     @Inject(IIssueRepository) private readonly issues: IIssueRepository,
     @Inject(IUserRepository) private readonly users: IUserRepository,
     @Inject(ICycleRepository) private readonly cycles: ICycleRepository,
   ) {}
 
-  async execute({ id, tenantId, requesterId, isAdmin, dto }: UpdateIssueRequest): Promise<Result<IssueEntity>> {
+  async execute({
+    id,
+    tenantId,
+    requesterId,
+    isAdmin,
+    dto,
+  }: UpdateIssueRequest): Promise<Result<IssueEntity>> {
     const issue = await this.issues.findById(id);
     if (!issue || issue.tenantId !== tenantId) return Result.fail('Issue not found');
     // A personal task can only be edited by its owner (or an admin).
@@ -62,6 +72,30 @@ export class UpdateIssueUseCase
         }
         issue.setCycle(dto.cycleId);
       }
+    }
+
+    // A chosen branch name has to be free before it's ours: one branch names one
+    // issue, or the CI label that reads the branch has two issues to point at.
+    if (dto.branchName !== undefined) {
+      const wantedBranch = normalizeBranchName(dto.branchName);
+      if (wantedBranch && wantedBranch !== issue.branch) {
+        // Refs are how everything downstream (the pipeline webhook, a reader
+        // skimming a branch list) decides which issue a branch belongs to, so a
+        // name carrying someone *else's* ref is taken even though no row holds it
+        // — that's the derived name of an issue that never had to store one.
+        const ownRef = (issue.shortId || '').toUpperCase();
+        const otherRef = issueRefsInText(wantedBranch).find((ref) => ref !== ownRef);
+        if (otherRef) {
+          throw new ConflictException(`That branch name refers to another issue (${otherRef})`);
+        }
+        const taken = await this.issues.findByBranchName(tenantId, wantedBranch);
+        if (taken && taken.id.toString() !== issue.id.toString()) {
+          throw new ConflictException(
+            `${taken.shortId || 'Another issue'} already uses that branch name`,
+          );
+        }
+      }
+      issue.setBranchName(dto.branchName);
     }
 
     issue.applyUpdate({

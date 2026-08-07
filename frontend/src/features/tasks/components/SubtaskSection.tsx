@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link2, Plus, Trash2 } from 'lucide-react';
 import { Button, ProgressBar, Select, Spinner } from '@/components/ui';
 import { AssigneeField, fallbackNames } from '@/components/AssigneeField';
+import { CiStatusChip } from '@/components/CiStatus';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { useAuth } from '@/lib/auth';
@@ -204,6 +205,15 @@ export function SubtaskSection({
                       <span className="max-w-[90px] truncate">{team.name}</span>
                     </span>
                   )}
+                  {/* The child's build, beside its own status — "is this sub-task
+                      actually green?" is the question a parent is asking here.
+                      The word hides on a phone: the row's other three columns are
+                      fixed, so it would come straight out of the title. */}
+                  <CiStatusChip
+                    issue={tk}
+                    className="shrink-0 text-[11px]"
+                    labelClassName="hidden sm:inline"
+                  />
                 </div>
 
                 {/* Status */}

@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarRange, Circle, CircleDot, Clock, Gauge, Map as MapIcon, Trash2, Triangle } from 'lucide-react';
+import {
+  CalendarRange,
+  Circle,
+  CircleDot,
+  Clock,
+  Gauge,
+  Map as MapIcon,
+  Trash2,
+  Triangle,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import {
@@ -18,11 +27,17 @@ import { timeAgo } from '@/lib/format';
 import { useUsers } from '@/features/users/api';
 import { IssueDetail, PropField, PropSection, PropValue } from '@/features/issues/IssueDetail';
 import { CiStatusField } from '@/features/issues/CiStatusField';
-import { useTeams, useTeamStatuses, useTeamLabels, useTeamCustomFields } from '@/features/teams/api';
+import {
+  useTeams,
+  useTeamStatuses,
+  useTeamLabels,
+  useTeamCustomFields,
+} from '@/features/teams/api';
 import { CyclePropField } from '@/features/cycles/CycleControls';
 import { LabelChips, resolveLabels } from '@/features/labels/LabelChips';
 import { CustomFields } from '@/features/custom-fields/CustomFields';
 import {
+  ClickUpLinkTarget,
   FavouriteKind,
   IssueKind,
   TASK_ESTIMATES,
@@ -40,6 +55,7 @@ import {
 } from '../api';
 import { useRelationActions } from '@/features/issues/useRelationActions';
 import { IssueRelations } from '@/features/issues/IssueRelations';
+import { ClickUpLinkPanel } from '@/features/clickup/ClickUpLinkPanel';
 import { PickIssueDialog } from '@/features/issues/PickIssueDialog';
 import { SubtaskSection } from './SubtaskSection';
 
@@ -68,7 +84,12 @@ interface TaskDetailProps {
  * be embedded — the route page wraps this with the breadcrumb + Esc handling,
  * and a sub-task peek renders it inside a drawer.
  */
-export function TaskDetail({ taskId, onDeleted, menuTarget = 'header', dense = false }: TaskDetailProps) {
+export function TaskDetail({
+  taskId,
+  onDeleted,
+  menuTarget = 'header',
+  dense = false,
+}: TaskDetailProps) {
   const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
 
   const { data: task, isLoading } = useTask(taskId);
@@ -128,7 +149,10 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header', dense = f
   /** Attach an existing task as a sub-task: set its parent to this task. It keeps
    *  its own team/assignee/etc. — the same "link, don't move" the backlog picker does. */
   const linkExisting = (targetId: string) =>
-    update.mutate({ id: targetId, input: { parentId: task.id } }, { onSuccess: () => setPickOpen(false) });
+    update.mutate(
+      { id: targetId, input: { parentId: task.id } },
+      { onSuccess: () => setPickOpen(false) },
+    );
 
   return (
     <IssueDetail
@@ -151,6 +175,10 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header', dense = f
       users={users}
       onSaveTitle={(title) => save({ title })}
       onSaveDescription={(description) => save({ description })}
+      branch={task.branch}
+      // Awaited, unlike the other saves: a branch name can come back 409 (taken)
+      // and the editor shows that under the field instead of a toast.
+      onSaveBranchName={(branchName) => update.mutateAsync({ id: task.id, input: { branchName } })}
       attachments={task.attachments}
       onAttachmentsChange={(attachments) => save({ attachments })}
       beforeActivity={
@@ -378,6 +406,11 @@ export function TaskDetail({ taskId, onDeleted, menuTarget = 'header', dense = f
           )}
 
           <IssueRelations issueId={task.id} canWrite={canWrite} />
+          <ClickUpLinkPanel
+            targetType={ClickUpLinkTarget.ISSUE}
+            targetId={task.id}
+            canWrite={canWrite}
+          />
           {picker}
         </>
       }

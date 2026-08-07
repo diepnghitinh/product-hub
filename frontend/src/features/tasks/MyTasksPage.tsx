@@ -6,6 +6,7 @@ import { AssigneeBadge } from '@/components/AssigneeBadge';
 import { BoardSkeleton, ListSkeleton, TimelineSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
+import { CiStatusChip } from '@/components/CiStatus';
 import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
 import { LabelChips } from '@/features/labels/LabelChips';
 import {
@@ -358,6 +359,9 @@ export function TaskCard({
       }
       metaTrailing={
         <>
+          {/* First in the cluster: of the three, the build is the one that can
+              change what you do next. Renders nothing until a run reports. */}
+          <CiStatusChip issue={task} />
           <CarryOverBadge count={task.carryOverCount} />
           <BoardCardAge createdAt={task.createdAt} />
         </>

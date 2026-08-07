@@ -18,6 +18,10 @@ export abstract class IIssueRepository {
   /** Resolve by shortId (`TSK-7` / `BUG-12`) within a tenant, falling back to the
    *  uuid so links made before short ids existed keep working. */
   findByRef: (tenantId: string, ref: string) => Promise<IssueEntity | null>;
+  /** The issue that already answers to this chosen branch name, if any. Only ever
+   *  finds a *chosen* one — a derived name isn't stored, and the use-case rules
+   *  those out by the ref they carry rather than by a lookup. */
+  findByBranchName: (tenantId: string, branchName: string) => Promise<IssueEntity | null>;
   /** Rows still missing a shortId — drives the one-off backfill. */
   findWithoutShortId: () => Promise<{ id: string; tenantId: string }[]>;
   setShortId: (id: string, shortId: string) => Promise<void>;
