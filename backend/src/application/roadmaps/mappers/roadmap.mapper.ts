@@ -17,6 +17,9 @@ export class RoadmapMapper {
         // '' for items minted before refs existed — every caller falls back to
         // the uuid, so they keep working until the backfill script runs.
         shortId: item.shortId ?? '',
+        // '' for items written before epics existed — i.e. ungrouped, which is
+        // exactly what they are.
+        epicId: item.epicId ?? '',
         imageUrl: item.imageUrl ?? '',
         startDate: item.startDate ?? '',
         endDate: item.endDate ?? '',
@@ -32,6 +35,9 @@ export class RoadmapMapper {
         createdAt: item.createdAt ?? new Date(roadmap.createdAt).toISOString(),
       })),
       columns: roadmap.columns?.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS,
+      // No default here, unlike columns: a roadmap nobody has grouped genuinely
+      // has no epics, and inventing one would put an empty swimlane on the board.
+      epics: (roadmap.epics ?? []).map((epic) => ({ ...epic, description: epic.description ?? '' })),
       itemCount: roadmap.items.length,
       publicEnabled: roadmap.publicEnabled,
       publicToken: roadmap.publicToken,

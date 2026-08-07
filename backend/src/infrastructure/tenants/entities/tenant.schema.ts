@@ -32,6 +32,16 @@ export const TenantSchema = new Schema<TenantDoc>(
   { timestamps: true },
 );
 
-// Sparse: most tenants have no slug, and null must not collide with null.
-TenantSchema.index({ slug: 1 }, { unique: true, sparse: true });
+// Most tenants have no slug, and two of those must not collide.
+//
+// `sparse` is NOT enough here: it only skips documents where the field is
+// *missing*, and `default: null` above means every tenant is written with an
+// explicit `slug: null`. Under a sparse unique index the second workspace ever
+// created fails with `E11000 … dup key: { slug: null }` — signup breaks for
+// everyone after the first. A partial index on "slug is a string" indexes only
+// the tenants that actually have one.
+TenantSchema.index(
+  { slug: 1 },
+  { unique: true, partialFilterExpression: { slug: { $type: 'string' } } },
+);
 TenantSchema.index({ status: 1, createdAt: -1 });

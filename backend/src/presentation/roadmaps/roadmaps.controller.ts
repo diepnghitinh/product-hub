@@ -19,12 +19,14 @@ import {
   UpdateRoadmapUseCase,
   ReplaceRoadmapItemsUseCase,
   ReplaceRoadmapColumnsUseCase,
+  ReplaceRoadmapEpicsUseCase,
   DeleteRoadmapUseCase,
   SetRoadmapSharingUseCase,
 } from '@application/roadmaps/use-cases/roadmap.use-cases';
 import {
   CreateRoadmapDto,
   ReplaceRoadmapColumnsDto,
+  ReplaceRoadmapEpicsDto,
   ReplaceRoadmapItemsDto,
   ShareRoadmapDto,
   UpdateRoadmapDto,
@@ -43,6 +45,7 @@ export class RoadmapsController {
     private readonly updateRoadmap: UpdateRoadmapUseCase,
     private readonly replaceItems: ReplaceRoadmapItemsUseCase,
     private readonly replaceColumns: ReplaceRoadmapColumnsUseCase,
+    private readonly replaceEpics: ReplaceRoadmapEpicsUseCase,
     private readonly deleteRoadmap: DeleteRoadmapUseCase,
     private readonly setSharing: SetRoadmapSharingUseCase,
   ) {}
@@ -112,6 +115,21 @@ export class RoadmapsController {
     @Body() dto: ReplaceRoadmapColumnsDto,
   ): Promise<RoadmapResponseDto> {
     const result = await this.replaceColumns.execute({ id, tenantId: auth.tenantId, dto });
+    if (result.isFailure) throw new EntityNotFoundException(result.error as string);
+    return RoadmapMapper.toResponseDto(result.getValue());
+  }
+
+  // Same gate as columns: how the board is organised is a product decision, so
+  // anyone who can move a card still can't redraw the groups it moves between.
+  @Put(':id/epics')
+  @Roles(Role.ADMIN, Role.PRODUCT)
+  @ApiOperation({ summary: 'Replace roadmap epics (item groups)' })
+  async putEpics(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: ReplaceRoadmapEpicsDto,
+  ): Promise<RoadmapResponseDto> {
+    const result = await this.replaceEpics.execute({ id, tenantId: auth.tenantId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return RoadmapMapper.toResponseDto(result.getValue());
   }

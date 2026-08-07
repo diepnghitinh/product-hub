@@ -432,6 +432,23 @@ export interface RoadmapColumn {
   color: string;
 }
 
+/**
+ * An **epic** — a named, coloured group of backlog items under one bigger bet
+ * ("Checkout revamp"), cutting across the Now/Next/Later columns.
+ *
+ * Not a backlog item: no RICE, no description body, no detail page. Its dates
+ * and progress are derived from the items in it (see `features/roadmaps/epics`),
+ * never stored, so an epic can't disagree with its own contents.
+ */
+export interface RoadmapEpic {
+  /** Stable id stored on each item's `epicId`; survives rename/recolour. */
+  id: string;
+  label: string;
+  color: string;
+  /** One line of context — what this bet is ('' when unset). */
+  description: string;
+}
+
 export interface RoadmapItem {
   id: string;
   /** Human-friendly ref used in the item's URL (`RM-6HCUHKX`). Minted
@@ -443,6 +460,11 @@ export interface RoadmapItem {
   description: string;
   /** The column ("pool") this item sits in — a `RoadmapColumn.key`. */
   phase: string;
+  /** The epic this item belongs to — a `RoadmapEpic.id`, '' when ungrouped. At
+   *  most one, which is what makes it a grouping rather than a tag. Only the id:
+   *  epics ride on the same roadmap payload, so label/colour are read live.
+   *  Optional so a freshly-built draft item can omit it. */
+  epicId?: string;
   status: RoadmapItemStatus;
   difficulty: RoadmapDifficulty;
   reach: number;
@@ -489,6 +511,8 @@ export interface RoadmapDto {
   description: string;
   items: RoadmapItem[];
   columns: RoadmapColumn[];
+  /** Item groups. Empty until someone defines one — there is no default set. */
+  epics: RoadmapEpic[];
   itemCount: number;
   publicEnabled: boolean;
   publicToken: string | null;

@@ -7,6 +7,7 @@ import { sanitizeStoredFiles } from '@application/storage/domain/stored-file.typ
 import {
   CreateRoadmapDto,
   ReplaceRoadmapColumnsDto,
+  ReplaceRoadmapEpicsDto,
   ReplaceRoadmapItemsDto,
   UpdateRoadmapDto,
 } from '../dtos/roadmap.dtos';
@@ -15,6 +16,7 @@ import { RoadmapDifficulty, RoadmapItemStatus } from '../domain/enums/roadmap.en
 import {
   DEFAULT_ROADMAP_COLUMNS,
   ROADMAP_ITEM_REF_PREFIX,
+  RoadmapEpic,
   RoadmapItemData,
 } from '../domain/types/roadmap-item.type';
 import { IRoadmapRepository } from '../repositories/roadmap.repository';
@@ -146,6 +148,10 @@ export class ReplaceRoadmapItemsUseCase
     const takenRefs = new Set(
       roadmap.items.map((item) => item.shortId).filter((ref): ref is string => !!ref),
     );
+    // An item may only point at an epic this roadmap actually has. Anything else
+    // is dropped to '' (ungrouped) rather than stored: an unresolvable epicId
+    // would hide the item from every grouped view with nothing to show for it.
+    const liveEpics = new Set(roadmap.epics.map((e) => e.id));
     const now = new Date().toISOString();
     const items = dto.items.map((item) => {
       const prev = existingById.get(item.id);
@@ -159,6 +165,7 @@ export class ReplaceRoadmapItemsUseCase
       return {
         ...item,
         shortId: prev?.shortId ?? mintItemRef(takenRefs),
+        epicId: item.epicId && liveEpics.has(item.epicId) ? item.epicId : '',
         // Items are free-form objects on the wire (the whole array is replaced
         // on every edit), so this is the only place an attachment's URL is
         // checked before it's stored and later rendered as a link.
@@ -222,6 +229,10 @@ export class AddRoadmapItemUseCase
       title: item.title,
       description: item.description ?? '',
       phase,
+      // Same rule as the bulk replace: an epic this roadmap doesn't have means
+      // ungrouped, not a dangling pointer.
+      epicId:
+        item.epicId && roadmap.epics.some((e) => e.id === item.epicId) ? item.epicId : '',
       status,
       difficulty: item.difficulty ?? RoadmapDifficulty.MEDIUM,
       reach: item.reach ?? 3,
@@ -269,6 +280,53 @@ export class ReplaceRoadmapColumnsUseCase
     const roadmap = await this.roadmaps.findById(id);
     if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
     roadmap.replaceColumns(dto.columns);
+    await this.roadmaps.update(roadmap);
+    return Result.ok(roadmap);
+  }
+}
+
+/**
+ * Swap the roadmap's epics. Items whose epic disappears are un-grouped by the
+ * entity (see `replaceEpics`) — the client's "move these items where?" prompt
+ * covers the deliberate case, this covers every other one.
+ */
+@Injectable()
+export class ReplaceRoadmapEpicsUseCase
+  implements
+    IUsecaseExecute<
+      { id: string; tenantId: string; dto: ReplaceRoadmapEpicsDto },
+      Result<RoadmapEntity>
+    >
+{
+  constructor(@Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository) {}
+  async execute({
+    id,
+    tenantId,
+    dto,
+  }: {
+    id: string;
+    tenantId: string;
+    dto: ReplaceRoadmapEpicsDto;
+  }): Promise<Result<RoadmapEntity>> {
+    const roadmap = await this.roadmaps.findById(id);
+    if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
+    // Trim and drop the unnamed; ids are the client's (a uuid it already put on
+    // its items), so they're kept as sent — deduped, since two epics sharing an
+    // id would make "which one is this item in?" unanswerable.
+    const seen = new Set<string>();
+    const epics: RoadmapEpic[] = [];
+    for (const epic of dto.epics) {
+      const label = (epic.label ?? '').trim();
+      if (!epic.id || !label || seen.has(epic.id)) continue;
+      seen.add(epic.id);
+      epics.push({
+        id: epic.id,
+        label,
+        color: epic.color,
+        description: (epic.description ?? '').trim(),
+      });
+    }
+    roadmap.replaceEpics(epics);
     await this.roadmaps.update(roadmap);
     return Result.ok(roadmap);
   }

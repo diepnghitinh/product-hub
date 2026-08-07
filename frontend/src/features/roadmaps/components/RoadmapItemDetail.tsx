@@ -7,7 +7,9 @@ import {
   CircleDot,
   Gauge,
   HelpCircle,
+  Layers,
   MoreHorizontal,
+  Plus,
   Target,
   Trash2,
   Users,
@@ -67,6 +69,8 @@ import {
 import type { Objective, RoadmapItem } from '@/types/dto';
 import { useReplaceRoadmapItems, useRoadmap } from '../api';
 import { BACKLOG_TEMPLATES } from '../backlogTemplates';
+import { UNGROUPED } from '../epics';
+import { RoadmapEpicsDialog } from './RoadmapEpicsDialog';
 
 /** RICE inputs, in order, with the field key + help copy. */
 const RICE_FIELDS = [
@@ -142,6 +146,9 @@ export function RoadmapItemDetail({
   // Progress slider keeps a local draft so it stays smooth while dragging; the
   // value is written back only on release. Synced when the item changes.
   const [progressDraft, setProgressDraft] = useState(item?.progress ?? 0);
+  // "＋" beside the epic picker opens the same Manage epics dialog the board uses,
+  // so there is one place an epic is ever created.
+  const [epicsOpen, setEpicsOpen] = useState(false);
   useEffect(() => {
     if (item) setProgressDraft(item.progress);
   }, [item?.progress]);
@@ -185,6 +192,8 @@ export function RoadmapItemDetail({
   }
 
   const columns = roadmap.columns?.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS;
+  const epics = roadmap.epics ?? [];
+  const epic = epics.find((e) => e.id === item.epicId);
   const score = riceOf(item);
   const clampRice = (v: string) => Math.min(5, Math.max(1, Number(v) || 1));
   // OKR picker — every objective across all milestones, labelled "Milestone ›
@@ -406,6 +415,47 @@ export function RoadmapItemDetail({
             fallbackNames={fallbackNames(item.assignees)}
             aria-label={t('roadmaps.assignees')}
           />
+        </PropField>
+
+        {/* Which bet this belongs to. Sits beside the OKR link because they answer
+            the same kind of question — what larger thing is this part of — and
+            unlike the OKR the epic is a live pointer, never a copied label. */}
+        <PropField label={t('roadmaps.epic')} icon={<Layers />} align="stack">
+          {canWrite ? (
+            <div className="flex items-center gap-1.5">
+              <div className="min-w-0 flex-1">
+                <Select
+                  value={item.epicId || UNGROUPED}
+                  onValueChange={(v) => save({ epicId: v })}
+                  aria-label={t('roadmaps.epic')}
+                  options={[
+                    { value: UNGROUPED, label: t('roadmaps.noEpic') },
+                    ...epics.map((e) => ({
+                      value: e.id,
+                      label: <DotLabel color={e.color}>{e.label}</DotLabel>,
+                    })),
+                  ]}
+                />
+              </div>
+              {/* Same gate as the board's Manage epics — editing an item doesn't
+                  make you the person who defines the roadmap's groups. */}
+              {canManageDelivery && (
+                <button
+                  type="button"
+                  onClick={() => setEpicsOpen(true)}
+                  className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label={t('roadmaps.manageEpics')}
+                  title={t('roadmaps.manageEpics')}
+                >
+                  <Plus className="size-4" />
+                </button>
+              )}
+            </div>
+          ) : epic ? (
+            <DotLabel color={epic.color}>{epic.label}</DotLabel>
+          ) : (
+            <span className="text-sm text-muted-foreground">—</span>
+          )}
         </PropField>
 
         <PropField label={t('roadmaps.okr')} icon={<Target />} align="stack">
@@ -661,11 +711,31 @@ export function RoadmapItemDetail({
     </div>
   );
 
-  if (dense) return main;
+  // Rendered outside the two layouts so both the page and the drawer get it.
+  const epicsDialog = epicsOpen && (
+    <RoadmapEpicsDialog
+      open
+      onClose={() => setEpicsOpen(false)}
+      roadmapId={roadmap.id}
+      epics={epics}
+      items={items}
+    />
+  );
+
+  if (dense)
+    return (
+      <>
+        {main}
+        {epicsDialog}
+      </>
+    );
   return (
-    <DetailGrid>
-      {main}
-      <PropSidebar>{properties}</PropSidebar>
-    </DetailGrid>
+    <>
+      <DetailGrid>
+        {main}
+        <PropSidebar>{properties}</PropSidebar>
+      </DetailGrid>
+      {epicsDialog}
+    </>
   );
 }

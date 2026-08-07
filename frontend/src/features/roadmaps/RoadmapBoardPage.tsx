@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { BarChart3, CalendarDays, Gauge, LayoutGrid, MoreHorizontal, Table2, Target } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Badge, Button, Menu } from '@/components/ui';
+import { Badge, Button, Menu, ProgressBar } from '@/components/ui';
 import { BoardSkeleton } from '@/components/Skeletons';
 import { CenteredPageLayout } from '@/layouts/shared';
 import { cn } from '@/lib/utils';
@@ -20,8 +20,10 @@ import {
 } from '@/types/enums';
 import { RoadmapWorkflowView } from './components/RoadmapWorkflowView';
 import { RoadmapGanttView } from './components/RoadmapGanttView';
-import type { RoadmapItem } from '@/types/dto';
+import type { RoadmapEpic, RoadmapItem } from '@/types/dto';
 import { RoadmapColumnsDialog } from './components/RoadmapColumnsDialog';
+import { RoadmapEpicsDialog } from './components/RoadmapEpicsDialog';
+import { UNGROUPED, epicIndex, epicLanes, epicOf } from './epics';
 import { ShareLinkDialog } from '@/components/ShareLinkDialog';
 import { RoadmapRiceChart } from './components/RoadmapRiceChart';
 import { RoadmapRiceTable } from './components/RoadmapRiceTable';
@@ -42,12 +44,13 @@ const STATUS_VARIANT: Record<RoadmapItemStatus, 'muted' | 'warning' | 'success'>
 
 /** A fresh item for create-and-open. Title starts empty (shown as "Untitled"
  *  on the card); the new item's page autofocuses the title to fill in. */
-function emptyRoadmapItem(id: string, phase: string): RoadmapItem {
+function emptyRoadmapItem(id: string, phase: string, epicId = ''): RoadmapItem {
   return {
     id,
     title: '',
     description: '',
     phase,
+    epicId,
     status: RoadmapItemStatus.IDEA,
     difficulty: RoadmapDifficulty.MEDIUM,
     reach: 3,
@@ -68,7 +71,17 @@ function emptyRoadmapItem(id: string, phase: string): RoadmapItem {
 }
 
 /** Roadmap item card visual — shared by the column list and the lifted drag overlay. */
-export function RoadmapCard({ item, overlay = false }: { item: RoadmapItem; overlay?: boolean }) {
+export function RoadmapCard({
+  item,
+  overlay = false,
+  epic,
+}: {
+  item: RoadmapItem;
+  overlay?: boolean;
+  /** The item's epic, when the caller wants it named on the card. Left out when
+   *  the board is already grouped by epic — the lane has just said it. */
+  epic?: RoadmapEpic;
+}) {
   // Cover = the item's first description image. Prefer the persisted `imageUrl`,
   // but fall back to parsing the description so items saved before covers existed
   // (and the public read-only view) still show one.
@@ -84,12 +97,36 @@ export function RoadmapCard({ item, overlay = false }: { item: RoadmapItem; over
         </Badge>
       }
       labels={
-        item.okrLabel ? (
-          // Linked OKR — informational chip (the denormalized objective/KR title).
-          <Badge variant="muted" className="min-w-0 max-w-full gap-1 font-normal" title={item.okrLabel}>
-            <Target className="size-3 shrink-0 text-primary" aria-hidden />
-            <span className="truncate">{item.okrLabel}</span>
-          </Badge>
+        epic || item.okrLabel ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-1">
+            {/* The epic this item belongs to — carries the epic's own colour, so
+                a group is recognisable at a glance across every column. */}
+            {epic && (
+              <Badge
+                variant="muted"
+                className="min-w-0 max-w-full gap-1 font-normal"
+                title={`${t('roadmaps.epic')}: ${epic.label}`}
+              >
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ background: epic.color }}
+                  aria-hidden
+                />
+                <span className="truncate">{epic.label}</span>
+              </Badge>
+            )}
+            {/* Linked OKR — informational chip (the denormalized objective/KR title). */}
+            {item.okrLabel && (
+              <Badge
+                variant="muted"
+                className="min-w-0 max-w-full gap-1 font-normal"
+                title={item.okrLabel}
+              >
+                <Target className="size-3 shrink-0 text-primary" aria-hidden />
+                <span className="truncate">{item.okrLabel}</span>
+              </Badge>
+            )}
+          </div>
         ) : undefined
       }
       metaLeading={
@@ -129,6 +166,7 @@ export function RoadmapBoardPage() {
   const setSharing = useSetRoadmapSharing();
 
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [epicsOpen, setEpicsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [sortRice, setSortRice] = useState(false);
   // Persist the board/chart view in the URL (?view=chart) so it survives reloads
@@ -149,6 +187,15 @@ export function RoadmapBoardPage() {
     const next = new URLSearchParams(searchParams);
     if (v === 'board') next.delete('view');
     else next.set('view', v);
+    setSearchParams(next, { replace: true });
+  };
+  // Grouping rides in the URL for the same reason the view does: "here's the
+  // board, grouped by epic" has to survive a reload and be a link you can send.
+  const groupByEpic = searchParams.get('group') === 'epic';
+  const setGroupByEpic = (on: boolean) => {
+    const next = new URLSearchParams(searchParams);
+    if (on) next.set('group', 'epic');
+    else next.delete('group');
     setSearchParams(next, { replace: true });
   };
 
@@ -173,9 +220,35 @@ export function RoadmapBoardPage() {
 
   const items = roadmap.items ?? [];
   const columns = roadmap.columns?.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS;
+  const epics = roadmap.epics ?? [];
   // Sorting the whole array by RICE and then filtering per column gives the same
   // per-column order as sorting each column, so the board can take it directly.
   const boardItems = sortRice ? [...items].sort((a, b) => b.rice - a.rice) : items;
+  const epicsById = epicIndex(epics);
+  // Only offer grouping once there's something to group by, and only honour it
+  // while that's still true — deleting the last epic can't strand the board in a
+  // one-lane "grouped" state that looks broken.
+  const canGroup = epics.length > 0;
+  const grouped = groupByEpic && canGroup;
+  const lanes = grouped
+    ? epicLanes(epics, boardItems).map((lane) => ({
+        key: lane.key,
+        label: lane.label,
+        color: lane.color,
+        description: lane.description,
+        // Progress, not a second count — the lane header already shows how many
+        // items are in the band.
+        meta: (
+          <span
+            className="flex items-center gap-2 text-xs text-muted-foreground"
+            title={t('roadmaps.progress')}
+          >
+            <ProgressBar value={lane.rollup.progress} className="h-1.5 w-16 sm:w-24" />
+            <span className="tabular-nums">{lane.rollup.progress}%</span>
+          </span>
+        ),
+      }))
+    : undefined;
 
   function save(next: RoadmapItem[]) {
     replaceItems.mutate({ id: roadmap!.id, items: next });
@@ -188,31 +261,39 @@ export function RoadmapBoardPage() {
     navigate(`/roadmaps/${roadmap!.id}/items/${ref}`);
   };
   /** Create-and-open: a new "Untitled" item is added to the column and its page
-   *  opens immediately to fill in — no dialog. */
-  function createItem(phase: string) {
+   *  opens immediately to fill in — no dialog. Started from inside a lane, it
+   *  arrives already in that epic. */
+  function createItem(phase: string, epicId = '') {
     const id = crypto.randomUUID();
-    save([...items, emptyRoadmapItem(id, phase)]);
+    save([...items, emptyRoadmapItem(id, phase, epicId)]);
     navigate(`/roadmaps/${roadmap!.id}/items/${id}`);
   }
   function removeItem(id: string) {
     if (confirm(t('roadmaps.confirmDeleteItem'))) save(items.filter((i) => i.id !== id));
   }
   /** Reorder is persisted as the items array's order, so a move splices the
-   * dragged item into the raw array (not the RICE-sorted view). */
-  function onMove(id: string, toPhase: string, overId: string | null) {
+   * dragged item into the raw array (not the RICE-sorted view).
+   *
+   * `toEpic` only arrives while the board is grouped — one drag then writes both
+   * coordinates, so dragging a card into another epic's lane *is* how you
+   * regroup it. It's `undefined` on the plain board, which leaves `epicId` alone. */
+  function onMove(id: string, toPhase: string, overId: string | null, toEpic?: string) {
     const dragged = items.find((i) => i.id === id);
     if (!dragged) return;
-    const moved = { ...dragged, phase: toPhase };
+    const moved = { ...dragged, phase: toPhase, ...(toEpic !== undefined && { epicId: toEpic }) };
 
     const without = items.filter((i) => i.id !== id);
     if (overId) {
       const idx = without.findIndex((i) => i.id === overId);
       without.splice(idx < 0 ? without.length : idx, 0, moved);
     } else {
-      // Dropped on a column's empty area → append after that column's last item.
+      // Dropped on a cell's empty area → append after that cell's last item.
       let insertAt = without.length;
       for (let k = without.length - 1; k >= 0; k--) {
-        if (without[k].phase === toPhase) {
+        const sameCell =
+          without[k].phase === toPhase &&
+          (toEpic === undefined || (without[k].epicId ?? '') === toEpic);
+        if (sameCell) {
           insertAt = k + 1;
           break;
         }
@@ -247,6 +328,19 @@ export function RoadmapBoardPage() {
       }}
       actions={
         <>
+          {/* One toggle for the three views that can group — board, table and
+              timeline read the same grouping, so switching view keeps it. Only
+              offered once there's an epic to group by, otherwise it's a toggle
+              that visibly does nothing. */}
+          {canGroup && (view === 'board' || view === 'table' || view === 'gantt') && (
+            <Button
+              variant={grouped ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setGroupByEpic(!grouped)}
+            >
+              {t('roadmaps.groupByEpic')}
+            </Button>
+          )}
           {view === 'board' && (
             <Button
               variant={sortRice ? 'primary' : 'secondary'}
@@ -270,6 +364,7 @@ export function RoadmapBoardPage() {
                 ...(canManageDelivery
                   ? [
                       { label: t('roadmaps.manageColumns'), onClick: () => setColumnsOpen(true) },
+                      { label: t('roadmaps.manageEpics'), onClick: () => setEpicsOpen(true) },
                       { label: t('share.share'), onClick: () => setShareOpen(true) },
                     ]
                   : []),
@@ -299,7 +394,17 @@ export function RoadmapBoardPage() {
           items={boardItems}
           getId={(i) => i.id}
           getColumnKey={(i) => i.phase}
-          renderCard={(item, overlay) => <RoadmapCard item={item} overlay={overlay} />}
+          swimlanes={lanes}
+          getSwimlaneKey={(i) => i.epicId ?? UNGROUPED}
+          renderCard={(item, overlay) => (
+            // Grouped, the lane already names the epic — repeating it on every
+            // card in the band is noise.
+            <RoadmapCard
+              item={item}
+              overlay={overlay}
+              epic={grouped ? undefined : epicOf(item, epicsById)}
+            />
+          )}
           onMove={onMove}
           disabled={!canWrite}
           onCardClick={(item) => openItem(item.id)}
@@ -315,7 +420,7 @@ export function RoadmapBoardPage() {
                 )
               : undefined
           }
-          onColumnAdd={canWrite ? (col) => createItem(col.key) : undefined}
+          onColumnAdd={canWrite ? (col, lane) => createItem(col.key, lane?.key) : undefined}
           addLabel={t('roadmaps.addItem')}
         />
       ) : (
@@ -329,11 +434,19 @@ export function RoadmapBoardPage() {
           ) : view === 'gantt' ? (
             // The timeline peeks a row in a drawer rather than navigating — it owns
             // both drawers, so it needs no open-item callback from here.
-            <RoadmapGanttView roadmapId={roadmap.id} items={items} columns={columns} />
+            <RoadmapGanttView
+              roadmapId={roadmap.id}
+              items={items}
+              columns={columns}
+              epics={epics}
+              groupByEpic={grouped}
+            />
           ) : (
             <RoadmapRiceTable
               items={items}
               columns={columns}
+              epics={epics}
+              groupByEpic={grouped}
               onOpen={(item) => openItem(item.id)}
             />
           )}
@@ -346,6 +459,15 @@ export function RoadmapBoardPage() {
           onClose={() => setColumnsOpen(false)}
           roadmapId={roadmap.id}
           columns={columns}
+          items={items}
+        />
+      )}
+      {epicsOpen && (
+        <RoadmapEpicsDialog
+          open={epicsOpen}
+          onClose={() => setEpicsOpen(false)}
+          roadmapId={roadmap.id}
+          epics={epics}
           items={items}
         />
       )}

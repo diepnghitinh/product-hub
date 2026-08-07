@@ -1,14 +1,14 @@
 {
   "version": 1,
-  "rev": 689,
-  "savedAt": "2026-08-07T06:44:38.121Z",
+  "rev": 716,
+  "savedAt": "2026-08-07T08:57:35.136Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": -304.46778038129867,
-    "y": 1533.592791109148,
-    "zoom": 0.6861691223137765
+    "x": -833.3653022518993,
+    "y": 1398.1666956866757,
+    "zoom": 0.8368883312421581
   },
   "nodes": [
     {
@@ -103,6 +103,46 @@
         "height": 424
       },
       "title": "Thêm integrations Clickup cho link task",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-msin4lrc-3",
+      "kind": "terminal",
+      "position": {
+        "x": 1845.010713485403,
+        "y": -1747.1299371930859
+      },
+      "size": {
+        "width": 683,
+        "height": 797
+      },
+      "title": "Hỗ trợ gom nhóm Epic trong backlog",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude"
+    },
+    {
+      "id": "term-msinoyjf-4",
+      "kind": "terminal",
+      "position": {
+        "x": 1121.966472194514,
+        "y": -1208.9757147747841
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Lưu trữ trạng thái menu mở rộng và thu gọn",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,

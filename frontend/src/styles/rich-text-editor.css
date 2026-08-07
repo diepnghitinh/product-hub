@@ -513,16 +513,17 @@
      can't, this rule would win. Alone (no wrapper) it still reads at 1rem. */
   font-size: var(--doc-font-size, 1rem);
 }
-/* It still answers "you're writing here", but the page carries no padding of its
-   own, so the frame is an outline held off the text rather than a ring hugging
-   the first character. Outlines take no space at all, which is what lets a
-   full-width page be framed without the column reflowing. */
+/* …and draws no focus frame either — the same call `.border-0` above makes, for
+   the same reason. A doc page is full width and is the only thing on it, so a
+   ring round it is a violet rectangle drawn about prose you were already typing
+   in: loud, and answering a question nobody asked. It was an outline held off
+   the text (`outline-offset`) rather than a ring hugging it, which made it
+   quieter but no less of an answer. The caret carries "you're writing here" on
+   its own once the surface has no chrome. */
 .rich-text-editor.doc-page:focus-within {
   border-color: transparent;
   box-shadow: none;
-  outline: 1px solid hsl(var(--ring));
-  outline-offset: 0.75rem;
-  border-radius: 0.5rem;
+  outline: none;
 }
 
 /* The reader's half of `.doc-page` — `<RichText className="doc-page-read" />`,

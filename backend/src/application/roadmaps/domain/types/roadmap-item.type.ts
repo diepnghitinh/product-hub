@@ -20,6 +20,29 @@ export interface RoadmapColumn {
   color: string;
 }
 
+/**
+ * An **epic** — a named, coloured bucket that groups backlog items under one
+ * bigger bet ("Checkout revamp"), cutting across the Now/Next/Later columns.
+ *
+ * Deliberately light. An epic is *not* a backlog item: it has no RICE score, no
+ * comments and no detail page of its own, because everything worth saying about
+ * the work is already said on the items inside it. Its dates and progress are
+ * **derived** from its items rather than stored, so an epic can never disagree
+ * with what's actually in it.
+ *
+ * Stored on the roadmap next to `columns` — same shape of decision (how this
+ * board is organised), same lifecycle, and one document means an item's epic
+ * label can never go stale the way its denormalized `okrLabel` can.
+ */
+export interface RoadmapEpic {
+  /** Stable id stored on each item's `epicId`; survives rename/recolour. */
+  id: string;
+  label: string;
+  color: string;
+  /** One line of context — what this bet is. Shown as the swimlane's subtitle. */
+  description: string;
+}
+
 /** Seeded for roadmaps that have no columns yet (existing + newly created). */
 export const DEFAULT_ROADMAP_COLUMNS: RoadmapColumn[] = [
   { key: RoadmapPhase.NOW, label: 'Now', color: 'hsl(248 53% 58%)' },
@@ -45,6 +68,12 @@ export interface RoadmapItemData {
   description: string;
   /** The column ("pool") this item sits in — a `RoadmapColumn.key`. */
   phase: string;
+  /** The epic this item belongs to — a `RoadmapEpic.id`, '' when ungrouped. An
+   *  item has at most one epic; that's what makes an epic a grouping rather than
+   *  a tag. Only the id is stored: epics live in the same document, so the label
+   *  and colour are always read live and can never go stale. Optional because
+   *  items written before epics existed have no field; every read defaults it. */
+  epicId?: string;
   status: RoadmapItemStatus;
   difficulty: RoadmapDifficulty;
   /** RICE inputs. */

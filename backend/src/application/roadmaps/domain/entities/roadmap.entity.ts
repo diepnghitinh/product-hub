@@ -4,6 +4,7 @@ import { Guard } from '@shared/logic/guard';
 import {
   DEFAULT_ROADMAP_COLUMNS,
   RoadmapColumn,
+  RoadmapEpic,
   RoadmapItemData,
 } from '../types/roadmap-item.type';
 import { RoadmapProps } from './roadmap.props';
@@ -22,6 +23,7 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
       description?: string;
       items?: RoadmapItemData[];
       columns?: RoadmapColumn[];
+      epics?: RoadmapEpic[];
       publicEnabled?: boolean;
       publicToken?: string | null;
       createdAt?: Date;
@@ -45,6 +47,8 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
           description: props.description?.trim() || '',
           items: props.items ?? [],
           columns: props.columns?.length ? props.columns : DEFAULT_ROADMAP_COLUMNS,
+          // No default set — an ungrouped backlog is the honest starting state.
+          epics: props.epics ?? [],
           publicEnabled: props.publicEnabled ?? false,
           publicToken: props.publicToken ?? null,
           createdAt: props.createdAt || now,
@@ -76,6 +80,9 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
   get columns(): RoadmapColumn[] {
     return this.props.columns;
   }
+  get epics(): RoadmapEpic[] {
+    return this.props.epics;
+  }
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -106,6 +113,21 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
 
   replaceColumns(columns: RoadmapColumn[]): void {
     this.props.columns = columns;
+    this.touch();
+  }
+
+  /**
+   * Swap the epic list wholesale, then drop the `epicId` of any item whose epic
+   * is no longer in it. An item pointing at a deleted epic would vanish from
+   * every grouped view — not shown as ungrouped, just *gone* — so the pointer is
+   * cleared here rather than left for each view to defend against.
+   */
+  replaceEpics(epics: RoadmapEpic[]): void {
+    this.props.epics = epics;
+    const live = new Set(epics.map((e) => e.id));
+    this.props.items = this.props.items.map((item) =>
+      item.epicId && !live.has(item.epicId) ? { ...item, epicId: '' } : item,
+    );
     this.touch();
   }
 

@@ -22,6 +22,15 @@ export class RoadmapColumnDto {
   @ApiProperty() color: string;
 }
 
+/** A named, coloured group of backlog items ("Checkout revamp"). */
+export class RoadmapEpicDto {
+  @ApiProperty() id: string;
+  @ApiProperty() label: string;
+  @ApiProperty() color: string;
+  @ApiProperty({ description: 'One line of context; empty when unset' })
+  description: string;
+}
+
 /** A roadmap item with its derived RICE score. */
 export class RoadmapItemDto {
   @ApiProperty() id: string;
@@ -33,6 +42,8 @@ export class RoadmapItemDto {
   @ApiProperty() title: string;
   @ApiProperty() description: string;
   @ApiProperty() phase: string;
+  @ApiProperty({ description: 'Id of the epic this item is grouped under; empty when ungrouped' })
+  epicId: string;
   @ApiProperty({ enum: RoadmapItemStatus }) status: RoadmapItemStatus;
   @ApiProperty({ enum: RoadmapDifficulty }) difficulty: RoadmapDifficulty;
   @ApiProperty() reach: number;
@@ -75,6 +86,7 @@ export class RoadmapResponseDto {
   @ApiProperty() description: string;
   @ApiProperty({ type: [RoadmapItemDto] }) items: RoadmapItemDto[];
   @ApiProperty({ type: [RoadmapColumnDto] }) columns: RoadmapColumnDto[];
+  @ApiProperty({ type: [RoadmapEpicDto] }) epics: RoadmapEpicDto[];
   @ApiProperty() itemCount: number;
   @ApiProperty() publicEnabled: boolean;
   @ApiProperty({ nullable: true }) publicToken: string | null;

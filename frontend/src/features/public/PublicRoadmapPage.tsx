@@ -11,6 +11,7 @@ import { RoadmapRiceChart } from '@/features/roadmaps/components/RoadmapRiceChar
 import { RoadmapRiceTable } from '@/features/roadmaps/components/RoadmapRiceTable';
 import { RoadmapWorkflowView } from '@/features/roadmaps/components/RoadmapWorkflowView';
 import { RoadmapGantt } from '@/features/roadmaps/components/RoadmapGanttView';
+import { epicIndex, epicOf } from '@/features/roadmaps/epics';
 import { DEFAULT_ROADMAP_COLUMNS } from '@/types/enums';
 import type { RoadmapItem } from '@/types/dto';
 import { usePublicRoadmap } from './api';
@@ -74,6 +75,11 @@ export function PublicRoadmapPage() {
   const { roadmap } = data;
   const columns = roadmap.columns?.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS;
   const items = roadmap.items;
+  // Epics are shown, never chosen: a reader gets to see which bet an item belongs
+  // to, but this view has no toolbar to regroup from — so the chip on the card and
+  // the table's Epic column are how they read here.
+  const epics = roadmap.epics ?? [];
+  const epicsById = epicIndex(epics);
 
   return (
     <PublicShell title={roadmap.title}>
@@ -102,7 +108,9 @@ export function PublicRoadmapPage() {
             items={items}
             getId={(i) => i.id}
             getColumnKey={(i) => i.phase}
-            renderCard={(item, overlay) => <RoadmapCard item={item} overlay={overlay} />}
+            renderCard={(item, overlay) => (
+              <RoadmapCard item={item} overlay={overlay} epic={epicOf(item, epicsById)} />
+            )}
             onMove={noop}
             disabled
             onCardClick={(item) => setOpenItem(item)}
@@ -123,7 +131,12 @@ export function PublicRoadmapPage() {
               onOpenItem={(id) => setOpenItem(items.find((i) => i.id === id) ?? null)}
             />
           ) : (
-            <RoadmapRiceTable items={items} columns={columns} onOpen={(item) => setOpenItem(item)} />
+            <RoadmapRiceTable
+              items={items}
+              columns={columns}
+              epics={epics}
+              onOpen={(item) => setOpenItem(item)}
+            />
           )}
         </div>
       )}

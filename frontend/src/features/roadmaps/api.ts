@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
 import { t } from '@/i18n';
-import type { RoadmapColumn, RoadmapDto, RoadmapItem } from '@/types/dto';
+import type { RoadmapColumn, RoadmapDto, RoadmapEpic, RoadmapItem } from '@/types/dto';
 
 export function useRoadmaps() {
   return useQuery({ queryKey: ['roadmaps'], queryFn: () => apiGet<RoadmapDto[]>('/roadmaps') });
@@ -76,6 +76,20 @@ export function useReplaceRoadmapColumns() {
   return useMutation({
     mutationFn: ({ id, columns }: { id: string; columns: RoadmapColumn[] }) =>
       apiPut<RoadmapDto>(`/roadmaps/${id}/columns`, { columns }),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * Replace the roadmap's epics. The response carries the items back too — the
+ * server un-groups any item whose epic was removed — so this refetches rather
+ * than patching the cache by hand.
+ */
+export function useReplaceRoadmapEpics() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, epics }: { id: string; epics: RoadmapEpic[] }) =>
+      apiPut<RoadmapDto>(`/roadmaps/${id}/epics`, { epics }),
     onSuccess: invalidate,
   });
 }

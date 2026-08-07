@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
 import { Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { localeTag, t } from '@/i18n';
@@ -118,6 +119,15 @@ export interface GanttRow {
   sublabel?: string;
   /** 0 = top-level, 1 = an indented child (e.g. a task under a roadmap item). */
   depth?: number;
+  /**
+   * Render this row as a **group heading** — a band over the rows that follow it
+   * (a roadmap epic over its items) rather than a row of its own data. It can
+   * still carry a bar: an epic's span *is* the span of the work under it.
+   */
+  heading?: boolean;
+  /** Heading rows only: draws the fold chevron in this state. Leave undefined for
+   *  a heading that can't be folded, and the chevron isn't drawn at all. */
+  collapsed?: boolean;
   /** Leading dot before the label — a status/severity colour. */
   dotColor?: string;
   /** Click **anywhere in the row's rail cell** (opens a detail — usually a peek
@@ -319,12 +329,29 @@ function GanttRowView({
   pct: (v: number) => number;
   spanMs: number;
 }) {
-  const child = (row.depth ?? 0) > 0;
+  const heading = !!row.heading;
+  const child = !heading && (row.depth ?? 0) > 0;
   const interactive = !!(row.href || row.onClick);
 
   const dot = row.dotColor ? (
-    <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.dotColor }} aria-hidden />
+    <span
+      className={cn('shrink-0 rounded-full', heading ? 'size-2.5' : 'size-2')}
+      style={{ backgroundColor: row.dotColor }}
+      aria-hidden
+    />
   ) : null;
+  // Only a foldable heading gets a chevron — one that isn't foldable would be
+  // offering a control that does nothing.
+  const chevron =
+    heading && row.collapsed !== undefined ? (
+      <ChevronDown
+        className={cn(
+          'size-4 shrink-0 text-muted-foreground transition-transform',
+          row.collapsed && '-rotate-90',
+        )}
+        aria-hidden
+      />
+    ) : null;
   // The title is plain text now: the *cell* around it is the link/button (see
   // below), and an anchor inside an anchor isn't a thing. Hover styling therefore
   // keys off the cell, not the glyph.
@@ -332,7 +359,11 @@ function GanttRowView({
     <span
       className={cn(
         'min-w-0 flex-1 truncate',
-        child ? 'text-xs text-muted-foreground' : 'text-sm font-medium text-foreground',
+        child
+          ? 'text-xs text-muted-foreground'
+          : heading
+            ? 'text-sm font-semibold text-foreground'
+            : 'text-sm font-medium text-foreground',
         interactive && 'group-hover/rail:underline',
         interactive && child && 'group-hover/rail:text-foreground',
       )}
@@ -351,6 +382,7 @@ function GanttRowView({
   ) : (
     <>
       <div className="flex min-w-0 items-center gap-2">
+        {chevron}
         {dot}
         {title}
       </div>
@@ -382,11 +414,25 @@ function GanttRowView({
   );
 
   return (
-    <div className="group grid items-center border-b last:border-0 hover:bg-accent/30" style={cols}>
+    <div
+      className={cn(
+        'group grid items-center border-b last:border-0',
+        // A heading sits on a band so the rows under it read as belonging to it.
+        // Its fills stay fully opaque tokens, never a tint: the rail is frozen
+        // over scrolling bars, and anything translucent lets them show through.
+        heading ? 'bg-muted hover:bg-accent' : 'hover:bg-accent/30',
+      )}
+      style={cols}
+    >
       {/* Label rail — frozen to the left edge, so it needs an opaque background of
           its own (the row's hover tint can't show through it, hence `group-hover`)
           and `self-stretch` to cover the row's full height as bars scroll under. */}
-      <div className="group/rail sticky left-0 z-20 flex self-stretch border-r bg-card group-hover:bg-accent/30">
+      <div
+        className={cn(
+          'group/rail sticky left-0 z-20 flex self-stretch border-r',
+          heading ? 'bg-muted group-hover:bg-accent' : 'bg-card group-hover:bg-accent/30',
+        )}
+      >
         {cell}
       </div>
 

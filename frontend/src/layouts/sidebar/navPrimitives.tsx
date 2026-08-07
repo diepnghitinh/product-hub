@@ -101,8 +101,8 @@ export const NAV_FOOTER_CELL =
 
 /**
  * Collapsible **parents** (Issues, a cycles-enabled team) — keyed by route, so a
- * parent auto-opens when you're standing on one of its children and the choice
- * survives a reload.
+ * parent auto-opens when you're standing on one of its children, and whatever
+ * state it ends up in survives both the next navigation and a reload.
  */
 export function useNavGroups() {
   const { pathname } = useLocation();
@@ -126,11 +126,53 @@ export function useNavGroups() {
    * Both `isOpen` and `toggleGroup` read it, or the first click after landing on
    * a child would only re-assert what's already on screen and look like a no-op.
    */
-  const defaultOpen = (p: string, childPaths: string[]) => [p, ...childPaths].some(isUnder);
+  const routeOpen = (p: string, childPaths: string[]) => [p, ...childPaths].some(isUnder);
+
+  /**
+   * The groups the menu asked about while rendering. They can't be declared up
+   * front: they come from two menus, from `menuConfig` *and* from the team list,
+   * which arrives from the API a beat after the first paint.
+   */
+  const asked = useRef(new Map<string, string[]>());
+  asked.current = new Map();
+
+  /**
+   * Opening by route is a **latch**, not a live reading: standing inside a group
+   * records it as open, so walking away leaves it open.
+   *
+   * Without this the only thing holding an auto-opened group apart was the URL,
+   * and it slammed shut on the next click anywhere in the menu — you opened a
+   * team's cycles, went to Docs, and came back to find it closed. That made the
+   * expand read as a hover state rather than a choice. Now every group is either
+   * explicitly open or explicitly closed the moment it's been seen open once,
+   * and only the chevron changes it after that.
+   *
+   * No dep array on purpose: a team row can appear *after* the navigation that
+   * opened it, so this has to look again on the render its row first exists in.
+   * It's a handful of key lookups, and it returns the same object — no re-render,
+   * no write — on every render but the one that actually latches something.
+   */
+  useEffect(() => {
+    const seen = [...asked.current];
+    setOpenGroups((g) => {
+      let next = g;
+      for (const [p, childPaths] of seen) {
+        if (g[p] === undefined && routeOpen(p, childPaths)) {
+          if (next === g) next = { ...g };
+          next[p] = true;
+        }
+      }
+      return next;
+    });
+  });
+
   return {
-    isOpen: (p: string, childPaths: string[] = []) => openGroups[p] ?? defaultOpen(p, childPaths),
+    isOpen: (p: string, childPaths: string[] = []) => {
+      asked.current.set(p, childPaths);
+      return openGroups[p] ?? routeOpen(p, childPaths);
+    },
     toggleGroup: (p: string, childPaths: string[] = []) =>
-      setOpenGroups((g) => ({ ...g, [p]: !(g[p] ?? defaultOpen(p, childPaths)) })),
+      setOpenGroups((g) => ({ ...g, [p]: !(g[p] ?? routeOpen(p, childPaths)) })),
   };
 }
 

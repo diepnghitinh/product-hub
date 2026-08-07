@@ -14,7 +14,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { ChevronLeft, ChevronRight, Clock, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Clock, Pencil, Plus, Trash2 } from 'lucide-react';
 import { ProgressBar, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -26,6 +26,22 @@ export interface KanbanColumn {
   key: string;
   label: string;
   color: string;
+}
+
+/**
+ * A horizontal band across the whole board — the second axis. Columns say *what
+ * state* an item is in; a swimlane says *what it belongs to* (a roadmap epic
+ * today, a team or an assignee tomorrow), and every lane repeats the same
+ * columns so a row reads as one group's progress left to right.
+ */
+export interface KanbanSwimlane {
+  key: string;
+  label: string;
+  color: string;
+  /** A quiet second line under the lane's name — e.g. what the group is for. */
+  description?: string;
+  /** Anything the caller wants beside the name: a count, a progress bar, a ⋯ menu. */
+  meta?: ReactNode;
 }
 
 export interface KanbanBoardProps<T> {
@@ -40,8 +56,11 @@ export interface KanbanBoardProps<T> {
    * A card landed. `overId` is the card it was dropped onto (i.e. its exact
    * slot), or null when dropped on a column's empty area. Boards that don't
    * persist ordering can ignore `overId` and just write `toColumn`.
+   *
+   * `toSwimlane` is the lane it landed in — always the caller's own lane key, and
+   * always `undefined` on a board with no lanes, so a two-axis drag is one write.
    */
-  onMove: (id: string, toColumn: string, overId: string | null) => void;
+  onMove: (id: string, toColumn: string, overId: string | null, toSwimlane?: string) => void;
   /** Read-only — cards can't be picked up. */
   disabled?: boolean;
   onCardClick?: (item: T) => void;
@@ -52,10 +71,23 @@ export interface KanbanBoardProps<T> {
    * column hover in the header, and a full-width button under the list — both
    * calling this with the target column. Header and footer share one handler,
    * so every board's add looks and behaves identically.
+   *
+   * `swimlane` is the lane the button sits in, so a create started inside a
+   * group arrives already in that group.
    */
-  onColumnAdd?: (col: KanbanColumn) => void;
+  onColumnAdd?: (col: KanbanColumn, swimlane?: KanbanSwimlane) => void;
   /** Label for those add affordances (footer text + header button tooltip). */
   addLabel?: string;
+  /**
+   * Turns the board into swimlanes: one band per entry, each holding the full
+   * set of columns. Omit (or pass an empty array) for the plain single-band
+   * board — every existing board, unchanged.
+   *
+   * Pass `getSwimlaneKey` alongside it; without one there is no way to tell
+   * which band an item belongs to and they all land in the first.
+   */
+  swimlanes?: KanbanSwimlane[];
+  getSwimlaneKey?: (item: T) => string;
   // There is deliberately no "add a column" slot. A board's columns are a
   // team's statuses, owned by Settings (sidebar → Teams → settings) — letting a
   // board mint one would fork that config from the place the rest of the app
@@ -255,6 +287,13 @@ export function KanbanCardToolbar({
 const BOARD =
   'flex flex-col gap-4 p-4 sm:min-h-0 sm:flex-1 sm:flex-row sm:items-start sm:justify-start sm:overflow-x-auto md:px-8 md:py-6';
 
+// Swimlanes invert it: the lanes stack down the page and the *page* scrolls both
+// ways, so every lane shares one horizontal offset and its columns stay aligned
+// with the lane above. Columns grow to fit their cards rather than scrolling
+// inside themselves — a lane is a band you read across, not a set of wells.
+const BOARD_LANES = 'flex min-h-0 flex-1 flex-col gap-5 overflow-auto p-4 md:px-8 md:py-6';
+const LANE_COLUMNS = 'flex flex-col gap-4 sm:w-fit sm:flex-row sm:items-start';
+
 /**
  * Readable text for a solid `hex` fill — used by the column pill. Column colours
  * are user-picked, so this can't be a constant: a light amber needs dark text
@@ -279,11 +318,15 @@ function DroppableColumn({
   id,
   color,
   collapsed = false,
+  fluid = false,
   children,
 }: {
   id: string;
   color: string;
   collapsed?: boolean;
+  /** Size to content instead of filling the board's height — swimlane mode,
+   *  where the page scrolls rather than each column. */
+  fluid?: boolean;
   children: ReactNode;
 }) {
   const { setNodeRef } = useDroppable({ id });
@@ -294,7 +337,8 @@ function DroppableColumn({
       // wash is what separates columns, so the border would just double it up.
       // `group/column` scopes the header's hover-reveal actions to this column.
       className={cn(
-        'group/column flex min-h-[120px] flex-col rounded-xl p-3 sm:max-h-full sm:shrink-0',
+        'group/column flex min-h-[120px] flex-col rounded-xl p-3 sm:shrink-0',
+        !fluid && 'sm:max-h-full',
         collapsed ? 'sm:w-12' : 'sm:w-[280px]',
       )}
       style={{ background: tint(color, 8) }}
@@ -373,10 +417,17 @@ function DraggableCard({
   );
 }
 
+/** The single implicit lane a board with no swimlanes renders into, so there is
+ *  one render path rather than two that can drift. Its chrome is never drawn. */
+const SOLO_LANE: KanbanSwimlane = { key: '', label: '', color: '' };
+
 /**
  * The app's kanban: a full-height row of fixed-width columns that scrolls
  * horizontally, with drag-to-move, a lifted drag overlay and a card-sized drop
  * placeholder. Presentational — the caller owns the cards and persistence.
+ *
+ * Pass `swimlanes` and it gains a second axis: the same columns repeated in one
+ * band per group, where a drag writes both the column and the group.
  */
 export function KanbanBoard<T>({
   columns,
@@ -390,19 +441,26 @@ export function KanbanBoard<T>({
   renderCardToolbar,
   onColumnAdd,
   addLabel,
+  swimlanes,
+  getSwimlaneKey,
 }: KanbanBoardProps<T>) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   // Which columns are collapsed to a rail. Presentational + per-session — resets
-  // on reload, like the board's scroll position.
+  // on reload, like the board's scroll position. Keyed by column, so collapsing
+  // one collapses it in every lane: it's the same column, seen once per group.
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
-  const toggleCollapse = (key: string) =>
-    setCollapsed((prev) => {
+  // Which lanes are folded away. Same session-only treatment.
+  const [foldedLanes, setFoldedLanes] = useState<Set<string>>(() => new Set());
+  const toggle = (set: (fn: (prev: Set<string>) => Set<string>) => void, key: string) =>
+    set((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
     });
+  const toggleCollapse = (key: string) => toggle(setCollapsed, key);
+  const toggleLane = (key: string) => toggle(setFoldedLanes, key);
   // Height of the card being dragged, so the placeholder mirrors the exact slot
   // the card will occupy.
   const [dragHeight, setDragHeight] = useState<number | null>(null);
@@ -411,8 +469,26 @@ export function KanbanBoard<T>({
   // still opens it.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
+  const grouped = !!swimlanes?.length;
+  const lanes = grouped ? swimlanes! : [SOLO_LANE];
   const columnKeys = new Set(columns.map((c) => c.key));
+  const laneOrder = new Map(lanes.map((lane, i) => [lane.key, i]));
+  /** Which lane an item belongs in. An item naming a lane that isn't on the
+   *  board falls into the first one — the same "nothing is ever lost" rule the
+   *  first column applies to items whose column was removed. */
+  const laneIdxOf = (item: T) =>
+    grouped && getSwimlaneKey ? (laneOrder.get(getSwimlaneKey(item)) ?? 0) : 0;
+
   const activeItem = items.find((i) => getId(i) === activeId) ?? null;
+
+  // A drop target is one (lane, column) cell. Ids are built from indices, not
+  // from the keys themselves, so a column key containing the separator — or a
+  // lane and a column sharing a key — can't collide.
+  const zoneId = (li: number, ci: number) => `zone:${li}:${ci}`;
+  const zones = new Map<string, { column: string; lane: string }>();
+  lanes.forEach((lane, li) =>
+    columns.forEach((col, ci) => zones.set(zoneId(li, ci), { column: col.key, lane: lane.key })),
+  );
 
   // Drop detection follows the POINTER, not the dragged card's centre (which
   // sits below the cursor for tall cards and made the placeholder land too low).
@@ -420,15 +496,18 @@ export function KanbanBoard<T>({
     const pointer = pointerWithin(args);
     if (pointer.length === 0) return closestCenter(args); // pointer in a gap → nearest
     // Prefer the card directly under the pointer over the column it sits in.
-    const card = pointer.find((c) => !columnKeys.has(String(c.id)));
+    const card = pointer.find((c) => !zones.has(String(c.id)));
     return card ? [card] : pointer;
   };
 
   /** The first column also absorbs items whose column was removed (orphans), so
    * nothing is ever lost and they can be dragged back out. */
-  function itemsFor(colKey: string, isFirst: boolean): T[] {
+  function itemsFor(li: number, ci: number): T[] {
+    const colKey = columns[ci].key;
     return items.filter(
-      (i) => getColumnKey(i) === colKey || (isFirst && !columnKeys.has(getColumnKey(i))),
+      (i) =>
+        laneIdxOf(i) === li &&
+        (getColumnKey(i) === colKey || (ci === 0 && !columnKeys.has(getColumnKey(i)))),
     );
   }
 
@@ -445,9 +524,17 @@ export function KanbanBoard<T>({
     const activeKey = String(active.id);
     const overKey = String(over.id);
     if (activeKey === overKey) return;
-    // `over` is either another card (drop at its slot) or a column (append).
+    // `over` is either another card (drop at its exact slot, inheriting both of
+    // that card's coordinates) or an empty cell (append to it).
     const overItem = items.find((i) => getId(i) === overKey);
-    onMove(activeKey, overItem ? getColumnKey(overItem) : overKey, overItem ? overKey : null);
+    if (overItem) {
+      const lane = grouped ? lanes[laneIdxOf(overItem)].key : undefined;
+      onMove(activeKey, getColumnKey(overItem), overKey, lane);
+      return;
+    }
+    const zone = zones.get(overKey);
+    if (!zone) return;
+    onMove(activeKey, zone.column, null, grouped ? zone.lane : undefined);
   }
 
   const placeholder = (
@@ -457,6 +544,128 @@ export function KanbanBoard<T>({
       aria-hidden
     />
   );
+
+  /** One lane's full set of columns. Extracted so the plain board and a lane of
+   *  a swimlane board render the identical column — the drift this component
+   *  exists to prevent starts with a second copy of this JSX. */
+  const renderColumns = (lane: KanbanSwimlane, li: number) =>
+    columns.map((col, ci) => {
+      const id = zoneId(li, ci);
+      const list = itemsFor(li, ci);
+      const isCollapsed = collapsed.has(col.key);
+      return (
+        <DroppableColumn key={col.key} id={id} color={col.color} collapsed={isCollapsed} fluid={grouped}>
+          {/* Collapsed: a narrow rail (desktop only — mobile stacks, so
+              horizontal space isn't scarce there). The whole rail expands. */}
+          <button
+            type="button"
+            onClick={() => toggleCollapse(col.key)}
+            title={t('board.expandColumn')}
+            aria-label={t('board.expandColumn')}
+            className={cn(
+              'hidden flex-col items-center gap-3 rounded-lg py-1 transition-colors hover:bg-accent',
+              isCollapsed && 'sm:flex',
+            )}
+          >
+            <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+            <span
+              className="rounded-md px-1 py-1.5 text-[11px] font-semibold uppercase tracking-wide rotate-180 [writing-mode:vertical-rl]"
+              style={{ background: col.color, color: readableOn(col.color) }}
+            >
+              {col.label}
+            </span>
+            <span className="text-sm font-medium tabular-nums text-muted-foreground">
+              {list.length}
+            </span>
+          </button>
+
+          {/* Expanded body — hidden at sm+ when collapsed; always on mobile. */}
+          <div className={cn('flex min-h-0 flex-1 flex-col', isCollapsed && 'sm:hidden')}>
+            {/* The status reads as a solid pill; the count sits outside it, so
+                it's a fact about the column rather than part of its name. */}
+            <div className="flex items-center gap-2 px-0.5 pb-3 pt-0.5">
+              <span
+                className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide"
+                style={{ background: col.color, color: readableOn(col.color) }}
+              >
+                <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
+                <span className="truncate">{col.label}</span>
+              </span>
+              <span className="text-sm font-medium tabular-nums text-muted-foreground">
+                {list.length}
+              </span>
+              {/* Header actions ride in on column hover (pointer only — mobile
+                  uses the always-visible footer button below). */}
+              <div className="ml-auto hidden items-center gap-0.5 text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover/column:opacity-100 sm:flex">
+                {onColumnAdd && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={addLabel}
+                        onClick={() => onColumnAdd(col, grouped ? lane : undefined)}
+                        className="grid size-6 place-items-center rounded-md transition-colors hover:bg-accent"
+                        style={{ color: col.color }}
+                      >
+                        <Plus className="size-4" aria-hidden />
+                      </button>
+                    </TooltipTrigger>
+                    {addLabel && <TooltipContent>{addLabel}</TooltipContent>}
+                  </Tooltip>
+                )}
+                {/* Collapsing is a column-wide act, so it's offered once — in the
+                    first lane — rather than repeated in every band. */}
+                {li === 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t('board.collapseColumn')}
+                        onClick={() => toggleCollapse(col.key)}
+                        className="grid size-6 place-items-center rounded-md transition-colors hover:bg-accent hover:text-foreground"
+                      >
+                        <ChevronLeft className="size-4" aria-hidden />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t('board.collapseColumn')}</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </div>
+            <div className={cn('flex flex-col gap-2', !grouped && 'sm:min-h-0 sm:overflow-y-auto')}>
+              {list.map((item) => {
+                const cardId = getId(item);
+                return (
+                  <Fragment key={cardId}>
+                    {overId === cardId && activeItem && getId(activeItem) !== cardId && placeholder}
+                    <DraggableCard
+                      id={cardId}
+                      disabled={disabled}
+                      onClick={onCardClick ? () => onCardClick(item) : undefined}
+                      toolbar={renderCardToolbar?.(item)}
+                    >
+                      {renderCard(item)}
+                    </DraggableCard>
+                  </Fragment>
+                );
+              })}
+              {overId === id && activeItem && placeholder}
+            </div>
+            {onColumnAdd && (
+              <button
+                type="button"
+                onClick={() => onColumnAdd(col, grouped ? lane : undefined)}
+                className="mt-2 flex w-full shrink-0 items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                style={{ color: col.color }}
+              >
+                <Plus className="size-4" aria-hidden />
+                {addLabel}
+              </button>
+            )}
+          </div>
+        </DroppableColumn>
+      );
+    });
 
   return (
     <DndContext
@@ -473,119 +682,56 @@ export function KanbanBoard<T>({
       onDragEnd={handleDragEnd}
       onDragCancel={reset}
     >
-      <div className={BOARD}>
-        {columns.map((col, ci) => {
-          const list = itemsFor(col.key, ci === 0);
-          const isCollapsed = collapsed.has(col.key);
-          return (
-            <DroppableColumn key={col.key} id={col.key} color={col.color} collapsed={isCollapsed}>
-              {/* Collapsed: a narrow rail (desktop only — mobile stacks, so
-                  horizontal space isn't scarce there). The whole rail expands. */}
-              <button
-                type="button"
-                onClick={() => toggleCollapse(col.key)}
-                title={t('board.expandColumn')}
-                aria-label={t('board.expandColumn')}
-                className={cn(
-                  'hidden flex-col items-center gap-3 rounded-lg py-1 transition-colors hover:bg-accent',
-                  isCollapsed && 'sm:flex',
-                )}
-              >
-                <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
-                <span
-                  className="rounded-md px-1 py-1.5 text-[11px] font-semibold uppercase tracking-wide rotate-180 [writing-mode:vertical-rl]"
-                  style={{ background: col.color, color: readableOn(col.color) }}
-                >
-                  {col.label}
-                </span>
-                <span className="text-sm font-medium tabular-nums text-muted-foreground">
-                  {list.length}
-                </span>
-              </button>
-
-              {/* Expanded body — hidden at sm+ when collapsed; always on mobile. */}
-              <div className={cn('flex min-h-0 flex-1 flex-col', isCollapsed && 'sm:hidden')}>
-                {/* The status reads as a solid pill; the count sits outside it, so
-                    it's a fact about the column rather than part of its name. */}
-                <div className="flex items-center gap-2 px-0.5 pb-3 pt-0.5">
-                  <span
-                    className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide"
-                    style={{ background: col.color, color: readableOn(col.color) }}
-                  >
-                    <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
-                    <span className="truncate">{col.label}</span>
-                  </span>
-                  <span className="text-sm font-medium tabular-nums text-muted-foreground">
-                    {list.length}
-                  </span>
-                  {/* Header actions ride in on column hover (pointer only — mobile
-                      uses the always-visible footer button below). */}
-                  <div className="ml-auto hidden items-center gap-0.5 text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover/column:opacity-100 sm:flex">
-                    {onColumnAdd && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            aria-label={addLabel}
-                            onClick={() => onColumnAdd(col)}
-                            className="grid size-6 place-items-center rounded-md transition-colors hover:bg-accent"
-                            style={{ color: col.color }}
-                          >
-                            <Plus className="size-4" aria-hidden />
-                          </button>
-                        </TooltipTrigger>
-                        {addLabel && <TooltipContent>{addLabel}</TooltipContent>}
-                      </Tooltip>
+      <div className={grouped ? BOARD_LANES : BOARD}>
+        {grouped
+          ? lanes.map((lane, li) => {
+              const folded = foldedLanes.has(lane.key);
+              const count = items.filter((i) => laneIdxOf(i) === li).length;
+              return (
+                <section key={lane.key || '__none'} className="flex flex-col gap-3">
+                  {/* Pinned to the left edge of the scroller: once the board is
+                      scrolled into its right-hand columns you still need to know
+                      which group the band you're reading belongs to. */}
+                  <div className="sticky left-0 flex w-fit max-w-full items-center gap-2 pr-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleLane(lane.key)}
+                      aria-expanded={!folded}
+                      className="flex min-w-0 items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-accent"
+                    >
+                      <ChevronDown
+                        className={cn(
+                          'size-4 shrink-0 text-muted-foreground transition-transform',
+                          folded && '-rotate-90',
+                        )}
+                        aria-hidden
+                      />
+                      <span
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ background: lane.color }}
+                        aria-hidden
+                      />
+                      <span className="truncate text-sm font-semibold">{lane.label}</span>
+                      <span className="shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
+                        {count}
+                      </span>
+                    </button>
+                    {/* Secondary detail drops away on small screens — the name and
+                        the count are what a lane has to say at any width. */}
+                    {lane.description && (
+                      <span className="hidden min-w-0 truncate text-xs text-muted-foreground sm:block">
+                        {lane.description}
+                      </span>
                     )}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label={t('board.collapseColumn')}
-                          onClick={() => toggleCollapse(col.key)}
-                          className="grid size-6 place-items-center rounded-md transition-colors hover:bg-accent hover:text-foreground"
-                        >
-                          <ChevronLeft className="size-4" aria-hidden />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent>{t('board.collapseColumn')}</TooltipContent>
-                    </Tooltip>
+                    {lane.meta && (
+                      <div className="flex shrink-0 items-center gap-2">{lane.meta}</div>
+                    )}
                   </div>
-                </div>
-                <div className="flex flex-col gap-2 sm:min-h-0 sm:overflow-y-auto">
-                  {list.map((item) => {
-                    const id = getId(item);
-                    return (
-                      <Fragment key={id}>
-                        {overId === id && activeItem && getId(activeItem) !== id && placeholder}
-                        <DraggableCard
-                          id={id}
-                          disabled={disabled}
-                          onClick={onCardClick ? () => onCardClick(item) : undefined}
-                          toolbar={renderCardToolbar?.(item)}
-                        >
-                          {renderCard(item)}
-                        </DraggableCard>
-                      </Fragment>
-                    );
-                  })}
-                  {overId === col.key && activeItem && placeholder}
-                </div>
-                {onColumnAdd && (
-                  <button
-                    type="button"
-                    onClick={() => onColumnAdd(col)}
-                    className="mt-2 flex w-full shrink-0 items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                    style={{ color: col.color }}
-                  >
-                    <Plus className="size-4" aria-hidden />
-                    {addLabel}
-                  </button>
-                )}
-              </div>
-            </DroppableColumn>
-          );
-        })}
+                  {!folded && <div className={LANE_COLUMNS}>{renderColumns(lane, li)}</div>}
+                </section>
+              );
+            })
+          : renderColumns(SOLO_LANE, 0)}
       </div>
       <DragOverlay dropAnimation={null}>
         {activeItem ? renderCard(activeItem, true) : null}

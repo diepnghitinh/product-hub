@@ -736,10 +736,9 @@ export function DocPageEditor({
                 onChange={(html) => queue({ content: html })}
                 onComment={canComment ? (range) => commentOnRange(range) : undefined}
                 commentLabel={t('docs.comments.add')}
-                // A doc page *is* the document — the skin drops the resting frame
-                // and reads at body size. Focus still answers "you're writing
-                // here", as an outline held off the text rather than a ring
-                // hugging it (see rich-text-editor.css).
+                // A doc page *is* the document — the skin drops the frame
+                // (resting *and* focused) and reads at body size, so what's on
+                // screen is the page (see rich-text-editor.css).
                 className="doc-page"
               />
             ) : (
