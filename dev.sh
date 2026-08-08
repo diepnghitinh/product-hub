@@ -2,9 +2,14 @@
 #
 # product-hub — run the backend (NestJS API) and frontend (Vite SPA) together.
 #
-#   ./dev.sh              start MongoDB (docker) + API + web app
-#   SKIP_DB=1 ./dev.sh    skip docker; use an existing MongoDB on :27017
-#   ADMIN=1 ./dev.sh      also start the platform console on :3003
+#   ./dev.sh                start MongoDB (docker) + API + web app
+#   SKIP_DB=1 ./dev.sh      skip docker; use an existing MongoDB on :27017
+#   ADMIN=1 ./dev.sh        also start the platform console on :3003
+#   API_PORT=4000 ./dev.sh  pin a port yourself (API_PORT/WEB_PORT/COLLAB_PORT/ADMIN_PORT)
+#
+# Every port is checked before anything starts: a service whose usual port is
+# busy gets a free random one instead, and the others are wired to match — see
+# "Ports" below.
 #
 # On first run it copies the .env examples and installs dependencies if missing.
 # Ctrl+C stops everything cleanly.
@@ -81,6 +86,102 @@ ensure_deps() {
   fi
 }
 
+# ── Ports ────────────────────────────────────────────────────────────────
+# Each service prefers the port it is configured for, but something is often
+# already sitting there: a previous run that didn't shut down, another project,
+# a stray `npm run dev`. Left alone that fails in two different ways — the API
+# dies with EADDRINUSE, while Vite quietly slides to the next free number and
+# so drops out of the API's CORS allowlist, which reads as "the app loads but
+# every request fails".
+#
+# So we hand each service a port we have just checked is free, picking a random
+# one when the preferred is taken, and wire the services to each other from
+# these values. Only what actually MOVED is overridden — with the usual ports
+# free, dev.sh passes no URLs and the .env files stay the single source of
+# truth.
+PORT_RANGE_START=3100   # random ports land in 3100–3999: still obviously "a dev
+PORT_RANGE_SIZE=900     # server", and clear of the ephemeral range macOS uses.
+
+# Ports handed out during this run. Checked alongside the OS so two services
+# can't be given the same free port.
+CLAIMED=''
+
+port_busy() {
+  if command -v lsof >/dev/null 2>&1; then
+    [ -n "$(lsof -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null)" ]
+  else
+    # No lsof — ask the kernel instead: if the connection opens, someone's there.
+    (exec 3<>"/dev/tcp/127.0.0.1/$1") >/dev/null 2>&1
+  fi
+}
+
+port_taken() {
+  case " $CLAIMED " in *" $1 "*) return 0 ;; esac
+  port_busy "$1"
+}
+
+# pick_port <preferred> <label> → sets PICKED, and PICKED_MOVED=1 if it had to
+# go elsewhere (the caller uses that to decide what needs re-wiring).
+PICKED=''
+PICKED_MOVED=0
+pick_port() {
+  local preferred=$1 label=$2 candidate tries=0
+  PICKED_MOVED=0
+  if ! port_taken "$preferred"; then
+    PICKED=$preferred
+    CLAIMED="$CLAIMED $preferred"
+    return
+  fi
+  while [ "$tries" -lt 100 ]; do
+    candidate=$(( PORT_RANGE_START + RANDOM % PORT_RANGE_SIZE ))
+    if ! port_taken "$candidate"; then
+      PICKED=$candidate
+      PICKED_MOVED=1
+      CLAIMED="$CLAIMED $candidate"
+      warn "port $preferred is busy — $label moved to $candidate"
+      return
+    fi
+    tries=$(( tries + 1 ))
+  done
+  PICKED=$preferred
+  CLAIMED="$CLAIMED $preferred"
+  warn "no free port found for $label — trying $preferred anyway"
+}
+
+# Read KEY out of a per-environment config file, so the port we prefer is the
+# one that service is actually configured to use. dev.sh never sets NODE_ENV,
+# so the file the API and collab load is always the `local` one.
+env_value() { # env_value <file> <KEY> <fallback>
+  local value=''
+  if [ -f "$1" ]; then
+    value=$(sed -n "s/^[[:space:]]*$2[[:space:]]*=[[:space:]]*//p" "$1" \
+      | tail -1 | tr -d "\"'" | tr -d '[:space:]')
+  fi
+  echo "${value:-$3}"
+}
+
+# Same idea for the two Vite apps, whose port lives in vite.config.ts.
+vite_port() { # vite_port <vite.config.ts> <fallback>
+  local value=''
+  if [ -f "$1" ]; then
+    value=$(sed -n 's/^[[:space:]]*port:[[:space:]]*\([0-9]\{2,5\}\).*/\1/p' "$1" | head -1)
+  fi
+  echo "${value:-$2}"
+}
+
+# The browser origins the API and collab must accept. Ours first, then whatever
+# the config file already listed — appending rather than replacing means a
+# hand-added origin (an ngrok URL, a `*`) is never silently dropped.
+origins_for() { # origins_for <config file>
+  local ours="http://localhost:$WEB_PORT,http://127.0.0.1:$WEB_PORT" configured
+  if admin_enabled; then
+    ours="$ours,http://localhost:$ADMIN_PORT,http://127.0.0.1:$ADMIN_PORT"
+  fi
+  configured=$(env_value "$1" ALLOWED_ORIGINS '')
+  if [ -n "$configured" ]; then ours="$ours,$configured"; fi
+  echo "$ours"
+}
+
 # ── Start MongoDB via docker compose and wait until it accepts connections ───
 start_db() {
   if ! command -v docker >/dev/null 2>&1; then
@@ -127,9 +228,11 @@ cleanup() {
       kill -9 "${victims[@]}" 2>/dev/null || true
     fi
   fi
-  # Final sweep: free the ports no matter what.
+  # Final sweep: free the ports no matter what. Only the ones this run claimed —
+  # every one of them was verified free before we took it, so nothing here can
+  # belong to somebody else's process.
   sleep 1
-  for port in 3000 3001 3002 3003; do
+  for port in $CLAIMED; do
     lsof -ti:"$port" 2>/dev/null | xargs kill -9 2>/dev/null || true
   done
 }
@@ -139,37 +242,76 @@ trap 'exit 130' INT TERM
 # ── Go ───────────────────────────────────────────────────────────────────
 ensure_env
 ensure_deps
+
+# Claim every port up front, before a single service starts — the API's CORS
+# allowlist has to name the app's final port, and the app has to be handed the
+# API's, so neither can be started until both are known.
+COLLAB_PORT="${COLLAB_PORT:-}"; COLLAB_MOVED=0
+ADMIN_PORT="${ADMIN_PORT:-}"
+
+pick_port "${API_PORT:-$(env_value "$BACKEND/config/.env.local" PORT 3000)}" "the API"
+API_PORT=$PICKED; API_MOVED=$PICKED_MOVED
+
+pick_port "${WEB_PORT:-$(vite_port "$FRONTEND/vite.config.ts" 3001)}" "the app"
+WEB_PORT=$PICKED; WEB_MOVED=$PICKED_MOVED
+
+if collab_enabled; then
+  pick_port "${COLLAB_PORT:-$(env_value "$COLLAB/config/.env.local" PORT 3002)}" "collab"
+  COLLAB_PORT=$PICKED; COLLAB_MOVED=$PICKED_MOVED
+fi
+
+if admin_enabled; then
+  pick_port "${ADMIN_PORT:-$(vite_port "$ADMIN_APP/vite.config.ts" 3003)}" "the console"
+  ADMIN_PORT=$PICKED
+fi
+
 [ "${SKIP_DB:-0}" = "1" ] || start_db
 
-log "starting backend  → http://localhost:3000/v1"
-( cd "$BACKEND" && exec npm run start:dev ) &
+# The API: its own port, plus the origins the browser will actually call from.
+BACKEND_ENV=(PORT="$API_PORT" ALLOWED_ORIGINS="$(origins_for "$BACKEND/config/.env.local")")
+# Links the API builds into webhooks and MCP replies default to :3001. If the
+# config file doesn't pin one, point them at the app that is really running.
+if [ -z "$(env_value "$BACKEND/config/.env.local" APP_BASE_URL '')" ]; then
+  BACKEND_ENV+=(APP_BASE_URL="http://localhost:$WEB_PORT")
+fi
+log "starting backend  → http://localhost:$API_PORT/v1"
+( cd "$BACKEND" && exec env "${BACKEND_ENV[@]}" npm run start:dev ) &
 PIDS+=($!)
 
 if collab_enabled; then
-  log "starting collab   → ws://localhost:3002"
-  ( cd "$COLLAB" && exec npm run dev ) &
+  COLLAB_ENV=(PORT="$COLLAB_PORT" ALLOWED_ORIGINS="$(origins_for "$COLLAB/config/.env.local")")
+  log "starting collab   → ws://localhost:$COLLAB_PORT"
+  ( cd "$COLLAB" && exec env "${COLLAB_ENV[@]}" npm run dev ) &
   PIDS+=($!)
 fi
 
-log "starting frontend → http://localhost:3001"
-( cd "$FRONTEND" && exec npm run dev ) &
+# --strictPort so Vite can't quietly pick a different port than the one the API
+# was just told to trust: better a loud restart than a board that won't load.
+WEB_ENV=()
+if [ "$API_MOVED" = 1 ]; then WEB_ENV+=(VITE_API_URL="http://localhost:$API_PORT/v1"); fi
+if [ "$COLLAB_MOVED" = 1 ]; then WEB_ENV+=(VITE_COLLAB_URL="ws://localhost:$COLLAB_PORT"); fi
+log "starting frontend → http://localhost:$WEB_PORT"
+( cd "$FRONTEND" && exec env ${WEB_ENV[@]+"${WEB_ENV[@]}"} npm run dev -- --port "$WEB_PORT" --strictPort ) &
 PIDS+=($!)
 
 if admin_enabled; then
-  log "starting console  → http://localhost:3003"
-  ( cd "$ADMIN_APP" && exec npm run dev ) &
+  ADMIN_ENV=()
+  if [ "$API_MOVED" = 1 ]; then ADMIN_ENV+=(VITE_API_URL="http://localhost:$API_PORT/v1"); fi
+  if [ "$WEB_MOVED" = 1 ]; then ADMIN_ENV+=(VITE_APP_URL="http://localhost:$WEB_PORT"); fi
+  log "starting console  → http://localhost:$ADMIN_PORT"
+  ( cd "$ADMIN_APP" && exec env ${ADMIN_ENV[@]+"${ADMIN_ENV[@]}"} npm run dev -- --port "$ADMIN_PORT" --strictPort ) &
   PIDS+=($!)
 fi
 
 printf "\n${GREEN}▶ product-hub is running${NC}  (press Ctrl+C to stop everything)\n"
-printf "  App   : http://localhost:3001\n"
-printf "  API   : http://localhost:3000/v1\n"
-printf "  Swagger: http://localhost:3000/swagger\n"
+printf "  App   : http://localhost:%s\n" "$WEB_PORT"
+printf "  API   : http://localhost:%s/v1\n" "$API_PORT"
+printf "  Swagger: http://localhost:%s/swagger\n" "$API_PORT"
 if collab_enabled; then
-  printf "  Collab: ws://localhost:3002  (health: http://localhost:3002/health)\n"
+  printf "  Collab: ws://localhost:%s  (health: http://localhost:%s/health)\n" "$COLLAB_PORT" "$COLLAB_PORT"
 fi
 if admin_enabled; then
-  printf "  Console: http://localhost:3003  (platform admins — npm run seed:platform)\n"
+  printf "  Console: http://localhost:%s  (platform admins — npm run seed:platform)\n" "$ADMIN_PORT"
 else
   printf "  (platform console: ADMIN=1 ./dev.sh → http://localhost:3003)\n"
 fi
