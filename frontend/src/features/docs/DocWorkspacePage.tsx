@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
+import { useEscapeBack } from '@/lib/useEscapeBack';
 import { Button, Drawer, Menu, type MenuItem } from '@/components/ui';
 import { DetailSkeleton } from '@/components/Skeletons';
 import { ShareLinkDialog } from '@/components/ShareLinkDialog';
@@ -63,6 +64,7 @@ export function DocWorkspacePage() {
     pageId?: string;
   }>();
   const navigate = useNavigate();
+  useEscapeBack();
   const [params, setParams] = useSearchParams();
   const { canWrite, canManageDelivery, canEditDelivery: canComment } = useAuth();
 

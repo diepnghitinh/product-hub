@@ -174,6 +174,8 @@ export enum McpEntity {
   BUG = 'bug',
   BACKLOG_ITEM = 'backlog-item',
   DOC = 'doc',
+  /** A batch of test cases written into one feature. */
+  TEST_CASE = 'test-case',
 }
 
 /** The six relation options in "Mark as" menu order (matches the mockup). */
@@ -663,8 +665,7 @@ export const TASK_STATUS_COLOR: Record<TaskStatus, string> = {
 
 /** Safe label/color for any status key (built-in or custom) — custom keys fall
  * back to the raw key + a neutral dot. Prefer the tenant config where loaded. */
-export const taskStatusLabel = (key: string): string =>
-  TASK_STATUS_LABEL[key as TaskStatus] ?? key;
+export const taskStatusLabel = (key: string): string => TASK_STATUS_LABEL[key as TaskStatus] ?? key;
 export const taskStatusColor = (key: string): string =>
   TASK_STATUS_COLOR[key as TaskStatus] ?? 'hsl(var(--muted-foreground))';
 
@@ -750,7 +751,6 @@ export enum TeamIssueType {
 }
 
 export const TEAM_ISSUE_TYPES: TeamIssueType[] = [TeamIssueType.BUG, TeamIssueType.TASK];
-
 
 /**
  * A team's board column. Structurally identical to `BugStatusConfig` /

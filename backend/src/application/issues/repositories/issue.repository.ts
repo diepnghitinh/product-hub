@@ -61,6 +61,12 @@ export abstract class IIssueRepository {
   ) => Promise<number>;
   /** Detach every issue pointing at these cycles (deleted upcoming cycles). */
   clearCycleIds: (tenantId: string, cycleIds: string[]) => Promise<number>;
+  /** Detach every sub-task pointing at these ids as `parentId` (deleted parent issues). */
+  clearParentIds: (tenantId: string, parentIds: string[]) => Promise<number>;
+  /** Detach every issue linked to these backlog (roadmap) items — a removed item
+   *  or a deleted roadmap. Clears roadmapId/roadmapItemId/roadmapItemLabel together,
+   *  since they're always written as one link. */
+  clearRoadmapItemIds: (tenantId: string, roadmapItemIds: string[]) => Promise<number>;
   /** Stamp a pipeline's outcome onto every issue whose ref it named. Tenant-
    *  scoped — the refs arrived from a public webhook. Returns rows updated. */
   applyPipelineState: (

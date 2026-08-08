@@ -15,11 +15,13 @@ import {
   issueEnd,
   issueStart,
   itemWindow,
+  matchesPeople,
   placeOnAxis,
   type DateWindow,
 } from '../ganttRows';
 import { IssuePeekDrawer, type IssuePeek } from '@/features/issues/IssuePeekDrawer';
 import { RoadmapItemPeekDrawer, type RoadmapItemPeek } from './RoadmapItemPeekDrawer';
+import { TimelineAssignees } from './TimelineAssignees';
 
 /** Re-exported for the callers that held it here before the date rules moved into
  *  `../ganttRows` (shared with the all-roadmaps timeline). */
@@ -60,6 +62,18 @@ interface RoadmapGanttProps {
    * dates are set in the detail panel. Omit for the public view.
    */
   onItemDatesChange?: (item: RoadmapItem, next: DateWindow) => void;
+  /**
+   * Name the people on each row (see {@link TimelineAssignees}).
+   *
+   * Off by default, and deliberately a decision the caller makes rather than one
+   * read off the data: a public share link *does* carry an item's assignees in
+   * its payload, and a shared roadmap is a plan, not a staffing chart. The
+   * authenticated board turns it on; the public page never has.
+   */
+  showAssignees?: boolean;
+  /** The rows are narrowed by a filter right now — swaps the empty state for one
+   *  that says so, instead of "this roadmap has nothing scheduled". */
+  filtered?: boolean;
   isLoading?: boolean;
 }
 
@@ -97,6 +111,8 @@ export function RoadmapGantt({
   onOpenTask,
   onTaskDatesChange,
   onItemDatesChange,
+  showAssignees = false,
+  filtered = false,
   isLoading,
 }: RoadmapGanttProps) {
   // Which epic rows are folded shut. Presentational + per-session, like the
@@ -163,6 +179,9 @@ export function RoadmapGantt({
             ? t('roadmaps.ganttTasks').replace('{count}', String(tasks.length))
             : t('roadmaps.ganttNoTasks')
         }`,
+        // An item carries its own people (its DRIs), separately from whoever is
+        // on the work underneath it.
+        ...(showAssignees && { trailing: <TimelineAssignees people={item.assignees} /> }),
         onClick: () => onOpenItem(item.id),
         ...placeOnAxis({
           ...itemWindow(item),
@@ -180,6 +199,7 @@ export function RoadmapGantt({
           depth: 1,
           dotColor: st.color,
           label: tk.title,
+          ...(showAssignees && { trailing: <TimelineAssignees people={tk.assignees} /> }),
           // A peek drawer when one is offered (it carries its own full-page link),
           // else a plain link to the detail — the public view's only option.
           ...(onOpenTask ? { onClick: () => onOpenTask(tk) } : { href: taskHref?.(tk) }),
@@ -210,7 +230,14 @@ export function RoadmapGantt({
       rows={rows}
       isLoading={isLoading}
       labelHeader={t('roadmaps.item')}
-      empty={{ title: t('roadmaps.ganttEmpty'), hint: t('roadmaps.ganttEmptyHint') }}
+      // Wider than a chart whose rail holds a title alone: these rows also name
+      // who's on them, and at the 200px default the two truncate each other.
+      railDefault={showAssignees ? 320 : undefined}
+      empty={
+        filtered
+          ? { title: t('roadmaps.ganttNoMatches'), hint: t('roadmaps.ganttNoMatchesHint') }
+          : { title: t('roadmaps.ganttEmpty'), hint: t('roadmaps.ganttEmptyHint') }
+      }
       legend={
         <>
           {hasItemBars && (
@@ -263,6 +290,12 @@ interface RoadmapGanttViewProps {
   columns: RoadmapColumn[];
   epics?: RoadmapEpic[];
   groupByEpic?: boolean;
+  /**
+   * Narrow the chart to these people (the toolbar's **Assignee** filter, which
+   * the page above owns because that's where the toolbar is). Ids, plus the
+   * `UNASSIGNED` sentinel; empty/omitted = no filter.
+   */
+  assigneeIds?: string[];
 }
 
 /**
@@ -282,11 +315,20 @@ export function RoadmapGanttView({
   columns,
   epics,
   groupByEpic,
+  assigneeIds,
 }: RoadmapGanttViewProps) {
   const { canWrite } = useAuth();
   const statusesFor = useTeamStatusesLookup();
+  const filtering = !!assigneeIds?.length;
   // One query for the whole roadmap; grouped under each item below.
-  const { data, isLoading } = useTasks({ roadmapId: [roadmapId] });
+  //
+  // The assignee filter goes to the *API*, not to a `.filter()` down here: the
+  // list is capped at a page, so narrowing after the fetch would only ever search
+  // the first hundred tasks and quietly call that "all of Alice's work".
+  const { data, isLoading } = useTasks({
+    roadmapId: [roadmapId],
+    assigneeId: filtering ? assigneeIds : undefined,
+  });
   const update = useUpdateTask();
   const replaceItems = useReplaceRoadmapItems();
   // What a row click opens — one drawer per kind, only ever one of them at a time.
@@ -342,17 +384,30 @@ export function RoadmapGanttView({
 
   /** An item's dates live in the roadmap's items array, which is written whole —
    *  the same optimistic replace the board's drag uses, so the bar stays where it
-   *  was dropped and rolls back with its own toast if the write fails. */
+   *  was dropped and rolls back with its own toast if the write fails.
+   *
+   *  Deliberately over `items`, not the filtered set below: the write replaces the
+   *  whole array, so mapping over a narrowed view would delete every item the
+   *  filter had hidden. */
   const rescheduleItem = (item: RoadmapItem, next: DateWindow) =>
     replaceItems.mutate({
       id: roadmapId,
       items: items.map((i) => (i.id === item.id ? { ...i, ...next } : i)),
     });
 
+  // Filtering by person hides the items that person has nothing on. An item stays
+  // when the filter matches its *own* people or any of the work under it — the
+  // parent is the context its children are read in, and an item assigned to
+  // someone has to survive a filter for that someone, or the row's own badge
+  // would be pointing at a name the filter says isn't there.
+  const visibleItems = filtering
+    ? items.filter((i) => tasksByItem.has(i.id) || matchesPeople(assigneeIds, i.assignees ?? []))
+    : items;
+
   return (
     <>
       <RoadmapGantt
-        items={items}
+        items={visibleItems}
         columns={columns}
         epics={epics}
         groupByEpic={groupByEpic}
@@ -365,6 +420,8 @@ export function RoadmapGanttView({
           });
         }}
         tasksByItem={tasksByItem}
+        showAssignees
+        filtered={filtering}
         isLoading={isLoading}
         taskStatus={(tk) => {
           // Every row here is a task: the query above is `useTasks`, which is bound

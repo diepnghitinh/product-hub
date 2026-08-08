@@ -42,6 +42,35 @@ export interface FilterOptionCategory {
   searchable?: boolean;
 }
 
+/**
+ * The **Assignee** category, built the one way — you first (as "Assigned to me"),
+ * then Unassigned, then everyone else by the workspace's own order.
+ *
+ * Every board that filters by person asks the same question, so the answer is
+ * built here rather than at each call site: the boards that hand-rolled it had
+ * already drifted (one offered a self-filter row, one didn't), and "filter to my
+ * work" that exists on one board and not its neighbour reads as a bug.
+ *
+ * `people` is `useUsers({ limit: 100 }).data?.items` — one shared query per page,
+ * readable by every role.
+ */
+export function assigneeFilterCategory(
+  people: { id: string; name: string }[] | undefined,
+  meId?: string,
+): FilterOptionCategory {
+  return {
+    id: 'assigneeId',
+    label: t('filters.assignee'),
+    // A workspace list is long enough to scroll past what you were looking for.
+    searchable: true,
+    options: [
+      ...(meId ? [{ id: meId, label: t('filters.assignedToMe') }] : []),
+      { id: UNASSIGNED, label: t('filters.unassigned') },
+      ...(people ?? []).filter((u) => u.id !== meId).map((u) => ({ id: u.id, label: u.name })),
+    ],
+  };
+}
+
 /** An inclusive `YYYY-MM-DD` window. Either end may be `''` — an open-ended
  *  range ("since 1 July", "up to 31 July"), which is a normal thing to ask for. */
 export interface FilterDateRange {
@@ -124,7 +153,8 @@ const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), 
 export function pastDateFilterPresets(today = new Date()): FilterDatePreset[] {
   const day = (d: Date): FilterDateRange => ({ start: toISO(d), end: toISO(d) });
   const since = (d: Date): FilterDateRange => ({ start: toISO(d), end: toISO(today) });
-  const monthStart = (offset: number) => new Date(today.getFullYear(), today.getMonth() + offset, 1);
+  const monthStart = (offset: number) =>
+    new Date(today.getFullYear(), today.getMonth() + offset, 1);
   return [
     { key: 'today', label: t('filters.dateToday'), range: () => day(today) },
     { key: 'yesterday', label: t('filters.dateYesterday'), range: () => day(addDays(today, -1)) },
@@ -196,9 +226,7 @@ export function FilterMenu({
     const current = value[categoryId] ?? [];
     set(
       categoryId,
-      current.includes(optionId)
-        ? current.filter((id) => id !== optionId)
-        : [...current, optionId],
+      current.includes(optionId) ? current.filter((id) => id !== optionId) : [...current, optionId],
     );
   };
 
@@ -355,10 +383,7 @@ function DateSub({
   value: FilterDateRange;
   onChange: (range: FilterDateRange) => void;
 }) {
-  const presets = useMemo(
-    () => category.presets ?? pastDateFilterPresets(),
-    [category.presets],
-  );
+  const presets = useMemo(() => category.presets ?? pastDateFilterPresets(), [category.presets]);
   const summary = formatDateRange(value.start, value.end);
   const isSet = Boolean(value.start || value.end);
 

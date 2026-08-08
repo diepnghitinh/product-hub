@@ -24,6 +24,7 @@ import {
 import { SavedFilterChips, useSavedFilters } from '@/components/SavedFilters';
 import { useUsers } from '@/features/users/api';
 import { useProjects } from '@/features/projects/api';
+import { useRoadmaps } from '@/features/roadmaps/api';
 import {
   BUG_SEVERITIES,
   BUG_SEVERITY_COLOR,
@@ -174,9 +175,10 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   // but each still carries its own teamId — so resolve against that, not the board's).
   const labelsFor = useTeamLabelsLookup();
 
-  // People + projects are only needed to label the filter options.
+  // People + projects + roadmaps are only needed to label the filter options.
   const { data: usersData } = useUsers({ limit: 100 }, canManageDelivery);
   const { data: projectsData } = useProjects({ limit: 100 });
+  const { data: roadmaps } = useRoadmaps();
 
   // Bulk multi-select — List view, team boards only (see MyTasksPage for the note).
   const selection = useIssueSelection();
@@ -198,6 +200,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
     assigneeId: filters.assigneeId,
     // A ?projectId= in the URL scopes the whole board; the filter narrows within it.
     projectId: projectId ? [projectId] : filters.projectId,
+    roadmapId: filters.roadmapId,
     cycleId: teamId ? cycleParam || undefined : undefined,
     caseId,
     createdFrom: created.from,
@@ -234,6 +237,15 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           .filter((u) => u.id !== user?.id)
           .map((u) => ({ id: u.id, label: u.name })),
       ],
+    },
+    // A bug can hang off a roadmap item the same way a task does, so the board
+    // answers "what's broken in this roadmap?" — the whole list, searchable,
+    // because roadmaps aren't owned by a team (see the note on the task board).
+    {
+      id: 'roadmapId',
+      label: t('filters.roadmap'),
+      searchable: true,
+      options: (roadmaps ?? []).map((r) => ({ id: r.id, label: r.title })),
     },
     // Already scoped by the URL — a project filter would be redundant.
     ...(projectId

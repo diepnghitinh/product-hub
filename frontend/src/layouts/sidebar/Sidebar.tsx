@@ -429,6 +429,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: SidebarProps) {
           as when docked — a peek is the panel, not a different one. */}
       {collapsed && peek && (
         <div
+          data-overlay-panel
           className={cn(
             'absolute left-[68px] top-0 z-10 hidden h-full flex-col rounded-r-xl border bg-sidebar shadow-2xl md:flex',
             PANEL_W,

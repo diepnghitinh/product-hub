@@ -20,6 +20,9 @@ export interface BugQuery {
   severity?: BugSeverity[];
   assigneeId?: string[];
   projectId?: string[];
+  /** Linked roadmap id(s) — bugs carry the same denormalized roadmap link tasks
+   *  do, so a board can narrow to "what belongs to this roadmap". */
+  roadmapId?: string[];
   /** Team cycle: a cycle id, or `current` / `upcoming` / `none` — the sentinels
    *  resolve server-side against `teamId`, so saved links never go stale. */
   cycleId?: string;

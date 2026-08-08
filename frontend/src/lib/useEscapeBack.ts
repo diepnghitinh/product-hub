@@ -2,8 +2,12 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 /** An overlay that owns Escape itself: Radix portals select/popover/dropdown
- * content inside this wrapper, and dialogs carry role="dialog". */
-const OVERLAY = '[data-radix-popper-content-wrapper], [role="dialog"]';
+ * content inside this wrapper, dialogs carry role="dialog", and hand-rolled
+ * menus/listboxes use the matching ARIA role. `[data-overlay-panel]` is the
+ * escape hatch for anything else that owns Escape while it's on screen but
+ * isn't a dialog/menu/listbox — a sidebar flyout, an active drag preview. */
+const OVERLAY =
+  '[data-radix-popper-content-wrapper], [role="dialog"], [role="menu"], [role="listbox"], [data-overlay-panel]';
 
 /**
  * Escape goes back a step — the keyboard twin of the page's back link.

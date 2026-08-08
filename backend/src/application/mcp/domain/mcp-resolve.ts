@@ -1,6 +1,8 @@
 import { TeamEntity } from '@application/teams/domain/entities/team.entity';
 import { TeamIssueType, TeamStatusConfig } from '@application/teams/domain/enums/team.enums';
 import { UserEntity } from '@application/users/domain/entities/user.entity';
+import { ProjectEntity } from '@application/projects/domain/entities/project.entity';
+import { ReportEntity } from '@application/reports/domain/entities/report.entity';
 import { RoadmapEntity } from '@application/roadmaps/domain/entities/roadmap.entity';
 import {
   DEFAULT_ROADMAP_COLUMNS,
@@ -71,7 +73,7 @@ export function resolvePerson(users: UserEntity[], ref: string): UserEntity | nu
     users.find((u) => norm(u.name) === wanted) ??
     // Last resort: a first name, as long as it's unmistakable.
     (users.filter((u) => norm(u.name).startsWith(wanted)).length === 1
-      ? users.find((u) => norm(u.name).startsWith(wanted)) ?? null
+      ? (users.find((u) => norm(u.name).startsWith(wanted)) ?? null)
       : null)
   );
 }
@@ -94,10 +96,7 @@ export function resolveRoadmap(
 export const columnsOf = (roadmap: RoadmapEntity): RoadmapColumn[] =>
   roadmap.columns.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS;
 
-export function resolvePhase(
-  columns: RoadmapColumn[],
-  ref: string | undefined,
-): string | null {
+export function resolvePhase(columns: RoadmapColumn[], ref: string | undefined): string | null {
   if (!ref) return columns[0]?.key ?? null;
   const wanted = norm(ref);
   return (
@@ -108,10 +107,56 @@ export function resolvePhase(
   );
 }
 
+/**
+ * A testing project. Same "only one, so that's the one" rule roadmaps get: a
+ * workspace that tests a single product shouldn't make an assistant name it.
+ */
+export function resolveProject(
+  projects: ProjectEntity[],
+  ref: string | undefined,
+): ProjectEntity | null {
+  if (!ref) return projects.length === 1 ? projects[0] : null;
+  const wanted = norm(ref);
+  return (
+    projects.find((p) => p.id.toString() === ref) ??
+    projects.find((p) => norm(p.slug) === wanted) ??
+    projects.find((p) => norm(p.title) === wanted) ??
+    // A partial only counts when it is unmistakable — two projects sharing a
+    // word must not silently resolve to whichever was created first.
+    (projects.filter((p) => norm(p.title).includes(wanted)).length === 1
+      ? (projects.find((p) => norm(p.title).includes(wanted)) ?? null)
+      : null)
+  );
+}
+
+/**
+ * A feature (report) inside a project. A feature has four names people use for
+ * it — its title, its short sidebar label, its slug and the team's own feature
+ * id ("FE-12") — and any of them is a fair thing for an assistant to have been
+ * told, so all four resolve.
+ */
+export function resolveFeature(reports: ReportEntity[], ref: string): ReportEntity | null {
+  const wanted = norm(ref);
+  return (
+    reports.find((r) => r.id.toString() === ref) ??
+    reports.find((r) => norm(r.slug) === wanted) ??
+    reports.find((r) => norm(r.title) === wanted) ??
+    reports.find((r) => norm(r.label) === wanted) ??
+    reports.find((r) => r.featureId && norm(r.featureId) === wanted) ??
+    (reports.filter((r) => norm(r.title).includes(wanted)).length === 1
+      ? (reports.find((r) => norm(r.title).includes(wanted)) ?? null)
+      : null)
+  );
+}
+
 /** In-app paths, so a history row and a tool reply both link to the real page.
  *  Tasks and bugs share one detail URL — the ref/id names the issue, and the app
  *  works out which kind it is. */
 export const issueLink = (id: string): string => `/issues/${id}`;
+
+/** A feature report opens inside its project's full-screen testing workspace. */
+export const featureLink = (projectId: string, reportId: string): string =>
+  `/testing/${projectId}/reports/${reportId}`;
 
 export const backlogItemLink = (roadmapId: string, itemId: string): string =>
   `/roadmaps/${roadmapId}/items/${itemId}`;

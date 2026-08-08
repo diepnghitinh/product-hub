@@ -26,6 +26,9 @@ import { QueryUserDto } from '@application/users/dtos/query-user.dto';
 import { CreateDocUseCase } from '@application/docs/use-cases/doc.use-cases';
 import { UpdateDocPageUseCase } from '@application/docs/use-cases/doc-page.use-cases';
 import { CreateDocDto, UpdateDocPageDto } from '@application/docs/dtos/doc.dtos';
+import { GetProjectsUseCase } from '@application/projects/use-cases';
+import { QueryProjectDto } from '@application/projects/dtos/query-project.dto';
+import { GetProjectStatsUseCase } from '@application/reports/use-cases';
 import { McpEventEntity } from '../domain/entities/mcp-event.entity';
 import { McpEntity, McpTool } from '../domain/enums/mcp.enums';
 import { docBodyToHtml, htmlToReadableText, stripEchoedTitle } from '../domain/mcp-doc-body';
@@ -75,6 +78,9 @@ export interface McpActor {
  *  user list is small; one page of 100 covers it without a second round-trip. */
 const ALL_USERS = { page: 1, limit: 100 } as QueryUserDto;
 
+/** Same reasoning for testing projects — a workspace has a handful. */
+const ALL_PROJECTS = { page: 1, limit: 100, archived: false } as QueryProjectDto;
+
 @Injectable()
 export class GetMcpContextUseCase implements IUsecaseExecute<
   { actor: McpActor },
@@ -83,16 +89,30 @@ export class GetMcpContextUseCase implements IUsecaseExecute<
   constructor(
     private readonly getTeams: GetTeamsUseCase,
     private readonly getRoadmaps: GetRoadmapsUseCase,
+    private readonly getProjects: GetProjectsUseCase,
+    private readonly getProjectStats: GetProjectStatsUseCase,
     @Inject(IUserRepository) private readonly users: IUserRepository,
   ) {}
 
   async execute({ actor }: { actor: McpActor }): Promise<Result<McpContextResponseDto>> {
-    const [teams, roadmaps, people, owner] = await Promise.all([
+    const [teams, roadmaps, projects, people, owner] = await Promise.all([
       this.getTeams.execute({ tenantId: actor.tenantId }),
       this.getRoadmaps.execute({ tenantId: actor.tenantId }),
+      this.getProjects.execute({ tenantId: actor.tenantId, query: ALL_PROJECTS }),
       this.users.findByTenant(actor.tenantId, ALL_USERS),
       this.users.findById(actor.userId),
     ]);
+
+    // One batched rollup rather than a report query per project — this list is
+    // read before every first write, so it stays cheap.
+    const projectList = projects.getValue().data;
+    const stats = (
+      await this.getProjectStats.execute({
+        tenantId: actor.tenantId,
+        projectIds: projectList.map((p) => p.id.toString()),
+      })
+    ).getValue();
+    const featureCounts = new Map(stats.map((s) => [s.projectId, s.total]));
 
     return Result.ok({
       keyName: actor.keyName,
@@ -113,6 +133,11 @@ export class GetMcpContextUseCase implements IUsecaseExecute<
         title: r.title,
         columns: columnsOf(r),
         itemCount: r.items.length,
+      })),
+      projects: projectList.map((p) => ({
+        id: p.id.toString(),
+        title: p.title,
+        featureCount: featureCounts.get(p.id.toString()) ?? 0,
       })),
       people: people.data.map((u) => ({
         id: u.id.toString(),

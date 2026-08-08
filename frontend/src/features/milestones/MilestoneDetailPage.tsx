@@ -1,6 +1,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FileText, Lock, Plus, Trash2, Unlock } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { useEscapeBack } from '@/lib/useEscapeBack';
 import { Button, Input, ProgressBar, Select, Skeleton } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
@@ -88,6 +89,7 @@ function StatusChip({
 export function MilestoneDetailPage() {
   const { milestoneId } = useParams<{ milestoneId: string }>();
   const navigate = useNavigate();
+  useEscapeBack();
   const { isAdmin, canWrite } = useAuth();
 
   const { data: milestone, isLoading } = useMilestone(milestoneId);

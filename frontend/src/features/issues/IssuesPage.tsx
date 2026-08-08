@@ -8,7 +8,7 @@ import { KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
 import { Icon } from '@/components/Icon';
 import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
 import { LabelChips } from '@/features/labels/LabelChips';
-import { FilterMenu, UNASSIGNED, type FilterCategory } from '@/components/FilterMenu';
+import { FilterMenu, assigneeFilterCategory, type FilterCategory } from '@/components/FilterMenu';
 import { SavedFilterChips, useSavedFilters } from '@/components/SavedFilters';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -153,6 +153,8 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
     assigneeId: isAll ? filters.assigneeId : undefined,
     severity: isBug ? (filters.severity as BugSeverity[] | undefined) : undefined,
     projectId: filters.projectId,
+    // Roadmap applies to both kinds — a roadmap item links tasks *and* bugs.
+    roadmapId: filters.roadmapId,
     roadmapItemId: isBug ? undefined : filters.roadmapItemId,
   });
   const items = data?.items ?? [];
@@ -189,24 +191,17 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
       options: columns.map((c) => ({ id: c.key, label: c.label, color: c.color })),
     },
     // Assignee is the axis that only appears once the board isn't already one
-    // person's — same shape as the team boards', self-filter first (the people
-    // list is manager-only, so a member can still narrow to their own).
-    ...(isAll
-      ? [
-          {
-            id: 'assigneeId',
-            label: t('filters.assignee'),
-            searchable: true,
-            options: [
-              ...(user ? [{ id: user.id, label: t('filters.assignedToMe') }] : []),
-              { id: UNASSIGNED, label: t('filters.unassigned') },
-              ...(usersData?.items ?? [])
-                .filter((u) => u.id !== user?.id)
-                .map((u) => ({ id: u.id, label: u.name })),
-            ],
-          },
-        ]
-      : []),
+    // person's. Built by the shared helper, so this board and the roadmap
+    // timelines offer the same rows in the same order.
+    ...(isAll ? [assigneeFilterCategory(usersData?.items, user?.id)] : []),
+    // Roadmap is an axis both kinds share — the same filter the team boards
+    // offer, so it doesn't disappear when you step out of a team.
+    {
+      id: 'roadmapId',
+      label: t('filters.roadmap'),
+      searchable: true,
+      options: (roadmaps ?? []).map((r) => ({ id: r.id, label: r.title })),
+    },
     // Severity is a bug-only axis; backlog item is task-only.
     ...(isBug
       ? [

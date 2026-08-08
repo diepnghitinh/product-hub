@@ -468,6 +468,25 @@ export class IssueRepository
     return res.modifiedCount ?? 0;
   }
 
+  async clearParentIds(tenantId: string, parentIds: string[]): Promise<number> {
+    if (!parentIds.length) return 0;
+    const res = await this.model
+      .updateMany({ tenantId, parentId: { $in: parentIds } }, { $set: { parentId: '' } })
+      .exec();
+    return res.modifiedCount ?? 0;
+  }
+
+  async clearRoadmapItemIds(tenantId: string, roadmapItemIds: string[]): Promise<number> {
+    if (!roadmapItemIds.length) return 0;
+    const res = await this.model
+      .updateMany(
+        { tenantId, roadmapItemId: { $in: roadmapItemIds } },
+        { $set: { roadmapId: '', roadmapItemId: '', roadmapItemLabel: '' } },
+      )
+      .exec();
+    return res.modifiedCount ?? 0;
+  }
+
   async save(issue: IssueEntity): Promise<void> {
     const doc = this.toDocument(issue);
     await this.model

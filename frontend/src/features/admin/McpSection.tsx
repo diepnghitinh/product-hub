@@ -37,6 +37,7 @@ const ENTITY_ICON: Record<McpEntity, IconName> = {
   [McpEntity.BUG]: 'bug',
   [McpEntity.BACKLOG_ITEM]: 'roadmap',
   [McpEntity.DOC]: 'docs',
+  [McpEntity.TEST_CASE]: 'checks',
 };
 
 /**

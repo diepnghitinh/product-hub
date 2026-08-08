@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { BarChart3, CalendarDays, Gauge, LayoutGrid, MoreHorizontal, Table2, Target } from 'lucide-react';
+import {
+  BarChart3,
+  CalendarDays,
+  Gauge,
+  LayoutGrid,
+  MoreHorizontal,
+  Table2,
+  Target,
+} from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { useEscapeBack } from '@/lib/useEscapeBack';
 import { Badge, Button, Dialog, Menu, ProgressBar } from '@/components/ui';
 import { BoardSkeleton } from '@/components/Skeletons';
 import { CenteredPageLayout } from '@/layouts/shared';
@@ -10,6 +19,9 @@ import { firstImageUrl } from '@/lib/editorjs';
 import { t } from '@/i18n';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
+import { FilterMenu, assigneeFilterCategory, type FilterCategory } from '@/components/FilterMenu';
+import { SavedFilterChips, useSavedFilters } from '@/components/SavedFilters';
+import { useUsers } from '@/features/users/api';
 import {
   DEFAULT_ROADMAP_COLUMNS,
   ROADMAP_DIFFICULTY_COLOR,
@@ -160,7 +172,8 @@ export function RoadmapCard({
 export function RoadmapBoardPage() {
   const { roadmapId } = useParams<{ roadmapId: string }>();
   const navigate = useNavigate();
-  const { isAdmin, canWrite, canManageDelivery } = useAuth();
+  useEscapeBack();
+  const { user, isAdmin, canWrite, canManageDelivery } = useAuth();
 
   const { data: roadmap, isLoading } = useRoadmap(roadmapId);
   const replaceItems = useReplaceRoadmapItems();
@@ -205,6 +218,16 @@ export function RoadmapBoardPage() {
     else next.delete('group');
     setSearchParams(next, { replace: true });
   };
+
+  // The timeline's Assignee filter — remembered per roadmap and saveable as a
+  // named view, like every other board's. Only the timeline names people, so it's
+  // the only view that offers the toolbar (the others get none, as before).
+  const filterState = useSavedFilters(`roadmap:${roadmapId ?? ''}:timeline`);
+  const { filters, setFilters } = filterState;
+  // Shared with every `AssigneeField` on the page — same key, one fetch. Only the
+  // timeline needs it, so it's skipped until you're on that view.
+  const { data: usersData } = useUsers({ limit: 100 }, view === 'gantt');
+  const filterCategories: FilterCategory[] = [assigneeFilterCategory(usersData?.items, user?.id)];
 
   if (isLoading) {
     return <BoardSkeleton />;
@@ -321,6 +344,21 @@ export function RoadmapBoardPage() {
       // the same gate the board's drag already uses.
       onTitleChange={
         canWrite ? (title) => update.mutate({ id: roadmap.id, input: { title } }) : undefined
+      }
+      // Only the timeline narrows by person, so it's the only view with a toolbar
+      // row — every other view keeps the board's "nothing to narrow" shape.
+      filters={
+        view === 'gantt' ? (
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <FilterMenu
+              size="default"
+              categories={filterCategories}
+              value={filters}
+              onChange={setFilters}
+            />
+            <SavedFilterChips state={filterState} categories={filterCategories} />
+          </div>
+        ) : undefined
       }
       view={{
         value: view,
@@ -456,6 +494,7 @@ export function RoadmapBoardPage() {
               columns={columns}
               epics={epics}
               groupByEpic={grouped}
+              assigneeIds={filters.assigneeId}
             />
           ) : (
             <RoadmapRiceTable

@@ -46,6 +46,18 @@ export class McpPersonDto {
   email: string;
 }
 
+/** A testing project — where features, and so test cases, are filed. */
+export class McpTestProjectDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty({ description: 'How many features (feature reports) it holds' })
+  featureCount: number;
+}
+
 /**
  * Everything a client needs before its first write: who it is acting as, which
  * teams and roadmaps exist, and the exact keys their columns accept.
@@ -65,6 +77,9 @@ export class McpContextResponseDto {
 
   @ApiProperty({ type: [McpRoadmapDto] })
   roadmaps: McpRoadmapDto[];
+
+  @ApiProperty({ type: [McpTestProjectDto], description: 'Projects that hold test cases' })
+  projects: McpTestProjectDto[];
 
   @ApiProperty({ type: [McpPersonDto], description: 'Assignable people' })
   people: McpPersonDto[];
@@ -186,4 +201,126 @@ export class McpBacklogItemResponseDto {
 
   @ApiProperty({ description: 'In-app path, e.g. /roadmaps/<id>/items/<itemId>' })
   link: string;
+}
+
+/**
+ * One feature under test, with the tally its cases add up to.
+ *
+ * Flat by design: the rollup is what the question "how is testing going?" is
+ * actually asking, and nesting it behind a `coverage` object would make an
+ * assistant do arithmetic before it could answer.
+ */
+export class McpTestFeatureResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  projectId: string;
+
+  @ApiProperty()
+  projectTitle: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty({ description: 'Short sidebar label' })
+  label: string;
+
+  @ApiProperty({ description: 'The team’s own feature id, when they use one' })
+  featureId: string;
+
+  @ApiProperty({ description: 'testing · done · info' })
+  status: string;
+
+  @ApiProperty()
+  caseCount: number;
+
+  @ApiProperty()
+  passed: number;
+
+  @ApiProperty()
+  failed: number;
+
+  @ApiProperty()
+  blocked: number;
+
+  @ApiProperty()
+  retest: number;
+
+  @ApiProperty()
+  skipped: number;
+
+  @ApiProperty()
+  untested: number;
+
+  @ApiProperty({ description: 'In-app path, e.g. /testing/<projectId>/reports/<id>' })
+  link: string;
+}
+
+/** One test case, in the shape it is written and read back. */
+export class McpTestCaseResponseDto {
+  @ApiProperty({ description: 'The handle a run is recorded against, e.g. 6HCUHKX' })
+  shortId: string;
+
+  @ApiProperty({ description: 'What is being tested' })
+  area: string;
+
+  @ApiProperty()
+  type: string;
+
+  @ApiProperty()
+  result: string;
+
+  @ApiProperty()
+  owner: string;
+
+  @ApiProperty()
+  precondition: string;
+
+  @ApiProperty({ type: [String] })
+  testSteps: string[];
+
+  @ApiProperty()
+  expectedResult: string;
+
+  @ApiProperty()
+  actualResult: string;
+
+  @ApiProperty()
+  note: string;
+
+  @ApiProperty()
+  featureId: string;
+
+  @ApiProperty()
+  featureTitle: string;
+
+  @ApiProperty()
+  projectId: string;
+
+  @ApiProperty()
+  projectTitle: string;
+
+  @ApiProperty({ description: 'In-app path to the feature the case lives in' })
+  link: string;
+}
+
+/**
+ * What came back from writing a batch of cases. The cases are returned in full
+ * because they only get their short id here, and that id is what a later run
+ * result is recorded against — without it the assistant would have to read the
+ * feature again just to record what it has already written.
+ */
+export class McpAddTestCasesResponseDto {
+  @ApiProperty({ type: McpTestFeatureResponseDto })
+  feature: McpTestFeatureResponseDto;
+
+  @ApiProperty({ type: [McpTestCaseResponseDto] })
+  added: McpTestCaseResponseDto[];
+
+  @ApiProperty({ description: 'Rows that held nothing worth storing' })
+  skipped: number;
+
+  @ApiProperty({ description: 'True when the feature did not exist and was created' })
+  featureCreated: boolean;
 }

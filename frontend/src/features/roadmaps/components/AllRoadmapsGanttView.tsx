@@ -16,10 +16,12 @@ import {
   issueStart,
   itemAnchor,
   itemWindow,
+  matchesPeople,
   placeOnAxis,
   type DateWindow,
 } from '../ganttRows';
 import { RoadmapItemPeekDrawer, type RoadmapItemPeek } from './RoadmapItemPeekDrawer';
+import { TimelineAssignees } from './TimelineAssignees';
 
 /** A roadmap's columns, with the shared fallback for one that somehow has none. */
 const columnsOf = (r: RoadmapDto): RoadmapColumn[] =>
@@ -44,6 +46,12 @@ interface AllRoadmapsGanttViewProps {
   /** Which phase keys to include. `[]` draws nothing, which is what an emptied
    *  filter honestly means. */
   phases: string[];
+  /**
+   * Narrow the chart to these people (the toolbar's **Assignee** filter, owned by
+   * the panel above because that's where the toolbar is). Ids, plus the
+   * `UNASSIGNED` sentinel; empty/omitted = no filter.
+   */
+  assigneeIds?: string[];
   isLoading?: boolean;
 }
 
@@ -66,13 +74,19 @@ interface AllRoadmapsGanttViewProps {
  * Dates follow the one rule shared with every other timeline (`../ganttRows`):
  * two dates → a bar, one → a diamond, neither → listed but not placed.
  */
-export function AllRoadmapsGanttView({ roadmaps, phases, isLoading }: AllRoadmapsGanttViewProps) {
+export function AllRoadmapsGanttView({
+  roadmaps,
+  phases,
+  assigneeIds,
+  isLoading,
+}: AllRoadmapsGanttViewProps) {
   const { canWrite } = useAuth();
   const statusesFor = useTeamStatusesLookup();
   const updateIssue = useUpdateIssue();
   const replaceItems = useReplaceRoadmapItems();
 
   const roadmapIds = useMemo(() => roadmaps.map((r) => r.id), [roadmaps]);
+  const filtering = !!assigneeIds?.length;
   // One query for every roadmap's linked work — the `roadmapId` filter is an
   // `$in`, so N roadmaps still cost one request. Both kinds: `useIssues` is the
   // un-scoped hook, unlike the per-roadmap timeline's task-only `useTasks`.
@@ -80,7 +94,14 @@ export function AllRoadmapsGanttView({ roadmaps, phases, isLoading }: AllRoadmap
   // A `[]` here would mean "no filter" (i.e. every issue in the workspace), so
   // this view is only ever mounted with roadmaps in hand — the panel above
   // renders its own empty state instead.
-  const { data, isLoading: loadingIssues } = useIssues({ roadmapId: roadmapIds });
+  //
+  // The assignee filter is part of the query rather than a `.filter()` below,
+  // because the response is capped at a page: narrowing afterwards would search
+  // only the first hundred issues and call the result "all of Alice's work".
+  const { data, isLoading: loadingIssues } = useIssues({
+    roadmapId: roadmapIds,
+    assigneeId: filtering ? assigneeIds : undefined,
+  });
 
   // What a row click opens — one drawer per kind, only ever one at a time.
   const [issuePeek, setIssuePeek] = useState<IssuePeek | null>(null);
@@ -127,6 +148,18 @@ export function AllRoadmapsGanttView({ roadmaps, phases, isLoading }: AllRoadmap
     const cols = columnsOf(roadmap);
     for (const raw of roadmap.items ?? []) {
       if (!phaseSet.has(raw.phase)) continue;
+      // Filtering by person drops the items that person has nothing on. An item
+      // stays for its *own* people or for any of the work under it — the parent
+      // is the context its children are read in, and an item assigned to someone
+      // has to survive a filter for that someone, or the row's own badge would be
+      // pointing at a name the filter says isn't there.
+      if (
+        filtering &&
+        !issuesByItem.has(raw.id) &&
+        !matchesPeople(assigneeIds, raw.assignees ?? [])
+      ) {
+        continue;
+      }
       const p = pendingItems[raw.id];
       entries.push({
         item: p ? { ...raw, ...p } : raw,
@@ -203,6 +236,9 @@ export function AllRoadmapsGanttView({ roadmaps, phases, isLoading }: AllRoadmap
             : t('roadmaps.ganttNoIssues')}
         </>
       ),
+      // An item carries its own people (its DRIs), separately from whoever is on
+      // the work underneath it.
+      trailing: <TimelineAssignees people={item.assignees} />,
       onClick: () =>
         setItemPeek({
           roadmapId: roadmap.id,
@@ -231,6 +267,7 @@ export function AllRoadmapsGanttView({ roadmaps, phases, isLoading }: AllRoadmap
         depth: 1,
         dotColor: st.color,
         label: issue.title,
+        trailing: <TimelineAssignees people={issue.assignees} />,
         onClick: () =>
           setIssuePeek({
             id: issue.id,
@@ -264,7 +301,14 @@ export function AllRoadmapsGanttView({ roadmaps, phases, isLoading }: AllRoadmap
         rows={rows}
         isLoading={isLoading || loadingIssues}
         labelHeader={t('roadmaps.item')}
-        empty={{ title: t('roadmaps.allGanttEmpty'), hint: t('roadmaps.allGanttEmptyHint') }}
+        // Same reason as the per-roadmap timeline: these rows name who's on them
+        // as well as what they are, and 200px isn't enough for both.
+        railDefault={320}
+        empty={
+          filtering
+            ? { title: t('roadmaps.ganttNoMatches'), hint: t('roadmaps.ganttNoMatchesHint') }
+            : { title: t('roadmaps.allGanttEmpty'), hint: t('roadmaps.allGanttEmptyHint') }
+        }
         legend={
           <>
             {hasItemBars && (
