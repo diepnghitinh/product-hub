@@ -33,7 +33,7 @@ import {
   BugStatus,
   TeamIssueType,
 } from '@/types/enums';
-import type { TaskLabelConfig } from '@/types/enums';
+import type { TaskLabelConfig, TeamStatusConfig } from '@/types/enums';
 import type { BugDto, TeamDto } from '@/types/dto';
 import { useBugs, useDeleteBug, useSetBugStatus } from './api';
 import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
@@ -48,6 +48,20 @@ import { useCycles, useFocusedCycle, useResolvedCycleId } from '@/features/cycle
 import { CycleInsightsButton } from '@/features/cycles/CycleInsights';
 import { useIssueSelection, type IssueSelection } from '@/features/issues/useIssueSelection';
 import { BulkActionBar, buildCycleOptions } from '@/features/issues/BulkActionBar';
+import {
+  GroupByItemButton,
+  IssueGroupHeading,
+  IssueStatusChip,
+  UNLINKED,
+  backlogItemRefs,
+  backlogKeyOf,
+  backlogLanes,
+  groupByBacklogItem,
+  groupByStatus,
+  useGroupByItem,
+  useRelinkBacklogItem,
+  type IssueGroup,
+} from '@/features/issues/backlogGroups';
 
 /** Severity → dot color (shadcn semantic tokens). */
 const SEVERITY_DOT: Record<BugSeverity, string> = {
@@ -129,6 +143,10 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
     else next.set('view', v);
     setParams(next, { replace: true });
   };
+  // The second axis this board can be read on: not "what state is it in" but
+  // "which bet is it holding up". On the board it becomes swimlanes — one band
+  // per backlog item, cutting across the status columns; in the list, sections.
+  const [groupByItem, setGroupByItem] = useGroupByItem();
   // Cycle scope rides in ?cycle= (an id or current/upcoming/none — the API
   // resolves the sentinels against this team, so the sidebar's saved links stay
   // valid as cycles roll). Only meaningful on a team board.
@@ -173,10 +191,15 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   // but each still carries its own teamId — so resolve against that, not the board's).
   const labelsFor = useTeamLabelsLookup();
 
+  const relink = useRelinkBacklogItem();
+
   // People + projects + roadmaps are only needed to label the filter options.
   const { data: usersData } = useUsers({ limit: 100 }, canManageDelivery);
   const { data: projectsData } = useProjects({ limit: 100 });
   const { data: roadmaps } = useRoadmaps();
+  // Every backlog item in the workspace, flattened in roadmap order — the order
+  // the bands appear in, so a grouped board reads the way its roadmap does.
+  const backlogItems = backlogItemRefs(roadmaps);
 
   // Bulk multi-select — List view, team boards only (see MyTasksPage for the note).
   const selection = useIssueSelection();
@@ -267,15 +290,35 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   ];
 
   const bugs = data?.items ?? [];
+  // Only offer grouping once something on the board is actually linked to an
+  // item, and only honour it while that's still true — filtering down to
+  // unlinked bugs can't strand the board in a one-band "grouped" state.
+  const canGroupByItem = bugs.some((b) => b.roadmapItemId);
+  const groupedByItem = groupByItem && canGroupByItem;
+  // Built once and read by both views, so the board's bands and the list's
+  // sections are the same reading drawn twice.
+  const itemGroups = groupedByItem ? groupByBacklogItem(bugs, backlogItems) : undefined;
 
-  /** Bugs don't persist ordering, so the drop slot (`overId`) is ignored — only
-   * the destination column matters. */
   // `overId` is the card it was dropped onto — passed straight through so the
   // card keeps the slot it was dropped in, not just the column. A drop in the
   // same column is a real move now (it reorders), so there's no status guard.
-  function onMove(id: string, toStatus: string, overId: string | null) {
+  //
+  // `toItem` only arrives while the board is grouped, so one drag writes both
+  // coordinates: dragging a card into another band *is* how you move it onto
+  // another bet. It's `undefined` on the plain board, which leaves the link alone.
+  function onMove(id: string, toStatus: string, overId: string | null, toItem?: string) {
     const bug = bugs.find((b) => b.id === id);
-    if (bug) setStatus.mutate({ id, status: toStatus as BugStatus, beforeId: overId });
+    if (!bug) return;
+    const move = { id, status: toStatus as BugStatus, beforeId: overId };
+    const ref = toItem ? backlogItems.find((i) => i.id === toItem) : undefined;
+    // Unlinking (the "No backlog item" band) is a real move; landing in a band
+    // named by an item we can't resolve any more is not — leave that link be
+    // rather than clearing it on the way past.
+    const relinks =
+      toItem !== undefined && backlogKeyOf(bug) !== toItem && (toItem === UNLINKED || !!ref);
+    // Chained, not fired together — see `useRelinkBacklogItem`.
+    if (relinks) relink.mutate({ id, ref, after: setStatus.mutateAsync(move) });
+    else setStatus.mutate(move);
   }
 
   return (
@@ -335,14 +378,18 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
         ],
       }}
       actions={
-        (canWrite && !teamId) || (shareTeam && canManageDelivery) ? (
-          <div className="flex items-center gap-2">
-            {canWrite && !teamId && (
-              <Button onClick={() => navigate(newBugHref())}>+ {t('bugs.new')}</Button>
-            )}
-            {shareTeam && canManageDelivery && <TeamShareMenu team={shareTeam} />}
-          </div>
-        ) : undefined
+        <>
+          {/* Board and list read the same grouping, so switching view keeps it.
+              The timeline is already cut by date and has no second axis to give,
+              so it doesn't offer the toggle. */}
+          {canGroupByItem && view !== 'timeline' && (
+            <GroupByItemButton on={groupedByItem} onChange={setGroupByItem} />
+          )}
+          {canWrite && !teamId && (
+            <Button onClick={() => navigate(newBugHref())}>+ {t('bugs.new')}</Button>
+          )}
+          {shareTeam && canManageDelivery && <TeamShareMenu team={shareTeam} />}
+        </>
       }
     >
       {isLoading ? (
@@ -371,6 +418,10 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           renderCard={(bug, overlay) => (
             <BugCard bug={bug} labels={labelsFor(bug.teamId)} overlay={overlay} />
           )}
+          // Grouped, the columns repeat inside one band per backlog item, so the
+          // lane header cuts horizontally across the board.
+          swimlanes={itemGroups && backlogLanes(itemGroups)}
+          getSwimlaneKey={backlogKeyOf}
           onMove={onMove}
           disabled={!canWrite}
           onCardClick={(bug) => navigate(`/issues/${bug.shortId || bug.id}`)}
@@ -405,6 +456,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
             bugs={bugs}
             columns={columns}
             labelsFor={labelsFor}
+            groups={itemGroups}
             onOpen={(b) => navigate(`/issues/${b.shortId || b.id}`)}
             selection={bulkEnabled ? selection : undefined}
           />
@@ -427,51 +479,55 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   );
 }
 
-/** List view — grouped by status column, mirroring the tasks list so both
- * teams' list views read identically. */
+/** List view — sections of rows, mirroring the tasks list so both teams' list
+ * views read identically. Cut by status column by default, or by backlog item
+ * when the page hands down `groups`. */
 export function BugList({
   bugs,
   columns,
   labelsFor,
+  groups,
   onOpen,
   selection,
 }: {
   bugs: BugDto[];
-  columns: { key: string; label: string; color: string }[];
+  columns: TeamStatusConfig[];
   labelsFor: (teamId: string | undefined) => TaskLabelConfig[];
+  /** Sections cut by backlog item, built by the page so the board's bands and
+   *  these headings are the same reading. Omit for the status cut. */
+  groups?: IssueGroup<BugDto>[];
   onOpen: (bug: BugDto) => void;
-  /** When present, each row gets a checkbox and each column a select-all. */
+  /** When present, each row gets a checkbox and each section a select-all. */
   selection?: IssueSelection;
 }) {
+  const sections = groups ?? groupByStatus(bugs, columns);
+  // Cut by item, no heading carries the status any more — so each row shows its
+  // own. Off the status axis the list would otherwise say less than it did.
+  const statusOf = (key: string) => (groups ? columns.find((c) => c.key === key) : undefined);
+
   return (
     <div className="flex flex-col gap-6">
-      {columns.map((col) => {
-        const list = bugs.filter((b) => b.status === col.key);
-        if (list.length === 0) return null;
-        const ids = list.map((b) => b.id);
+      {sections.map((group) => {
+        const ids = group.list.map((b) => b.id);
         const selected = selection ? ids.filter((id) => selection.isSelected(id)).length : 0;
         const headState =
-          selected === 0 ? false : selected === list.length ? true : 'indeterminate';
+          selected === 0 ? false : selected === ids.length ? true : 'indeterminate';
         return (
-          <section key={col.key}>
-            <div className="mb-2 flex items-center gap-2">
-              {selection && (
-                <Checkbox
-                  checked={headState}
-                  onCheckedChange={(v) => selection.setMany(ids, v === true)}
-                  aria-label={t('bulk.selectColumn')}
-                />
-              )}
-              <span
-                className="size-2 rounded-full"
-                style={{ backgroundColor: col.color }}
-                aria-hidden
-              />
-              <h2 className="text-sm font-medium text-foreground">{col.label}</h2>
-              <span className="text-xs tabular-nums text-muted-foreground">{list.length}</span>
-            </div>
+          <section key={group.key}>
+            <IssueGroupHeading
+              group={group}
+              leading={
+                selection && (
+                  <Checkbox
+                    checked={headState}
+                    onCheckedChange={(v) => selection.setMany(ids, v === true)}
+                    aria-label={t('bulk.selectColumn')}
+                  />
+                )
+              }
+            />
             <div className="rounded-xl border bg-card p-2 text-card-foreground shadow-sm">
-              {list.map((bug) => (
+              {group.list.map((bug) => (
                 <div key={bug.id} className="flex items-center gap-1 [&:not(:last-child)]:border-b">
                   {selection && (
                     <span className="pl-2">
@@ -501,8 +557,17 @@ export function BugList({
                       max={3}
                       className="hidden shrink-0 sm:flex"
                     />
+                    <IssueStatusChip status={statusOf(bug.status)} />
                     {bug.shortId && (
-                      <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                      // A phone fits the ref or the status dot, not both without
+                      // the title paying for it — and grouped by item that dot is
+                      // the only place the status appears at all.
+                      <span
+                        className={cn(
+                          'shrink-0 font-mono text-[11px] text-muted-foreground',
+                          groups && 'max-sm:hidden',
+                        )}
+                      >
                         {bug.shortId}
                       </span>
                     )}

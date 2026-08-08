@@ -772,6 +772,8 @@ export const en = {
   'issues.cappedHint': 'shown — narrow it with search or filters.',
   'issues.kindTasks': 'Tasks',
   'issues.kindBugs': 'Bugs',
+  // List view only — cuts the sections by backlog item instead of by status.
+  'issues.groupByItem': 'Group by backlog item',
   // The copy buttons at the top right of an issue's detail — each label is the
   // button's tooltip and its aria-label. "Copied!" is common.copied.
   'issues.copyUrl': 'Copy issue URL',

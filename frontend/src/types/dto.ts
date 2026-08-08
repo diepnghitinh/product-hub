@@ -291,6 +291,12 @@ export interface BugDto {
   /** Built-in `BugStatus` or a custom column key. */
   status: string;
   type: string;
+  /** The backlog item this bug is on — a roadmap item links *both* kinds, and the
+   *  one `/issues` payload carries these for a bug exactly as it does for a task
+   *  ('' when unlinked). `roadmapItemLabel` is the denormalized display copy. */
+  roadmapId: string;
+  roadmapItemId: string;
+  roadmapItemLabel: string;
   projectId: string;
   /** The team cycle this bug is committed to ('' = none). */
   cycleId: string;
