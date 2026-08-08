@@ -5,6 +5,7 @@ import { Result } from '@shared/logic/result';
 import { randomRef } from '@module-shared/utils/short-id.util';
 import { sanitizeStoredFiles } from '@application/storage/domain/stored-file.type';
 import { IClickUpSync } from '@application/integrations/clickup-sync.port';
+import { IIssueRepository } from '@application/issues/repositories/issue.repository';
 import {
   CreateRoadmapDto,
   ReplaceRoadmapColumnsDto,
@@ -129,6 +130,7 @@ export class ReplaceRoadmapItemsUseCase
   constructor(
     @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
     @Inject(IClickUpSync) private readonly clickup: IClickUpSync,
+    @Inject(IIssueRepository) private readonly issues: IIssueRepository,
   ) {}
   async execute({
     id,
@@ -181,6 +183,13 @@ export class ReplaceRoadmapItemsUseCase
     });
     roadmap.replaceItems(items);
     await this.roadmaps.update(roadmap);
+    // Detach after the update: an item missing from the new array was deleted on
+    // the board. Any issue still linked to it would otherwise point at a backlog
+    // item that no longer resolves to anything — same after-the-fact ordering as
+    // the cycle cascade, for the same reason (worst case it reads as unlinked).
+    const nextIds = new Set(items.map((item) => item.id));
+    const removedIds = [...existingById.keys()].filter((itemId) => !nextIds.has(itemId));
+    if (removedIds.length) await this.issues.clearRoadmapItemIds(tenantId, removedIds);
     // Only the items whose *synced* fields actually moved. The board replaces the
     // whole array on every edit, so without this a single drag — which rewrites
     // every item's order — would fire one ClickUp write per backlog item and hit
@@ -373,11 +382,17 @@ export class ReplaceRoadmapEpicsUseCase
 export class DeleteRoadmapUseCase
   implements IUsecaseExecute<{ id: string; tenantId: string }, Result<void>>
 {
-  constructor(@Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository) {}
+  constructor(
+    @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
+    @Inject(IIssueRepository) private readonly issues: IIssueRepository,
+  ) {}
   async execute({ id, tenantId }: { id: string; tenantId: string }): Promise<Result<void>> {
     const roadmap = await this.roadmaps.findById(id);
     if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
+    const itemIds = roadmap.items.map((item) => item.id);
     await this.roadmaps.delete(id);
+    // Detach after the delete, same ordering and reasoning as above.
+    if (itemIds.length) await this.issues.clearRoadmapItemIds(tenantId, itemIds);
     return Result.ok();
   }
 }

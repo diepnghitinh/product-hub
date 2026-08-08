@@ -27,6 +27,10 @@ export class DeleteIssueUseCase implements IUsecaseExecute<DeleteIssueRequest, R
     // A personal task can only be deleted by its owner (or an admin).
     if (!issue.isVisibleTo(requesterId, isAdmin)) return Result.fail('Issue not found');
     await this.issues.delete(id);
+    // Detach after the delete: if this half fails the sub-tasks point at a parent
+    // that's gone, which reads as top-level anyway — the reverse order would
+    // orphan them from a parent that still exists.
+    await this.issues.clearParentIds(tenantId, [id]);
     return Result.ok();
   }
 }
