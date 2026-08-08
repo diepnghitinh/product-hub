@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { PAGE_SCROLLER } from './pageScroller';
 
 export interface FullWidthPageLayoutProps {
   children: ReactNode;
@@ -17,11 +18,7 @@ export interface FullWidthPageLayoutProps {
  * Edge-to-edge page: keeps the shell's padding but drops the 1200px cap, for
  * surfaces that need the width (the kanban boards, the inbox two-pane).
  */
-export function FullWidthPageLayout({
-  children,
-  fullHeight,
-  className,
-}: FullWidthPageLayoutProps) {
+export function FullWidthPageLayout({ children, fullHeight, className }: FullWidthPageLayoutProps) {
   if (fullHeight) {
     return (
       <div
@@ -36,7 +33,7 @@ export function FullWidthPageLayout({
   }
 
   return (
-    <div className="min-w-0 flex-1 sm:overflow-y-auto">
+    <div className={PAGE_SCROLLER}>
       <div className={cn('w-full px-4 py-6 md:px-8 md:py-8', className)}>{children}</div>
     </div>
   );

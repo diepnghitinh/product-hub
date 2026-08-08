@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { PAGE_SCROLLER } from './pageScroller';
 
 export interface CenteredPageLayoutProps {
   children: ReactNode;
@@ -17,7 +18,7 @@ const CENTERED_COLUMN = 'mx-auto w-full max-w-[1200px] px-4 py-6 md:px-8 md:py-8
  */
 export function CenteredPageLayout({ children, className }: CenteredPageLayoutProps) {
   return (
-    <div className="min-w-0 flex-1 sm:overflow-y-auto">
+    <div className={PAGE_SCROLLER}>
       <div className={cn(CENTERED_COLUMN, className)}>{children}</div>
     </div>
   );
