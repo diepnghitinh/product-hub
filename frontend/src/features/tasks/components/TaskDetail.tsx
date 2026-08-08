@@ -395,7 +395,7 @@ export function TaskDetail({
                     }))}
                   />
                 ) : (
-                  <span className="text-sm text-muted-foreground">{t('labels.noneForTeam')}</span>
+                  <span className="text-xs text-muted-foreground">{t('labels.noneForTeam')}</span>
                 )
               ) : resolveLabels(task.labelKeys, teamLabels).length > 0 ? (
                 <LabelChips keys={task.labelKeys} labels={teamLabels} />

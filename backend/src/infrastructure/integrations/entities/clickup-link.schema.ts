@@ -8,6 +8,8 @@ export interface ClickUpLinkDoc {
   targetType: string;
   targetId: string;
   roadmapId: string;
+  origin: string;
+  pushedStatus: string;
   // ── the mirrored snapshot ──
   taskName: string;
   taskUrl: string;
@@ -36,6 +38,10 @@ export const ClickUpLinkSchema = new Schema<ClickUpLinkDoc>(
     targetType: { type: String, required: true },
     targetId: { type: String, required: true },
     roadmapId: { type: String, default: '' },
+    // `manual` is the right default for a document written before bound boards
+    // existed: it was a pasted link, and pasted links are never written to.
+    origin: { type: String, default: 'manual' },
+    pushedStatus: { type: String, default: '' },
     taskName: { type: String, default: '' },
     taskUrl: { type: String, default: '' },
     customId: { type: String, default: '' },

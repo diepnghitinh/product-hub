@@ -68,6 +68,12 @@ export abstract class IIssueRepository {
     shortIds: string[],
     state: { ciStatus: string; ciUrl: string; ciProvider: string; ciBranch: string },
   ) => Promise<number>;
+  /** Every issue sharing a board column with `of`, in the order the board shows
+   *  them (`order` asc, then newest first) — the list a drag re-splices. Ids
+   *  only: reordering rewrites one number and never loads whole issues. */
+  columnPeerIds: (of: IssueEntity) => Promise<string[]>;
+  /** Write the new positions in one round trip. */
+  setOrders: (rows: { id: string; order: number }[]) => Promise<void>;
   save: (issue: IssueEntity) => Promise<void>;
   update: (issue: IssueEntity) => Promise<void>;
   delete: (id: string) => Promise<void>;

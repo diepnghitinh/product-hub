@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, LayoutGrid, List } from 'lucide-react';
 import { Badge, Button, Checkbox, Switch } from '@/components/ui';
@@ -9,19 +9,15 @@ import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/compo
 import { CiStatusChip } from '@/components/CiStatus';
 import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
 import { LabelChips } from '@/features/labels/LabelChips';
-import {
-  FilterMenu,
-  UNASSIGNED,
-  type FilterCategory,
-  type FilterSelections,
-} from '@/components/FilterMenu';
+import { FilterMenu, UNASSIGNED, type FilterCategory } from '@/components/FilterMenu';
+import { SavedFilterChips, useSavedFilters } from '@/components/SavedFilters';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { useUsers } from '@/features/users/api';
 import { useProjects } from '@/features/projects/api';
 import { useRoadmaps } from '@/features/roadmaps/api';
-import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
+import { useReorderTeamColumns, useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
 import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
 import {
   CarryOverBadge,
@@ -56,6 +52,9 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
   const navigate = useNavigate();
   // Columns belong to the team that owns this board (default task team when standalone).
   const columns = useTeamStatuses(teamId, TeamIssueType.TASK);
+  // ...and so does their order — only on a team board, where there's one team to
+  // save it to. Same gate as Settings → Teams, which edits the same list.
+  const reorderColumns = useReorderTeamColumns(teamId);
   // Labels resolve per-task — the "assigned to me" board spans teams, so each card
   // resolves against its own item's teamId (see BugsBoardPage for the same note).
   const labelsFor = useTeamLabelsLookup();
@@ -115,8 +114,10 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
   // the banner carries the rhythm, so the toolbar's ambient chip stands down.
   const focusedCycle = useFocusedCycle(shareTeam, cycleParam);
 
-  const [filters, setFilters] = useState<FilterSelections>({});
-  const [search, setSearch] = useState('');
+  // Filters + search are remembered per board (and saveable as named chips) —
+  // each team's board keeps its own set, as does the personal "Assigned to me".
+  const filterState = useSavedFilters(`tasks:${teamId ?? 'mine'}`);
+  const { filters, setFilters, search, setSearch } = filterState;
 
   // Strictly assigned to me — the view is titled "Assigned to me". Tasks I create
   // from here still appear because New task defaults the assignee to me. Sentinel
@@ -189,9 +190,12 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
 
   /** Tasks don't persist ordering, so the drop slot is ignored — only the
    * destination column matters. */
-  function onMove(id: string, toStatus: string) {
+  // `overId` is the card it was dropped onto — passed straight through so the
+  // card keeps the slot it was dropped in, not just the column. A drop in the
+  // same column is a real move now (it reorders), so there's no status guard.
+  function onMove(id: string, toStatus: string, overId: string | null) {
     const task = visibleTasks.find((tk) => tk.id === id);
-    if (task && task.status !== toStatus) setStatus.mutate({ id, status: toStatus as TaskStatus });
+    if (task) setStatus.mutate({ id, status: toStatus as TaskStatus, beforeId: overId });
   }
 
   return (
@@ -206,7 +210,13 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
       search={{ value: search, onChange: setSearch, placeholder: t('tasks.search') }}
       filters={
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <FilterMenu size="default" categories={filterCategories} value={filters} onChange={setFilters} />
+          <FilterMenu
+            size="default"
+            categories={filterCategories}
+            value={filters}
+            onChange={setFilters}
+          />
+          <SavedFilterChips state={filterState} categories={filterCategories} />
           {hasSubtasks && (
             <label className="flex cursor-pointer select-none items-center gap-2 text-sm text-muted-foreground">
               <Switch
@@ -282,6 +292,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
           )}
           onMove={onMove}
           disabled={!canWrite}
+          onColumnsReorder={canManageDelivery ? reorderColumns : undefined}
           onCardClick={(task) => navigate(`/issues/${task.shortId || task.id}`)}
           // The add + card-toolbar affordances, same as every board.
           renderCardToolbar={

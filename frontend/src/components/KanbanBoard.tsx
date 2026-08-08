@@ -14,7 +14,16 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { ChevronDown, ChevronLeft, ChevronRight, Clock, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  GripVertical,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { ProgressBar, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -88,10 +97,21 @@ export interface KanbanBoardProps<T> {
    */
   swimlanes?: KanbanSwimlane[];
   getSwimlaneKey?: (item: T) => string;
+  /**
+   * When set, each column header gains a drag handle and columns can be dragged
+   * into a new left-to-right order. Called with the full column list in its new
+   * order — the caller persists it to whatever owns those columns (a team's
+   * statuses, a roadmap's columns, a person's private board).
+   *
+   * Omit it and the board is exactly as it was: columns are fixed. This is the
+   * *order* of existing columns only — see below.
+   */
+  onColumnsReorder?: (columns: KanbanColumn[]) => void;
   // There is deliberately no "add a column" slot. A board's columns are a
   // team's statuses, owned by Settings (sidebar → Teams → settings) — letting a
   // board mint one would fork that config from the place the rest of the app
-  // reads it.
+  // reads it. Reordering is different in kind: it writes back through the same
+  // config the owner screen edits, so the two can't disagree.
 }
 
 /**
@@ -319,6 +339,8 @@ function DroppableColumn({
   color,
   collapsed = false,
   fluid = false,
+  lifted = false,
+  insertion,
   children,
 }: {
   id: string;
@@ -327,6 +349,11 @@ function DroppableColumn({
   /** Size to content instead of filling the board's height — swimlane mode,
    *  where the page scrolls rather than each column. */
   fluid?: boolean;
+  /** This is the column currently being dragged — fades so the overlay reads as
+   *  the thing that's moving. */
+  lifted?: boolean;
+  /** Where the dragged column would land relative to this one. */
+  insertion?: 'before' | 'after';
   children: ReactNode;
 }) {
   const { setNodeRef } = useDroppable({ id });
@@ -337,12 +364,29 @@ function DroppableColumn({
       // wash is what separates columns, so the border would just double it up.
       // `group/column` scopes the header's hover-reveal actions to this column.
       className={cn(
-        'group/column flex min-h-[120px] flex-col rounded-xl p-3 sm:shrink-0',
+        'group/column relative flex min-h-[120px] flex-col rounded-xl p-3 transition-opacity sm:shrink-0',
         !fluid && 'sm:max-h-full',
         collapsed ? 'sm:w-12' : 'sm:w-[280px]',
+        lifted && 'opacity-40',
       )}
       style={{ background: tint(color, 8) }}
     >
+      {/* A bar in the gap the column would slot into — the same "show the exact
+          landing spot" idea as the card placeholder, turned on its side. Sits
+          across the top/bottom edge while columns are stacked on mobile, and
+          down the left/right edge once they're a row. */}
+      {insertion && (
+        <span
+          aria-hidden
+          className={cn(
+            'pointer-events-none absolute z-10 rounded-full bg-primary',
+            'left-0 right-0 h-1 sm:bottom-0 sm:top-0 sm:h-auto sm:w-1',
+            insertion === 'before'
+              ? '-top-2.5 sm:-left-2.5 sm:right-auto'
+              : '-bottom-2.5 sm:left-auto sm:-right-2.5',
+          )}
+        />
+      )}
       {children}
     </div>
   );
@@ -417,6 +461,58 @@ function DraggableCard({
   );
 }
 
+/**
+ * The grip that picks a column up. Namespaced ids (`col:3`) keep column drags and
+ * card drags apart inside the one `DndContext` — a column key can't collide with
+ * a card id by accident.
+ */
+const COLUMN_ID = 'col:';
+const columnDragId = (ci: number) => `${COLUMN_ID}${ci}`;
+const draggedColumnIndex = (id: string | null): number | null =>
+  id?.startsWith(COLUMN_ID) ? Number(id.slice(COLUMN_ID.length)) : null;
+
+function ColumnDragHandle({ index, label }: { index: number; label: string }) {
+  const { attributes, listeners, setNodeRef } = useDraggable({ id: columnDragId(index) });
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          ref={setNodeRef}
+          type="button"
+          aria-label={label}
+          {...attributes}
+          {...listeners}
+          className="grid size-6 shrink-0 cursor-grab touch-none place-items-center rounded-md transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
+        >
+          <GripVertical className="size-4" aria-hidden />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** The lifted copy of a column that follows the cursor — its pill and count, not
+ *  the whole column: what's being moved is the column's *place*, not its cards. */
+function ColumnDragPreview({ column, count }: { column: KanbanColumn; count: number }) {
+  return (
+    <div
+      className="flex w-[280px] rotate-2 cursor-grabbing items-center gap-2 rounded-xl p-3 shadow-2xl"
+      style={{ background: tint(column.color, 12) }}
+    >
+      <GripVertical className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+      <span
+        className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide"
+        style={{ background: column.color, color: readableOn(column.color) }}
+      >
+        <span className="size-1.5 shrink-0 rounded-full bg-current" aria-hidden />
+        <span className="truncate">{column.label}</span>
+      </span>
+      <span className="text-sm font-medium tabular-nums text-muted-foreground">{count}</span>
+    </div>
+  );
+}
+
 /** The single implicit lane a board with no swimlanes renders into, so there is
  *  one render path rather than two that can drift. Its chrome is never drawn. */
 const SOLO_LANE: KanbanSwimlane = { key: '', label: '', color: '' };
@@ -443,6 +539,7 @@ export function KanbanBoard<T>({
   addLabel,
   swimlanes,
   getSwimlaneKey,
+  onColumnsReorder,
 }: KanbanBoardProps<T>) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -486,13 +583,36 @@ export function KanbanBoard<T>({
   // lane and a column sharing a key — can't collide.
   const zoneId = (li: number, ci: number) => `zone:${li}:${ci}`;
   const zones = new Map<string, { column: string; lane: string }>();
+  // Which column each cell belongs to, for a column drag: hovering any lane's
+  // band works, since a column is the same column in every one of them.
+  const zoneColumnIndex = new Map<string, number>();
   lanes.forEach((lane, li) =>
-    columns.forEach((col, ci) => zones.set(zoneId(li, ci), { column: col.key, lane: lane.key })),
+    columns.forEach((col, ci) => {
+      zones.set(zoneId(li, ci), { column: col.key, lane: lane.key });
+      zoneColumnIndex.set(zoneId(li, ci), ci);
+    }),
   );
+
+  // Which column is being dragged, if it's a column drag rather than a card one.
+  const draggingColumn = draggedColumnIndex(activeId);
+  const overColumn = draggingColumn == null ? null : (zoneColumnIndex.get(overId ?? '') ?? null);
 
   // Drop detection follows the POINTER, not the dragged card's centre (which
   // sits below the cursor for tall cards and made the placeholder land too low).
   const collisionDetection: CollisionDetection = (args) => {
+    // A column can only land on another column, so the cards drop out of the
+    // running entirely — otherwise the pointer passing over a card would resolve
+    // to the card and the drag would have nowhere to go.
+    if (draggedColumnIndex(String(args.active.id)) != null) {
+      const onlyColumns = {
+        ...args,
+        droppableContainers: args.droppableContainers.filter((c) =>
+          zoneColumnIndex.has(String(c.id)),
+        ),
+      };
+      const hit = pointerWithin(onlyColumns);
+      return hit.length ? hit : closestCenter(onlyColumns);
+    }
     const pointer = pointerWithin(args);
     if (pointer.length === 0) return closestCenter(args); // pointer in a gap → nearest
     // Prefer the card directly under the pointer over the column it sits in.
@@ -524,6 +644,19 @@ export function KanbanBoard<T>({
     const activeKey = String(active.id);
     const overKey = String(over.id);
     if (activeKey === overKey) return;
+    // A column landed. Pull it out and drop it in at the target's index — so a
+    // column dragged rightwards ends up after the one it was released on, and
+    // leftwards, before it. Exactly what the insertion bar was promising.
+    const from = draggedColumnIndex(activeKey);
+    if (from != null) {
+      const to = zoneColumnIndex.get(overKey);
+      if (to == null || to === from) return;
+      const next = [...columns];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      onColumnsReorder?.(next);
+      return;
+    }
     // `over` is either another card (drop at its exact slot, inheriting both of
     // that card's coordinates) or an empty cell (append to it).
     const overItem = items.find((i) => getId(i) === overKey);
@@ -554,7 +687,21 @@ export function KanbanBoard<T>({
       const list = itemsFor(li, ci);
       const isCollapsed = collapsed.has(col.key);
       return (
-        <DroppableColumn key={col.key} id={id} color={col.color} collapsed={isCollapsed} fluid={grouped}>
+        <DroppableColumn
+          key={col.key}
+          id={id}
+          color={col.color}
+          collapsed={isCollapsed}
+          fluid={grouped}
+          lifted={draggingColumn === ci}
+          insertion={
+            overColumn === ci && draggingColumn !== ci
+              ? draggingColumn! < ci
+                ? 'after'
+                : 'before'
+              : undefined
+          }
+        >
           {/* Collapsed: a narrow rail (desktop only — mobile stacks, so
               horizontal space isn't scarce there). The whole rail expands. */}
           <button
@@ -597,6 +744,13 @@ export function KanbanBoard<T>({
               {/* Header actions ride in on column hover (pointer only — mobile
                   uses the always-visible footer button below). */}
               <div className="ml-auto hidden items-center gap-0.5 text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover/column:opacity-100 sm:flex">
+                {/* Reordering is a board-wide act on a column, so — like
+                    collapsing — it's offered once, in the first lane. Pointer
+                    only: the keyboard path to the same order is the screen that
+                    owns these columns (Settings → Teams, or ⋯ → Manage columns). */}
+                {onColumnsReorder && li === 0 && (
+                  <ColumnDragHandle index={ci} label={t('board.reorderColumn')} />
+                )}
                 {onColumnAdd && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -734,7 +888,14 @@ export function KanbanBoard<T>({
           : renderColumns(SOLO_LANE, 0)}
       </div>
       <DragOverlay dropAnimation={null}>
-        {activeItem ? renderCard(activeItem, true) : null}
+        {activeItem ? (
+          renderCard(activeItem, true)
+        ) : draggingColumn != null && columns[draggingColumn] ? (
+          <ColumnDragPreview
+            column={columns[draggingColumn]}
+            count={items.filter((i) => getColumnKey(i) === columns[draggingColumn].key).length}
+          />
+        ) : null}
       </DragOverlay>
     </DndContext>
   );

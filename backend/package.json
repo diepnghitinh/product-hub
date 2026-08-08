@@ -27,6 +27,7 @@
     "backfill:issue-resolved-at": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/backfill-issue-resolved-at.ts",
     "backfill:attachment-names": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/backfill-attachment-names.ts",
     "seed:platform": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/seed-platform.ts",
+    "seed:demo": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/seed-demo.ts",
     "lint": "eslint \"{src,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch"

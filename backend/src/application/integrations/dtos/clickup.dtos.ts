@@ -1,6 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
-import { ClickUpLinkTarget } from '@application/app-settings/domain/clickup.types';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import {
+  ClickUpLinkOrigin,
+  ClickUpLinkTarget,
+  ClickUpSyncScope,
+} from '@application/app-settings/domain/clickup.types';
 
 /**
  * Step one of connecting: prove a token works and find out what it can see.
@@ -71,6 +86,51 @@ export class LinkClickUpTaskDto {
   roadmapId?: string;
 }
 
+/**
+ * Which record something is being asked about — no verb of its own.
+ *
+ * One class for the push body and the push-target query because they are the
+ * same question asked twice ("this record, in ClickUp"), once before the button
+ * is drawn and once when it's pressed. Two identical DTOs would drift.
+ */
+export class ClickUpTargetDto {
+  @ApiProperty({ enum: ClickUpLinkTarget, example: ClickUpLinkTarget.ISSUE })
+  @IsEnum(ClickUpLinkTarget)
+  targetType: ClickUpLinkTarget;
+
+  @ApiProperty({ description: 'The issue id, or the roadmap *item* id.' })
+  @IsString()
+  @MaxLength(64)
+  targetId: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Which roadmap owns the item. Required for roadmap_item, ignored for an issue.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  roadmapId?: string;
+}
+
+/**
+ * Whether this record can be created in ClickUp on demand.
+ *
+ * Tiny for the same reason `ClickUpStatusResponseDto` is: it's read by anyone
+ * who can edit an issue, purely to decide whether to offer a button, and the way
+ * to let a developer read that without letting them read a customer's ClickUp
+ * layout is to make the thing they read contain nothing else.
+ */
+export class ClickUpPushTargetResponseDto {
+  @ApiProperty({
+    description: 'true → this record’s board is bound, syncing is on, and nothing is synced yet.',
+  })
+  canPush: boolean;
+
+  @ApiProperty({ description: 'The list it would land in. "" whenever canPush is false.' })
+  listName: string;
+}
+
 /** Which record's links to read. */
 export class GetClickUpLinksQueryDto {
   @ApiProperty({ enum: ClickUpLinkTarget, example: ClickUpLinkTarget.ISSUE })
@@ -105,6 +165,14 @@ export class ClickUpLinkResponseDto {
 
   @ApiProperty({ description: '"" for an issue.' })
   roadmapId: string;
+
+  @ApiProperty({
+    enum: ClickUpLinkOrigin,
+    description:
+      'manual = pasted, read-only, unlinkable. sync = created by a bound board, ' +
+      'kept in step both ways, and unlinked by unbinding the board.',
+  })
+  origin: ClickUpLinkOrigin;
 
   @ApiProperty()
   taskName: string;
@@ -220,4 +288,238 @@ export class ClickUpWorkspaceResponseDto {
 
   @ApiProperty({ description: 'ClickUp’s avatar colour. "" if unset.' })
   color: string;
+}
+
+// ─── binding a board to a list ──────────────────────────────────────────────
+
+/** One space in the connected workspace, for the binding form's first picker. */
+export class ClickUpSpaceResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  name: string;
+}
+
+/** One list a board can be bound to. Flattened — see `ClickUpList`. */
+export class ClickUpListResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty({
+    description: '"" for a folderless list; shown to tell two same-named lists apart.',
+  })
+  folderName: string;
+}
+
+/** One status the bound list defines — the right-hand side of the mapping form. */
+export class ClickUpListStatusResponseDto {
+  @ApiProperty({ example: 'in progress' })
+  name: string;
+
+  @ApiProperty({ example: '#4194f6' })
+  color: string;
+
+  @ApiProperty({ example: 'custom', description: 'open · custom · done · closed' })
+  type: string;
+}
+
+/** One row of the mapping form: our column → their status. */
+export class ClickUpStatusPairDto {
+  @ApiProperty({ description: 'Our column key — a team status key or a roadmap column key.' })
+  @IsString()
+  @MaxLength(64)
+  key: string;
+
+  @ApiProperty({ description: 'ClickUp’s status name. "" means this column does not sync.' })
+  @IsString()
+  @MaxLength(200)
+  clickupStatus: string;
+}
+
+/**
+ * Bind a board to a ClickUp list, or re-save its mapping.
+ *
+ * The scope and its id ride in the URL, not here — one board has one binding, so
+ * the thing being edited is identified by where it is, not by what's in the body.
+ */
+export class SaveClickUpSyncDto {
+  @ApiProperty({ example: '901234567', description: 'The ClickUp list every task lands in.' })
+  @IsString()
+  @MaxLength(64)
+  listId: string;
+
+  @ApiProperty({ required: false, description: 'Display name, so settings can name it offline.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  listName?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  spaceId?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  spaceName?: string;
+
+  @ApiProperty({ description: 'Off keeps the mapping but stops every push and inbound move.' })
+  @IsBoolean()
+  enabled: boolean;
+
+  @ApiProperty({
+    type: [ClickUpStatusPairDto],
+    description: 'One row per board column. A row left blank means that column does not sync.',
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ClickUpStatusPairDto)
+  statusMap: ClickUpStatusPairDto[];
+}
+
+/**
+ * A board's binding, as its settings form sees it.
+ *
+ * `statusMap` is always reconciled against the board's *current* columns before
+ * it goes out, so the form shows today's columns even if someone added one after
+ * the mapping was last saved.
+ */
+export class ClickUpSyncResponseDto {
+  @ApiProperty({ description: 'false → nothing else here is meaningful; the board is unbound.' })
+  bound: boolean;
+
+  @ApiProperty({ enum: ClickUpSyncScope })
+  scope: ClickUpSyncScope;
+
+  @ApiProperty()
+  scopeId: string;
+
+  @ApiProperty()
+  listId: string;
+
+  @ApiProperty()
+  listName: string;
+
+  @ApiProperty()
+  spaceId: string;
+
+  @ApiProperty()
+  spaceName: string;
+
+  @ApiProperty()
+  enabled: boolean;
+
+  @ApiProperty({ type: [ClickUpStatusPairDto] })
+  statusMap: ClickUpStatusPairDto[];
+
+  @ApiProperty({
+    type: [ClickUpListStatusResponseDto],
+    description: 'What the bound list offers, so the form can render a real picker per row.',
+  })
+  listStatuses: ClickUpListStatusResponseDto[];
+
+  @ApiProperty({
+    description: 'Our columns, in board order, so the form labels each row without a second call.',
+    example: [{ key: 'in-progress', label: 'In progress' }],
+  })
+  columns: { key: string; label: string }[];
+}
+
+/** Pin one of our people to one ClickUp member. `memberId: 0` clears the pin. */
+export class ClickUpUserPairDto {
+  @ApiProperty({ description: 'Our User.id.' })
+  @IsString()
+  @MaxLength(64)
+  userId: string;
+
+  @ApiProperty({
+    description: 'ClickUp’s numeric member id. 0 removes the pin and restores the email match.',
+    example: 4812345,
+  })
+  @IsInt()
+  @Min(0)
+  memberId: number;
+}
+
+/** Replace the whole people map. Rows with `memberId: 0` are dropped, not stored. */
+export class SaveClickUpPeopleDto {
+  @ApiProperty({ type: [ClickUpUserPairDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ClickUpUserPairDto)
+  people: ClickUpUserPairDto[];
+}
+
+/**
+ * One row of the people table: one of our users, and who they reach in ClickUp.
+ *
+ * Deliberately flat and self-explaining, because the honest answer to "does this
+ * person sync?" has three shapes and the UI must tell them apart:
+ *
+ * - `pinned: true`  — an admin chose this pairing; `memberId` is what gets used.
+ * - `pinned: false` and `memberId > 0` — nobody configured anything, the emails
+ *   simply match. Shown as the resolved default so the row reads honestly.
+ * - `memberId: 0`   — nothing matches. Assigning this person pushes nobody, and
+ *   this is the row the whole screen exists to make visible.
+ */
+export class ClickUpPersonResponseDto {
+  @ApiProperty()
+  userId: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty()
+  avatarUrl: string;
+
+  @ApiProperty({ description: '0 when nothing matches — this person’s assignments do not sync.' })
+  memberId: number;
+
+  @ApiProperty({ description: 'ClickUp’s display name for the matched member, or "".' })
+  clickupUsername: string;
+
+  @ApiProperty({ description: 'ClickUp’s email for the matched member, or "".' })
+  clickupEmail: string;
+
+  @ApiProperty({ description: 'true → chosen by an admin. false → matched on email.' })
+  pinned: boolean;
+}
+
+/** One seat in the connected ClickUp workspace — an option a row can be pinned to. */
+export class ClickUpMemberResponseDto {
+  @ApiProperty({ example: 4812345 })
+  id: number;
+
+  @ApiProperty()
+  username: string;
+
+  @ApiProperty()
+  email: string;
+}
+
+/** The people screen: our side, ClickUp's side, and how they currently resolve. */
+export class ClickUpPeopleResponseDto {
+  @ApiProperty({ type: [ClickUpPersonResponseDto] })
+  people: ClickUpPersonResponseDto[];
+
+  @ApiProperty({
+    type: [ClickUpMemberResponseDto],
+    description: 'Everyone with a seat in the workspace — the options each row can be pinned to.',
+  })
+  members: ClickUpMemberResponseDto[];
+
+  @ApiProperty({
+    description: 'ClickUp unreachable → members is empty and the saved pins still render.',
+  })
+  membersUnavailable: string;
 }

@@ -1,4 +1,5 @@
 import {
+  ClickUpLinkOrigin,
   ClickUpLinkTarget,
   ClickUpStatusType,
 } from '@application/app-settings/domain/clickup.types';
@@ -42,6 +43,23 @@ export interface ClickUpLinkRecord extends ClickUpTaskSnapshot {
   /** Which roadmap owns that item — items are embedded, so the item id alone
    *  doesn't locate one. '' for an issue. */
   roadmapId: string;
+  /**
+   * Pasted by hand, or created by a bound board. The permission flag for every
+   * write path: only {@link ClickUpLinkOrigin.SYNC} links are ever written to or
+   * allowed to move a card here. A row written before this existed reads back as
+   * `manual`, which is what it was.
+   */
+  origin: ClickUpLinkOrigin;
+  /**
+   * The ClickUp status name **we** last sent, on a synced link.
+   *
+   * The echo guard. Pushing a status makes ClickUp fire `taskStatusUpdated`
+   * straight back at us; without this, that delivery reads as "someone moved the
+   * card in ClickUp" and re-applies our own change as if it were theirs. Storing
+   * what we sent lets the handler recognise its own echo and ignore it — no
+   * timers, no clock skew, no debounce window to tune.
+   */
+  pushedStatus: string;
   createdBy: string;
   createdByName: string;
   createdAt: Date;
@@ -54,6 +72,8 @@ export interface CreateClickUpLinkData extends ClickUpTaskSnapshot {
   targetType: ClickUpLinkTarget;
   targetId: string;
   roadmapId: string;
+  /** Defaults to `manual` — the pasted-URL path doesn't have to say so. */
+  origin?: ClickUpLinkOrigin;
   createdBy: string;
   createdByName: string;
 }
@@ -92,6 +112,8 @@ export abstract class IClickUpLinkRepository {
     clickupTaskId: string,
     snapshot: ClickUpTaskSnapshot,
   ) => Promise<number>;
+  /** Record the status we just sent to ClickUp — see {@link ClickUpLinkRecord.pushedStatus}. */
+  markPushed: (tenantId: string, id: string, pushedStatus: string) => Promise<void>;
   removeById: (tenantId: string, id: string) => Promise<boolean>;
   /** Drop every link in a workspace — used when ClickUp is disconnected for good. */
   removeAllForTenant: (tenantId: string) => Promise<number>;

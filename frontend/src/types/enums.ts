@@ -236,14 +236,36 @@ export enum ClickUpLinkTarget {
 
 /**
  * ClickUp's own status buckets. `done`/`closed` are the two finished ones —
- * which is the only judgement we make about a ClickUp status. It never moves
- * anything on this board; it decides whether to strike the mirrored row through.
+ * which is the only judgement we make about a ClickUp status by *type*. It
+ * decides whether to strike the mirrored row through; moving a card here needs
+ * an explicit entry in a bound board's status map, never a bucket.
  */
 export enum ClickUpStatusType {
   OPEN = 'open',
   CUSTOM = 'custom',
   DONE = 'done',
   CLOSED = 'closed',
+}
+
+/**
+ * How a ClickUp link came to exist — and therefore what the panel may offer.
+ *
+ * A `manual` link is a mirror somebody pasted in: read-only, and unlinkable from
+ * the row. A `sync` link is a task a bound board created, kept in step both
+ * ways; it can't be unlinked from the record, because the binding is what owns
+ * it and removing the row would just mint a duplicate on the next save.
+ */
+export enum ClickUpLinkOrigin {
+  MANUAL = 'manual',
+  SYNC = 'sync',
+}
+
+/** Which of our boards a ClickUp list can be bound to. */
+export enum ClickUpSyncScope {
+  /** A team's issue board — its statuses are the columns mapped. */
+  TEAM = 'team',
+  /** A roadmap's backlog — its columns are the ones mapped. */
+  ROADMAP = 'roadmap',
 }
 
 export enum RoadmapPhase {

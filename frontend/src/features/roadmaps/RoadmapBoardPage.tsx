@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { BarChart3, CalendarDays, Gauge, LayoutGrid, MoreHorizontal, Table2, Target } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Badge, Button, Menu, ProgressBar } from '@/components/ui';
+import { Badge, Button, Dialog, Menu, ProgressBar } from '@/components/ui';
 import { BoardSkeleton } from '@/components/Skeletons';
 import { CenteredPageLayout } from '@/layouts/shared';
 import { cn } from '@/lib/utils';
@@ -17,7 +17,9 @@ import {
   ROADMAP_ITEM_STATUS_LABEL,
   RoadmapDifficulty,
   RoadmapItemStatus,
+  ClickUpSyncScope,
 } from '@/types/enums';
+import { ClickUpSyncEditor } from '@/features/clickup/ClickUpSyncEditor';
 import { RoadmapWorkflowView } from './components/RoadmapWorkflowView';
 import { RoadmapGanttView } from './components/RoadmapGanttView';
 import type { RoadmapEpic, RoadmapItem } from '@/types/dto';
@@ -29,6 +31,7 @@ import { RoadmapRiceChart } from './components/RoadmapRiceChart';
 import { RoadmapRiceTable } from './components/RoadmapRiceTable';
 import {
   useDeleteRoadmap,
+  useReplaceRoadmapColumns,
   useReplaceRoadmapItems,
   useRoadmap,
   useSetRoadmapSharing,
@@ -161,6 +164,9 @@ export function RoadmapBoardPage() {
 
   const { data: roadmap, isLoading } = useRoadmap(roadmapId);
   const replaceItems = useReplaceRoadmapItems();
+  // Dragging a column writes the same `roadmap.columns` that ⋯ → Manage columns
+  // edits, behind the same `canManageDelivery` gate that offers that menu item.
+  const replaceColumns = useReplaceRoadmapColumns();
   const deleteRoadmap = useDeleteRoadmap();
   const update = useUpdateRoadmap();
   const setSharing = useSetRoadmapSharing();
@@ -168,6 +174,7 @@ export function RoadmapBoardPage() {
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [epicsOpen, setEpicsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [clickupOpen, setClickupOpen] = useState(false);
   const [sortRice, setSortRice] = useState(false);
   // Persist the board/chart view in the URL (?view=chart) so it survives reloads
   // and is shareable; `board` is the default and kept out of the query for clean URLs.
@@ -370,6 +377,10 @@ export function RoadmapBoardPage() {
                   : []),
                 ...(isAdmin
                   ? [
+                      // A backlog has no settings page of its own, so its ClickUp
+                      // binding lives here, beside the columns it maps. Admin-only,
+                      // like the endpoints behind it.
+                      { label: t('clickup.sync'), onClick: () => setClickupOpen(true) },
                       {
                         label: t('roadmaps.delete'),
                         danger: true,
@@ -407,6 +418,11 @@ export function RoadmapBoardPage() {
           )}
           onMove={onMove}
           disabled={!canWrite}
+          onColumnsReorder={
+            canManageDelivery
+              ? (cols) => replaceColumns.mutate({ id: roadmap.id, columns: cols })
+              : undefined
+          }
           onCardClick={(item) => openItem(item.id)}
           renderCardToolbar={
             canWrite
@@ -483,6 +499,26 @@ export function RoadmapBoardPage() {
           pending={setSharing.isPending}
           onToggle={(enabled) => setSharing.mutate({ id: roadmap.id, enabled })}
         />
+      )}
+      {clickupOpen && (
+        <Dialog
+          open={clickupOpen}
+          onClose={() => setClickupOpen(false)}
+          title={t('clickup.sync')}
+          className="max-w-2xl"
+          footer={
+            <Button variant="ghost" onClick={() => setClickupOpen(false)}>
+              {t('common.close')}
+            </Button>
+          }
+        >
+          <p className="mb-4 text-sm text-muted-foreground">{t('clickup.syncHint')}</p>
+          <ClickUpSyncEditor
+            scope={ClickUpSyncScope.ROADMAP}
+            scopeId={roadmap.id}
+            variant="plain"
+          />
+        </Dialog>
       )}
     </IssueBoardLayout>
   );

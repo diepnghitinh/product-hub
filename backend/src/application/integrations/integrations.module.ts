@@ -3,7 +3,8 @@ import { ApplicationAppSettingsModule } from '@application/app-settings/app-sett
 import { ApplicationIssuesModule } from '@application/issues/issues.module';
 import { InfrastructureIntegrationsModule } from '@infrastructure/integrations/integrations.module';
 import { InfrastructureRoadmapsModule } from '@infrastructure/roadmaps/roadmaps.module';
-import { ClickUpClient } from './domain/clickup.client';
+import { InfrastructureTeamsModule } from '@infrastructure/teams/teams.module';
+import { InfrastructureUsersModule } from '@infrastructure/users/users.module';
 import {
   DeleteIntegrationUseCase,
   RecordPipelineStateUseCase,
@@ -14,13 +15,26 @@ import {
   ConnectClickUpUseCase,
   DisconnectClickUpUseCase,
   GetClickUpLinksUseCase,
+  GetClickUpPeopleUseCase,
+  GetClickUpPushTargetUseCase,
   LinkClickUpTaskUseCase,
   ProbeClickUpUseCase,
+  PushClickUpTaskUseCase,
   ReceiveClickUpEventUseCase,
   RefreshClickUpLinkUseCase,
+  SaveClickUpPeopleUseCase,
   SetClickUpEnabledUseCase,
   UnlinkClickUpTaskUseCase,
 } from './use-cases/clickup.use-cases';
+import {
+  ClickUpScopeColumns,
+  DeleteClickUpSyncUseCase,
+  GetClickUpListsUseCase,
+  GetClickUpListStatusesUseCase,
+  GetClickUpSpacesUseCase,
+  GetClickUpSyncUseCase,
+  SaveClickUpSyncUseCase,
+} from './use-cases/clickup-sync.use-cases';
 
 const useCases = [
   SaveIntegrationUseCase,
@@ -31,11 +45,21 @@ const useCases = [
   ConnectClickUpUseCase,
   SetClickUpEnabledUseCase,
   DisconnectClickUpUseCase,
+  GetClickUpPeopleUseCase,
+  SaveClickUpPeopleUseCase,
   GetClickUpLinksUseCase,
   LinkClickUpTaskUseCase,
+  GetClickUpPushTargetUseCase,
+  PushClickUpTaskUseCase,
   UnlinkClickUpTaskUseCase,
   RefreshClickUpLinkUseCase,
   ReceiveClickUpEventUseCase,
+  GetClickUpSpacesUseCase,
+  GetClickUpListsUseCase,
+  GetClickUpListStatusesUseCase,
+  GetClickUpSyncUseCase,
+  SaveClickUpSyncUseCase,
+  DeleteClickUpSyncUseCase,
 ];
 
 /**
@@ -53,8 +77,17 @@ const useCases = [
     // the item exists, nothing more. `ApplicationRoadmapsModule` keeps its
     // infrastructure private, and there is no roadmap use-case to call here.
     InfrastructureRoadmapsModule,
+    // A team's statuses are the left-hand side of a team board's status map.
+    InfrastructureTeamsModule,
+    // The people map's left-hand side: our roster, and the emails the automatic
+    // match is made on.
+    InfrastructureUsersModule,
   ],
-  providers: [ClickUpClient, ...useCases],
+  // `ClickUpClient` comes from the infrastructure module, which also hands it to
+  // the sync service — one client, one place it's constructed. `ClickUpScopeColumns`
+  // is a helper, not a use-case: it's the one place a team's statuses and a
+  // roadmap's columns are read as the same thing.
+  providers: [ClickUpScopeColumns, ...useCases],
   exports: [...useCases],
 })
 export class ApplicationIntegrationsModule {}

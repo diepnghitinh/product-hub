@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { t } from '@/i18n';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui';
 import { IssueDetailMain, type IssueDetailMainProps } from './IssueDetailMain';
 import { IssueCopyActions } from './IssueCopyActions';
@@ -152,6 +154,34 @@ export function PropValue({
   );
 }
 
+/** The one heading style every Properties-sidebar group uses. Exported so a
+ *  section that can't use <PropSection> still can't drift from it. */
+export const PROP_SECTION_LABEL =
+  'truncate text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60';
+
+/** Collapsed/expanded state is remembered per section, per browser: working a
+ *  backlog down means opening RICE on ten items in a row, and re-collapsing it
+ *  each time you land on the next one is the whole cost of hiding it. Keyed by
+ *  the caller's `storageKey`, so every item's RICE shares one preference. */
+const OPEN_KEY = 'ph_prop_open:';
+const readOpen = (key: string | undefined, fallback: boolean) => {
+  if (!key) return fallback;
+  try {
+    const saved = localStorage.getItem(OPEN_KEY + key);
+    return saved === null ? fallback : saved === '1';
+  } catch {
+    return fallback;
+  }
+};
+const writeOpen = (key: string | undefined, open: boolean) => {
+  if (!key) return;
+  try {
+    localStorage.setItem(OPEN_KEY + key, open ? '1' : '0');
+  } catch {
+    /* private mode — the preference just doesn't stick */
+  }
+};
+
 /** A titled group of Properties rows (e.g. "Properties", "Labels") — a small
  *  muted heading above its rows. Omit `label` to group without a heading.
  *
@@ -159,30 +189,90 @@ export function PropValue({
  *  forced `min-w-0` so its `w-full` control truncates inside the half-width cell
  *  rather than overflowing, and rows top-align so a taller cell (a wrapped value,
  *  a validation note) doesn't stretch its neighbour. Used by the dense issue
- *  Properties block; other sidebars keep the default one-per-row stack. */
+ *  Properties block; other sidebars keep the default one-per-row stack.
+ *
+ *  Two slots keep a group readable while its body is folded away:
+ *  - `trailing` — a node at the end of the heading row (a score, a `＋` button).
+ *    It sits *outside* the toggle button, so an interactive one still works.
+ *  - `summary` — a line under the heading, shown open **or** closed. This is what
+ *    makes `collapsible` honest: the gist stays on screen, only the detail folds. */
 export function PropSection({
   label,
   grid = false,
+  trailing,
+  summary,
+  collapsible = false,
+  defaultOpen = true,
+  storageKey,
   children,
 }: {
-  label?: string;
+  label?: ReactNode;
   grid?: boolean;
+  /** End of the heading row — a value or an action. Never inside the toggle. */
+  trailing?: ReactNode;
+  /** Always-visible line beneath the heading, whether the body is open or not. */
+  summary?: ReactNode;
+  /** Fold the body behind the heading. Requires `label` — there'd be nothing to
+   *  click otherwise. */
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+  /** Persist this section's open state under `ph_prop_open:<key>`. */
+  storageKey?: string;
   children: ReactNode;
 }) {
+  const bodyId = useId();
+  const [open, setOpen] = useState(() => (collapsible ? readOpen(storageKey, defaultOpen) : true));
+  const toggle = () =>
+    setOpen((prev) => {
+      writeOpen(storageKey, !prev);
+      return !prev;
+    });
+
+  const body = (
+    <div
+      id={bodyId}
+      className={cn(
+        grid ? 'grid grid-cols-2 items-start gap-x-2.5 gap-y-1 [&>*]:min-w-0' : 'flex flex-col',
+      )}
+    >
+      {children}
+    </div>
+  );
+
   return (
     <div className="flex flex-col">
       {label && (
-        <span className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-          {label}
-        </span>
+        // The gap under the heading belongs to what follows it — a section folded
+        // shut with no summary is a lone row and shouldn't pay for one.
+        <div className={cn('flex items-center gap-2', (open || summary) && 'mb-1.5')}>
+          {collapsible ? (
+            <button
+              type="button"
+              onClick={toggle}
+              aria-expanded={open}
+              aria-controls={open ? bodyId : undefined}
+              className="group -ml-1 flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left transition-colors hover:bg-accent"
+            >
+              <ChevronRight
+                className={cn(
+                  'size-3 shrink-0 text-muted-foreground/60 transition-transform group-hover:text-foreground',
+                  open && 'rotate-90',
+                )}
+                aria-hidden
+              />
+              <span className={PROP_SECTION_LABEL}>{label}</span>
+              <span className="sr-only">{open ? t('common.collapse') : t('common.expand')}</span>
+            </button>
+          ) : (
+            <span className={cn(PROP_SECTION_LABEL, 'min-w-0 flex-1')}>{label}</span>
+          )}
+          {trailing && <span className="shrink-0">{trailing}</span>}
+        </div>
       )}
-      <div
-        className={cn(
-          grid ? 'grid grid-cols-2 items-start gap-x-2.5 gap-y-1 [&>*]:min-w-0' : 'flex flex-col',
-        )}
-      >
-        {children}
-      </div>
+      {summary}
+      {/* Rendered away rather than `hidden`, so a folded body costs no layout and
+          Tailwind's `flex`/`grid` on it can't out-specify `[hidden]`. */}
+      {open && body}
     </div>
   );
 }
@@ -202,12 +292,12 @@ export function DetailGrid({ children }: { children: ReactNode }) {
 
 /**
  * The Properties `<aside>` — the fixed-width sidebar column that sticks on scroll,
- * with `gap-5` between its <PropSection> groups. Shared so every detail page's
+ * with `gap-4` between its <PropSection> groups. Shared so every detail page's
  * sidebar (issue or backlog item) sits in exactly the same frame. Fill it with
  * <PropSection> / <PropField> / <PropValue>.
  */
 export function PropSidebar({ children }: { children: ReactNode }) {
-  return <aside className="flex flex-col gap-5 md:sticky md:top-6">{children}</aside>;
+  return <aside className="flex flex-col gap-4 md:sticky md:top-6">{children}</aside>;
 }
 
 interface IssueDetailProps extends IssueDetailMainProps {

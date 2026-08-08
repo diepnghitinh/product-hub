@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { InfrastructureRoadmapsModule } from '@infrastructure/roadmaps/roadmaps.module';
+import { InfrastructureIntegrationsModule } from '@infrastructure/integrations/integrations.module';
 import {
   CreateRoadmapUseCase,
   GetRoadmapsUseCase,
@@ -29,7 +30,9 @@ const useCases = [
 ];
 
 @Module({
-  imports: [InfrastructureRoadmapsModule],
+  // Integrations for `IClickUpSync` — the infrastructure module, not the
+  // application one, which imports this side of the graph. See the port's doc.
+  imports: [InfrastructureRoadmapsModule, InfrastructureIntegrationsModule],
   providers: [...useCases],
   exports: [...useCases],
 })

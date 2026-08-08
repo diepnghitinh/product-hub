@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiDelete, apiGet, apiPost } from '@/lib/api';
-import type { ClickUpLinkDto, ClickUpStatusDto } from '@/types/dto';
+import type { ClickUpLinkDto, ClickUpPushTargetDto, ClickUpStatusDto } from '@/types/dto';
 import type { ClickUpLinkTarget } from '@/types/enums';
 
 /**
@@ -17,6 +17,31 @@ const linksKey = (targetType: ClickUpLinkTarget, targetId: string) => [
   targetType,
   targetId,
 ];
+
+const pushTargetKey = (targetType: ClickUpLinkTarget, targetId: string) => [
+  'clickup',
+  'push-target',
+  targetType,
+  targetId,
+];
+
+/** `targetType`, `targetId` and (for a backlog item) `roadmapId`, as a query string. */
+function targetQuery(target: ClickUpTarget): string {
+  const params = new URLSearchParams({
+    targetType: target.targetType,
+    targetId: target.targetId,
+  });
+  if (target.roadmapId) params.set('roadmapId', target.roadmapId);
+  return params.toString();
+}
+
+/** Which record something is being asked about. */
+export interface ClickUpTarget {
+  targetType: ClickUpLinkTarget;
+  targetId: string;
+  /** Required for a backlog item; ignored for an issue. */
+  roadmapId?: string;
+}
 
 /**
  * Is ClickUp linking available at all?
@@ -46,6 +71,40 @@ export function useClickUpLinks(
         `/clickup/links?targetType=${targetType}&targetId=${encodeURIComponent(targetId ?? '')}`,
       ),
     enabled: enabled && !!targetId,
+  });
+}
+
+/**
+ * Can this record be created in ClickUp, and in which list?
+ *
+ * Only asked once the workspace is known to be connected — pass `enabled` from
+ * `useClickUpStatus`. Almost every workspace has no ClickUp at all, and a second
+ * request per issue opened to be told "no" would be a request nobody needed.
+ */
+export function useClickUpPushTarget(target: ClickUpTarget, enabled = true) {
+  return useQuery({
+    queryKey: pushTargetKey(target.targetType, target.targetId),
+    queryFn: () =>
+      apiGet<ClickUpPushTargetDto>(`/clickup/links/push-target?${targetQuery(target)}`),
+    enabled: enabled && !!target.targetId,
+  });
+}
+
+/**
+ * Create this record in ClickUp now, through its board's binding.
+ *
+ * Invalidates the availability alongside the links, because success is exactly
+ * what makes the answer flip: the record now has a synced task, so the action
+ * that produced it has to stop being offered.
+ */
+export function usePushClickUpTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (target: ClickUpTarget) => apiPost<ClickUpLinkDto>('/clickup/links/push', target),
+    onSuccess: (_link, target) => {
+      qc.invalidateQueries({ queryKey: linksKey(target.targetType, target.targetId) });
+      qc.invalidateQueries({ queryKey: pushTargetKey(target.targetType, target.targetId) });
+    },
   });
 }
 

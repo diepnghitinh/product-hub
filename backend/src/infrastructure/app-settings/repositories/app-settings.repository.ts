@@ -15,7 +15,11 @@ export class AppSettingsRepository implements IAppSettingsRepository {
       tenantId: doc.tenantId,
       webhooks: doc.webhooks ?? [],
       integrations: doc.integrations ?? [],
-      clickup: doc.clickup ?? null,
+      // `userMap` post-dates the first connections, and `clickup` is a Mixed
+      // blob with no schema to default it — so a workspace connected before it
+      // existed reads back without the field. Default here, once, rather than
+      // leaving every consumer to guard against undefined.
+      clickup: doc.clickup ? { ...doc.clickup, userMap: doc.clickup.userMap ?? [] } : null,
       bugStatuses: doc.bugStatuses,
       taskStatuses: doc.taskStatuses,
       storage: doc.storage,

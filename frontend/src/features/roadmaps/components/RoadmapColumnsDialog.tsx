@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { Button, ColorSelect, Dialog, DotLabel, Input, Select } from '@/components/ui';
 import { t } from '@/i18n';
 import { ROADMAP_COLUMN_PALETTE } from '@/types/enums';
@@ -44,6 +44,19 @@ export function RoadmapColumnsDialog({
 
   const countIn = (key: string) => draftItems.filter((it) => it.phase === key).length;
   const removeColumn = (key: string) => setDraft((d) => d.filter((c) => c.key !== key));
+
+  /** Column order, left to right. The board can be dragged instead, but that's
+   *  pointer-only — this is the keyboard path, and it matches the arrows the
+   *  team-statuses editor in Settings has always had. */
+  function move(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= draft.length) return;
+    setDraft((d) => {
+      const copy = [...d];
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+      return copy;
+    });
+  }
 
   /** Trash a column — but if it still holds items, ask where they go first so
    * they aren't silently swept into another column. */
@@ -113,6 +126,26 @@ export function RoadmapColumnsDialog({
         <div className="flex flex-col gap-2">
           {draft.map((col, i) => (
             <div key={col.key} className="flex items-center gap-2">
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+                  aria-label={t('settings.moveUp')}
+                  disabled={i === 0}
+                  onClick={() => move(i, -1)}
+                >
+                  <ArrowUp className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+                  aria-label={t('settings.moveDown')}
+                  disabled={i === draft.length - 1}
+                  onClick={() => move(i, 1)}
+                >
+                  <ArrowDown className="size-3.5" />
+                </button>
+              </div>
               <div className="w-28 shrink-0">
                 <ColorSelect
                   value={col.color}

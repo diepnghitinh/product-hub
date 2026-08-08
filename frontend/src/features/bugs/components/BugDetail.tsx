@@ -216,6 +216,10 @@ export function BugDetail({
               {canWrite ? (
                 <Input
                   icon={<Type />}
+                  // A bare row has no drawn label, so an empty free-text field
+                  // would otherwise be an icon beside a blank box.
+                  placeholder={t('bugs.type')}
+                  aria-label={t('bugs.type')}
                   defaultValue={bug.type}
                   onBlur={(e) => e.target.value !== bug.type && save({ type: e.target.value })}
                 />
@@ -300,7 +304,7 @@ export function BugDetail({
                   }))}
                 />
               ) : (
-                <span className="text-sm text-muted-foreground">{t('labels.noneForTeam')}</span>
+                <span className="text-xs text-muted-foreground">{t('labels.noneForTeam')}</span>
               )
             ) : resolveLabels(bug.labelKeys, teamLabels).length > 0 ? (
               <LabelChips keys={bug.labelKeys} labels={teamLabels} />

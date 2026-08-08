@@ -76,7 +76,10 @@ function buildTicks(minMs: number, maxMs: number): Tick[] {
     c.setHours(0, 0, 0, 0);
     if (c.getTime() < minMs) c.setDate(c.getDate() + 1);
     for (let d = c.getTime(); d <= maxMs; d += 7 * GANTT_DAY) {
-      ticks.push({ x: pct(d), label: new Date(d).toLocaleDateString(localeTag(), { month: 'short', day: 'numeric' }) });
+      ticks.push({
+        x: pct(d),
+        label: new Date(d).toLocaleDateString(localeTag(), { month: 'short', day: 'numeric' }),
+      });
     }
   } else {
     const c = new Date(minMs);
@@ -84,7 +87,10 @@ function buildTicks(minMs: number, maxMs: number): Tick[] {
     c.setHours(0, 0, 0, 0);
     if (c.getTime() < minMs) c.setMonth(c.getMonth() + 1);
     while (c.getTime() <= maxMs) {
-      ticks.push({ x: pct(c.getTime()), label: c.toLocaleDateString(localeTag(), { month: 'short' }) });
+      ticks.push({
+        x: pct(c.getTime()),
+        label: c.toLocaleDateString(localeTag(), { month: 'short' }),
+      });
       c.setMonth(c.getMonth() + 1);
     }
   }
@@ -115,8 +121,13 @@ export interface GanttMarker {
 export interface GanttRow {
   id: string;
   label: string;
-  /** Secondary line under the label (e.g. "60% · 3 tasks"). */
-  sublabel?: string;
+  /**
+   * Secondary line under the label (e.g. "60% · 3 tasks"). A node rather than a
+   * string so a row can lead with a chip — the all-roadmaps timeline names the
+   * roadmap an item came from here. Keep whatever you pass **inline**: the line
+   * is a `truncate` span, and a flex/block child would lose the ellipsis.
+   */
+  sublabel?: ReactNode;
   /** 0 = top-level, 1 = an indented child (e.g. a task under a roadmap item). */
   depth?: number;
   /**
@@ -298,11 +309,21 @@ export function GanttChart({ rows, labelHeader, legend, isLoading, empty }: Gant
 
           {/* Body: gridlines + today line sit behind the rows. */}
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-0" style={{ left: railW }}>
+            <div
+              className="pointer-events-none absolute inset-y-0 right-0 z-0"
+              style={{ left: railW }}
+            >
               {ticks.map((tk, i) => (
-                <div key={i} className="absolute inset-y-0 w-px bg-border/70" style={{ left: `${tk.x}%` }} />
+                <div
+                  key={i}
+                  className="absolute inset-y-0 w-px bg-border/70"
+                  style={{ left: `${tk.x}%` }}
+                />
               ))}
-              <div className="absolute inset-y-0 w-px bg-foreground/30" style={{ left: `${todayX}%` }} />
+              <div
+                className="absolute inset-y-0 w-px bg-foreground/30"
+                style={{ left: `${todayX}%` }}
+              />
             </div>
 
             <div className="relative z-10">
@@ -386,7 +407,9 @@ function GanttRowView({
         {dot}
         {title}
       </div>
-      {row.sublabel && <span className="truncate text-[11px] text-muted-foreground">{row.sublabel}</span>}
+      {row.sublabel && (
+        <span className="truncate text-[11px] text-muted-foreground">{row.sublabel}</span>
+      )}
     </>
   );
 

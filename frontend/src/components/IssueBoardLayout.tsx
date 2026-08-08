@@ -56,7 +56,14 @@ interface IssueBoardLayoutProps {
  *  (ClickUp-style): a full-width hairline with an underlined, icon-led tab per
  *  view. Every board renders through this shell, so they all get the identical
  *  sub-header — the toolbar below stays for narrowing the list, not for choosing
- *  how to look at it. */
+ *  how to look at it.
+ *
+ *  **One strip per page.** Stacked underlined rows read as tabs of tabs, with no
+ *  shape to say which outranks which. A page that already spends its sub-header
+ *  on something else doesn't get a second one underneath: either fold the view
+ *  into the strip it has (`PlanningPage` did — its timeline is a peer tab beside
+ *  Roadmaps and OKRs, not a sub-view of Roadmaps), or put the switch in that
+ *  page's `PageHeader` actions as a `SegmentedControl`. */
 export function ViewTabs({ view }: { view: NonNullable<IssueBoardLayoutProps['view']> }) {
   return (
     <div className={cn('flex shrink-0 items-center gap-1 border-b', BOARD_GUTTER)}>

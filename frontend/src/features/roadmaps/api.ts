@@ -71,12 +71,28 @@ export function useReplaceRoadmapItems() {
   });
 }
 
+/**
+ * Replace the roadmap's columns. Optimistic: dragging a column on the board
+ * writes through here, and the board renders `['roadmap', id]` — so without it
+ * the column would sit back down where it came from until the server answered.
+ * The Manage-columns dialog is unaffected (it edits its own draft).
+ */
 export function useReplaceRoadmapColumns() {
+  const qc = useQueryClient();
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: ({ id, columns }: { id: string; columns: RoadmapColumn[] }) =>
       apiPut<RoadmapDto>(`/roadmaps/${id}/columns`, { columns }),
-    onSuccess: invalidate,
+    onMutate: async ({ id, columns }) => {
+      await qc.cancelQueries({ queryKey: ['roadmap', id] });
+      const previous = qc.getQueryData<RoadmapDto>(['roadmap', id]);
+      qc.setQueryData<RoadmapDto>(['roadmap', id], (old) => (old ? { ...old, columns } : old));
+      return { previous };
+    },
+    onError: (_e, { id }, ctx) => {
+      if (ctx?.previous) qc.setQueryData(['roadmap', id], ctx.previous);
+    },
+    onSettled: invalidate,
   });
 }
 

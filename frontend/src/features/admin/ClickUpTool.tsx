@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { AlertTriangle, Check, Copy, Plug, Unplug } from 'lucide-react';
 import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui';
 import { RowsSkeleton } from '@/components/Skeletons';
 import { ClickUpIcon } from '@/components/ClickUpIcon';
+import { ClickUpPeopleSection } from './ClickUpPeopleSection';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { timeAgo } from '@/lib/format';
@@ -28,7 +30,7 @@ import {
 } from '@/features/settings/api';
 
 /**
- * Settings → ClickUp.
+ * ClickUp, as one tool inside Settings → External tools.
  *
  * The opposite shape to Integrations next door: that one is inbound-only and the
  * screen is two strings you copy *out*. This one needs a credential, so the
@@ -38,19 +40,38 @@ import {
  * The sync it sets up is deliberately narrow, and the screen says so in as many
  * words: ClickUp tells us a task changed, we mirror it beside the linked record,
  * and nothing is ever written back or allowed to move a status here.
+ *
+ * It renders under `ExternalToolsSection`'s heading, so it opens at `h3` and
+ * carries a state badge rather than a page title — one tool among several, not a
+ * screen of its own.
  */
-export function ClickUpSection() {
+export function ClickUpTool() {
   const { data, isLoading } = useClickUpSettings();
   const disconnect = useDisconnectClickUp();
   const setEnabled = useSetClickUpEnabled();
 
   if (isLoading) return <RowsSkeleton />;
 
+  // Three states, one badge: never connected, connected, connected-but-paused.
+  const state = !data?.connected
+    ? { variant: 'muted' as const, label: t('settings.toolNotConnected') }
+    : data.enabled
+      ? { variant: 'success' as const, label: t('settings.toolConnected') }
+      : { variant: 'warning' as const, label: t('settings.toolPaused') };
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold">{t('settings.clickup')}</h2>
-        <p className="text-sm text-muted-foreground">{t('settings.clickupHint')}</p>
+    <section className="space-y-5">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-muted text-foreground">
+          <ClickUpIcon className="size-5" />
+        </span>
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold">{t('settings.clickup')}</h3>
+            <Badge variant={state.variant}>{state.label}</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">{t('settings.clickupHint')}</p>
+        </div>
       </div>
 
       <div className="space-y-2 rounded-xl border border-dashed p-4">
@@ -63,19 +84,17 @@ export function ClickUpSection() {
       {data?.connected ? (
         <Card className={cn('overflow-hidden', !data.enabled && 'opacity-70')}>
           <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg bg-muted text-foreground">
-                <ClickUpIcon className="size-5" />
-              </span>
-              <div className="min-w-0 space-y-1">
-                <CardTitle className="truncate text-base">
-                  {data.workspaceName || t('settings.clickup')}
-                </CardTitle>
-                <CardDescription>
-                  {t('settings.clickupToken')} {data.tokenPreview}
-                  {!data.enabled && ` · ${t('settings.clickupPaused')}`}
-                </CardDescription>
-              </div>
+            {/* No ClickUp mark here — the tool header above already carries it,
+                and two logos a hundred pixels apart read as a mistake. This card
+                is the connected *workspace*, so the workspace is what it names. */}
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="truncate text-base">
+                {data.workspaceName || t('settings.clickup')}
+              </CardTitle>
+              <CardDescription>
+                {t('settings.clickupToken')} {data.tokenPreview}
+                {!data.enabled && ` · ${t('settings.clickupPaused')}`}
+              </CardDescription>
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <Switch
@@ -140,7 +159,13 @@ export function ClickUpSection() {
       ) : (
         <ConnectForm />
       )}
-    </div>
+
+      {/* Below the connection, not inside it: the map is about who syncs, which
+          only means anything once a workspace is connected, and it outlives any
+          one board binding. Hidden while paused would be wrong — an admin fixing
+          a mapping is often exactly why it's paused. */}
+      {data?.connected && <ClickUpPeopleSection />}
+    </section>
   );
 }
 
