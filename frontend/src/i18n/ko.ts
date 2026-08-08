@@ -760,6 +760,7 @@ export const ko: Record<I18nKey, string> = {
   'issues.cappedHint': '표시됨 — 검색이나 필터로 범위를 좁히세요.',
   'issues.kindTasks': '태스크',
   'issues.kindBugs': '버그',
+  'issues.groupByItem': '백로그 항목별 그룹',
   'issues.copyUrl': '이슈 URL 복사',
   'issues.copyId': '이슈 ID 복사',
   'issues.copyBranch': 'Git 브랜치 이름 복사',

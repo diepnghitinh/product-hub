@@ -29,6 +29,20 @@ import { useCycles, useFocusedCycle, useResolvedCycleId } from '@/features/cycle
 import { CycleInsightsButton } from '@/features/cycles/CycleInsights';
 import { useIssueSelection, type IssueSelection } from '@/features/issues/useIssueSelection';
 import { BulkActionBar, buildCycleOptions } from '@/features/issues/BulkActionBar';
+import {
+  GroupByItemButton,
+  IssueGroupHeading,
+  IssueStatusChip,
+  UNLINKED,
+  backlogItemRefs,
+  backlogKeyOf,
+  backlogLanes,
+  groupByBacklogItem,
+  groupByStatus,
+  useGroupByItem,
+  useRelinkBacklogItem,
+  type IssueGroup,
+} from '@/features/issues/backlogGroups';
 import { TaskStatus, TeamIssueType, type TaskLabelConfig, type TeamStatusConfig } from '@/types/enums';
 import type { TaskDto, TeamDto } from '@/types/dto';
 import { useDeleteTask, useSetTaskStatus, useTasks } from './api';
@@ -58,14 +72,16 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
   const labelsFor = useTeamLabelsLookup();
 
   // Creating opens the full New task page — carrying the board's team, the
-  // column when added from one, and the board's cycle scope, so the draft opens
-  // pre-set exactly there (a cycle-filtered board creates INTO that cycle —
-  // otherwise the new card instantly vanishes from the filtered view).
-  const newTaskHref = (status?: string) => {
+  // column when added from one, the backlog item when added from inside its band,
+  // and the board's cycle scope, so the draft opens pre-set exactly there (a
+  // cycle-filtered board creates INTO that cycle — otherwise the new card
+  // instantly vanishes from the filtered view).
+  const newTaskHref = (status?: string, itemId?: string) => {
     const params = new URLSearchParams();
     if (status) params.set('status', status);
     if (teamId) params.set('teamId', teamId);
     if (resolvedCycleId) params.set('cycleId', resolvedCycleId);
+    if (itemId) params.set('itemId', itemId);
     const qs = params.toString();
     return `/tasks/new${qs ? `?${qs}` : ''}`;
   };
@@ -94,6 +110,11 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
     else next.set('subtasks', 'hide');
     setSearchParams(next, { replace: true });
   };
+
+  // The second axis this board can be read on: not "what state is it in" but
+  // "which bet is it paying for". On the board it becomes swimlanes — one band
+  // per backlog item, cutting across the status columns; in the list, sections.
+  const [groupByItem, setGroupByItem] = useGroupByItem();
 
   // Cycle scope rides in ?cycle= (an id or current/upcoming/none — the API
   // resolves the sentinels against this team, so the sidebar's saved links stay
@@ -141,10 +162,27 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
   const setStatus = useSetTaskStatus();
   const remove = useDeleteTask();
 
+  const relink = useRelinkBacklogItem();
+
   // Only needed to label the filter options.
   const { data: usersData } = useUsers({ limit: 100 }, canManageDelivery);
   const { data: projectsData } = useProjects({ limit: 100 });
   const { data: roadmaps } = useRoadmaps();
+
+  // Every backlog item in the workspace, flattened in roadmap order. Read twice:
+  // as the Backlog-item filter's options, and as the order the bands appear in —
+  // so a grouped board reads in the sequence its roadmap does, not in whatever
+  // order the API happened to return issues.
+  const backlogItems = backlogItemRefs(roadmaps);
+  // Only offer grouping once something on the board is actually linked to an
+  // item, and only honour it while that's still true — filtering down to unlinked
+  // work can't strand the board in a one-band "grouped" state that looks broken.
+  // Same guard the roadmap board puts on its epic grouping.
+  const canGroupByItem = visibleTasks.some((tk) => tk.roadmapItemId);
+  const groupedByItem = groupByItem && canGroupByItem;
+  // Built once and read by both views, so the board's bands and the list's
+  // sections are the same reading drawn twice.
+  const itemGroups = groupedByItem ? groupByBacklogItem(visibleTasks, backlogItems) : undefined;
 
   // Bulk multi-select lives in the List view and only on a team board — a personal
   // queue has no shared columns/cycle to move issues between. The selection stays
@@ -185,9 +223,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
       label: t('filters.backlogItem'),
       searchable: true,
       // Flattened across roadmaps and prefixed, so same-named items stay distinct.
-      options: (roadmaps ?? []).flatMap((r) =>
-        (r.items ?? []).map((i) => ({ id: i.id, label: `${r.title} · ${i.title}` })),
-      ),
+      options: backlogItems.map((i) => ({ id: i.id, label: `${i.roadmap} · ${i.title}` })),
     },
     {
       id: 'projectId',
@@ -197,14 +233,27 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
     },
   ];
 
-  /** Tasks don't persist ordering, so the drop slot is ignored — only the
-   * destination column matters. */
   // `overId` is the card it was dropped onto — passed straight through so the
   // card keeps the slot it was dropped in, not just the column. A drop in the
   // same column is a real move now (it reorders), so there's no status guard.
-  function onMove(id: string, toStatus: string, overId: string | null) {
+  //
+  // `toItem` only arrives while the board is grouped, so one drag writes both
+  // coordinates: dragging a card into another band *is* how you move it onto
+  // another bet (the rule the roadmap board already uses for epics). It's
+  // `undefined` on the plain board, which leaves the link alone.
+  function onMove(id: string, toStatus: string, overId: string | null, toItem?: string) {
     const task = visibleTasks.find((tk) => tk.id === id);
-    if (task) setStatus.mutate({ id, status: toStatus as TaskStatus, beforeId: overId });
+    if (!task) return;
+    const move = { id, status: toStatus as TaskStatus, beforeId: overId };
+    const ref = toItem ? backlogItems.find((i) => i.id === toItem) : undefined;
+    // Unlinking (the "No backlog item" band) is a real move; landing in a band
+    // named by an item we can't resolve any more is not — leave that link be
+    // rather than clearing it on the way past.
+    const relinks =
+      toItem !== undefined && backlogKeyOf(task) !== toItem && (toItem === UNLINKED || !!ref);
+    // Chained, not fired together — see `useRelinkBacklogItem`.
+    if (relinks) relink.mutate({ id, ref, after: setStatus.mutateAsync(move) });
+    else setStatus.mutate(move);
   }
 
   return (
@@ -263,14 +312,18 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
         ],
       }}
       actions={
-        (canWrite && !teamId) || (shareTeam && canManageDelivery) ? (
-          <div className="flex items-center gap-2">
-            {canWrite && !teamId && (
-              <Button onClick={() => navigate(newTaskHref())}>+ {t('tasks.new')}</Button>
-            )}
-            {shareTeam && canManageDelivery && <TeamShareMenu team={shareTeam} />}
-          </div>
-        ) : undefined
+        <>
+          {/* Board and list read the same grouping, so switching view keeps it.
+              The timeline is already cut by date and has no second axis to give,
+              so it doesn't offer the toggle. */}
+          {canGroupByItem && view !== 'timeline' && (
+            <GroupByItemButton on={groupedByItem} onChange={setGroupByItem} />
+          )}
+          {canWrite && !teamId && (
+            <Button onClick={() => navigate(newTaskHref())}>+ {t('tasks.new')}</Button>
+          )}
+          {shareTeam && canManageDelivery && <TeamShareMenu team={shareTeam} />}
+        </>
       }
     >
       {isLoading ? (
@@ -299,6 +352,10 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
           renderCard={(task, overlay) => (
             <TaskCard task={task} labels={labelsFor(task.teamId)} overlay={overlay} />
           )}
+          // Grouped, the columns repeat inside one band per backlog item, so the
+          // lane header cuts horizontally across the board.
+          swimlanes={itemGroups && backlogLanes(itemGroups)}
+          getSwimlaneKey={backlogKeyOf}
           onMove={onMove}
           disabled={!canWrite}
           onCardClick={(task) => navigate(`/issues/${task.shortId || task.id}`)}
@@ -317,7 +374,9 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
                 )
               : undefined
           }
-          onColumnAdd={canWrite ? (col) => navigate(newTaskHref(col.key)) : undefined}
+          // Started from inside a band, the draft arrives already on that bet —
+          // except the "No backlog item" band, which is where a draft starts anyway.
+          onColumnAdd={canWrite ? (col, lane) => navigate(newTaskHref(col.key, lane?.key)) : undefined}
           addLabel={teamId ? t('issues.add') : t('tasks.addToColumn')}
         />
       ) : view === 'list' ? (
@@ -333,6 +392,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
             tasks={visibleTasks}
             columns={columns}
             labelsFor={labelsFor}
+            groups={itemGroups}
             selection={bulkEnabled ? selection : undefined}
           />
         </div>
@@ -389,8 +449,9 @@ export function TaskCard({
   );
 }
 
-/** The original queue view: grouped by status column, each row linking to its
- * backlog item's roadmap. `onOpen` overrides the row's default `<Link>` with a
+/** The original queue view: sections of rows, each linking to its backlog item's
+ * roadmap. Cut by status column by default, or by backlog item when the page
+ * hands down `groups`. `onOpen` overrides the row's default `<Link>` with a
  * callback (e.g. a public board opening a dialog instead of navigating to the
  * protected `/issues/:ref` route). */
 export function TaskList({
@@ -398,47 +459,52 @@ export function TaskList({
   columns,
   labelsFor,
   onOpen,
+  groups,
   selection,
 }: {
   tasks: TaskDto[];
   columns: TeamStatusConfig[];
   labelsFor: (teamId: string | undefined) => TaskLabelConfig[];
   onOpen?: (task: TaskDto) => void;
-  /** When present, each row gets a checkbox and each column a select-all. */
+  /** Sections cut by backlog item, built by the page so the board's bands and
+   *  these headings are the same reading. Omit for the status cut. */
+  groups?: IssueGroup<TaskDto>[];
+  /** When present, each row gets a checkbox and each section a select-all. */
   selection?: IssueSelection;
 }) {
+  const sections = groups ?? groupByStatus(tasks, columns);
+  // Cut by item, no heading carries the status any more — so each row shows its
+  // own. Off the status axis the list would otherwise say less than it did.
+  const statusOf = (key: string) => (groups ? columns.find((c) => c.key === key) : undefined);
+
   return (
     <div className="flex flex-col gap-6">
-      {columns.map((col) => {
-        const list = tasks.filter((tk) => tk.status === col.key);
-        if (list.length === 0) return null;
-        const ids = list.map((tk) => tk.id);
+      {sections.map((group) => {
+        const ids = group.list.map((tk) => tk.id);
         const selected = selection ? ids.filter((id) => selection.isSelected(id)).length : 0;
-        const headState = selected === 0 ? false : selected === list.length ? true : 'indeterminate';
+        const headState =
+          selected === 0 ? false : selected === ids.length ? true : 'indeterminate';
         return (
-          <section key={col.key}>
-            <div className="mb-2 flex items-center gap-2">
-              {selection && (
-                <Checkbox
-                  checked={headState}
-                  onCheckedChange={(v) => selection.setMany(ids, v === true)}
-                  aria-label={t('bulk.selectColumn')}
-                />
-              )}
-              <span
-                className="size-2 rounded-full"
-                style={{ backgroundColor: col.color }}
-                aria-hidden
-              />
-              <h2 className="text-sm font-medium text-foreground">{col.label}</h2>
-              <span className="text-xs tabular-nums text-muted-foreground">{list.length}</span>
-            </div>
+          <section key={group.key}>
+            <IssueGroupHeading
+              group={group}
+              leading={
+                selection && (
+                  <Checkbox
+                    checked={headState}
+                    onCheckedChange={(v) => selection.setMany(ids, v === true)}
+                    aria-label={t('bulk.selectColumn')}
+                  />
+                )
+              }
+            />
             <div className="rounded-xl border bg-card p-2 text-card-foreground shadow-sm">
-              {list.map((task) => (
+              {group.list.map((task) => (
                 <TaskRow
                   key={task.id}
                   task={task}
                   labels={labelsFor(task.teamId)}
+                  status={statusOf(task.status)}
                   onOpen={onOpen}
                   selection={selection}
                 />
@@ -456,11 +522,15 @@ export function TaskList({
 function TaskRow({
   task,
   labels,
+  status,
   onOpen,
   selection,
 }: {
   task: TaskDto;
   labels: TaskLabelConfig[];
+  /** The row's own status column — passed only when the list is cut by backlog
+   *  item, where no heading carries the status any more. */
+  status?: TeamStatusConfig;
   onOpen?: (task: TaskDto) => void;
   selection?: IssueSelection;
 }) {
@@ -475,13 +545,25 @@ function TaskRow({
         {task.title}
       </span>
       <LabelChips keys={task.labelKeys} labels={labels} max={3} className="hidden shrink-0 sm:flex" />
-      {task.roadmapItemLabel && (
+      {/* Under an item's heading the badge would just repeat it. */}
+      {!status && task.roadmapItemLabel && (
         <Badge variant="muted" className="max-w-[30%] shrink-0 truncate" title={task.roadmapItemLabel}>
           {task.roadmapItemLabel}
         </Badge>
       )}
+      <IssueStatusChip status={status} />
       {task.shortId && (
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{task.shortId}</span>
+        // A phone fits the ref or the status dot, not both without the title
+        // paying for it — and grouped by item that dot is the only place the
+        // status appears, while the ref is one tap away on the issue.
+        <span
+          className={cn(
+            'shrink-0 font-mono text-[11px] text-muted-foreground',
+            status && 'max-sm:hidden',
+          )}
+        >
+          {task.shortId}
+        </span>
       )}
       <AssigneeBadge
         assignees={task.assignees}

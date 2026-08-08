@@ -54,6 +54,9 @@ export function NewTaskPage() {
   // The day a calendar quick-add was opened on, so "More options" keeps it.
   const presetStart = searchParams.get('startDate') || '';
   const presetEnd = searchParams.get('endDate') || '';
+  // The backlog item a "+ Add" inside a grouped board's band came from — the band
+  // *is* the bet, so a task added there arrives already linked to it.
+  const presetItemId = searchParams.get('itemId') || '';
 
   const create = useCreateTask();
   const { data: roadmaps } = useRoadmaps();
@@ -69,7 +72,7 @@ export function NewTaskPage() {
   const [startDate, setStartDate] = useState(presetStart);
   const [endDate, setEndDate] = useState(presetEnd);
   const [estimate, setEstimate] = useState(0);
-  const [itemId, setItemId] = useState('');
+  const [itemId, setItemId] = useState(presetItemId);
   // Seeded from the board that opened this (a cycle-filtered board), and editable
   // here via the same Cycle picker the detail sidebar shows.
   const [cycleId, setCycleId] = useState(presetCycleId ?? '');

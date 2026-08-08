@@ -30,6 +30,20 @@ import {
 import type { BugDto, IssueDto, TaskDto } from '@/types/dto';
 import { TaskCard } from '@/features/tasks/MyTasksPage';
 import { BugCard } from '@/features/bugs/BugsBoardPage';
+import {
+  GroupByItemButton,
+  IssueGroupHeading,
+  IssueStatusChip,
+  UNLINKED,
+  backlogItemRefs,
+  backlogKeyOf,
+  backlogLanes,
+  groupByBacklogItem,
+  groupByStatus,
+  useGroupByItem,
+  useRelinkBacklogItem,
+} from './backlogGroups';
+import type { IssueGroup } from './backlogGroups';
 import { useDeleteIssue, useIssues, useSetIssueStatus } from './api';
 
 /** The two kinds the board can show, in switch order. */
@@ -132,6 +146,11 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
     setParams(next, { replace: true });
   };
 
+  // How the board cuts itself. Status is the default; `?group=item` cuts by
+  // backlog item instead — "what's left on this bet" without opening the roadmap.
+  // On the board that's swimlanes, in the list it's sections.
+  const [groupByItem, setGroupByItem] = useGroupByItem();
+
   const issueType = isBug ? TeamIssueType.BUG : TeamIssueType.TASK;
   // Columns start as the *default* team's statuses for this kind — this board spans
   // teams (all of them, or my work everywhere), so it isn't scoped to one team's
@@ -170,19 +189,43 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
 
   const setStatus = useSetIssueStatus();
   const remove = useDeleteIssue();
+  const relink = useRelinkBacklogItem();
 
-  // Both kinds open their own full create page, carrying the column when added
-  // from one. Neither carries a team: this board spans teams, so a new issue
-  // lands in the workspace default — which is what it already did.
-  const openCreate = (status?: string) => {
+  // Both kinds open their own full create page, carrying the column — and, on a
+  // grouped board, the band — it was added from. Neither carries a team: this
+  // board spans teams, so a new issue lands in the workspace default — which is
+  // what it already did.
+  //
+  // `itemId` is only honoured by the New task page; the bug form has no backlog
+  // field, so adding inside a band there creates unlinked (see `onColumnAdd`).
+  const openCreate = (status?: string, itemId?: string) => {
     const base = isBug ? '/bugs/new' : '/tasks/new';
-    navigate(status ? `${base}?status=${encodeURIComponent(status)}` : base);
+    const p = new URLSearchParams();
+    if (status) p.set('status', status);
+    if (itemId) p.set('itemId', itemId);
+    const qs = p.toString();
+    navigate(qs ? `${base}?${qs}` : base);
   };
 
   // Only needed to label the filter options — people only on the all-issues board.
   const { data: usersData } = useUsers({ limit: 100 }, isAll && canManageDelivery);
   const { data: projectsData } = useProjects({ limit: 100 });
   const { data: roadmaps } = useRoadmaps();
+
+  // Every backlog item in the workspace, flattened in roadmap order. Read twice:
+  // as the Backlog-item filter's options, and as the order the groups appear in —
+  // so a grouped board reads in the sequence its roadmap does, not in whatever
+  // order the API happened to return issues.
+  const backlogItems = backlogItemRefs(roadmaps);
+  // Only offer grouping once something in the list is actually linked to an item,
+  // and only honour it while that's still true — narrowing the filters down to
+  // unlinked issues can't strand the board in a one-band "grouped" state that
+  // looks broken. Same guard the roadmap board puts on its epic grouping.
+  const canGroupByItem = items.some((it) => it.roadmapItemId);
+  const groupedByItem = groupByItem && canGroupByItem;
+  // Built once and read by both views, so the board's bands and the list's
+  // sections are the same reading drawn twice.
+  const itemGroups = groupedByItem ? groupByBacklogItem(items, backlogItems) : undefined;
 
   const filterCategories: FilterCategory[] = [
     {
@@ -221,9 +264,7 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
             label: t('filters.backlogItem'),
             searchable: true,
             // Flattened across roadmaps and prefixed, so same-named items stay distinct.
-            options: (roadmaps ?? []).flatMap((r) =>
-              (r.items ?? []).map((i) => ({ id: i.id, label: `${r.title} · ${i.title}` })),
-            ),
+            options: backlogItems.map((i) => ({ id: i.id, label: `${i.roadmap} · ${i.title}` })),
           },
         ]),
     {
@@ -234,19 +275,29 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
     },
   ];
 
-  /** Issues don't persist ordering, so the drop slot is ignored — only the
-   * destination column matters. */
   // `overId` is the card it was dropped onto — passed straight through so the
   // card keeps the slot it was dropped in, not just the column. A drop in the
   // same column is a real move now (it reorders), so there's no status guard.
   //
-  // There's deliberately no `onColumnsReorder` on this board: it spans teams, so
-  // its columns are the default team's plus whatever the other teams' items drag
-  // in (see `extendColumns`). There is no single config an order could be saved
-  // to. Column order is set on a team's own board, or in Settings → Teams.
-  function onMove(id: string, toStatus: string, overId: string | null) {
+  // Cards move here; columns don't. This board spans teams — its columns are the
+  // default team's plus whatever the other teams' items drag in (see
+  // `extendColumns`) — so there's no single config an order could belong to.
+  // Column order lives in Settings → Teams, like every other board's.
+  //
+  // `toItem` only arrives while the board is grouped, so one drag writes both
+  // coordinates: dragging a card into another band moves it onto another bet.
+  function onMove(id: string, toStatus: string, overId: string | null, toItem?: string) {
     const it = items.find((x) => x.id === id);
-    if (it) setStatus.mutate({ id, status: toStatus, beforeId: overId });
+    if (!it) return;
+    const move = { id, status: toStatus, beforeId: overId };
+    const ref = toItem ? backlogItems.find((i) => i.id === toItem) : undefined;
+    // Unlinking is a real move; landing in a band named by an item we can't
+    // resolve any more is not — leave that link be rather than clearing it.
+    const relinks =
+      toItem !== undefined && backlogKeyOf(it) !== toItem && (toItem === UNLINKED || !!ref);
+    // Chained, not fired together — see `useRelinkBacklogItem`.
+    if (relinks) relink.mutate({ id, ref, after: setStatus.mutateAsync(move) });
+    else setStatus.mutate(move);
   }
 
   // One detail URL for both kinds — `/issues/<ref>` works out the kind itself.
@@ -293,9 +344,18 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
         ],
       }}
       actions={
-        canWrite ? (
-          <Button onClick={() => openCreate()}>+ {isBug ? t('bugs.new') : t('tasks.new')}</Button>
-        ) : undefined
+        <>
+          {/* Board and list both cut by item — bands and sections; the timeline
+              has its own axis (time) and can't, so the toggle steps aside there.
+              The choice stays in the URL either way, so switching view lands on
+              the grouping you left. */}
+          {canGroupByItem && view !== 'timeline' && (
+            <GroupByItemButton on={groupedByItem} onChange={setGroupByItem} />
+          )}
+          {canWrite && (
+            <Button onClick={() => openCreate()}>+ {isBug ? t('bugs.new') : t('tasks.new')}</Button>
+          )}
+        </>
       }
     >
       {isLoading ? (
@@ -359,8 +419,15 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
                 )
               : undefined
           }
-          onColumnAdd={canWrite ? (col) => openCreate(col.key) : undefined}
+          // Grouped, `+ Add` sits inside a band, so the create it opens is
+          // pre-set to both coordinates — that column, on that bet.
+          onColumnAdd={canWrite ? (col, lane) => openCreate(col.key, lane?.key) : undefined}
           addLabel={isBug ? t('bugs.addToColumn') : t('tasks.addToColumn')}
+          // One band per backlog item, each holding the full set of status
+          // columns — the header cuts horizontally across the kanban. Built from
+          // the same groups the list uses, so the two views agree.
+          swimlanes={itemGroups && backlogLanes(itemGroups)}
+          getSwimlaneKey={backlogKeyOf}
         />
       ) : view === 'list' ? (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6', BOARD_GUTTER)}>
@@ -369,6 +436,7 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
             columns={columns}
             labelsFor={labelsFor}
             isBug={isBug}
+            groups={itemGroups}
             onOpen={openIssue}
           />
         </div>
@@ -381,39 +449,41 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
   );
 }
 
-/** List view — grouped by status column, mirroring the task/bug lists so all
- * three read as siblings. Leads with the bug's severity dot or a task glyph. */
+/** List view — sections plus rows, mirroring the task/bug lists so all three read
+ * as siblings. Leads with the bug's severity dot or a task glyph. Sections come
+ * from the page when it's grouped by backlog item; otherwise they're cut by status
+ * column, in the board's own column order. */
 function IssueList({
   items,
   columns,
   labelsFor,
   isBug,
+  groups,
   onOpen,
 }: {
   items: IssueDto[];
   columns: TeamStatusConfig[];
   labelsFor: (teamId: string | undefined) => TaskLabelConfig[];
   isBug: boolean;
+  /** Backlog-item sections, built once by the page and shared with the board.
+   *  Absent = the default cut, by status. */
+  groups?: IssueGroup<IssueDto>[];
   onOpen: (item: IssueDto) => void;
 }) {
+  const sections = groups ?? groupByStatus(items, columns);
+  // Grouped by item, no heading carries the status any more — so each row shows
+  // its own. Off the status axis the list would otherwise say less than it did.
+  const statusOf = (key: string) => (groups ? columns.find((c) => c.key === key) : undefined);
+
   return (
     <div className="flex flex-col gap-6">
-      {columns.map((col) => {
-        const list = items.filter((it) => it.status === col.key);
-        if (list.length === 0) return null;
-        return (
-          <section key={col.key}>
-            <div className="mb-2 flex items-center gap-2">
-              <span
-                className="size-2 rounded-full"
-                style={{ backgroundColor: col.color }}
-                aria-hidden
-              />
-              <h2 className="text-sm font-medium text-foreground">{col.label}</h2>
-              <span className="text-xs tabular-nums text-muted-foreground">{list.length}</span>
-            </div>
-            <div className="rounded-xl border bg-card p-2 text-card-foreground shadow-sm">
-              {list.map((it) => (
+      {sections.map((group) => (
+        <section key={group.key}>
+          <IssueGroupHeading group={group} />
+          <div className="rounded-xl border bg-card p-2 text-card-foreground shadow-sm">
+            {group.list.map((it) => {
+              const status = statusOf(it.status);
+              return (
                 <button
                   key={it.id}
                   type="button"
@@ -436,8 +506,20 @@ function IssueList({
                     max={3}
                     className="hidden shrink-0 sm:flex"
                   />
+                  <IssueStatusChip status={status} />
                   {it.shortId && (
-                    <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                    // A phone fits the ref or the status dot, not both without the
+                    // title paying for it. Grouped by item that dot is the only
+                    // place the status appears at all, while the ref is one tap
+                    // away on the issue — so below `sm` the ref is what gives way,
+                    // and only there. Grouped by status there's no dot and nothing
+                    // changes.
+                    <span
+                      className={cn(
+                        'shrink-0 font-mono text-[11px] text-muted-foreground',
+                        status && 'max-sm:hidden',
+                      )}
+                    >
                       {it.shortId}
                     </span>
                   )}
@@ -447,11 +529,11 @@ function IssueList({
                     className="max-w-[35%] shrink-0"
                   />
                 </button>
-              ))}
-            </div>
-          </section>
-        );
-      })}
+              );
+            })}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
