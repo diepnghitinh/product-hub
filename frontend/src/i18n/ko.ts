@@ -1435,6 +1435,8 @@ export const ko: Record<I18nKey, string> = {
   'common.more': '더 보기',
   'common.expand': '펼치기',
   'common.collapse': '접기',
+  'common.showMore': '더 보기',
+  'common.showLess': '간략히 보기',
   'common.delete': '삭제',
   'common.openFull': '전체 페이지로 열기',
   'common.details': '상세',

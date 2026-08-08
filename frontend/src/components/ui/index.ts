@@ -18,6 +18,7 @@ export {
 } from './DateRangePicker';
 export { RichTextEditor, type RichTextEditorProps } from './RichTextEditor';
 export { RichText, type RichTextProps } from './RichText';
+export { ShowMore, type ShowMoreProps } from './ShowMore';
 export { useLightbox, collectImages, collectDiagram, type LightboxItem } from './Lightbox';
 export { useFigureZoom } from './FigureZoom';
 export { useExternalLink, type ExternalLinkGuard } from './ExternalLink';

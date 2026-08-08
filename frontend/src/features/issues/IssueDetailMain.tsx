@@ -1,7 +1,14 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
-import { Menu, RichText, RichTextEditor, TITLE_FIELD, type MenuItem } from '@/components/ui';
+import {
+  Menu,
+  RichText,
+  RichTextEditor,
+  ShowMore,
+  TITLE_FIELD,
+  type MenuItem,
+} from '@/components/ui';
 import {
   DescriptionTemplates,
   useTemplateSeed,
@@ -252,13 +259,20 @@ export function IssueDetailMain({
       )}
 
       <div className="mt-4">
-        {canWrite ? (
-          <>
-            <DescriptionTemplates
-              templates={templates}
-              hasContent={seed.hasContent}
-              onApply={seed.apply}
-            />
+        {canWrite && (
+          <DescriptionTemplates
+            templates={templates}
+            hasContent={seed.hasContent}
+            onApply={seed.apply}
+          />
+        )}
+        {/* A description can run to a full spec, and past a point it buries the
+            attachments, sub-tasks and comments under it. Capped either way it's
+            read — writers see the same cap, since the editor is always on for
+            them; clicking into it opens the box. Keyed by the issue so a new one
+            never inherits the last one's expansion. */}
+        <ShowMore key={issueId}>
+          {canWrite ? (
             <RichTextEditor
               key={`${issueId}:${seed.nonce}`}
               value={seed.value}
@@ -275,12 +289,12 @@ export function IssueDetailMain({
               mentions
               className="border-0"
             />
-          </>
-        ) : description ? (
-          <RichText className="text-sm text-muted-foreground" html={description} />
-        ) : (
-          <p className="text-sm text-muted-foreground">{descriptionPlaceholder}</p>
-        )}
+          ) : description ? (
+            <RichText className="text-sm text-muted-foreground" html={description} />
+          ) : (
+            <p className="text-sm text-muted-foreground">{descriptionPlaceholder}</p>
+          )}
+        </ShowMore>
       </div>
 
       {/* Reactions — social-style quick reactions, directly under the description. */}

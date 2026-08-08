@@ -21,6 +21,7 @@ import {
   RichText,
   RichTextEditor,
   Select,
+  ShowMore,
   TITLE_FIELD,
   formatDateRange,
 } from '@/components/ui';
@@ -647,13 +648,18 @@ export function RoadmapItemDetail({
       {dense && <div className="mt-4 flex flex-col gap-5 border-y py-5">{properties}</div>}
 
       <div className="mt-4">
-        {canWrite ? (
-          <>
-            <DescriptionTemplates
-              templates={BACKLOG_TEMPLATES}
-              hasContent={seed.hasContent}
-              onApply={seed.apply}
-            />
+        {canWrite && (
+          <DescriptionTemplates
+            templates={BACKLOG_TEMPLATES}
+            hasContent={seed.hasContent}
+            onApply={seed.apply}
+          />
+        )}
+        {/* Same cap as a task or bug detail — a story written out in full stops
+            pushing the linked work and the discussion off the screen. See
+            IssueDetailMain. */}
+        <ShowMore key={item.id}>
+          {canWrite ? (
             <RichTextEditor
               key={`${item.id}:${seed.nonce}`}
               value={seed.value}
@@ -668,12 +674,12 @@ export function RoadmapItemDetail({
               mentions
               className="border-0"
             />
-          </>
-        ) : item.description ? (
-          <RichText className="text-sm text-muted-foreground" html={item.description} />
-        ) : (
-          <p className="text-sm text-muted-foreground">{t('roadmaps.description')}</p>
-        )}
+          ) : item.description ? (
+            <RichText className="text-sm text-muted-foreground" html={item.description} />
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('roadmaps.description')}</p>
+          )}
+        </ShowMore>
       </div>
 
       {user && (

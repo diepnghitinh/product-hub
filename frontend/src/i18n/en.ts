@@ -1464,6 +1464,8 @@ export const en = {
   'common.more': 'More',
   'common.expand': 'Expand',
   'common.collapse': 'Collapse',
+  'common.showMore': 'Show more',
+  'common.showLess': 'Show less',
   'common.delete': 'Delete',
   'common.openFull': 'Open full page',
   'common.details': 'Details',
