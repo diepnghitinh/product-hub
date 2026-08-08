@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
-import { t } from '@/i18n';
 import type { TeamDto } from '@/types/dto';
 import { defaultStatusesFor } from '@/types/enums';
 import type {
@@ -47,13 +45,13 @@ export function useUpdateTeam() {
 }
 
 /**
- * Replace a team's board columns (built-ins can be reordered, not removed).
+ * Replace a team's board columns (built-ins can be reordered, not removed) —
+ * written only by Settings → Teams, the one screen that owns them.
  *
- * Optimistic, because this is what a column drag on a board writes: the board
- * reads its columns straight from this cache, so without it the column springs
- * back to where it was for the length of the round trip. The Settings editor
- * saves the same way and simply doesn't notice — it's already showing its own
- * draft. On failure the snapshot goes back and the caller reports it.
+ * Optimistic so every board reading these columns from the cache updates the
+ * moment the editor saves, rather than after the round trip; on failure the
+ * snapshot goes back. The editor itself doesn't notice either way — it's already
+ * showing its own draft.
  */
 export function useUpdateTeamStatuses() {
   const qc = useQueryClient();
@@ -73,31 +71,6 @@ export function useUpdateTeamStatuses() {
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['teams'] }),
   });
-}
-
-/**
- * A team board's `onColumnsReorder` — dragging a column writes the team's
- * statuses, the same config Settings → Teams edits, so the board and that screen
- * can never disagree about the order.
- *
- * `undefined` when there's no single team behind the board (the standalone
- * `/tasks` and `/bugs` routes span teams and merely *borrow* the default team's
- * columns — there'd be no honest place to save an order). Callers add their own
- * permission gate; the endpoint behind this is `@Roles(ADMIN, PRODUCT)`.
- */
-export function useReorderTeamColumns(teamId: string | undefined) {
-  const save = useUpdateTeamStatuses();
-  if (!teamId) return undefined;
-  return (statuses: TeamStatusConfig[]) =>
-    save.mutate(
-      { id: teamId, statuses },
-      // The optimistic order is already on screen, so a silent failure would
-      // read as saved — right up until the next reload put it back.
-      {
-        onError: (e) =>
-          toast.error(t('board.reorderColumnFailed'), { description: (e as Error).message }),
-      },
-    );
 }
 
 /** Replace a team's item labels (shared by its tasks/bugs; an empty list clears them). */

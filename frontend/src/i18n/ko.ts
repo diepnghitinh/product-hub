@@ -1461,8 +1461,6 @@ export const ko: Record<I18nKey, string> = {
 
   'board.collapseColumn': '접기',
   'board.expandColumn': '펼치기',
-  'board.reorderColumn': '드래그하여 컬럼 순서 변경',
-  'board.reorderColumnFailed': '컬럼 순서를 저장하지 못했습니다',
   'board.ageToday': '오늘',
   /** Day count on a card / in a workflow stat — the unit trails the number in Korean. */
   'board.ageDays': '{n}일',

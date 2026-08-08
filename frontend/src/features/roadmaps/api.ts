@@ -72,10 +72,10 @@ export function useReplaceRoadmapItems() {
 }
 
 /**
- * Replace the roadmap's columns. Optimistic: dragging a column on the board
- * writes through here, and the board renders `['roadmap', id]` — so without it
- * the column would sit back down where it came from until the server answered.
- * The Manage-columns dialog is unaffected (it edits its own draft).
+ * Replace the roadmap's columns — the whole set, in order. `⋯ → Manage columns`
+ * is the only screen that calls it (the board itself never edits its columns).
+ * Optimistic anyway: the board behind the dialog renders `['roadmap', id]`, so
+ * this is what lets a save land there the moment it's made.
  */
 export function useReplaceRoadmapColumns() {
   const qc = useQueryClient();

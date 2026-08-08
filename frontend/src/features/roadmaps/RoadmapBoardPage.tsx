@@ -43,7 +43,6 @@ import { RoadmapRiceChart } from './components/RoadmapRiceChart';
 import { RoadmapRiceTable } from './components/RoadmapRiceTable';
 import {
   useDeleteRoadmap,
-  useReplaceRoadmapColumns,
   useReplaceRoadmapItems,
   useRoadmap,
   useSetRoadmapSharing,
@@ -177,9 +176,8 @@ export function RoadmapBoardPage() {
 
   const { data: roadmap, isLoading } = useRoadmap(roadmapId);
   const replaceItems = useReplaceRoadmapItems();
-  // Dragging a column writes the same `roadmap.columns` that ⋯ → Manage columns
-  // edits, behind the same `canManageDelivery` gate that offers that menu item.
-  const replaceColumns = useReplaceRoadmapColumns();
+  // Columns aren't edited here at all — ⋯ → Manage columns owns them (add,
+  // rename, recolour, reorder), so the board only ever reads `roadmap.columns`.
   const deleteRoadmap = useDeleteRoadmap();
   const update = useUpdateRoadmap();
   const setSharing = useSetRoadmapSharing();
@@ -456,11 +454,6 @@ export function RoadmapBoardPage() {
           )}
           onMove={onMove}
           disabled={!canWrite}
-          onColumnsReorder={
-            canManageDelivery
-              ? (cols) => replaceColumns.mutate({ id: roadmap.id, columns: cols })
-              : undefined
-          }
           onCardClick={(item) => openItem(item.id)}
           renderCardToolbar={
             canWrite

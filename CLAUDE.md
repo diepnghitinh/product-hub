@@ -112,29 +112,27 @@ fills both, or has a stated reason not to:
 |---|---|
 | `onColumnAdd` + `addLabel` | `+ Add` in each column — a button on header hover **and** one under the list → create pre-set to that column |
 | `renderCardToolbar` | hover open/delete on a card |
-| `onColumnsReorder` | a grip on column hover → drag columns left/right; called with the whole reordered array, which the page saves to that board's own config |
 
-**A board never adds a column, but it may reorder them.** Columns are a team's statuses and are
-owned by **Settings → sidebar → Teams → settings** (`AdminSettingsPage`, `useUpdateTeamStatuses`)
-— the one place the rest of the app reads them from. `KanbanBoard` deliberately has **no**
-`renderBoardEnd`/"+ Add column" slot, so this isn't a convention to remember: a board can't
-mint a status even if it tries. (A roadmap's columns aren't team statuses and have no Settings
-page; they stay editable via that board's `⋯ → Manage columns`.)
+**A board never edits its columns — not their set, not their order.** Cards move on a board;
+columns don't. Columns belong to a config screen, and that screen is the only way to add,
+rename, recolour or reorder one:
 
-Reordering is the exception because it changes no column's *identity* — same keys, same
-colours, new sequence — so it writes back through the owning config rather than around it
-(`useReorderTeamColumns` → `useUpdateTeamStatuses`; roadmap → `useReplaceRoadmapColumns`;
-personal → `useReplacePersonalStatuses`). Two rules follow:
-- **Gate it like the config screen does.** Pass `onColumnsReorder` only when
-  `canManageDelivery` (Admin + Product); omit it otherwise and the grip never renders. The
-  personal board is the exception — those columns are the user's own.
-- **Only a board with one owning config gets it.** The cross-team `/issues`, `/tasks`, `/bugs`
-  boards span teams, so their columns are the default team's plus extras — there's no single
-  config to save an order to, and they deliberately pass nothing.
+| board | who owns its columns |
+|---|---|
+| team Tasks / Bugs (`/teams/:id/…`) | **Settings → sidebar → Teams → settings** (`AdminSettingsPage`, `useUpdateTeamStatuses`) |
+| Roadmap | that board's **`⋯ → Manage columns`** (`RoadmapColumnsDialog`) |
+| Personal (`/tasks/personal`) | that board's **`⋯ → Manage columns`** (`PersonalColumnsDialog`) |
+| cross-team `/issues`, `/tasks`, `/bugs` | nobody — the default team's columns plus extras dragged in by other teams' items; there is no single config behind them |
 
-Dragging is pointer-only. The keyboard path to the same order is the ↑↓ arrows on the screen
-that owns the columns (Settings → Teams, `⋯ → Manage columns`) — so every reorderable board
-needs those arrows to exist there too.
+`KanbanBoard` therefore has **no** column-editing slot at all — no "+ Add column", and (since
+2026-08-08) no `onColumnsReorder` either. Board-side drag-to-reorder existed and was removed:
+it was a second, pointer-only, hover-discovered path onto a config the rest of the app reads
+from one place. This isn't a convention to remember — a board can't reshuffle a team's
+statuses even if it tries.
+
+Every one of those config screens reorders with **↑↓ arrows**, which is also the accessible
+path; if you add a new kind of board, its columns get a config screen with those arrows, not a
+grip on the board.
 
 **Card order within a column is persisted.** A drop sends `beforeId` (the card it landed above;
 omitted = end of column) to `PATCH /issues/:id/status`, and the server renumbers that column
