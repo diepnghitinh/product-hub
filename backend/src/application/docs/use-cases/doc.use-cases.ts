@@ -8,7 +8,8 @@ import { CreateDocDto, DuplicateDocDto, UpdateDocDto } from '../dtos/doc.dtos';
 import { DOC_REF_PREFIX } from '../domain/entities/doc.props';
 import { DocEntity } from '../domain/entities/doc.entity';
 import { DocPageEntity } from '../domain/entities/doc-page.entity';
-import { IDocRepository } from '../repositories/doc.repository';
+import { DocAccess } from '../services/doc-access';
+import { DocViewer, IDocRepository } from '../repositories/doc.repository';
 import { IDocPageRepository } from '../repositories/doc-page.repository';
 import { IDocPageVersionRepository } from '../repositories/doc-page-version.repository';
 
@@ -39,13 +40,10 @@ function copyTitle(title: string): string {
 }
 
 @Injectable()
-export class CreateDocUseCase
-  implements
-    IUsecaseExecute<
-      { tenantId: string; author: { userId: string; name: string }; dto: CreateDocDto },
-      Result<DocWithPages>
-    >
-{
+export class CreateDocUseCase implements IUsecaseExecute<
+  { tenantId: string; author: { userId: string; name: string }; dto: CreateDocDto },
+  Result<DocWithPages>
+> {
   constructor(
     @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
@@ -106,37 +104,39 @@ export class CreateDocUseCase
  * copy is not what "duplicate" asks for. See the notes at each one below.
  */
 @Injectable()
-export class DuplicateDocUseCase
-  implements
-    IUsecaseExecute<
-      {
-        id: string;
-        tenantId: string;
-        author: { userId: string; name: string };
-        dto: DuplicateDocDto;
-      },
-      Result<DocWithPages>
-    >
-{
+export class DuplicateDocUseCase implements IUsecaseExecute<
+  {
+    id: string;
+    tenantId: string;
+    author: { userId: string; name: string };
+    viewer: DocViewer;
+    dto: DuplicateDocDto;
+  },
+  Result<DocWithPages>
+> {
   constructor(
     @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
+    private readonly access: DocAccess,
   ) {}
 
   async execute({
     id,
     tenantId,
     author,
+    viewer,
     dto,
   }: {
     id: string;
     tenantId: string;
     author: { userId: string; name: string };
+    viewer: DocViewer;
     dto: DuplicateDocDto;
   }): Promise<Result<DocWithPages>> {
-    // `id` is whatever the URL carried — a `DOC-…` ref or the uuid.
-    const source = await this.docs.findByIdOrRef(tenantId, id);
-    if (!source || source.tenantId !== tenantId) return Result.fail('Doc not found');
+    // `id` is whatever the URL carried — a `DOC-…` ref or the uuid. Copying is a
+    // read of every word in the source, so it needs the same gate reading does.
+    const source = await this.access.read(tenantId, id, viewer);
+    if (!source) return Result.fail('Doc not found');
 
     const created = DocEntity.create({
       tenantId,
@@ -149,6 +149,11 @@ export class DuplicateDocUseCase
       // The copy belongs to whoever made it, not to whoever wrote the original.
       createdBy: author.userId,
       createdByName: author.name,
+      // Privacy *does* travel, unlike everything else in this list. The rest are
+      // statements about the original; this one is a statement about the words,
+      // and the words are what got copied — duplicating a private doc into a
+      // workspace-visible one would publish it from a menu item.
+      isPrivate: source.isPrivate,
       // Sharing stays off (the entity's default): a share token is an access
       // grant handed out for one doc, and minting a second public URL for the
       // same words — silently, from a menu item — is not something to infer.
@@ -217,16 +222,24 @@ export class DuplicateDocUseCase
 }
 
 @Injectable()
-export class GetDocsUseCase
-  implements IUsecaseExecute<{ tenantId: string }, Result<DocWithCount[]>>
-{
+export class GetDocsUseCase implements IUsecaseExecute<
+  { tenantId: string; viewer: DocViewer },
+  Result<DocWithCount[]>
+> {
   constructor(
     @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
   ) {}
 
-  async execute({ tenantId }: { tenantId: string }): Promise<Result<DocWithCount[]>> {
-    const docs = await this.docs.findByTenant(tenantId);
+  async execute({
+    tenantId,
+    viewer,
+  }: {
+    tenantId: string;
+    viewer: DocViewer;
+  }): Promise<Result<DocWithCount[]>> {
+    // Filtered in the query, not here — see the note on `findByTenant`.
+    const docs = await this.docs.findByTenant(tenantId, viewer);
     if (!docs.length) return Result.ok([]);
     const counts = await this.pages.countByDocIds(docs.map((d) => d.id.toString()));
     return Result.ok(docs.map((doc) => ({ doc, pageCount: counts[doc.id.toString()] ?? 0 })));
@@ -234,67 +247,126 @@ export class GetDocsUseCase
 }
 
 @Injectable()
-export class GetDocUseCase
-  implements IUsecaseExecute<{ id: string; tenantId: string }, Result<DocWithPages>>
-{
+export class GetDocUseCase implements IUsecaseExecute<
+  { id: string; tenantId: string; viewer: DocViewer },
+  Result<DocWithPages>
+> {
   constructor(
-    @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
+    private readonly access: DocAccess,
   ) {}
 
   async execute({
     id,
     tenantId,
+    viewer,
   }: {
     id: string;
     tenantId: string;
+    viewer: DocViewer;
   }): Promise<Result<DocWithPages>> {
     // `id` is whatever the URL carried — a `DOC-…` ref or the uuid. Pages are
     // always keyed by the uuid, so read it back off the resolved doc.
-    const doc = await this.docs.findByIdOrRef(tenantId, id);
-    if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
+    const doc = await this.access.read(tenantId, id, viewer);
+    if (!doc) return Result.fail('Doc not found');
     return Result.ok({ doc, pages: await this.pages.findByDoc(doc.id.toString()) });
   }
 }
 
 @Injectable()
-export class UpdateDocUseCase
-  implements
-    IUsecaseExecute<{ id: string; tenantId: string; dto: UpdateDocDto }, Result<DocEntity>>
-{
-  constructor(@Inject(IDocRepository) private readonly docs: IDocRepository) {}
+export class UpdateDocUseCase implements IUsecaseExecute<
+  { id: string; tenantId: string; viewer: DocViewer; dto: UpdateDocDto },
+  Result<DocEntity>
+> {
+  constructor(
+    @Inject(IDocRepository) private readonly docs: IDocRepository,
+    private readonly access: DocAccess,
+  ) {}
 
   async execute({
     id,
     tenantId,
+    viewer,
     dto,
   }: {
     id: string;
     tenantId: string;
+    viewer: DocViewer;
     dto: UpdateDocDto;
   }): Promise<Result<DocEntity>> {
-    const doc = await this.docs.findByIdOrRef(tenantId, id);
-    if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
+    const doc = await this.access.read(tenantId, id, viewer);
+    if (!doc) return Result.fail('Doc not found');
     doc.applyMeta(dto);
     await this.docs.update(doc);
     return Result.ok(doc);
   }
 }
 
+/**
+ * Take a doc out of the workspace pool, or put it back.
+ *
+ * Separate from `UpdateDocUseCase` because it answers to a different gate: the
+ * title and cover are editable by anyone who may write docs, but who can *read*
+ * this one is the author's call (or an admin's) — see `DocEntity.canSetPrivacy`.
+ * Folding it into the meta PATCH would have quietly handed it to every writer.
+ */
 @Injectable()
-export class DeleteDocUseCase
-  implements IUsecaseExecute<{ id: string; tenantId: string }, Result<void>>
-{
+export class SetDocPrivacyUseCase implements IUsecaseExecute<
+  { id: string; tenantId: string; viewer: DocViewer; isPrivate: boolean },
+  Result<DocEntity>
+> {
+  constructor(
+    @Inject(IDocRepository) private readonly docs: IDocRepository,
+    private readonly access: DocAccess,
+  ) {}
+
+  async execute({
+    id,
+    tenantId,
+    viewer,
+    isPrivate,
+  }: {
+    id: string;
+    tenantId: string;
+    viewer: DocViewer;
+    isPrivate: boolean;
+  }): Promise<Result<DocEntity>> {
+    const doc = await this.access.read(tenantId, id, viewer);
+    if (!doc) return Result.fail('Doc not found');
+    // Not the author and not an admin: same answer as a doc that isn't there.
+    // Anything else would confirm the doc exists to somebody who may not act on it.
+    if (!doc.canSetPrivacy(viewer.userId, viewer.isAdmin)) return Result.fail('Doc not found');
+    // Turning it on revokes the public link too — see `DocEntity.setPrivate`.
+    doc.setPrivate(isPrivate);
+    await this.docs.update(doc);
+    return Result.ok(doc);
+  }
+}
+
+@Injectable()
+export class DeleteDocUseCase implements IUsecaseExecute<
+  { id: string; tenantId: string; viewer: DocViewer },
+  Result<void>
+> {
   constructor(
     @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
     @Inject(IDocPageVersionRepository) private readonly versions: IDocPageVersionRepository,
     @Inject(ICommentRepository) private readonly comments: ICommentRepository,
+    private readonly access: DocAccess,
   ) {}
 
-  async execute({ id, tenantId }: { id: string; tenantId: string }): Promise<Result<void>> {
-    const doc = await this.docs.findByIdOrRef(tenantId, id);
-    if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
+  async execute({
+    id,
+    tenantId,
+    viewer,
+  }: {
+    id: string;
+    tenantId: string;
+    viewer: DocViewer;
+  }): Promise<Result<void>> {
+    const doc = await this.access.read(tenantId, id, viewer);
+    if (!doc) return Result.fail('Doc not found');
     // Everything below is keyed by the uuid, never the ref.
     const docId = doc.id.toString();
     // Pages first: a doc without pages is recoverable noise, orphan pages are not.
@@ -307,23 +379,33 @@ export class DeleteDocUseCase
 }
 
 @Injectable()
-export class SetDocSharingUseCase
-  implements
-    IUsecaseExecute<{ id: string; tenantId: string; enabled: boolean }, Result<DocEntity>>
-{
-  constructor(@Inject(IDocRepository) private readonly docs: IDocRepository) {}
+export class SetDocSharingUseCase implements IUsecaseExecute<
+  { id: string; tenantId: string; viewer: DocViewer; enabled: boolean },
+  Result<DocEntity>
+> {
+  constructor(
+    @Inject(IDocRepository) private readonly docs: IDocRepository,
+    private readonly access: DocAccess,
+  ) {}
 
   async execute({
     id,
     tenantId,
+    viewer,
     enabled,
   }: {
     id: string;
     tenantId: string;
+    viewer: DocViewer;
     enabled: boolean;
   }): Promise<Result<DocEntity>> {
-    const doc = await this.docs.findByIdOrRef(tenantId, id);
-    if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
+    const doc = await this.access.read(tenantId, id, viewer);
+    if (!doc) return Result.fail('Doc not found');
+    // The other half of the rule in `DocEntity.setPrivate`: going private revokes
+    // a live link, and a private doc can't be handed a new one. Said out loud
+    // rather than silently ignored — an admin who can see the doc and clicks
+    // Share deserves to know why nothing happened.
+    if (enabled && doc.isPrivate) return Result.fail('DOC_PRIVATE_CANNOT_SHARE');
     // Reuse the existing token when re-enabling so old links keep working
     // (legacy UUID tokens are swapped for a short one — see the helper).
     if (enabled) doc.enableSharing(keepOrUpgradeShareToken(doc.publicToken));
@@ -335,9 +417,10 @@ export class SetDocSharingUseCase
 
 /** Resolve a public share token into a read-only doc with every page's body. */
 @Injectable()
-export class GetPublicDocUseCase
-  implements IUsecaseExecute<{ token: string }, Result<DocWithPages>>
-{
+export class GetPublicDocUseCase implements IUsecaseExecute<
+  { token: string },
+  Result<DocWithPages>
+> {
   constructor(
     @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,

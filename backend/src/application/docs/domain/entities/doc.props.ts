@@ -22,6 +22,13 @@ export interface DocProps {
   tags: string[];
   createdBy: string;
   createdByName: string;
+  /**
+   * Private to whoever wrote it. A workspace doc is readable by everyone signed
+   * in (that's the point of a doc); this takes one back out of that pool, leaving
+   * it to `createdBy` and to admins — the same line `IssueEntity.isVisibleTo`
+   * already draws around a personal task. See `isVisibleTo` below.
+   */
+  isPrivate: boolean;
   publicEnabled: boolean;
   publicToken: string | null;
   createdAt: Date;

@@ -12,6 +12,7 @@ export interface DocDoc {
   tags: string[];
   createdBy: string;
   createdByName: string;
+  isPrivate: boolean;
   publicEnabled: boolean;
   publicToken: string | null;
   createdAt: Date;
@@ -34,6 +35,9 @@ export const DocSchema = new Schema<DocDoc>(
     tags: { type: [String], default: [], index: true },
     createdBy: { type: String, default: '' },
     createdByName: { type: String, default: '' },
+    // Private to `createdBy` (+ admins). Defaults to false, so every doc written
+    // before this existed stays exactly as visible as it was — no migration.
+    isPrivate: { type: Boolean, default: false },
     publicEnabled: { type: Boolean, default: false },
     publicToken: { type: String, default: null },
   },

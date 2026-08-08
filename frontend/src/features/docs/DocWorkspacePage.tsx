@@ -4,17 +4,19 @@ import {
   Copy,
   FileDown,
   FileText,
+  Lock,
   MessageSquare,
   MoreHorizontal,
   PanelLeftClose,
   PanelLeftOpen,
   Share2,
   Trash2,
+  Unlock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { useEscapeBack } from '@/lib/useEscapeBack';
-import { Button, Drawer, Menu, type MenuItem } from '@/components/ui';
+import { Badge, Button, Drawer, Menu, type MenuItem } from '@/components/ui';
 import { DetailSkeleton } from '@/components/Skeletons';
 import { ShareLinkDialog } from '@/components/ShareLinkDialog';
 import { PageHeader } from '@/layouts/headers/PageHeader';
@@ -25,6 +27,7 @@ import { FavouriteKind } from '@/types/enums';
 import { FavouriteButton } from '@/features/favourites/FavouriteButton';
 import type { DocPageSummary } from '@/types/dto';
 import {
+  canSetDocPrivacy,
   copyDocTitle,
   useCreateDocPage,
   useDeleteDoc,
@@ -35,6 +38,7 @@ import {
   useDuplicateDoc,
   useExportDocPagePdf,
   useReorderDocPages,
+  useSetDocPrivacy,
   useSetDocSharing,
   useUpdateDoc,
   useUpdateDocPage,
@@ -66,7 +70,7 @@ export function DocWorkspacePage() {
   const navigate = useNavigate();
   useEscapeBack();
   const [params, setParams] = useSearchParams();
-  const { canWrite, canManageDelivery, canEditDelivery: canComment } = useAuth();
+  const { user, isAdmin, canWrite, canManageDelivery, canEditDelivery: canComment } = useAuth();
 
   // Resolved server-side from either form — a `DOC-…` ref or, for links sent
   // before refs existed, the uuid.
@@ -125,6 +129,7 @@ export function DocWorkspacePage() {
   const duplicateDoc = useDuplicateDoc();
   const deleteDoc = useDeleteDoc();
   const setSharing = useSetDocSharing();
+  const setPrivacy = useSetDocPrivacy();
   const exportPdf = useExportDocPagePdf();
 
   const [railOpen, setRailOpen] = useState(true);
@@ -237,11 +242,44 @@ export function DocWorkspacePage() {
           },
         ]
       : []),
+    // Whose doc it is, not what role you hold — the author decides who reads it
+    // (see `canSetDocPrivacy`). That's why this sits outside the
+    // `canManageDelivery` block below rather than inside it.
+    ...(canSetDocPrivacy(doc, user?.id, isAdmin)
+      ? [
+          {
+            label: doc.isPrivate ? t('docs.makeVisible') : t('docs.makePrivate'),
+            icon: doc.isPrivate ? <Unlock className="size-4" /> : <Lock className="size-4" />,
+            disabled: setPrivacy.isPending,
+            closeOnSelect: true,
+            onClick: () => {
+              // Confirm only on the way *in*: going private can revoke a link
+              // other people are already using, and that's not undone by
+              // clicking again. Coming back out only widens access.
+              if (!doc.isPrivate && !confirm(t('docs.confirmMakePrivate'))) return;
+              const isPrivate = !doc.isPrivate;
+              setPrivacy.mutate(
+                { id: doc.id, isPrivate },
+                {
+                  onSuccess: () =>
+                    toast.success(isPrivate ? t('docs.madePrivate') : t('docs.madeVisible')),
+                  onError: (e) => toast.error((e as Error).message),
+                },
+              );
+            },
+          },
+        ]
+      : []),
     ...(canManageDelivery
       ? [
           {
             label: t('docs.share'),
             icon: <Share2 className="size-4" />,
+            // A private doc has no link and can't be given one — the API refuses
+            // it too. Disabled rather than hidden: the reason is the tooltip, and
+            // hiding it would read as "sharing isn't a thing here".
+            disabled: doc.isPrivate,
+            title: doc.isPrivate ? t('docs.privateShareBlocked') : undefined,
             closeOnSelect: true,
             onClick: () => setShareOpen(true),
           },
@@ -305,6 +343,20 @@ export function DocWorkspacePage() {
         titleLabel={t('docs.docTitle')}
         actions={
           <div className="flex items-center gap-1">
+            {/* Says who can read this, and only when the answer isn't
+                "everyone". It leads the cluster because it qualifies the doc
+                itself rather than acting on it — and on a phone it drops to the
+                icon alone, where the row is tightest. */}
+            {doc.isPrivate && (
+              <Badge
+                variant="muted"
+                className="mr-1 gap-1 px-1.5 py-0.5 text-[11px]"
+                title={t('docs.privateBadgeHint')}
+              >
+                <Lock className="size-3" aria-hidden />
+                <span className="max-sm:sr-only">{t('docs.private')}</span>
+              </Badge>
+            )}
             <Button
               type="button"
               variant="ghost"

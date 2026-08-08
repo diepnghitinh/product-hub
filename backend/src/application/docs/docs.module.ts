@@ -10,6 +10,7 @@ import {
   UpdateDocUseCase,
   DeleteDocUseCase,
   SetDocSharingUseCase,
+  SetDocPrivacyUseCase,
   GetPublicDocUseCase,
 } from './use-cases/doc.use-cases';
 import {
@@ -27,6 +28,8 @@ import {
   RestoreDocPageVersionUseCase,
 } from './use-cases/doc-page-version.use-cases';
 import { ExportDocPagePdfUseCase } from './use-cases/doc-page-pdf.use-case';
+import { DocAccess } from './services/doc-access';
+import { DocReadableGuard } from './services/doc-readable.guard';
 
 const useCases = [
   CreateDocUseCase,
@@ -36,6 +39,7 @@ const useCases = [
   UpdateDocUseCase,
   DeleteDocUseCase,
   SetDocSharingUseCase,
+  SetDocPrivacyUseCase,
   GetPublicDocUseCase,
   CreateDocPageUseCase,
   GetDocPageUseCase,
@@ -52,7 +56,10 @@ const useCases = [
 
 @Module({
   imports: [InfrastructureDocsModule, InfrastructureActivityModule],
-  providers: [...useCases],
-  exports: [...useCases],
+  // `DocAccess` and its guard are exported too: the comments controller sits in
+  // the activity slice but hangs off `docs/:docId`, so it has to ask the same
+  // question about who may read the doc underneath.
+  providers: [...useCases, DocAccess, DocReadableGuard],
+  exports: [...useCases, DocAccess, DocReadableGuard],
 })
 export class ApplicationDocsModule {}

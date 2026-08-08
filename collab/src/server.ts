@@ -2,18 +2,48 @@ import { Server, type onAuthenticatePayload } from '@hocuspocus/server';
 import type { Db } from 'mongodb';
 import {
   assertRoomBelongsToToken,
+  canRead,
   canWrite,
   parseRoom,
   verifyToken,
   type CollabContext,
+  type Room,
+  type TokenPayload,
 } from './auth.js';
 import { env } from './env.js';
 import { http } from './http.js';
 import { log, reason } from './log.js';
 import { mirror } from './mirror.js';
-import { closeMongo } from './mongo.js';
+import { closeMongo, docs, pages } from './mongo.js';
 import { persistence } from './persistence.js';
 import { presence } from './presence.js';
+
+/**
+ * Two reads at connect time: the page, to learn which doc it belongs to, and the
+ * doc, to learn whether this reader may have it. Both are indexed point lookups
+ * and they happen once per socket, not per keystroke.
+ *
+ * A page with no doc row is *refused*, not waved through — that's a page whose
+ * container was deleted mid-session, and the safe reading of "I can't tell whose
+ * this is" is no.
+ */
+async function assertPageIsReadable(db: Db, room: Room, token: TokenPayload): Promise<void> {
+  const page = await pages(db).findOne(
+    { _id: room.pageId, tenantId: room.tenantId },
+    { projection: { docId: 1 } },
+  );
+  // A page id nobody has written to yet is legitimate — the API creates the row
+  // before the editor first connects, so a miss here means it isn't ours.
+  if (!page) throw new Error('page not found');
+
+  const doc = await docs(db).findOne(
+    { _id: page.docId, tenantId: room.tenantId },
+    { projection: { createdBy: 1, isPrivate: 1 } },
+  );
+  if (!doc) throw new Error('doc not found');
+  // Same words as the API's 404: whether the doc exists isn't this caller's to know.
+  if (!canRead(doc, token)) throw new Error('doc not found');
+}
 
 export interface ServerOptions {
   /** Overridden by the integration test so it can't collide with a running instance. */
@@ -50,6 +80,12 @@ export function createCollabServer(db: Db, options: ServerOptions = {}): Server<
         // A valid token for workspace A must not open a page in workspace B,
         // even with a correct page id.
         assertRoomBelongsToToken(room, payload);
+
+        // The room name is a page id, and until now that was the whole key: any
+        // signed-in member of the workspace who had one could open the live
+        // document behind it. A private doc has to be private here too, or the
+        // editor is a way around every check the API makes.
+        await assertPageIsReadable(db, room, payload);
 
         const writable = canWrite(payload.role);
         // Mirrors the API's @Roles on PATCH /docs/:id/pages/:pageId. A read-only

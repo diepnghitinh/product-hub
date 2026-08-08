@@ -1249,6 +1249,12 @@ export interface DocDto {
   tags: string[];
   createdBy: string;
   createdByName: string;
+  /**
+   * Private to `createdBy` and to admins — everyone else in the workspace can't
+   * see it at all, so a doc that comes back with this `true` is one you're
+   * already allowed to have. Turning it on revokes the public link server-side.
+   */
+  isPrivate: boolean;
   publicEnabled: boolean;
   publicToken: string | null;
   pageCount: number;

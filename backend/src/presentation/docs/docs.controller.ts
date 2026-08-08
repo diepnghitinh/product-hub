@@ -3,7 +3,7 @@ import type { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiProduces, ApiTags } from '@nestjs/swagger';
 import { AuthUser, Roles } from '@core/decorators';
 import { JwtPayload, Role } from '@core/interfaces';
-import { EntityNotFoundException } from '@core/exceptions';
+import { EntityNotFoundException, ForbiddenDomainException } from '@core/exceptions';
 import {
   CreateDocUseCase,
   DuplicateDocUseCase,
@@ -12,6 +12,7 @@ import {
   UpdateDocUseCase,
   DeleteDocUseCase,
   SetDocSharingUseCase,
+  SetDocPrivacyUseCase,
 } from '@application/docs/use-cases/doc.use-cases';
 import {
   CreateDocPageUseCase,
@@ -34,6 +35,7 @@ import {
   DuplicateDocDto,
   ReorderDocPagesDto,
   SaveDocPageVersionDto,
+  SetDocPrivacyDto,
   ShareDocDto,
   UpdateDocDto,
   UpdateDocPageDto,
@@ -47,11 +49,19 @@ import {
   LinkedDocPageDto,
 } from '@application/docs/dtos/doc.response.dto';
 import { DocMapper } from '@application/docs/mappers';
+import { DocAccess } from '@application/docs/services/doc-access';
 
 /**
  * Docs — a workspace's written product knowledge. A doc is a container; its pages
  * nest into a tree and hold the writing. Writes follow the roadmap convention
  * (admin / tester / product); everyone signed in can read.
+ *
+ * "Everyone signed in can read" has one exception, and it isn't expressible as a
+ * `@Roles` decorator: a doc marked **private** is its author's and its admins'.
+ * Which reader is asking isn't a property of the route, so every call below hands
+ * its use-case a `DocAccess.viewer(auth)` and the answer is decided against the
+ * doc. A route that forgets it doesn't fail to compile loudly — it quietly serves
+ * somebody's private page — so the rule is: if it takes a doc id, it takes a viewer.
  */
 @ApiTags('Docs')
 @ApiBearerAuth('JWT-auth')
@@ -65,6 +75,7 @@ export class DocsController {
     private readonly updateDoc: UpdateDocUseCase,
     private readonly deleteDoc: DeleteDocUseCase,
     private readonly setSharing: SetDocSharingUseCase,
+    private readonly setPrivacy: SetDocPrivacyUseCase,
     private readonly createPage: CreateDocPageUseCase,
     private readonly getPage: GetDocPageUseCase,
     private readonly updatePage: UpdateDocPageUseCase,
@@ -81,7 +92,10 @@ export class DocsController {
   @Get()
   @ApiOperation({ summary: 'List docs' })
   async list(@AuthUser() auth: JwtPayload): Promise<DocResponseDto[]> {
-    const result = await this.getDocs.execute({ tenantId: auth.tenantId });
+    const result = await this.getDocs.execute({
+      tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
+    });
     return result.getValue().map(({ doc, pageCount }) => DocMapper.toListDto(doc, pageCount));
   }
 
@@ -96,7 +110,11 @@ export class DocsController {
     @Query('refId') refId: string,
   ): Promise<LinkedDocPageDto[]> {
     if (!refId) return [];
-    const result = await this.getLinked.execute({ tenantId: auth.tenantId, refId });
+    const result = await this.getLinked.execute({
+      tenantId: auth.tenantId,
+      refId,
+      viewer: DocAccess.viewer(auth),
+    });
     return result
       .getValue()
       .map(({ page, docTitle, docRef }) => DocMapper.toLinkedPageDto(page, docTitle, docRef));
@@ -135,6 +153,7 @@ export class DocsController {
       id,
       tenantId: auth.tenantId,
       author: { userId: auth.userId, name: auth.name },
+      viewer: DocAccess.viewer(auth),
       dto,
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
@@ -145,7 +164,11 @@ export class DocsController {
   @Get(':id')
   @ApiOperation({ summary: 'Get a doc with its page tree (no page bodies)' })
   async findOne(@AuthUser() auth: JwtPayload, @Param('id') id: string): Promise<DocResponseDto> {
-    const result = await this.getDoc.execute({ id, tenantId: auth.tenantId });
+    const result = await this.getDoc.execute({
+      id,
+      tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
+    });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     const { doc, pages } = result.getValue();
     return DocMapper.toResponseDto(doc, pages);
@@ -159,7 +182,12 @@ export class DocsController {
     @Param('id') id: string,
     @Body() dto: UpdateDocDto,
   ): Promise<DocResponseDto> {
-    const result = await this.updateDoc.execute({ id, tenantId: auth.tenantId, dto });
+    const result = await this.updateDoc.execute({
+      id,
+      tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
+      dto,
+    });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return DocMapper.toResponseDto(result.getValue());
   }
@@ -175,7 +203,41 @@ export class DocsController {
     const result = await this.setSharing.execute({
       id,
       tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
       enabled: dto.enabled,
+    });
+    if (result.isFailure) {
+      // Asking to share a doc that's private isn't a missing doc — say which it is.
+      if (result.error === 'DOC_PRIVATE_CANNOT_SHARE') {
+        throw new ForbiddenDomainException(
+          'Make the doc visible to the workspace before sharing it',
+        );
+      }
+      throw new EntityNotFoundException(result.error as string);
+    }
+    return DocMapper.toResponseDto(result.getValue());
+  }
+
+  /**
+   * Private / not private. Deliberately **no `@Roles`**: the gate here isn't a
+   * role, it's authorship — the person who wrote a doc decides who reads it, and
+   * an admin can reach it after they've left. `SetDocPrivacyUseCase` asks
+   * `DocEntity.canSetPrivacy` and answers *not found* to anyone else, so a role
+   * decorator would only be a second, differently-shaped answer to the same
+   * question.
+   */
+  @Post(':id/privacy')
+  @ApiOperation({ summary: 'Make a doc private to its author (author/admin)' })
+  async privacy(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: SetDocPrivacyDto,
+  ): Promise<DocResponseDto> {
+    const result = await this.setPrivacy.execute({
+      id,
+      tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
+      isPrivate: dto.isPrivate,
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return DocMapper.toResponseDto(result.getValue());
@@ -185,7 +247,11 @@ export class DocsController {
   @Roles(Role.ADMIN, Role.PRODUCT)
   @ApiOperation({ summary: 'Delete a doc and all its pages (admin/product)' })
   async remove(@AuthUser() auth: JwtPayload, @Param('id') id: string): Promise<{ ok: true }> {
-    const result = await this.deleteDoc.execute({ id, tenantId: auth.tenantId });
+    const result = await this.deleteDoc.execute({
+      id,
+      tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
+    });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return { ok: true };
   }
@@ -202,6 +268,7 @@ export class DocsController {
       docId: id,
       tenantId: auth.tenantId,
       author: { userId: auth.userId, name: auth.name },
+      viewer: DocAccess.viewer(auth),
       dto,
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
@@ -216,7 +283,12 @@ export class DocsController {
     @Param('id') id: string,
     @Body() dto: ReorderDocPagesDto,
   ): Promise<DocPageSummaryDto[]> {
-    const result = await this.reorderPages.execute({ docId: id, tenantId: auth.tenantId, dto });
+    const result = await this.reorderPages.execute({
+      docId: id,
+      tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
+      dto,
+    });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return result.getValue().map((p) => DocMapper.toPageSummaryDto(p));
   }
@@ -228,7 +300,12 @@ export class DocsController {
     @Param('id') id: string,
     @Param('pageId') pageId: string,
   ): Promise<DocPageResponseDto> {
-    const result = await this.getPage.execute({ docId: id, pageId, tenantId: auth.tenantId });
+    const result = await this.getPage.execute({
+      docId: id,
+      pageId,
+      tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
+    });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return DocMapper.toPageResponseDto(result.getValue());
   }
@@ -256,6 +333,7 @@ export class DocsController {
       docId: id,
       pageId,
       tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
       locale: locale === 'ko' ? 'ko' : 'en',
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
@@ -285,6 +363,7 @@ export class DocsController {
       docId: id,
       pageId,
       tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
       author: { userId: auth.userId, name: auth.name },
       dto,
     });
@@ -300,7 +379,12 @@ export class DocsController {
     @Param('id') id: string,
     @Param('pageId') pageId: string,
   ): Promise<{ ok: true; deletedIds: string[] }> {
-    const result = await this.deletePage.execute({ docId: id, pageId, tenantId: auth.tenantId });
+    const result = await this.deletePage.execute({
+      docId: id,
+      pageId,
+      tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
+    });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return { ok: true, deletedIds: result.getValue() };
   }
@@ -321,6 +405,7 @@ export class DocsController {
       docId: id,
       pageId,
       tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return result.getValue().map((v) => DocMapper.toVersionSummaryDto(v));
@@ -338,6 +423,7 @@ export class DocsController {
       docId: id,
       pageId,
       tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
       versionId,
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
@@ -357,6 +443,7 @@ export class DocsController {
       docId: id,
       pageId,
       tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
       author: { userId: auth.userId, name: auth.name },
       dto,
     });
@@ -377,6 +464,7 @@ export class DocsController {
       docId: id,
       pageId,
       tenantId: auth.tenantId,
+      viewer: DocAccess.viewer(auth),
       versionId,
       author: { userId: auth.userId, name: auth.name },
     });

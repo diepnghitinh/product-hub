@@ -4,7 +4,8 @@ import { Result } from '@shared/logic/result';
 import { ICommentRepository } from '@application/activity/repositories/comment.repository';
 import { CreateDocPageDto, ReorderDocPagesDto, UpdateDocPageDto } from '../dtos/doc.dtos';
 import { DocPageEntity } from '../domain/entities/doc-page.entity';
-import { IDocRepository } from '../repositories/doc.repository';
+import { DocAccess } from '../services/doc-access';
+import { DocViewer, IDocRepository } from '../repositories/doc.repository';
 import { IDocPageRepository } from '../repositories/doc-page.repository';
 import { IDocPageVersionRepository } from '../repositories/doc-page-version.repository';
 
@@ -42,31 +43,31 @@ function withDescendants(pages: DocPageEntity[], pageId: string): string[] {
 }
 
 @Injectable()
-export class CreateDocPageUseCase
-  implements
-    IUsecaseExecute<
-      { docId: string; tenantId: string; author: Author; dto: CreateDocPageDto },
-      Result<DocPageEntity>
-    >
-{
+export class CreateDocPageUseCase implements IUsecaseExecute<
+  { docId: string; tenantId: string; author: Author; viewer: DocViewer; dto: CreateDocPageDto },
+  Result<DocPageEntity>
+> {
   constructor(
     @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
+    private readonly access: DocAccess,
   ) {}
 
   async execute({
     docId,
     tenantId,
     author,
+    viewer,
     dto,
   }: {
     docId: string;
     tenantId: string;
     author: Author;
+    viewer: DocViewer;
     dto: CreateDocPageDto;
   }): Promise<Result<DocPageEntity>> {
-    const doc = await this.docs.findById(docId);
-    if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
+    const doc = await this.access.readById(tenantId, docId, viewer);
+    if (!doc) return Result.fail('Doc not found');
 
     const existing = await this.pages.findByDoc(docId);
     const parentId = dto.parentId || '';
@@ -101,21 +102,29 @@ export class CreateDocPageUseCase
 }
 
 @Injectable()
-export class GetDocPageUseCase
-  implements
-    IUsecaseExecute<{ docId: string; pageId: string; tenantId: string }, Result<DocPageEntity>>
-{
-  constructor(@Inject(IDocPageRepository) private readonly pages: IDocPageRepository) {}
+export class GetDocPageUseCase implements IUsecaseExecute<
+  { docId: string; pageId: string; tenantId: string; viewer: DocViewer },
+  Result<DocPageEntity>
+> {
+  constructor(
+    @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
+    private readonly access: DocAccess,
+  ) {}
 
   async execute({
     docId,
     pageId,
     tenantId,
+    viewer,
   }: {
     docId: string;
     pageId: string;
     tenantId: string;
+    viewer: DocViewer;
   }): Promise<Result<DocPageEntity>> {
+    // The doc first: this route returns a page *body*, which is the private part.
+    if (!(await this.access.readById(tenantId, docId, viewer)))
+      return Result.fail('Page not found');
     const page = await this.pages.findById(pageId);
     if (!page || page.tenantId !== tenantId || page.docId !== docId) {
       return Result.fail('Page not found');
@@ -125,22 +134,21 @@ export class GetDocPageUseCase
 }
 
 @Injectable()
-export class UpdateDocPageUseCase
-  implements
-    IUsecaseExecute<
-      {
-        docId: string;
-        pageId: string;
-        tenantId: string;
-        author: Author;
-        dto: UpdateDocPageDto;
-      },
-      Result<DocPageEntity>
-    >
-{
+export class UpdateDocPageUseCase implements IUsecaseExecute<
+  {
+    docId: string;
+    pageId: string;
+    tenantId: string;
+    author: Author;
+    viewer: DocViewer;
+    dto: UpdateDocPageDto;
+  },
+  Result<DocPageEntity>
+> {
   constructor(
     @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
+    private readonly access: DocAccess,
   ) {}
 
   async execute({
@@ -148,14 +156,18 @@ export class UpdateDocPageUseCase
     pageId,
     tenantId,
     author,
+    viewer,
     dto,
   }: {
     docId: string;
     pageId: string;
     tenantId: string;
     author: Author;
+    viewer: DocViewer;
     dto: UpdateDocPageDto;
   }): Promise<Result<DocPageEntity>> {
+    if (!(await this.access.readById(tenantId, docId, viewer)))
+      return Result.fail('Page not found');
     const page = await this.pages.findById(pageId);
     if (!page || page.tenantId !== tenantId || page.docId !== docId) {
       return Result.fail('Page not found');
@@ -194,15 +206,16 @@ export class UpdateDocPageUseCase
 }
 
 @Injectable()
-export class DeleteDocPageUseCase
-  implements
-    IUsecaseExecute<{ docId: string; pageId: string; tenantId: string }, Result<string[]>>
-{
+export class DeleteDocPageUseCase implements IUsecaseExecute<
+  { docId: string; pageId: string; tenantId: string; viewer: DocViewer },
+  Result<string[]>
+> {
   constructor(
     @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
     @Inject(IDocPageVersionRepository) private readonly versions: IDocPageVersionRepository,
     @Inject(ICommentRepository) private readonly comments: ICommentRepository,
+    private readonly access: DocAccess,
   ) {}
 
   /** Resolves to the ids that were removed — the page and everything under it. */
@@ -210,13 +223,15 @@ export class DeleteDocPageUseCase
     docId,
     pageId,
     tenantId,
+    viewer,
   }: {
     docId: string;
     pageId: string;
     tenantId: string;
+    viewer: DocViewer;
   }): Promise<Result<string[]>> {
-    const doc = await this.docs.findById(docId);
-    if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
+    const doc = await this.access.readById(tenantId, docId, viewer);
+    if (!doc) return Result.fail('Doc not found');
     const all = await this.pages.findByDoc(docId);
     if (!all.some((p) => p.id.toString() === pageId)) return Result.fail('Page not found');
 
@@ -235,29 +250,29 @@ export class DeleteDocPageUseCase
 }
 
 @Injectable()
-export class ReorderDocPagesUseCase
-  implements
-    IUsecaseExecute<
-      { docId: string; tenantId: string; dto: ReorderDocPagesDto },
-      Result<DocPageEntity[]>
-    >
-{
+export class ReorderDocPagesUseCase implements IUsecaseExecute<
+  { docId: string; tenantId: string; viewer: DocViewer; dto: ReorderDocPagesDto },
+  Result<DocPageEntity[]>
+> {
   constructor(
     @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
+    private readonly access: DocAccess,
   ) {}
 
   async execute({
     docId,
     tenantId,
+    viewer,
     dto,
   }: {
     docId: string;
     tenantId: string;
+    viewer: DocViewer;
     dto: ReorderDocPagesDto;
   }): Promise<Result<DocPageEntity[]>> {
-    const doc = await this.docs.findById(docId);
-    if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
+    const doc = await this.access.readById(tenantId, docId, viewer);
+    if (!doc) return Result.fail('Doc not found');
 
     const all = await this.pages.findByDoc(docId);
     const byId = new Map(all.map((p) => [p.id.toString(), p]));
@@ -298,29 +313,39 @@ export class ReorderDocPagesUseCase
 
 /** Every doc page attached to one record (an issue or a roadmap item). */
 @Injectable()
-export class GetLinkedDocPagesUseCase
-  implements IUsecaseExecute<{ tenantId: string; refId: string }, Result<LinkedDocPage[]>>
-{
+export class GetLinkedDocPagesUseCase implements IUsecaseExecute<
+  { tenantId: string; refId: string; viewer: DocViewer },
+  Result<LinkedDocPage[]>
+> {
   constructor(
-    @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
+    private readonly access: DocAccess,
   ) {}
 
   async execute({
     tenantId,
     refId,
+    viewer,
   }: {
     tenantId: string;
     refId: string;
+    viewer: DocViewer;
   }): Promise<Result<LinkedDocPage[]>> {
     const pages = await this.pages.findByLinkRef(tenantId, refId);
     if (!pages.length) return Result.ok([]);
     // One lookup per doc, not per page — a record usually links pages of the
     // same doc, and a tenant's doc list is small.
+    //
+    // This is the read that's easiest to miss: nobody asked for the private doc
+    // here, they opened an *issue*, and its Docs strip would have listed the
+    // page's title and linked straight to it. The `docs.has(...)` filter below
+    // already existed for cross-tenant pages; routing through the gate makes it
+    // do privacy too, and a page whose doc this viewer can't open simply isn't
+    // in the strip.
     const docs = new Map<string, { title: string; ref: string }>();
     for (const docId of new Set(pages.map((p) => p.docId))) {
-      const doc = await this.docs.findById(docId);
-      if (doc && doc.tenantId === tenantId) docs.set(docId, { title: doc.title, ref: doc.ref });
+      const doc = await this.access.readById(tenantId, docId, viewer);
+      if (doc) docs.set(docId, { title: doc.title, ref: doc.ref });
     }
     return Result.ok(
       pages

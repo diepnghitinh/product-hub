@@ -44,6 +44,22 @@ export function canWrite(role: string): boolean {
 }
 
 /**
+ * Mirrors `DocEntity.isVisibleTo` in the API. A doc marked private belongs to
+ * whoever wrote it, plus admins; everything else in the workspace is everyone's.
+ *
+ * This has to be restated here rather than imported — the two services share no
+ * code — so the rule is written once in each place and named the same in both. If
+ * one ever changes, the other is the file to change with it.
+ */
+export function canRead(
+  doc: { createdBy?: string; isPrivate?: boolean },
+  token: TokenPayload,
+): boolean {
+  if (!doc.isPrivate) return true;
+  return doc.createdBy === token.userId || token.role === Role.ADMIN;
+}
+
+/**
  * Verifies an API access token. Throws on anything unusable — an expired token,
  * a foreign signature, or a payload missing the fields every hook relies on.
  */
