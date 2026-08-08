@@ -4,9 +4,13 @@ import { MultiSelect } from '@/components/ui';
 import { TimelineSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER } from '@/components/IssueBoardLayout';
 import { BackLink } from '@/components/BackLink';
+import { FilterMenu, assigneeFilterCategory, type FilterCategory } from '@/components/FilterMenu';
+import { SavedFilterChips, useSavedFilters } from '@/components/SavedFilters';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
+import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
+import { useUsers } from '@/features/users/api';
 import { useRoadmaps } from './api';
 import { AllRoadmapsGanttView, unionColumns } from './components/AllRoadmapsGanttView';
 
@@ -26,9 +30,24 @@ import { AllRoadmapsGanttView, unionColumns } from './components/AllRoadmapsGant
  */
 export function RoadmapTimelinePanel() {
   const [params, setParams] = useSearchParams();
+  const { user } = useAuth();
   const projectId = params.get('projectId') || undefined;
   const projectName = params.get('project') || undefined;
   const { data, isLoading } = useRoadmaps();
+  // Shared with every `AssigneeField` on the page — same key, one fetch.
+  const { data: usersData } = useUsers({ limit: 100 });
+
+  // Who's on the work, remembered per browser and saveable as a named view — the
+  // same Filter control every board carries. It's *not* in the URL, unlike the
+  // phase filter below: a phase is what the plan is, and a link to "Now across
+  // every roadmap" is worth sending; whose work you're looking at is a lens you
+  // put on and take off, which is exactly what a saved filter is for.
+  //
+  // One slot for this board, narrowed or not: `?projectId=` is the same timeline
+  // scoped down, so it deliberately shares the remembered set.
+  const filterState = useSavedFilters('roadmaps:timeline');
+  const { filters, setFilters } = filterState;
+  const filterCategories: FilterCategory[] = [assigneeFilterCategory(usersData?.items, user?.id)];
 
   const roadmaps = useMemo(
     () => (data ?? []).filter((r) => !projectId || r.projectId === projectId),
@@ -107,6 +126,15 @@ export function RoadmapTimelinePanel() {
               maxDisplay={2}
             />
           </div>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <FilterMenu
+              size="default"
+              categories={filterCategories}
+              value={filters}
+              onChange={setFilters}
+            />
+            <SavedFilterChips state={filterState} categories={filterCategories} />
+          </div>
         </div>
       )}
 
@@ -120,7 +148,11 @@ export function RoadmapTimelinePanel() {
         </div>
       ) : (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6 pt-1', BOARD_GUTTER)}>
-          <AllRoadmapsGanttView roadmaps={roadmaps} phases={phases} />
+          <AllRoadmapsGanttView
+            roadmaps={roadmaps}
+            phases={phases}
+            assigneeIds={filters.assigneeId}
+          />
         </div>
       )}
     </>

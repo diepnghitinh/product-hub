@@ -559,6 +559,8 @@ export const ko: Record<I18nKey, string> = {
   'roadmaps.viewGantt': '타임라인',
   'roadmaps.ganttEmpty': '“지금” 컬럼에 아직 항목이 없습니다.',
   'roadmaps.ganttEmptyHint': '“지금” 컬럼에 항목을 추가하면 타임라인에 표시됩니다.',
+  'roadmaps.ganttNoMatches': '선택한 담당자의 작업이 없습니다.',
+  'roadmaps.ganttNoMatchesHint': '담당자 필터를 해제하면 나머지 타임라인이 표시됩니다.',
   'roadmaps.ganttToday': '오늘',
   'roadmaps.ganttNoDates': '날짜 없음',
   'roadmaps.ganttNoTasks': '연결된 태스크 없음',

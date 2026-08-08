@@ -32,12 +32,25 @@ const TRACK_MIN = 560;
 const RAIL_STEP = 16;
 
 const clampRail = (n: number) => Math.min(RAIL_MAX, Math.max(RAIL_MIN, Math.round(n)));
-function readRail(): number {
+/**
+ * The width a chart opens at before anyone has dragged one — `RAIL_DEFAULT`, or
+ * whatever wider figure a chart asks for because it puts more than a title in
+ * the rail (the roadmap timelines name their assignees there, and at 200px the
+ * title and the name truncate each other).
+ *
+ * Never more than half the window, though: a 320px rail on a phone is a rail
+ * and no chart.
+ */
+function defaultRail(want: number): number {
+  const room = typeof window === 'undefined' ? want : Math.round(window.innerWidth / 2);
+  return clampRail(Math.min(want, room));
+}
+function readRail(want: number): number {
   try {
     const raw = Number(localStorage.getItem(RAIL_KEY));
-    return raw ? clampRail(raw) : RAIL_DEFAULT;
+    return raw ? clampRail(raw) : defaultRail(want);
   } catch {
-    return RAIL_DEFAULT;
+    return defaultRail(want);
   }
 }
 function writeRail(w: number) {
@@ -141,6 +154,17 @@ export interface GanttRow {
   collapsed?: boolean;
   /** Leading dot before the label — a status/severity colour. */
   dotColor?: string;
+  /**
+   * Pinned to the **right end of the row's rail cell** — who's on the row (the
+   * roadmap timeline names its assignees here).
+   *
+   * Its own slot rather than part of `label`/`sublabel` for two reasons: it must
+   * not join the title's truncation (the name is the answer to "whose is this?",
+   * and a title long enough to hide it is the row you most want it on), and it
+   * has to stay put while the axis scrolls under the frozen rail. It's capped at
+   * a share of the cell so the title always keeps the majority.
+   */
+  trailing?: ReactNode;
   /** Click **anywhere in the row's rail cell** (opens a detail — usually a peek
    *  drawer); mutually exclusive with `href`. */
   onClick?: () => void;
@@ -172,6 +196,12 @@ export interface GanttChartProps {
   isLoading?: boolean;
   /** Shown when there are no rows at all. */
   empty?: { title: string; hint?: string };
+  /**
+   * How wide the rail opens **when this browser has no remembered width** —
+   * for charts whose rows carry a `trailing` as well as a title. A remembered
+   * width always wins: the drag is the user's answer, and it outranks ours.
+   */
+  railDefault?: number;
 }
 
 /**
@@ -188,8 +218,15 @@ export interface GanttChartProps {
  * A row that supplies `onBarChange` is also **editable**: its bar drags to a new
  * window and its edges resize, snapped to whole days.
  */
-export function GanttChart({ rows, labelHeader, legend, isLoading, empty }: GanttChartProps) {
-  const [railW, setRailW] = useState(readRail);
+export function GanttChart({
+  rows,
+  labelHeader,
+  legend,
+  isLoading,
+  empty,
+  railDefault = RAIL_DEFAULT,
+}: GanttChartProps) {
+  const [railW, setRailW] = useState(() => readRail(railDefault));
   const railDrag = useRef<{ x0: number; w0: number } | null>(null);
   const [resizing, setResizing] = useState(false);
 
@@ -216,7 +253,8 @@ export function GanttChart({ rows, labelHeader, legend, isLoading, empty }: Gant
    *  Home restores the default. Pointer-only would leave it unreachable. */
   const railKeys = (e: ReactKeyboardEvent<HTMLElement>) => {
     const step = e.key === 'ArrowLeft' ? -RAIL_STEP : e.key === 'ArrowRight' ? RAIL_STEP : 0;
-    const next = e.key === 'Home' ? RAIL_DEFAULT : step ? clampRail(railW + step) : null;
+    const next =
+      e.key === 'Home' ? defaultRail(railDefault) : step ? clampRail(railW + step) : null;
     if (next === null) return;
     e.preventDefault();
     setRailW(next);
@@ -393,12 +431,18 @@ function GanttRowView({
       {row.label}
     </span>
   );
+  // Capped rather than free: the rail resizes down to 120px, and a two-word name
+  // taking the whole cell would leave the title with nothing.
+  const trailing = row.trailing ? (
+    <span className="flex max-w-[45%] shrink-0 items-center">{row.trailing}</span>
+  ) : null;
   /** A child indents into a single flex row; a top-level row is a flex column so
    *  it can carry a sublabel line under the title. */
   const body = child ? (
     <>
       {dot}
       {title}
+      {trailing}
     </>
   ) : (
     <>
@@ -406,6 +450,7 @@ function GanttRowView({
         {chevron}
         {dot}
         {title}
+        {trailing}
       </div>
       {row.sublabel && (
         <span className="truncate text-[11px] text-muted-foreground">{row.sublabel}</span>

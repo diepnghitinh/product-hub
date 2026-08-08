@@ -563,6 +563,10 @@ export const en = {
   'roadmaps.viewGantt': 'Timeline',
   'roadmaps.ganttEmpty': 'No items in the Now column yet.',
   'roadmaps.ganttEmptyHint': 'Add an item to the Now column to see it on the timeline.',
+  // Shown by both timelines instead of the "nothing scheduled" copy above, when
+  // it's a filter — not the plan — that emptied the chart.
+  'roadmaps.ganttNoMatches': 'No work for those people here.',
+  'roadmaps.ganttNoMatchesHint': 'Clear the assignee filter to see the rest of the timeline.',
   'roadmaps.ganttToday': 'Today',
   'roadmaps.ganttNoDates': 'No dates',
   'roadmaps.ganttNoTasks': 'No linked tasks',

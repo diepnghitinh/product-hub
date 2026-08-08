@@ -1,4 +1,5 @@
 import { GANTT_DAY, firstEpoch, isEpoch, toEpoch, type GanttRow } from '@/components/GanttChart';
+import { UNASSIGNED } from '@/components/FilterMenu';
 import { t } from '@/i18n';
 import { formatDate } from '@/lib/format';
 import type { RoadmapItem } from '@/types/dto';
@@ -23,6 +24,30 @@ export interface DateWindow {
 /** Epoch ms back to an ISO day. `toEpoch` reads `YYYY-MM-DD` as UTC midnight and
  *  a drag only ever adds whole days, so this round-trips exactly. */
 export const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+
+/** Anyone named on a timeline row. An issue's `assignees` and a roadmap item's
+ *  are the same `{ id, name }` pair, so one rule covers both kinds of row. */
+export interface RowPerson {
+  id: string;
+  name: string;
+}
+
+/**
+ * Does this row survive the **Assignee** filter?
+ *
+ * One rule for both timelines, and the same rule the row *displays*: a row is
+ * kept when someone picked is named on it. `UNASSIGNED` is a person too — the
+ * absence of one — so "who has nothing on them?" and "what has nobody on it?"
+ * are the same question asked from either end.
+ *
+ * No filter picked → everything passes, so a caller can hand the selection
+ * straight through without branching.
+ */
+export function matchesPeople(picked: string[] | undefined, people: RowPerson[]): boolean {
+  if (!picked?.length) return true;
+  if (!people.length) return picked.includes(UNASSIGNED);
+  return people.some((p) => picked.includes(p.id));
+}
 
 /** The subset of an issue a timeline row needs. `TaskDto`, `BugDto` and the
  *  unified `IssueDto` all satisfy it structurally (only a task has `dueDate`). */
