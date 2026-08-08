@@ -10,15 +10,19 @@ import { tokenPreview } from '@application/app-settings/domain/clickup.types';
 import {
   ConnectClickUpUseCase,
   DisconnectClickUpUseCase,
+  GetClickUpPeopleUseCase,
   ProbeClickUpUseCase,
+  SaveClickUpPeopleUseCase,
   SetClickUpEnabledUseCase,
 } from '@application/integrations/use-cases/clickup.use-cases';
 import {
+  ClickUpPeopleResponseDto,
   ClickUpSettingsResponseDto,
   ClickUpStatusResponseDto,
   ClickUpWorkspaceResponseDto,
   ConnectClickUpDto,
   ProbeClickUpDto,
+  SaveClickUpPeopleDto,
   UpdateClickUpDto,
 } from '@application/integrations/dtos/clickup.dtos';
 import { normaliseBaseUrl, publicOriginFor } from './public-origin';
@@ -44,6 +48,8 @@ export class ClickUpController {
     private readonly connect: ConnectClickUpUseCase,
     private readonly setEnabled: SetClickUpEnabledUseCase,
     private readonly disconnect: DisconnectClickUpUseCase,
+    private readonly getPeople: GetClickUpPeopleUseCase,
+    private readonly savePeople: SaveClickUpPeopleUseCase,
   ) {
     this.configuredBaseUrl = normaliseBaseUrl(config.get<string>('API_BASE_URL'));
   }
@@ -104,6 +110,46 @@ export class ClickUpController {
       available: Boolean(c?.enabled),
       workspaceName: c?.workspaceName ?? '',
     };
+  }
+
+  /**
+   * Admin-only for the same reason the rest of this controller is: it lists
+   * every person in the workspace next to their ClickUp seat, which is more of
+   * the org chart than an ordinary member needs from a settings screen.
+   */
+  @Get('people')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Who on our side reaches whom in ClickUp (admin)',
+    description:
+      'Resolved, not just stored: each row says whether it was pinned by an admin, matched on ' +
+      'email, or matches nobody at all.',
+  })
+  async people(@AuthUser() auth: JwtPayload): Promise<ClickUpPeopleResponseDto> {
+    const result = await this.getPeople.execute({ tenantId: auth.tenantId });
+    if (result.isFailure) throw new BadRequestException(result.error as string);
+    return result.getValue();
+  }
+
+  @Put('people')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Pin our people to ClickUp members (admin)',
+    description:
+      'Replaces the whole map. A row with memberId 0 removes the pin and lets the email match ' +
+      'take over again.',
+  })
+  async putPeople(
+    @AuthUser() auth: JwtPayload,
+    @Body() dto: SaveClickUpPeopleDto,
+  ): Promise<ClickUpPeopleResponseDto> {
+    const saved = await this.savePeople.execute({ tenantId: auth.tenantId, pairs: dto.people });
+    if (saved.isFailure) throw new BadRequestException(saved.error as string);
+    // Answer with the re-read table rather than an echo of the request: the
+    // rows that *weren't* pinned resolve by email, and only a read knows how.
+    const result = await this.getPeople.execute({ tenantId: auth.tenantId });
+    if (result.isFailure) throw new BadRequestException(result.error as string);
+    return result.getValue();
   }
 
   @Post('probe')

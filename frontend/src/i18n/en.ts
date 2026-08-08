@@ -574,6 +574,16 @@ export const en = {
   'roadmaps.ganttDragHint': 'Drag a bar to move it, or an edge to change that date',
   'roadmaps.ganttSaveFailed': 'Couldn’t change those dates — put them back.',
   'roadmaps.ganttLegendMarker': 'Diamond = only one date set',
+  // The all-roadmaps timeline (Roadmaps → Timeline). Its rows carry both kinds of
+  // linked work, so it says "linked" rather than the single-roadmap "tasks".
+  'roadmaps.phaseNone': 'No phase',
+  'roadmaps.ganttNoIssues': 'Nothing linked',
+  'roadmaps.ganttIssues': '{count} linked',
+  'roadmaps.ganttLegendIssueBar': 'Solid bar = a task or bug’s start → end',
+  'roadmaps.allGanttEmpty': 'Nothing scheduled in these phases.',
+  'roadmaps.allGanttEmptyHint':
+    'Pick another phase above, or give a roadmap item a start and end date to place it here.',
+  'roadmaps.allGanttTruncated': 'Showing {shown} of {total} linked items',
   'roadmaps.newColumn': 'New column',
   'roadmaps.columnName': 'Column name',
   'roadmaps.columnColor': 'Column color',
@@ -675,7 +685,11 @@ export const en = {
   'relations.kindBug': 'Bug',
   // ClickUp panel — on an issue's and a backlog item's Properties sidebar
   'clickup.title': 'ClickUp',
+  'clickup.add': 'Add to ClickUp',
   'clickup.link': 'Link a ClickUp task',
+  'clickup.linkExisting': 'Link an existing task…',
+  'clickup.create': 'Create in ClickUp',
+  'clickup.created': 'Created in ClickUp · {list}',
   'clickup.linked': 'ClickUp task linked.',
   'clickup.none': 'No ClickUp task linked.',
   'clickup.reference': 'Task link or ID',
@@ -687,6 +701,44 @@ export const en = {
   'clickup.refresh': 'Refresh from ClickUp',
   'clickup.unlink': 'Remove link',
   'clickup.lastSynced': 'Last refreshed',
+  'clickup.synced': 'Synced',
+  'clickup.syncedNote': 'Kept in sync with this board’s ClickUp list.',
+  // Binding a board to a ClickUp list — team settings, and a roadmap's ⋯ menu
+  'clickup.sync': 'ClickUp sync',
+  'clickup.syncHint':
+    'Send this board’s work to a ClickUp list. Items created here are created there, edits follow, and a status change travels both ways.',
+  'clickup.syncNotConnected':
+    'ClickUp isn’t connected yet. Connect it in Settings → External tools, then come back to bind this board.',
+  'clickup.syncPaused': 'The ClickUp integration is paused, so nothing is syncing right now.',
+  'clickup.space': 'Space',
+  'clickup.list': 'List',
+  'clickup.chooseSpace': 'Choose a space…',
+  'clickup.chooseList': 'Choose a list…',
+  'clickup.statusMapping': 'Status mapping',
+  'clickup.statusMappingHint':
+    'Each column sends its work to one ClickUp status — and a task moved into that status in ClickUp moves the item here too. Leave a column out to keep it off the sync.',
+  'clickup.doesNotSync': 'Doesn’t sync',
+  'clickup.syncEnabled': 'Sync this board',
+  'clickup.syncEnabledHint': 'Off keeps the mapping but stops every push and every inbound move.',
+  'clickup.syncDirectionNote':
+    'Title, description, dates, priority and assignees are pushed to ClickUp. Only the status comes back — nothing in ClickUp can rename or delete work here.',
+  'clickup.bind': 'Bind board',
+  'clickup.syncSaved': 'ClickUp sync saved.',
+  'clickup.unbind': 'Unbind',
+  'clickup.unbindConfirm':
+    'Stop syncing this board with ClickUp? The ClickUp tasks and the links beside each item stay exactly as they are.',
+  'clickup.unbound': 'Board unbound from ClickUp.',
+  // People → ClickUp members, in Settings → External tools → ClickUp
+  'clickup.people': 'People',
+  'clickup.peopleHint':
+    'Assignees are matched to ClickUp by email, so most people need nothing here. Pick someone by hand when their ClickUp account uses a different address — until you do, assigning them here assigns nobody there.',
+  'clickup.peopleAuto': 'Match by email',
+  'clickup.peopleLinked': 'Linked',
+  'clickup.peopleMembers': 'ClickUp members',
+  'clickup.peopleMatched': 'Matches {name} in ClickUp',
+  'clickup.peopleNoMatch': 'No ClickUp match — assignments won’t sync',
+  'clickup.peopleEmpty': 'Nobody in this workspace yet.',
+  'clickup.peopleSaved': 'ClickUp people saved.',
   'tasks.assign': 'Assign',
   'tasks.unassigned': 'Unassigned',
   'tasks.assignMe': 'Assign to me',
@@ -1369,6 +1421,18 @@ export const en = {
   'filters.dateLast30': 'Last 30 days',
   'filters.dateThisMonth': 'This month',
   'filters.dateLastMonth': 'Last month',
+  'filters.savedAll': 'All',
+  'filters.savedSave': 'Save filter',
+  'filters.savedSaveTitle': 'Save this filter',
+  'filters.savedRenameTitle': 'Rename saved filter',
+  'filters.savedName': 'Name',
+  'filters.savedNamePlaceholder': 'e.g. My open crashes',
+  'filters.savedActions': 'Saved filter options',
+  'filters.savedUpdate': 'Update with current filters',
+  'filters.savedRename': 'Rename',
+  'filters.savedDelete': 'Delete saved filter',
+  'filters.savedConfirmDelete': 'Delete this saved filter? The filter on screen stays.',
+  'filters.savedUnsaved': 'Unsaved changes',
 
   'common.loading': 'Loading…',
   'common.none': 'None',
@@ -1411,6 +1475,8 @@ export const en = {
 
   'board.collapseColumn': 'Collapse',
   'board.expandColumn': 'Expand',
+  'board.reorderColumn': 'Drag to reorder column',
+  'board.reorderColumnFailed': "Couldn't save the column order",
   'board.ageToday': 'today',
   /** Day count on a card / in a workflow stat — the unit trails the number in Korean. */
   'board.ageDays': '{n}d',

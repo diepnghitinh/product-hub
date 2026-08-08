@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Pencil } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -6,6 +6,7 @@ import { Button, Dialog, Field, Input, Textarea } from '@/components/ui';
 import { CardGridSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
+import { CenteredPageLayout } from '@/layouts/shared';
 import { BackLink } from '@/components/BackLink';
 import { timeAgo } from '@/lib/format';
 import type { RoadmapDto } from '@/types/dto';
@@ -18,10 +19,11 @@ const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260
  * The Roadmaps tab of the planning page (`PlanningPage`) — the list of roadmaps
  * as cards, and the create/edit dialog behind them.
  *
- * A *panel*, not a page: it has no layout of its own, because the page it sits in
- * owns the scroll column shared with the OKRs tab. It keeps its own `PageHeader`,
- * which portals into the topbar — so the title and the primary action follow
- * whichever tab is open, without the shell having to know what either tab offers.
+ * A *panel*, not a page: it keeps its own `PageHeader`, which portals into the
+ * topbar, so the title and the primary action follow whichever tab is open
+ * without the shell having to know what any tab offers. It owns its own shape
+ * too — cards read, so this one is the centred reading column that scrolls, while
+ * the Timeline tab next door is a full-width board.
  */
 export function RoadmapsPanel() {
   const { user, canWrite } = useAuth();
@@ -76,68 +78,73 @@ export function RoadmapsPanel() {
 
   const saving = editing ? update.isPending : create.isPending;
 
-  const roadmaps = (data ?? []).filter((r) => !projectId || r.projectId === projectId);
+  const roadmaps = useMemo(
+    () => (data ?? []).filter((r) => !projectId || r.projectId === projectId),
+    [data, projectId],
+  );
 
   return (
     <>
-      {projectId && (
-        <BackLink to={`/testing/${projectId}`}>{projectName || t('nav.projects')}</BackLink>
-      )}
       <PageHeader
         title={projectName ? `${t('roadmaps.title')} — ${projectName}` : t('roadmaps.title')}
-        actions={
-          canWrite ? <Button onClick={openCreate}>+ {t('roadmaps.new')}</Button> : undefined
-        }
+        actions={canWrite ? <Button onClick={openCreate}>+ {t('roadmaps.new')}</Button> : undefined}
       />
 
-      {isLoading ? (
-        <CardGridSkeleton />
-      ) : roadmaps.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
-          {t('roadmaps.empty')}
-        </div>
-      ) : (
-        <div className={CARD_GRID}>
-          {roadmaps.map((r) => (
-            <article
-              key={r.id}
-              className="group relative flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:border-foreground/20"
-              onClick={() => navigate(`/roadmaps/${r.id}`)}
-            >
-              <h3 className="pr-8 text-[15px] font-medium">{r.title}</h3>
-              {r.description && (
-                <p className="text-sm text-muted-foreground">{r.description}</p>
-              )}
-              {/* Average lead & cycle time with a month-over-month trend — hidden
-                  until the roadmap has a completed item to measure. */}
-              <RoadmapTimingSummary items={r.items} variant="card" className="mt-1" />
-              <div className="mt-2 flex justify-between text-xs text-muted-foreground">
-                <span>
-                  {r.itemCount} {t('roadmaps.items')}
-                </span>
-                <span>{timeAgo(r.updatedAt)}</span>
-              </div>
-              {canWrite && (
-                // Always visible on touch, where there's no hover to reveal it.
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t('common.edit')}
-                  title={t('roadmaps.edit')}
-                  onClick={(e) => {
-                    e.stopPropagation(); // don't open the board
-                    openEdit(r);
-                  }}
-                  className="absolute right-2 top-2 size-7 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
-                >
-                  <Pencil />
-                </Button>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
+      {/* The reading column, applied here rather than by the page: `PlanningPage`
+          owns only the tab strip, so each tab picks its own shape. Cards read, so
+          this one is the centred column — the Timeline tab is a board. */}
+      <CenteredPageLayout>
+        {projectId && (
+          <BackLink to={`/testing/${projectId}`}>{projectName || t('nav.projects')}</BackLink>
+        )}
+
+        {isLoading ? (
+          <CardGridSkeleton />
+        ) : roadmaps.length === 0 ? (
+          <div className="rounded-xl border border-dashed p-8 text-center text-muted-foreground">
+            {t('roadmaps.empty')}
+          </div>
+        ) : (
+          <div className={CARD_GRID}>
+            {roadmaps.map((r) => (
+              <article
+                key={r.id}
+                className="group relative flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:border-foreground/20"
+                onClick={() => navigate(`/roadmaps/${r.id}`)}
+              >
+                <h3 className="pr-8 text-[15px] font-medium">{r.title}</h3>
+                {r.description && <p className="text-sm text-muted-foreground">{r.description}</p>}
+                {/* Average lead & cycle time with a month-over-month trend — hidden
+                      until the roadmap has a completed item to measure. */}
+                <RoadmapTimingSummary items={r.items} variant="card" className="mt-1" />
+                <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+                  <span>
+                    {r.itemCount} {t('roadmaps.items')}
+                  </span>
+                  <span>{timeAgo(r.updatedAt)}</span>
+                </div>
+                {canWrite && (
+                  // Always visible on touch, where there's no hover to reveal it.
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t('common.edit')}
+                    title={t('roadmaps.edit')}
+                    onClick={(e) => {
+                      e.stopPropagation(); // don't open the board
+                      openEdit(r);
+                    }}
+                    className="absolute right-2 top-2 size-7 text-muted-foreground opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
+                  >
+                    <Pencil />
+                  </Button>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </CenteredPageLayout>
 
       <Dialog
         open={open}
@@ -156,10 +163,20 @@ export function RoadmapsPanel() {
       >
         <form id="rm-create" onSubmit={submit}>
           <Field label={t('roadmaps.itemTitle')} htmlFor="rm-title">
-            <Input id="rm-title" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
+            <Input
+              id="rm-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              autoFocus
+            />
           </Field>
           <Field label={t('roadmaps.description')} htmlFor="rm-desc">
-            <Textarea id="rm-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Textarea
+              id="rm-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
           </Field>
         </form>
       </Dialog>

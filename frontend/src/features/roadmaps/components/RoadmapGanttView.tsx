@@ -2,15 +2,7 @@ import { useEffect, useState } from 'react';
 import { MoveHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { t } from '@/i18n';
-import { formatDate } from '@/lib/format';
-import {
-  GanttChart,
-  GANTT_DAY,
-  firstEpoch,
-  isEpoch,
-  toEpoch,
-  type GanttRow,
-} from '@/components/GanttChart';
+import { GanttChart, toEpoch, type GanttRow } from '@/components/GanttChart';
 import { useTasks, useUpdateTask } from '@/features/tasks/api';
 import { useTeamStatusesLookup } from '@/features/teams/api';
 import { useAuth } from '@/lib/auth';
@@ -18,38 +10,20 @@ import { TeamIssueType } from '@/types/enums';
 import type { RoadmapColumn, RoadmapEpic, RoadmapItem, TaskDto } from '@/types/dto';
 import { useReplaceRoadmapItems } from '../api';
 import { epicCountLabel, epicLanes } from '../epics';
+import {
+  byIssueDate,
+  issueEnd,
+  issueStart,
+  itemWindow,
+  placeOnAxis,
+  type DateWindow,
+} from '../ganttRows';
 import { IssuePeekDrawer, type IssuePeek } from '@/features/issues/IssuePeekDrawer';
 import { RoadmapItemPeekDrawer, type RoadmapItemPeek } from './RoadmapItemPeekDrawer';
 
-/** The window a bar was dragged to, in the ISO day shape the API stores. The same
- *  two fields on a task and on a backlog item, so one drag handler shape serves both. */
-export interface DateWindow {
-  startDate: string;
-  endDate: string;
-}
-
-/** Epoch ms back to an ISO day. `toEpoch` reads `YYYY-MM-DD` as UTC midnight and
- *  a drag only ever adds whole days, so this round-trips exactly. */
-const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-
-/** A linked task's window. `endDate` is the truth; `dueDate` is its legacy
- *  server-synced mirror, kept as a fallback for rows saved before the rename. */
-const taskStart = (tk: TaskDto) => toEpoch(tk.startDate);
-const taskEnd = (tk: TaskDto) => firstEpoch(tk.endDate, tk.dueDate);
-
-/** The date a task sits at — its start, else its end. */
-function taskAnchor(tk: TaskDto) {
-  const s = taskStart(tk);
-  return isEpoch(s) ? s : taskEnd(tk);
-}
-
-/** Dated tasks first (soonest at top), undated last. */
-function byDate(a: TaskDto, b: TaskDto) {
-  const da = taskAnchor(a);
-  const db = taskAnchor(b);
-  if (isEpoch(da) && isEpoch(db)) return da - db;
-  return isEpoch(da) ? -1 : isEpoch(db) ? 1 : 0;
-}
+/** Re-exported for the callers that held it here before the date rules moved into
+ *  `../ganttRows` (shared with the all-roadmaps timeline). */
+export type { DateWindow };
 
 interface RoadmapGanttProps {
   /** All roadmap items — filtered to the "Now" column here. */
@@ -156,8 +130,9 @@ export function RoadmapGantt({
       // The epic's own bar is the union of its items' windows and the mean of
       // their progress — read off the rows below it, never stored. Same rule as
       // an item: no dates in the group, no bar for the group.
-      const gs = toEpoch(group.rollup.startDate);
-      const ge = toEpoch(group.rollup.endDate);
+      //
+      // Deliberately no `onChange`: dragging a group would have to spread the
+      // change over its items, and there is no honest way to decide how.
       const head: GanttRow = {
         id: `epic:${group.key}`,
         heading: true,
@@ -166,74 +141,41 @@ export function RoadmapGantt({
         label: group.label,
         sublabel: `${group.rollup.progress}% · ${epicCountLabel(group.rollup)}`,
         onClick: () => toggleEpic(group.key),
-      };
-      if (isEpoch(gs) && isEpoch(ge)) {
-        const range = `${formatDate(new Date(gs))} – ${formatDate(new Date(ge))}`;
-        head.bar = {
-          start: gs,
-          end: ge,
+        ...placeOnAxis({
+          start: toEpoch(group.rollup.startDate),
+          end: toEpoch(group.rollup.endDate),
           color: group.color,
           progress: group.rollup.progress,
-          tooltip: `${group.label} · ${range}`,
-        };
-        // Deliberately no `onBarChange`: dragging a group would have to spread the
-        // change over its items, and there is no honest way to decide how.
-      } else if (isEpoch(ge) || isEpoch(gs)) {
-        const at = isEpoch(ge) ? ge : gs;
-        head.marker = { at, color: group.color, tooltip: `${group.label} · ${formatDate(new Date(at))}` };
-      } else {
-        head.emptyText = t('roadmaps.ganttNoDates');
-      }
+          label: group.label,
+        }),
+      };
       rows.push(head);
       if (folded) continue;
     }
     for (const item of group.items) {
-      const tasks = (tasksByItem?.get(item.id) ?? []).slice().sort(byDate);
-      // An item is placed by its own dates and nothing else. `startedAt`/`completedAt`
-      // stand in because they are dates the item recorded about itself; `createdAt`,
-      // today and "+2 weeks" used to fill the gaps, which drew a confident two-week
-      // bar for an item nobody had scheduled. That bar was a guess wearing the same
-      // clothes as a plan, and there is no way to tell them apart by looking.
-      const start = firstEpoch(item.startDate, item.startedAt);
-      const rawEnd = firstEpoch(item.endDate, item.completedAt);
-      // Guard odd data (an end before the start) — but only between two real dates.
-      const end = isEpoch(start) && isEpoch(rawEnd) && rawEnd < start ? start + GANTT_DAY : rawEnd;
-
-      const itemRow: GanttRow = {
+      const tasks = (tasksByItem?.get(item.id) ?? []).slice().sort(byIssueDate);
+      const label = item.title || t('roadmaps.untitled');
+      rows.push({
         id: item.id,
-        label: item.title || t('roadmaps.untitled'),
+        label,
         sublabel: `${item.progress}% · ${
           tasks.length
             ? t('roadmaps.ganttTasks').replace('{count}', String(tasks.length))
             : t('roadmaps.ganttNoTasks')
         }`,
         onClick: () => onOpenItem(item.id),
-      };
-      if (isEpoch(start) && isEpoch(end)) {
-        itemRow.bar = { start, end, color: barColor, progress: item.progress };
-        // Drag moves a window that exists. An unscheduled item has nothing to take
-        // hold of, so its dates are set in the detail panel — which is also the only
-        // place they can be set deliberately rather than by nudging a bar.
-        if (onItemDatesChange) {
-          itemRow.onBarChange = (n) =>
-            onItemDatesChange(item, { startDate: isoDay(n.start), endDate: isoDay(n.end) });
-        }
-      } else if (isEpoch(end)) {
-        const when = t('roadmaps.ganttDue').replace('{date}', formatDate(new Date(end)));
-        itemRow.marker = { at: end, color: barColor, tooltip: `${itemRow.label} · ${when}` };
-      } else if (isEpoch(start)) {
-        const when = t('roadmaps.ganttStarts').replace('{date}', formatDate(new Date(start)));
-        itemRow.marker = { at: start, color: barColor, tooltip: `${itemRow.label} · ${when}` };
-      } else {
-        itemRow.emptyText = t('roadmaps.ganttNoDates');
-      }
-      rows.push(itemRow);
+        ...placeOnAxis({
+          ...itemWindow(item),
+          color: barColor,
+          progress: item.progress,
+          label,
+          onChange: onItemDatesChange && ((next) => onItemDatesChange(item, next)),
+        }),
+      });
 
       for (const tk of tasks) {
         const st = taskStatus?.(tk) ?? { color: 'hsl(var(--muted-foreground))', label: tk.status };
-        const s = taskStart(tk);
-        const e = taskEnd(tk);
-        const row: GanttRow = {
+        rows.push({
           id: `${item.id}:${tk.id}`,
           depth: 1,
           dotColor: st.color,
@@ -241,33 +183,17 @@ export function RoadmapGantt({
           // A peek drawer when one is offered (it carries its own full-page link),
           // else a plain link to the detail — the public view's only option.
           ...(onOpenTask ? { onClick: () => onOpenTask(tk) } : { href: taskHref?.(tk) }),
-        };
-        if (isEpoch(s) && isEpoch(e)) {
           // No `progress`: a task bar is a schedule, not a fill level — the same
           // solid block the issue timeline draws for the same two dates.
-          const range = `${formatDate(new Date(s))} – ${formatDate(new Date(e))}`;
-          row.bar = {
-            start: s,
-            end: e,
+          ...placeOnAxis({
+            start: issueStart(tk),
+            end: issueEnd(tk),
             color: st.color,
-            tooltip: `${tk.title} · ${range} · ${st.label}`,
-          };
-          // Only a task that already has both dates can be rescheduled by drag —
-          // a single-date task is a diamond, and there's no window to move.
-          if (onTaskDatesChange) {
-            row.onBarChange = (n) =>
-              onTaskDatesChange(tk, { startDate: isoDay(n.start), endDate: isoDay(n.end) });
-          }
-        } else if (isEpoch(e)) {
-          const when = t('roadmaps.ganttDue').replace('{date}', formatDate(new Date(e)));
-          row.marker = { at: e, color: st.color, tooltip: `${tk.title} · ${when} · ${st.label}` };
-        } else if (isEpoch(s)) {
-          const when = t('roadmaps.ganttStarts').replace('{date}', formatDate(new Date(s)));
-          row.marker = { at: s, color: st.color, tooltip: `${tk.title} · ${when} · ${st.label}` };
-        } else {
-          row.emptyText = t('roadmaps.ganttNoDates');
-        }
-        rows.push(row);
+            label: tk.title,
+            suffix: st.label,
+            onChange: onTaskDatesChange && ((next) => onTaskDatesChange(tk, next)),
+          }),
+        });
       }
     }
   }

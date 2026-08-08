@@ -206,12 +206,25 @@ export function usePersonalStatuses() {
   });
 }
 
-/** Replace the caller's personal-board columns (add / rename / recolour / reorder / remove). */
+/**
+ * Replace the caller's personal-board columns (add / rename / recolour / reorder
+ * / remove). Optimistic for the same reason as the team version: dragging a
+ * column on the board writes through here, and the board renders this cache.
+ */
 export function useReplacePersonalStatuses() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (statuses: TeamStatusConfig[]) =>
       apiPut<TeamStatusConfig[]>('/users/me/personal-statuses', { personalStatuses: statuses }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['personal-statuses'] }),
+    onMutate: async (statuses) => {
+      await qc.cancelQueries({ queryKey: ['personal-statuses'] });
+      const previous = qc.getQueryData<TeamStatusConfig[]>(['personal-statuses']);
+      qc.setQueryData<TeamStatusConfig[]>(['personal-statuses'], statuses);
+      return { previous };
+    },
+    onError: (_e, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(['personal-statuses'], ctx.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['personal-statuses'] }),
   });
 }

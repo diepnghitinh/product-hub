@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { ExternalLink, Plus, RefreshCw, X } from 'lucide-react';
-import { Button, Dialog, Field, Input } from '@/components/ui';
+import { ExternalLink, Link2, Loader2, Plus, RefreshCw, X } from 'lucide-react';
+import { Button, Dialog, Field, Input, Menu } from '@/components/ui';
 import { ClickUpIcon } from '@/components/ClickUpIcon';
 import { PropSection } from '@/features/issues/IssueDetail';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { timeAgo } from '@/lib/format';
-import { ClickUpLinkTarget, ClickUpStatusType } from '@/types/enums';
+import { ClickUpLinkOrigin, ClickUpLinkTarget, ClickUpStatusType } from '@/types/enums';
 import type { ClickUpLinkDto } from '@/types/dto';
 import {
   useClickUpLinks,
+  useClickUpPushTarget,
   useClickUpStatus,
   useLinkClickUpTask,
+  usePushClickUpTask,
   useRefreshClickUpLink,
   useUnlinkClickUpTask,
 } from './api';
@@ -30,6 +32,20 @@ const FINISHED: string[] = [ClickUpStatusType.DONE, ClickUpStatusType.CLOSED];
  * is ClickUp's, mirrored, in ClickUp's own colours, and it never touches this
  * workspace's status. `lastSyncedAt` on each row is how "mirrored" stays an
  * honest claim rather than an implied live read.
+ *
+ * There are **two ways a link gets here**, and the panel offers whichever apply:
+ *
+ * - **Link an existing task** — paste a URL. A mirror, one-way, always available
+ *   while ClickUp is connected.
+ * - **Create in ClickUp** — mint the task through this board's binding. Only
+ *   where a binding exists and this record hasn't already got a task, which in
+ *   practice means work that predates the binding: the automatic push runs on
+ *   save, so a backlog nobody has touched since would otherwise never appear in
+ *   ClickUp at all.
+ *
+ * When only the first applies — no bound board, the common case — the header
+ * keeps its plain `+` and opens the paste dialog directly. A menu of one is a
+ * click asking permission to do the only thing it could have done.
  */
 export function ClickUpLinkPanel({
   targetType,
@@ -46,6 +62,14 @@ export function ClickUpLinkPanel({
   const { data: status } = useClickUpStatus();
   const { data: links } = useClickUpLinks(targetType, targetId);
   const link = useLinkClickUpTask();
+  const push = usePushClickUpTask();
+  // Only asked once the workspace is known to be connected, and only for someone
+  // who could act on the answer — most workspaces have no ClickUp at all, and
+  // this would otherwise be a request per issue opened to be told "no".
+  const { data: pushTarget } = useClickUpPushTarget(
+    { targetType, targetId, roadmapId },
+    canWrite && !!status?.available,
+  );
   const [adding, setAdding] = useState(false);
   const [reference, setReference] = useState('');
 
@@ -54,6 +78,20 @@ export function ClickUpLinkPanel({
   // that has never heard of ClickUp shouldn't carry an empty ClickUp box on
   // every issue. A *paused* connection still shows what's already linked.
   if (!status?.available && rows.length === 0) return null;
+
+  function onPush() {
+    push.mutate(
+      { targetType, targetId, roadmapId },
+      {
+        // The list is named here rather than on the button: it's what the person
+        // wants confirmed *after* the fact ("where did that go?"), and the menu
+        // has no room for a list name that could be anything.
+        onSuccess: () =>
+          toast.success(t('clickup.created').replace('{list}', pushTarget?.listName ?? '')),
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  }
 
   function onSubmit() {
     const value = reference.trim();
@@ -81,15 +119,47 @@ export function ClickUpLinkPanel({
       }
       trailing={
         canWrite && status?.available ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-6 text-muted-foreground"
-            onClick={() => setAdding(true)}
-            aria-label={t('clickup.link')}
-          >
-            <Plus className="size-4" />
-          </Button>
+          pushTarget?.canPush ? (
+            <Menu
+              align="right"
+              triggerClassName="size-6 rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              trigger={
+                <>
+                  {push.isPending ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Plus className="size-4" aria-hidden />
+                  )}
+                  <span className="sr-only">{t('clickup.add')}</span>
+                </>
+              }
+              items={[
+                {
+                  label: t('clickup.create'),
+                  icon: <ClickUpIcon className="size-3.5" />,
+                  onClick: onPush,
+                  disabled: push.isPending,
+                  closeOnSelect: true,
+                },
+                {
+                  label: t('clickup.linkExisting'),
+                  icon: <Link2 className="size-3.5" />,
+                  onClick: () => setAdding(true),
+                  closeOnSelect: true,
+                },
+              ]}
+            />
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 text-muted-foreground"
+              onClick={() => setAdding(true)}
+              aria-label={t('clickup.link')}
+            >
+              <Plus className="size-4" />
+            </Button>
+          )
         ) : undefined
       }
     >
@@ -164,6 +234,10 @@ function ClickUpLinkRow({
   const unlink = useUnlinkClickUpTask(targetType, targetId);
   const finished = FINISHED.includes(row.statusType);
   const broken = !!row.unavailableReason;
+  // A link the board made, not a person: this one is written to, its status moves
+  // this item, and it can't be removed from here — unbinding the board is what
+  // ends it, and the server refuses anything else.
+  const synced = row.origin === ClickUpLinkOrigin.SYNC;
 
   return (
     <div
@@ -212,16 +286,18 @@ function ClickUpLinkRow({
               >
                 <RefreshCw className={cn('size-3.5', refresh.isPending && 'animate-spin')} />
               </button>
-              <button
-                type="button"
-                onClick={() =>
-                  unlink.mutate(row.id, { onError: (e) => toast.error((e as Error).message) })
-                }
-                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-destructive"
-                aria-label={t('clickup.unlink')}
-              >
-                <X className="size-3.5" />
-              </button>
+              {!synced && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    unlink.mutate(row.id, { onError: (e) => toast.error((e as Error).message) })
+                  }
+                  className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-destructive"
+                  aria-label={t('clickup.unlink')}
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
             </>
           )}
         </div>
@@ -247,6 +323,14 @@ function ClickUpLinkRow({
             >
               · {timeAgo(row.lastSyncedAt)}
             </span>
+            {synced && (
+              <span
+                className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                title={t('clickup.syncedNote')}
+              >
+                {t('clickup.synced')}
+              </span>
+            )}
           </>
         )}
       </div>

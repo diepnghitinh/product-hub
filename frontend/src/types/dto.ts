@@ -4,7 +4,9 @@ import {
   BugSeverity,
   BugStatus,
   BugStatusConfig,
+  ClickUpLinkOrigin,
   ClickUpLinkTarget,
+  ClickUpSyncScope,
   CustomFieldConfig,
   CustomFieldValue,
   CycleMode,
@@ -868,8 +870,9 @@ export interface ClickUpWorkspaceDto {
  * One ClickUp task linked to an issue or a backlog item.
  *
  * Everything below is a **mirror**: what ClickUp said at `lastSyncedAt`, not a
- * live read. Nothing here has ever moved this workspace's own status — the whole
- * integration is display-only and one-way.
+ * live read. What that mirror is allowed to *do* depends on `origin` — a pasted
+ * link is display-only and always has been; a link a bound board created also
+ * carries the status back onto this record.
  */
 export interface ClickUpLinkDto {
   id: string;
@@ -878,6 +881,8 @@ export interface ClickUpLinkDto {
   targetId: string;
   /** '' for an issue. */
   roadmapId: string;
+  /** `manual` = pasted and read-only. `sync` = created by a bound board. */
+  origin: ClickUpLinkOrigin;
   taskName: string;
   taskUrl: string;
   /** `DEV-123`, or '' unless the workspace uses custom ids. */
@@ -898,6 +903,116 @@ export interface ClickUpLinkDto {
   createdByName: string;
   createdAt: string;
   lastSyncedAt: string;
+}
+
+/**
+ * Whether *this* record can be created in ClickUp on demand.
+ *
+ * `ClickUpStatusDto` says the workspace is connected; this says the board behind
+ * one particular record is bound and hasn't already got a task. The two are
+ * separate reads because they change on completely different timescales — a
+ * workspace is connected roughly never, a record acquires a synced task once.
+ */
+export interface ClickUpPushTargetDto {
+  canPush: boolean;
+  /** The list it would land in. '' whenever `canPush` is false. */
+  listName: string;
+}
+
+/** One space in the connected workspace — the binding form's first picker. */
+export interface ClickUpSpaceDto {
+  id: string;
+  name: string;
+}
+
+/** One list a board can be bound to. Flattened across folders. */
+export interface ClickUpListDto {
+  id: string;
+  name: string;
+  /** '' for a folderless list; shown to tell two same-named lists apart. */
+  folderName: string;
+}
+
+/** One status the bound list defines — the right-hand side of the mapping. */
+export interface ClickUpListStatusDto {
+  /** ClickUp's identity for it: the string stored in the map and sent on a push. */
+  name: string;
+  color: string;
+  /** open · custom · done · closed. */
+  type: string;
+}
+
+/** One row of the mapping: our column → their status ('' = doesn't sync). */
+export interface ClickUpStatusPairDto {
+  key: string;
+  clickupStatus: string;
+}
+
+/**
+ * One board's ClickUp binding, as its settings form reads it.
+ *
+ * `statusMap` and `columns` always describe the board's **current** columns —
+ * the server reconciles on every read — so a column added since the last save
+ * arrives as an empty row rather than not at all.
+ */
+export interface ClickUpSyncDto {
+  /** false → the board is unbound and nothing else here is meaningful. */
+  bound: boolean;
+  scope: ClickUpSyncScope;
+  scopeId: string;
+  listId: string;
+  listName: string;
+  spaceId: string;
+  spaceName: string;
+  /** Off keeps the mapping but stops every push and every inbound move. */
+  enabled: boolean;
+  statusMap: ClickUpStatusPairDto[];
+  /** What the bound list offers, so each row can render a real picker. */
+  listStatuses: ClickUpListStatusDto[];
+  /** Our columns in board order — the left-hand label of each row. */
+  columns: { key: string; label: string }[];
+}
+
+/** One seat in the connected ClickUp workspace — an option a row can be pinned to. */
+export interface ClickUpMemberDto {
+  id: number;
+  username: string;
+  email: string;
+}
+
+/**
+ * One person, and who they reach in ClickUp.
+ *
+ * Three states, and the table has to tell them apart, because assignees push out
+ * as ClickUp member ids matched on **email** — which quietly works for most
+ * people and quietly does nothing for anyone whose ClickUp seat uses a different
+ * address:
+ *
+ * - `pinned` — an admin chose this pairing.
+ * - `!pinned` and `memberId > 0` — nothing was configured, the emails match.
+ * - `memberId === 0` — nobody. Assigning this person pushes no one, and this is
+ *   the row the screen exists to make visible.
+ */
+export interface ClickUpPersonDto {
+  userId: string;
+  name: string;
+  email: string;
+  avatarUrl: string;
+  /** 0 → this person's assignments don't reach ClickUp. */
+  memberId: number;
+  clickupUsername: string;
+  clickupEmail: string;
+  /** true → chosen by an admin. false → matched on email. */
+  pinned: boolean;
+}
+
+/** The people screen: our side, ClickUp's side, and how they currently resolve. */
+export interface ClickUpPeopleDto {
+  people: ClickUpPersonDto[];
+  /** Empty when ClickUp is unreachable — the saved pins still render. */
+  members: ClickUpMemberDto[];
+  /** '' when healthy; otherwise why the roster couldn't be read. */
+  membersUnavailable: string;
 }
 
 // ── Teams ────────────────────────────────────────────────────────────────────

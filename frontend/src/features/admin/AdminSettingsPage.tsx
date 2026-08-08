@@ -67,8 +67,9 @@ import {
 } from '@/features/teams/api';
 import { useUpdateCycleConfig } from '@/features/cycles/api';
 import { TeamCyclePlanner } from '@/features/cycles/components/TeamCyclePlanner';
+import { ClickUpSyncEditor } from '@/features/clickup/ClickUpSyncEditor';
 import type { TeamDto } from '@/types/dto';
-import type { CustomFieldConfig, TaskLabelConfig } from '@/types/enums';
+import { ClickUpSyncScope, type CustomFieldConfig, type TaskLabelConfig } from '@/types/enums';
 import { CloudStorageSection } from './CloudStorageSection';
 import { IntegrationsSection } from './IntegrationsSection';
 import { ExternalToolsSection } from './ExternalToolsSection';
@@ -392,6 +393,13 @@ function TeamSettingsSection({ team }: { team: TeamDto }) {
         defaults={defaultStatusesFor(team.issueType)}
         builtinKeys={builtinStatusKeys(team.issueType)}
         onSave={(rows) => save.mutateAsync({ id: team.id, statuses: rows })}
+      />
+      {/* Directly under the columns it maps: the mapping is only readable next to
+          the statuses it points at, and both are edited in the same sitting. */}
+      <ClickUpSyncEditor
+        scope={ClickUpSyncScope.TEAM}
+        scopeId={team.id}
+        title={`${team.name} · ${t('clickup.sync')}`}
       />
       <TeamCyclesEditor team={team} />
       <TeamLabelsEditor team={team} />

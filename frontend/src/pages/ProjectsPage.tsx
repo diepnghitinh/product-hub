@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { ChevronRight, Plus } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Badge, Button, Input, ProgressBar } from '@/components/ui';
-import { FilterMenu, countFilters, type FilterSelections } from '@/components/FilterMenu';
+import { FilterMenu, countFilters } from '@/components/FilterMenu';
+import { SavedFilterChips, useSavedFilters } from '@/components/SavedFilters';
 import { CardGridSkeleton } from '@/components/Skeletons';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { t } from '@/i18n';
@@ -53,8 +54,9 @@ export function ProjectsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [query, setQuery] = useState('');
-  const [filters, setFilters] = useState<FilterSelections>({});
+  // Search + filters are remembered between visits and saveable as named chips.
+  const filterState = useSavedFilters('projects');
+  const { filters, setFilters, search: query, setSearch: setQuery } = filterState;
 
   const filterCategories = [
     {
@@ -101,8 +103,8 @@ export function ProjectsPage() {
   }, [visible, statsById]);
 
   function clearFilters() {
-    setQuery('');
-    setFilters({});
+    // Clears the search box and every category, and steps off any saved chip.
+    filterState.clear();
   }
 
   function onCreate(values: ProjectFormValues) {
@@ -145,6 +147,7 @@ export function ProjectsPage() {
             value={filters}
             onChange={setFilters}
           />
+          <SavedFilterChips state={filterState} categories={filterCategories} />
           {narrowing && (
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs tabular-nums text-muted-foreground">

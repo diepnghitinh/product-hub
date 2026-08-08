@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
+  ClickUpLinkOrigin,
   ClickUpLinkTarget,
   ClickUpStatusType,
 } from '@application/app-settings/domain/clickup.types';
@@ -25,6 +26,8 @@ export class ClickUpLinkRepository implements IClickUpLinkRepository {
       targetType: d.targetType as ClickUpLinkTarget,
       targetId: d.targetId,
       roadmapId: d.roadmapId ?? '',
+      origin: (d.origin as ClickUpLinkOrigin) ?? ClickUpLinkOrigin.MANUAL,
+      pushedStatus: d.pushedStatus ?? '',
       taskName: d.taskName ?? '',
       taskUrl: d.taskUrl ?? '',
       customId: d.customId ?? '',
@@ -86,23 +89,48 @@ export class ClickUpLinkRepository implements IClickUpLinkRepository {
   }
 
   async create(data: CreateClickUpLinkData): Promise<ClickUpLinkRecord> {
-    const { tenantId, targetType, targetId, clickupTaskId, createdBy, createdByName, ...rest } =
-      data;
+    const {
+      tenantId,
+      targetType,
+      targetId,
+      clickupTaskId,
+      createdBy,
+      createdByName,
+      origin,
+      ...rest
+    } = data;
     // Upsert on the unique key: re-pasting the same task URL onto the same record
     // is "refresh this link", not an error and not a second row. `createdBy` is
     // `$setOnInsert` so a colleague's refresh doesn't rewrite who linked it.
+    //
+    // `origin` is insert-only for a sharper reason: it decides whether we may
+    // write to this ClickUp task, so no later call may change it. Pasting the URL
+    // of a synced task can't demote the link, and — the direction that matters —
+    // nothing can promote a hand-pasted link into one we start overwriting.
     const doc = await this.model
       .findOneAndUpdate(
         { tenantId, targetType, targetId, clickupTaskId },
         {
           $set: { ...rest, lastSyncedAt: new Date() },
-          $setOnInsert: { tenantId, targetType, targetId, clickupTaskId, createdBy, createdByName },
+          $setOnInsert: {
+            tenantId,
+            targetType,
+            targetId,
+            clickupTaskId,
+            createdBy,
+            createdByName,
+            origin: origin ?? ClickUpLinkOrigin.MANUAL,
+          },
         },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       )
       .lean<ClickUpLinkDoc>()
       .exec();
     return this.toRecord(doc);
+  }
+
+  async markPushed(tenantId: string, id: string, pushedStatus: string): Promise<void> {
+    await this.model.updateOne({ _id: id, tenantId }, { $set: { pushedStatus } }).exec();
   }
 
   async updateSnapshot(

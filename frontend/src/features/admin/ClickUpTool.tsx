@@ -16,6 +16,7 @@ import {
 } from '@/components/ui';
 import { RowsSkeleton } from '@/components/Skeletons';
 import { ClickUpIcon } from '@/components/ClickUpIcon';
+import { ClickUpPeopleSection } from './ClickUpPeopleSection';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { timeAgo } from '@/lib/format';
@@ -158,6 +159,12 @@ export function ClickUpTool() {
       ) : (
         <ConnectForm />
       )}
+
+      {/* Below the connection, not inside it: the map is about who syncs, which
+          only means anything once a workspace is connected, and it outlives any
+          one board binding. Hidden while paused would be wrong — an admin fixing
+          a mapping is often exactly why it's paused. */}
+      {data?.connected && <ClickUpPeopleSection />}
     </section>
   );
 }

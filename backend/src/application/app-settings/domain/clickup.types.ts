@@ -1,19 +1,31 @@
 /**
- * ClickUp integration — link a ClickUp task to an issue or a backlog item and
- * keep its state beside it.
+ * ClickUp integration — mirror a ClickUp task beside a record, or bind a whole
+ * board to a ClickUp list and keep the two in step.
  *
  * The important difference from the git integrations next door: this one is
  * **outbound as well as inbound**. Reading a task and registering a webhook both
  * require calling ClickUp with a credential, so unlike GitHub/GitLab we do store
  * a token. That token is the whole of this feature's blast radius, so it is:
  * written once, never serialized back to any client (the API answers with a
- * `tokenPreview` instead), and used for exactly the three calls in
- * `ClickUpClient`.
+ * `tokenPreview` instead), and used only from `ClickUpClient`.
  *
- * The sync is **one-way, mirror-only**: ClickUp tells us its task changed, we
- * re-read it and store a snapshot. Nothing here ever writes to ClickUp, and a
- * ClickUp status never moves a product-os issue — this workspace stays the
- * author of its own board.
+ * There are two distinct ways a ClickUp task and a product-os record end up
+ * side by side, and they carry **different promises**:
+ *
+ * - **A pasted link** ({@link ClickUpLinkOrigin.MANUAL}) — someone dropped a
+ *   ClickUp URL onto an issue. Mirror-only, exactly as it always was: we read
+ *   that task and render it beside the record, and we never write to it. It
+ *   belongs to whoever made it, in a list we know nothing about.
+ * - **A bound board** ({@link ClickUpLinkOrigin.SYNC}) — a team (or a roadmap)
+ *   is bound to a ClickUp list, so every issue on it *has* a ClickUp task that
+ *   this workspace created and owns. Those we write to.
+ *
+ * The direction rule for a bound board, decided by the product owner:
+ * **every field pushes out; only status also comes back in.** Titles, dates,
+ * priority and people are authored here and mirrored there, so nobody can rename
+ * your backlog from ClickUp. Status is the one thing both boards genuinely share
+ * — a developer who drags the card in ClickUp has moved the work — so it travels
+ * both ways, through the explicit map on the binding and never by guesswork.
  */
 
 /** ClickUp's own status buckets. `done`/`closed` are the two finished ones. */
@@ -38,6 +50,34 @@ export const CLICKUP_LINK_TARGETS: ClickUpLinkTarget[] = [
 ];
 
 /**
+ * How a link came to exist — and therefore what we're allowed to do with it.
+ *
+ * This is the single flag that keeps the old promise intact while the new
+ * feature writes to ClickUp. Every write path checks it, so a task somebody
+ * pasted in cannot be renamed, re-statused or re-dated by us; only tasks this
+ * workspace created for a bound board are ever written to.
+ */
+export enum ClickUpLinkOrigin {
+  /** A ClickUp URL pasted onto a record. Read-only, forever. */
+  MANUAL = 'manual',
+  /** Created by us in a bound list, and kept in step from both sides. */
+  SYNC = 'sync',
+}
+
+/** Which of our boards a ClickUp list can be bound to. */
+export enum ClickUpSyncScope {
+  /** A team's issue board — its `TeamStatusConfig[]` are the columns mapped. */
+  TEAM = 'team',
+  /** A roadmap's backlog — its `RoadmapColumn[]` are the columns mapped. */
+  ROADMAP = 'roadmap',
+}
+
+export const CLICKUP_SYNC_SCOPES: ClickUpSyncScope[] = [
+  ClickUpSyncScope.TEAM,
+  ClickUpSyncScope.ROADMAP,
+];
+
+/**
  * The ClickUp events we ask to be notified about.
  *
  * We subscribe narrowly but react uniformly: whichever of these arrives, the
@@ -55,6 +95,30 @@ export const CLICKUP_WEBHOOK_EVENTS = [
   'taskMoved',
   'taskDeleted',
 ] as const;
+
+/**
+ * One of our people pinned to one ClickUp member.
+ *
+ * Assignees travel to ClickUp as numeric member ids, and the two systems share
+ * no identifier — so the push matches on **email**, which works right up until
+ * someone's ClickUp seat uses a different address. This is the override for
+ * that, and only that: a row here exists because the automatic match was wrong
+ * or absent, so an empty map is the normal state of a healthy workspace rather
+ * than something waiting to be filled in.
+ *
+ * `username`/`email` are cached from ClickUp so Settings can render the pairing
+ * without a round trip; the id is the only field that decides anything.
+ */
+export interface ClickUpUserLink {
+  /** Our `User.id`. */
+  userId: string;
+  /** ClickUp's numeric member id — what actually goes on the task. */
+  memberId: number;
+  /** ClickUp's display name at the time it was mapped. Display only. */
+  username: string;
+  /** ClickUp's email at the time it was mapped. Display only. */
+  email: string;
+}
 
 /** One connected ClickUp workspace. At most one per tenant. */
 export interface ClickUpConfig {
@@ -79,6 +143,11 @@ export interface ClickUpConfig {
    */
   urlToken: string;
   enabled: boolean;
+  /**
+   * Overrides for people the email match gets wrong. Empty is the normal case —
+   * see {@link ClickUpUserLink}.
+   */
+  userMap: ClickUpUserLink[];
   connectedAt: string;
   /** '' until the first delivery lands — the "did I wire this up right?" signal. */
   lastEventAt: string;
@@ -89,10 +158,11 @@ export interface ClickUpConfig {
 /** A fresh connection's non-user fields. */
 export function newClickUpDefaults(): Pick<
   ClickUpConfig,
-  'enabled' | 'connectedAt' | 'lastEventAt' | 'lastEventSummary'
+  'enabled' | 'userMap' | 'connectedAt' | 'lastEventAt' | 'lastEventSummary'
 > {
   return {
     enabled: true,
+    userMap: [],
     connectedAt: new Date().toISOString(),
     lastEventAt: '',
     lastEventSummary: '',

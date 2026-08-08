@@ -10,6 +10,7 @@ import {
   Input,
   Menu,
   type MenuItem,
+  SegmentedControl,
   SymbolPicker,
   TagInput,
 } from '@/components/ui';
@@ -44,16 +45,15 @@ const tagKey = (tag: string) => tag.toLowerCase();
 
 /** The two author scopes, in switch order. */
 const SCOPES = [
-  { mine: false, labelKey: 'docs.allDocs', Glyph: FileText },
-  { mine: true, labelKey: 'docs.mine', Glyph: UserRound },
+  { value: 'all', labelKey: 'docs.allDocs', Glyph: FileText },
+  { value: 'mine', labelKey: 'docs.mine', Glyph: UserRound },
 ] as const;
 
 /**
  * All docs | Created by me. Two segments rather than a lone checkbox: the hub's
  * default *is* the whole workspace, so it says so out loud instead of leaving an
- * unchecked box to imply it. Same segmented idiom (and brand fill on the active
- * segment) as the boards' Kind switch — there's no toggle-group primitive in the
- * UI kit, so it's two buttons.
+ * unchecked box to imply it. The caller still thinks in the boolean it filters
+ * by; only the control needs the two names.
  */
 function AuthorScopeSwitch({
   mineOnly,
@@ -63,28 +63,16 @@ function AuthorScopeSwitch({
   onChange: (mine: boolean) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5">
-      {SCOPES.map(({ mine, labelKey, Glyph }) => {
-        const active = mineOnly === mine;
-        return (
-          <button
-            key={labelKey}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(mine)}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              active
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <Glyph className="size-3.5 shrink-0" aria-hidden />
-            <span>{t(labelKey)}</span>
-          </button>
-        );
-      })}
-    </div>
+    <SegmentedControl
+      size="sm"
+      value={mineOnly ? 'mine' : 'all'}
+      onChange={(v) => onChange(v === 'mine')}
+      options={SCOPES.map(({ value, labelKey, Glyph }) => ({
+        value,
+        label: t(labelKey),
+        icon: <Glyph className="size-3.5" aria-hidden />,
+      }))}
+    />
   );
 }
 
@@ -352,7 +340,11 @@ export function DocsHubPage() {
                     controls wide now that the pin sits beside the ⋯ menu. */}
                 <div className="flex items-start gap-2.5 pr-14">
                   <span className="mt-px grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-                    <TeamSymbol name={doc.icon || 'book'} size={16} color={doc.color ?? undefined} />
+                    <TeamSymbol
+                      name={doc.icon || 'book'}
+                      size={16}
+                      color={doc.color ?? undefined}
+                    />
                   </span>
                   <h3 className="min-w-0 text-[15px] font-medium leading-tight">{doc.title}</h3>
                 </div>

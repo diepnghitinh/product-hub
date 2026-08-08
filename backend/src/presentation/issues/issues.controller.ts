@@ -126,6 +126,7 @@ export class IssuesController {
       requesterId: auth.userId,
       isAdmin: auth.role === Role.ADMIN,
       status: dto.status,
+      beforeId: dto.beforeId,
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return IssueMapper.toResponseDto(result.getValue());

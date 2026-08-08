@@ -11,7 +11,14 @@ import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import type { TeamStatusConfig } from '@/types/enums';
 import type { TaskDto } from '@/types/dto';
-import { useCreateTask, useDeleteTask, usePersonalStatuses, useSetTaskStatus, useTasks } from './api';
+import {
+  useCreateTask,
+  useDeleteTask,
+  usePersonalStatuses,
+  useReplacePersonalStatuses,
+  useSetTaskStatus,
+  useTasks,
+} from './api';
 
 /**
  * The caller's **private** Personal board — their own tasks, in no team, that
@@ -43,14 +50,20 @@ export function PersonalBoardPage() {
 
   const setStatus = useSetTaskStatus();
   const remove = useDeleteTask();
+  // No role gate here, unlike a team board: these columns are this person's own,
+  // so whoever is looking at this board already owns them.
+  const saveColumns = useReplacePersonalStatuses();
 
   const [columnsOpen, setColumnsOpen] = useState(false);
   // The column key to pre-select in the quick-add dialog; null = closed.
   const [quickAdd, setQuickAdd] = useState<string | null>(null);
 
-  function onMove(id: string, toStatus: string) {
+  // `overId` is the card it was dropped onto — passed straight through so the
+  // card keeps the slot it was dropped in, not just the column. A drop in the
+  // same column is a real move now (it reorders), so there's no status guard.
+  function onMove(id: string, toStatus: string, overId: string | null) {
     const task = tasks.find((tk) => tk.id === id);
-    if (task && task.status !== toStatus) setStatus.mutate({ id, status: toStatus });
+    if (task) setStatus.mutate({ id, status: toStatus, beforeId: overId });
   }
 
   const openAdd = () => setQuickAdd(columns[0]?.key ?? '');
@@ -108,6 +121,7 @@ export function PersonalBoardPage() {
           getColumnKey={(tk) => tk.status}
           renderCard={(task, overlay) => <PersonalCard task={task} overlay={overlay} />}
           onMove={onMove}
+          onColumnsReorder={(cols) => saveColumns.mutate(cols)}
           onCardClick={(task) => navigate(`/issues/${task.shortId || task.id}`)}
           renderCardToolbar={(task) => (
             <KanbanCardToolbar

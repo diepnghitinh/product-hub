@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiDelete, apiGet, apiPost, apiPut } from '@/lib/api';
 import type {
   AppSettingsDto,
+  ClickUpPeopleDto,
   ClickUpSettingsDto,
   ClickUpWorkspaceDto,
   GitIntegrationDto,
@@ -178,4 +179,35 @@ export function useSetClickUpEnabled() {
 /** Deletes the webhook in ClickUp, drops the token, and removes every link. */
 export function useDisconnectClickUp() {
   return useClickUpMutation(() => apiDelete<ClickUpSettingsDto>('/settings/clickup'));
+}
+
+const CLICKUP_PEOPLE_KEY = ['settings', 'clickup', 'people'];
+
+/**
+ * Everyone here, next to their ClickUp seat.
+ *
+ * Not cached beyond the screen: the rows are *resolved* server-side, so the
+ * answer changes when somebody joins either system, and a stale table would
+ * claim a person syncs when they no longer do.
+ */
+export function useClickUpPeople(enabled = true) {
+  return useQuery({
+    queryKey: CLICKUP_PEOPLE_KEY,
+    queryFn: () => apiGet<ClickUpPeopleDto>('/settings/clickup/people'),
+    enabled,
+  });
+}
+
+/**
+ * Replace the whole map. `memberId: 0` removes a pin and hands the row back to
+ * the email match — which is why the server answers with the re-resolved table
+ * rather than an echo, and why that answer is written straight into the cache.
+ */
+export function useSaveClickUpPeople() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (people: { userId: string; memberId: number }[]) =>
+      apiPut<ClickUpPeopleDto>('/settings/clickup/people', { people }),
+    onSuccess: (fresh) => qc.setQueryData(CLICKUP_PEOPLE_KEY, fresh),
+  });
 }

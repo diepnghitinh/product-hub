@@ -22,6 +22,11 @@ export { useLightbox, collectImages, collectDiagram, type LightboxItem } from '.
 export { useFigureZoom } from './FigureZoom';
 export { useExternalLink, type ExternalLinkGuard } from './ExternalLink';
 export { MultiSelect, type MultiSelectOption, type MultiSelectProps } from './MultiSelect';
+export {
+  SegmentedControl,
+  type SegmentedOption,
+  type SegmentedControlProps,
+} from './SegmentedControl';
 export { TagInput, type TagInputProps } from './TagInput';
 export {
   SelectMenu,

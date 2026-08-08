@@ -4,6 +4,7 @@ import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { randomRef } from '@module-shared/utils/short-id.util';
 import { sanitizeStoredFiles } from '@application/storage/domain/stored-file.type';
+import { IClickUpSync } from '@application/integrations/clickup-sync.port';
 import {
   CreateRoadmapDto,
   ReplaceRoadmapColumnsDto,
@@ -125,7 +126,10 @@ export class ReplaceRoadmapItemsUseCase
       Result<RoadmapEntity>
     >
 {
-  constructor(@Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository) {}
+  constructor(
+    @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
+    @Inject(IClickUpSync) private readonly clickup: IClickUpSync,
+  ) {}
   async execute({
     id,
     tenantId,
@@ -177,8 +181,37 @@ export class ReplaceRoadmapItemsUseCase
     });
     roadmap.replaceItems(items);
     await this.roadmaps.update(roadmap);
+    // Only the items whose *synced* fields actually moved. The board replaces the
+    // whole array on every edit, so without this a single drag — which rewrites
+    // every item's order — would fire one ClickUp write per backlog item and hit
+    // the rate limiter for a change to one card.
+    await this.clickup.roadmapItemsChanged(
+      tenantId,
+      id,
+      items.filter((item) => differsForSync(existingById.get(item.id), item)),
+    );
     return Result.ok(roadmap);
   }
+}
+
+/**
+ * Did anything ClickUp mirrors change on this item?
+ *
+ * A brand-new item (`prev` undefined) always counts — that's what mints its
+ * ClickUp task. Everything not listed here (RICE, progress, epic, order, OKR
+ * link) is deliberately absent: it isn't pushed, so changing it isn't a reason
+ * to call ClickUp.
+ */
+function differsForSync(prev: RoadmapItemData | undefined, next: RoadmapItemData): boolean {
+  if (!prev) return true;
+  return (
+    prev.title !== next.title ||
+    prev.description !== next.description ||
+    prev.phase !== next.phase ||
+    prev.startDate !== next.startDate ||
+    prev.endDate !== next.endDate ||
+    prev.assignees.map((a) => a.id).join(',') !== next.assignees.map((a) => a.id).join(',')
+  );
 }
 
 export interface AddRoadmapItemRequest {
@@ -198,7 +231,10 @@ export class AddRoadmapItemUseCase
   implements
     IUsecaseExecute<AddRoadmapItemRequest, Result<{ roadmap: RoadmapEntity; item: RoadmapItemData }>>
 {
-  constructor(@Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository) {}
+  constructor(
+    @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
+    @Inject(IClickUpSync) private readonly clickup: IClickUpSync,
+  ) {}
   async execute({
     id,
     tenantId,
@@ -255,6 +291,7 @@ export class AddRoadmapItemUseCase
 
     roadmap.replaceItems([...roadmap.items, created]);
     await this.roadmaps.update(roadmap);
+    await this.clickup.roadmapItemsChanged(tenantId, id, [created]);
     return Result.ok({ roadmap, item: created });
   }
 }

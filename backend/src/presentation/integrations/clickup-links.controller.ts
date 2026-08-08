@@ -14,12 +14,16 @@ import { AuthUser, Roles } from '@core/decorators';
 import { JwtPayload, Role } from '@core/interfaces';
 import {
   GetClickUpLinksUseCase,
+  GetClickUpPushTargetUseCase,
   LinkClickUpTaskUseCase,
+  PushClickUpTaskUseCase,
   RefreshClickUpLinkUseCase,
   UnlinkClickUpTaskUseCase,
 } from '@application/integrations/use-cases/clickup.use-cases';
 import {
   ClickUpLinkResponseDto,
+  ClickUpPushTargetResponseDto,
+  ClickUpTargetDto,
   GetClickUpLinksQueryDto,
   LinkClickUpTaskDto,
 } from '@application/integrations/dtos/clickup.dtos';
@@ -33,6 +37,7 @@ function present(l: ClickUpLinkRecord): ClickUpLinkResponseDto {
     targetType: l.targetType,
     targetId: l.targetId,
     roadmapId: l.roadmapId,
+    origin: l.origin,
     taskName: l.taskName,
     taskUrl: l.taskUrl,
     customId: l.customId,
@@ -67,6 +72,8 @@ export class ClickUpLinksController {
     private readonly link: LinkClickUpTaskUseCase,
     private readonly unlink: UnlinkClickUpTaskUseCase,
     private readonly refresh: RefreshClickUpLinkUseCase,
+    private readonly pushTarget: GetClickUpPushTargetUseCase,
+    private readonly push: PushClickUpTaskUseCase,
   ) {}
 
   @Get()
@@ -108,6 +115,45 @@ export class ClickUpLinksController {
     return present(result.getValue());
   }
 
+  @Get('push-target')
+  @ApiOperation({
+    summary: 'Can this record be created in ClickUp on demand?',
+    description:
+      'Answers false — never an error — for every ordinary reason: no ClickUp, an ' +
+      'unbound board, a personal task, or a record that already syncs. Readable by ' +
+      'anyone who can edit an issue; it says nothing about the workspace’s layout.',
+  })
+  async canPush(
+    @AuthUser() auth: JwtPayload,
+    @Query() query: ClickUpTargetDto,
+  ): Promise<ClickUpPushTargetResponseDto> {
+    const result = await this.pushTarget.execute({
+      tenantId: auth.tenantId,
+      targetType: query.targetType,
+      targetId: query.targetId,
+      roadmapId: query.roadmapId,
+    });
+    return result.getValue();
+  }
+
+  @Post('push')
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
+  @ApiOperation({
+    summary: 'Create this record in ClickUp now, through its board’s binding',
+    description:
+      'For work that predates the binding. Runs the exact write an ordinary save ' +
+      'would have run, so the result is a normal synced link — pushed out, status ' +
+      'coming back, and unlinked only by unbinding the board.',
+  })
+  async pushOne(
+    @AuthUser() auth: JwtPayload,
+    @Body() dto: ClickUpTargetDto,
+  ): Promise<ClickUpLinkResponseDto> {
+    const result = await this.push.execute({ tenantId: auth.tenantId, dto });
+    if (result.isFailure) throw new BadRequestException(result.error as string);
+    return present(result.getValue());
+  }
+
   @Post(':id/refresh')
   @HttpCode(200)
   @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
@@ -129,8 +175,10 @@ export class ClickUpLinksController {
   @Delete(':id')
   @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({
-    summary: 'Remove a link',
-    description: 'The ClickUp task is untouched — this integration never writes there.',
+    summary: 'Remove a pasted link',
+    description:
+      'The ClickUp task is untouched — nothing here ever deletes one. Rejects a ' +
+      'link a bound board created: that one is unlinked by unbinding the board.',
   })
   async del(@AuthUser() auth: JwtPayload, @Param('id') id: string): Promise<{ ok: boolean }> {
     const result = await this.unlink.execute({ tenantId: auth.tenantId, id });

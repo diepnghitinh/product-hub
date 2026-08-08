@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, LayoutGrid, List } from 'lucide-react';
-import { Button } from '@/components/ui';
+import { Button, SegmentedControl } from '@/components/ui';
 import { AssigneeBadge } from '@/components/AssigneeBadge';
 import { BoardSkeleton, ListSkeleton, TimelineSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
@@ -9,12 +8,8 @@ import { KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
 import { Icon } from '@/components/Icon';
 import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
 import { LabelChips } from '@/features/labels/LabelChips';
-import {
-  FilterMenu,
-  UNASSIGNED,
-  type FilterCategory,
-  type FilterSelections,
-} from '@/components/FilterMenu';
+import { FilterMenu, UNASSIGNED, type FilterCategory } from '@/components/FilterMenu';
+import { SavedFilterChips, useSavedFilters } from '@/components/SavedFilters';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
@@ -45,32 +40,18 @@ const KIND_TABS = [
 
 /** A segmented Task | Bug control — the one axis a card can't share (task and bug
  * statuses genuinely differ), so it lives in the toolbar and switches the whole
- * board's columns + cards. Active tab uses the brand fill; there's no toggle-group
- * primitive in the UI kit, so it's two buttons. */
+ * board's columns + cards. */
 function KindSwitch({ value, onChange }: { value: IssueKind; onChange: (k: IssueKind) => void }) {
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-muted/40 p-0.5">
-      {KIND_TABS.map(({ kind, icon, labelKey }) => {
-        const active = value === kind;
-        return (
-          <button
-            key={kind}
-            type="button"
-            aria-pressed={active}
-            onClick={() => onChange(kind)}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors',
-              active
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <Icon name={icon} size={15} />
-            <span>{t(labelKey)}</span>
-          </button>
-        );
-      })}
-    </div>
+    <SegmentedControl
+      value={value}
+      onChange={onChange}
+      options={KIND_TABS.map(({ kind, icon, labelKey }) => ({
+        value: kind,
+        label: t(labelKey),
+        icon: <Icon name={icon} size={15} />,
+      }))}
+    />
   );
 }
 
@@ -123,19 +104,21 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
   const kind = params.get('kind') === 'bug' ? IssueKind.BUG : IssueKind.TASK;
   const isBug = kind === IssueKind.BUG;
 
-  const [filters, setFilters] = useState<FilterSelections>({});
-  const [search, setSearch] = useState('');
+  // Filters + search are remembered per board and can be saved as named chips.
+  // Task and Bug mode are separate scopes: severity is bug-only, backlog item is
+  // task-only and the status columns differ, so nothing carries across cleanly —
+  // each side keeps (and restores) its own.
+  const filterState = useSavedFilters(`issues:${scope}:${isBug ? 'bug' : 'task'}`);
+  const { filters, setFilters, search, setSearch } = filterState;
 
-  // Switching kind rides in the URL (shareable) and clears the filters — severity
-  // is bug-only, backlog item is task-only, and the status columns differ, so
-  // nothing carries across cleanly.
+  // Switching kind rides in the URL (shareable); the scope key above swaps with
+  // it, so each side comes back to the filters it was left in.
   const setKind = (next: IssueKind) => {
     if (next === kind) return;
     const p = new URLSearchParams(params);
     if (next === IssueKind.BUG) p.set('kind', 'bug');
     else p.delete('kind');
     setParams(p, { replace: true });
-    setFilters({});
   };
 
   // Board is default and kept out of the URL; ?view=list | ?view=timeline are shareable.
@@ -163,7 +146,7 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
     // "Assigned to me" is strictly the assignee, never the creator. The sentinel
     // keeps that list empty (not everyone's) until the user has loaded; the
     // all-issues scope sends no `mine` at all, so the API returns the workspace.
-    mine: isAll ? undefined : user?.id ?? '__none__',
+    mine: isAll ? undefined : (user?.id ?? '__none__'),
     search: search || undefined,
     status: filters.status,
     // Filtering by person only means something when the list isn't already one person's.
@@ -258,9 +241,17 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
 
   /** Issues don't persist ordering, so the drop slot is ignored — only the
    * destination column matters. */
-  function onMove(id: string, toStatus: string) {
+  // `overId` is the card it was dropped onto — passed straight through so the
+  // card keeps the slot it was dropped in, not just the column. A drop in the
+  // same column is a real move now (it reorders), so there's no status guard.
+  //
+  // There's deliberately no `onColumnsReorder` on this board: it spans teams, so
+  // its columns are the default team's plus whatever the other teams' items drag
+  // in (see `extendColumns`). There is no single config an order could be saved
+  // to. Column order is set on a team's own board, or in Settings → Teams.
+  function onMove(id: string, toStatus: string, overId: string | null) {
     const it = items.find((x) => x.id === id);
-    if (it && it.status !== toStatus) setStatus.mutate({ id, status: toStatus });
+    if (it) setStatus.mutate({ id, status: toStatus, beforeId: overId });
   }
 
   // One detail URL for both kinds — `/issues/<ref>` works out the kind itself.
@@ -276,9 +267,15 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
         placeholder: isBug ? t('bugs.search') : t('tasks.search'),
       }}
       filters={
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <KindSwitch value={kind} onChange={setKind} />
-          <FilterMenu size="default" categories={filterCategories} value={filters} onChange={setFilters} />
+          <FilterMenu
+            size="default"
+            categories={filterCategories}
+            value={filters}
+            onChange={setFilters}
+          />
+          <SavedFilterChips state={filterState} categories={filterCategories} />
         </div>
       }
       filtersEnd={
@@ -336,9 +333,17 @@ export function IssuesPage({ scope }: { scope: IssueScope }) {
           // reject a structural assign — the runtime shape is identical, hence the cast.
           renderCard={(it, overlay) =>
             isBug ? (
-              <BugCard bug={it as unknown as BugDto} labels={labelsFor(it.teamId)} overlay={overlay} />
+              <BugCard
+                bug={it as unknown as BugDto}
+                labels={labelsFor(it.teamId)}
+                overlay={overlay}
+              />
             ) : (
-              <TaskCard task={it as unknown as TaskDto} labels={labelsFor(it.teamId)} overlay={overlay} />
+              <TaskCard
+                task={it as unknown as TaskDto}
+                labels={labelsFor(it.teamId)}
+                overlay={overlay}
+              />
             )
           }
           onMove={onMove}
@@ -404,7 +409,11 @@ function IssueList({
         return (
           <section key={col.key}>
             <div className="mb-2 flex items-center gap-2">
-              <span className="size-2 rounded-full" style={{ backgroundColor: col.color }} aria-hidden />
+              <span
+                className="size-2 rounded-full"
+                style={{ backgroundColor: col.color }}
+                aria-hidden
+              />
               <h2 className="text-sm font-medium text-foreground">{col.label}</h2>
               <span className="text-xs tabular-nums text-muted-foreground">{list.length}</span>
             </div>
@@ -433,7 +442,9 @@ function IssueList({
                     className="hidden shrink-0 sm:flex"
                   />
                   {it.shortId && (
-                    <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{it.shortId}</span>
+                    <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                      {it.shortId}
+                    </span>
                   )}
                   <AssigneeBadge
                     assignees={it.assignees}

@@ -10,6 +10,7 @@ import { WebhookEvent } from '@application/app-settings/domain/webhook.types';
 import { ICycleRepository } from '@application/cycles/repositories/cycle.repository';
 import { CycleStatus } from '@application/cycles/domain/enums/cycle.enums';
 import { todayISO } from '@application/cycles/domain/cycle-dates';
+import { IClickUpSync } from '@application/integrations/clickup-sync.port';
 import { CreateIssueDto } from '../dtos/create-issue.dto';
 import { IssueEntity } from '../domain/entities/issue.entity';
 import { IssueKind } from '../domain/enums/issue.enums';
@@ -33,6 +34,7 @@ export class CreateIssueUseCase
     @Inject(ITeamRepository) private readonly teams: ITeamRepository,
     @Inject(ICycleRepository) private readonly cycles: ICycleRepository,
     @Inject(INotifier) private readonly notifier: INotifier,
+    @Inject(IClickUpSync) private readonly clickup: IClickUpSync,
   ) {}
 
   async execute({
@@ -132,6 +134,11 @@ export class CreateIssueUseCase
 
     const issue = created.getValue();
     await this.issues.save(issue);
+
+    // If this issue's team is bound to a ClickUp list, mint the matching ClickUp
+    // task now — that's what "automatic for the whole team" means: no button, no
+    // per-issue opt-in. Best-effort like the webhooks below it.
+    await this.clickup.issueCreated(issue);
 
     // Preserve the bug's outbound webhooks (best-effort, never blocks the response).
     if (isBug) {

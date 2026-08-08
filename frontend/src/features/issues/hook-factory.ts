@@ -89,31 +89,40 @@ export function makeIssueHooks<
   }
 
   /**
-   * Optimistic: the card lands in its new column the instant it's dropped, rather
-   * than sitting in the old one until the server answers. If the write fails the
-   * snapshot is restored, so it springs back to where it came from.
+   * Optimistic: the card lands in its new column — and at the exact slot it was
+   * dropped on — the instant it's released, rather than sitting where it was
+   * until the server answers. If the write fails the snapshot is restored, so it
+   * springs back to where it came from.
+   *
+   * `beforeId` is the card it was dropped onto; it ends up directly above that
+   * one. Omitted means the end of the column. The board renders the list in
+   * array order, so moving the item within `items` *is* the reorder — and it
+   * matches what the server will send back, which sorts by the same `order`.
    */
   function useSetStatus() {
     const qc = useQueryClient();
     const invalidate = useInvalidate();
     return useMutation({
       // `status` is a column key — built-in or custom, so a string.
-      mutationFn: ({ id, status }: { id: string; status: string }) =>
-        apiPatch<TItem>(`/issues/${id}/status`, { status }),
-      onMutate: async ({ id, status }) => {
+      mutationFn: ({ id, status, beforeId }: { id: string; status: string; beforeId?: string | null }) =>
+        apiPatch<TItem>(`/issues/${id}/status`, { status, ...(beforeId ? { beforeId } : {}) }),
+      onMutate: async ({ id, status, beforeId }) => {
         // Stop in-flight refetches from clobbering the optimistic state.
         await qc.cancelQueries({ queryKey: [listKey] });
         await qc.cancelQueries({ queryKey: [detailKey, id] });
         const lists = qc.getQueriesData<ListResponse<TItem>>({ queryKey: [listKey] });
         const detail = qc.getQueryData<TItem>([detailKey, id]);
-        qc.setQueriesData<ListResponse<TItem>>({ queryKey: [listKey] }, (old) =>
-          old
-            ? {
-                ...old,
-                items: old.items.map((it) => (it.id === id ? ({ ...it, status } as TItem) : it)),
-              }
-            : old,
-        );
+        qc.setQueriesData<ListResponse<TItem>>({ queryKey: [listKey] }, (old) => {
+          if (!old) return old;
+          const moved = old.items.find((it) => it.id === id);
+          if (!moved) return old;
+          const rest = old.items.filter((it) => it.id !== id);
+          // A `beforeId` that isn't in *this* cached list (a differently filtered
+          // board) falls back to the end — the same rule the server applies.
+          const at = beforeId ? rest.findIndex((it) => it.id === beforeId) : -1;
+          rest.splice(at < 0 ? rest.length : at, 0, { ...moved, status } as TItem);
+          return { ...old, items: rest };
+        });
         qc.setQueryData<TItem>([detailKey, id], (old) => (old ? ({ ...old, status } as TItem) : old));
         return { lists, detail };
       },

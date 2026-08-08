@@ -1,48 +1,28 @@
 {
   "version": 1,
-  "rev": 752,
-  "savedAt": "2026-08-07T10:43:59.926Z",
+  "rev": 855,
+  "savedAt": "2026-08-08T07:25:51.585Z",
   "id": "project-mrwvv6c7-1",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": -1235.663279485712,
-    "y": 898.1521535400095,
-    "zoom": 0.8672302759312172
+    "x": -775.5368831493233,
+    "y": 765.7634141003854,
+    "zoom": 0.5657348741785023
   },
   "nodes": [
     {
-      "id": "term-msirizwq-6",
+      "id": "term-msivnphi-2",
       "kind": "terminal",
       "position": {
-        "x": 1844.0916730056426,
-        "y": -895.632468459191
+        "x": 2262.319455930889,
+        "y": -947.3881468946927
       },
       "size": {
-        "width": 600,
-        "height": 400
+        "width": 929,
+        "height": 882
       },
-      "title": "Integrate ClickUp as external tool",
-      "titleAuto": true,
-      "color": "#d97757",
-      "group": null,
-      "tags": [],
-      "collapsed": false,
-      "cwd": ".",
-      "agentId": "claude"
-    },
-    {
-      "id": "term-msirq2ox-7",
-      "kind": "terminal",
-      "position": {
-        "x": 2557.105034882508,
-        "y": -897.1078659683499
-      },
-      "size": {
-        "width": 600,
-        "height": 400
-      },
-      "title": "Rút gọn UI/UX menu bên",
+      "title": "Continue browser testing",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,

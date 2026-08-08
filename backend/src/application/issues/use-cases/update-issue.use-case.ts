@@ -5,6 +5,7 @@ import { Result } from '@shared/logic/result';
 import { issueRefsInText } from '@module-shared/utils/short-id.util';
 import { IUserRepository } from '@application/users/repositories/user.repository';
 import { ICycleRepository } from '@application/cycles/repositories/cycle.repository';
+import { IClickUpSync } from '@application/integrations/clickup-sync.port';
 import { CycleStatus } from '@application/cycles/domain/enums/cycle.enums';
 import { todayISO } from '@application/cycles/domain/cycle-dates';
 import { UpdateIssueDto } from '../dtos/update-issue.dto';
@@ -31,6 +32,7 @@ export class UpdateIssueUseCase implements IUsecaseExecute<
     @Inject(IIssueRepository) private readonly issues: IIssueRepository,
     @Inject(IUserRepository) private readonly users: IUserRepository,
     @Inject(ICycleRepository) private readonly cycles: ICycleRepository,
+    @Inject(IClickUpSync) private readonly clickup: IClickUpSync,
   ) {}
 
   async execute({
@@ -123,6 +125,10 @@ export class UpdateIssueUseCase implements IUsecaseExecute<
     });
 
     await this.issues.update(issue);
+    // Mirror the edit into a bound ClickUp list, if this team has one. Fields
+    // only ever travel outward, so nothing about this call can change the issue
+    // that was just saved.
+    await this.clickup.issueChanged(issue);
     return Result.ok(issue);
   }
 }

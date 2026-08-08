@@ -296,6 +296,36 @@ export class IssueRepository
     return this.model.countDocuments({ tenantId, status }).exec();
   }
 
+  async columnPeerIds(of: IssueEntity): Promise<string[]> {
+    // A board column is exactly one (kind, team-or-owner, status) cell, so that
+    // is the set a manual order is kept within. `ownerId` is part of it, not an
+    // afterthought: it's what keeps someone's private board from renumbering the
+    // team's, and vice versa — both are '' / set consistently.
+    const docs = await this.model
+      .find({
+        tenantId: of.tenantId,
+        kind: of.kind,
+        teamId: of.teamId ?? '',
+        ownerId: of.ownerId ?? '',
+        status: of.status,
+      })
+      // The board's own sort, so the list we re-splice is the list they see.
+      .sort({ order: 1, createdAt: -1 })
+      .select({ _id: 1 })
+      .lean<{ _id: string }[]>()
+      .exec();
+    return docs.map((d) => String(d._id));
+  }
+
+  async setOrders(rows: { id: string; order: number }[]): Promise<void> {
+    if (!rows.length) return;
+    await this.model.bulkWrite(
+      rows.map((r) => ({
+        updateOne: { filter: { _id: r.id }, update: { $set: { order: r.order } } },
+      })),
+    );
+  }
+
   async cycleRollups(
     tenantId: string,
     cycleIds: string[],

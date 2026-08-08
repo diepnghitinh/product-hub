@@ -20,8 +20,8 @@ import {
   dateRangeParams,
   decodeDateRange,
   type FilterCategory,
-  type FilterSelections,
 } from '@/components/FilterMenu';
+import { SavedFilterChips, useSavedFilters } from '@/components/SavedFilters';
 import { useUsers } from '@/features/users/api';
 import { useProjects } from '@/features/projects/api';
 import {
@@ -35,7 +35,7 @@ import {
 import type { TaskLabelConfig } from '@/types/enums';
 import type { BugDto, TeamDto } from '@/types/dto';
 import { useBugs, useDeleteBug, useSetBugStatus } from './api';
-import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
+import { useReorderTeamColumns, useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
 import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
 import {
   CarryOverBadge,
@@ -112,8 +112,12 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   const caseName = params.get('case') || undefined;
   const reportId = params.get('reportId') || undefined;
 
-  const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<FilterSelections>({});
+  // Filters + search are remembered per board (and saveable as named chips) — one
+  // set per team's bug board, one for the cross-team /bugs route. A project-scoped
+  // board shares the latter: `?projectId=` narrows it on top, so the same saved
+  // filters ("Critical, unassigned") still read correctly inside a project.
+  const filterState = useSavedFilters(`bugs:${teamId ?? 'all'}`);
+  const { filters, setFilters, search, setSearch } = filterState;
   // Board is default and kept out of the URL; ?view=list | ?view=timeline are shareable.
   const viewParam = params.get('view');
   const view: 'board' | 'list' | 'timeline' =
@@ -163,6 +167,9 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
   const remove = useDeleteBug();
   // Columns belong to the team that owns this board (default bug team when standalone).
   const columns = useTeamStatuses(teamId, TeamIssueType.BUG);
+  // ...and so does their order — only on a team board, where there's one team to
+  // save it to. Same gate as Settings → Teams, which edits the same list.
+  const reorderColumns = useReorderTeamColumns(teamId);
   // Labels resolve per-bug (a standalone board's bugs all sit in the default team,
   // but each still carries its own teamId — so resolve against that, not the board's).
   const labelsFor = useTeamLabelsLookup();
@@ -253,9 +260,12 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
 
   /** Bugs don't persist ordering, so the drop slot (`overId`) is ignored — only
    * the destination column matters. */
-  function onMove(id: string, toStatus: string) {
+  // `overId` is the card it was dropped onto — passed straight through so the
+  // card keeps the slot it was dropped in, not just the column. A drop in the
+  // same column is a real move now (it reorders), so there's no status guard.
+  function onMove(id: string, toStatus: string, overId: string | null) {
     const bug = bugs.find((b) => b.id === id);
-    if (bug && bug.status !== toStatus) setStatus.mutate({ id, status: toStatus as BugStatus });
+    if (bug) setStatus.mutate({ id, status: toStatus as BugStatus, beforeId: overId });
   }
 
   return (
@@ -281,7 +291,13 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
       search={{ value: search, onChange: setSearch, placeholder: t('bugs.search') }}
       filters={
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <FilterMenu size="default" categories={filterCategories} value={filters} onChange={setFilters} />
+          <FilterMenu
+            size="default"
+            categories={filterCategories}
+            value={filters}
+            onChange={setFilters}
+          />
+          <SavedFilterChips state={filterState} categories={filterCategories} />
         </div>
       }
       filtersEnd={
@@ -347,6 +363,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           )}
           onMove={onMove}
           disabled={!canWrite}
+          onColumnsReorder={canManageDelivery ? reorderColumns : undefined}
           onCardClick={(bug) => navigate(`/issues/${bug.shortId || bug.id}`)}
           // The add + card-toolbar affordances, same as every board.
           renderCardToolbar={
@@ -397,7 +414,6 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           cycles={cycleOptions}
         />
       )}
-
     </IssueBoardLayout>
   );
 }
@@ -425,7 +441,8 @@ export function BugList({
         if (list.length === 0) return null;
         const ids = list.map((b) => b.id);
         const selected = selection ? ids.filter((id) => selection.isSelected(id)).length : 0;
-        const headState = selected === 0 ? false : selected === list.length ? true : 'indeterminate';
+        const headState =
+          selected === 0 ? false : selected === list.length ? true : 'indeterminate';
         return (
           <section key={col.key}>
             <div className="mb-2 flex items-center gap-2">
@@ -446,10 +463,7 @@ export function BugList({
             </div>
             <div className="rounded-xl border bg-card p-2 text-card-foreground shadow-sm">
               {list.map((bug) => (
-                <div
-                  key={bug.id}
-                  className="flex items-center gap-1 [&:not(:last-child)]:border-b"
-                >
+                <div key={bug.id} className="flex items-center gap-1 [&:not(:last-child)]:border-b">
                   {selection && (
                     <span className="pl-2">
                       <Checkbox

@@ -35,6 +35,23 @@ export interface PeoplePickerProps {
   clearLabel?: string;
   /** Present = the "Invite people via email" row shows; gets the typed email. */
   onInvite?: (email: string) => void;
+  /**
+   * Headings for the two groups in the open list. The defaults name this
+   * control's usual job — who's on it, then everyone else. A picker that isn't
+   * about assignment passes its own words (ClickUp's people map says "Linked" /
+   * "ClickUp members"): the *grouping* is still right there — picked first, rest
+   * below — even where "Assignees" would be the wrong noun entirely.
+   */
+  groupLabels?: { selected: string; others: string };
+  /**
+   * Show each person's email under their name. Off by default: picking an
+   * assignee, the name is the whole answer and a second line only makes a long
+   * list longer. On where the address *is* the answer — mapping our people onto
+   * another system's accounts, where two seats can carry the same display name
+   * and the email is the only thing that tells them apart. Search has always
+   * matched on email either way; this is about being able to read it.
+   */
+  showEmail?: boolean;
   className?: string;
   align?: 'start' | 'center' | 'end';
   /** Applied to the built-in trigger only — a custom `trigger` carries its own. */
@@ -74,6 +91,8 @@ export function PeoplePicker({
   trigger,
   clearLabel,
   onInvite,
+  groupLabels,
+  showEmail,
   className,
   align = 'start',
   id,
@@ -229,7 +248,12 @@ export function PeoplePicker({
           </span>
         )}
       </span>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate">{label}</span>
+        {showEmail && p.email && (
+          <span className="block truncate text-xs text-muted-foreground">{p.email}</span>
+        )}
+      </span>
     </button>
   );
 
@@ -355,13 +379,13 @@ export function PeoplePicker({
             )}
             {assignees.length > 0 && (
               <>
-                {groupLabel(t('assignee.assignees'))}
+                {groupLabel(groupLabels?.selected ?? t('assignee.assignees'))}
                 {assignees.map((r, i) => personRow(r, firstPerson + i))}
               </>
             )}
             {others.length > 0 && (
               <>
-                {groupLabel(t('assignee.people'))}
+                {groupLabel(groupLabels?.others ?? t('assignee.people'))}
                 {others.map((r, i) => personRow(r, firstPerson + assignees.length + i))}
               </>
             )}
