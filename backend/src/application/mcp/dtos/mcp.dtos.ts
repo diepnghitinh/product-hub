@@ -12,12 +12,15 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { BugSeverity, IssueKind } from '@application/issues/domain/enums/issue.enums';
 import {
   RoadmapDifficulty,
   RoadmapItemStatus,
 } from '@application/roadmaps/domain/enums/roadmap.enums';
+import { TestResult } from '@application/reports/domain/enums/test-result.enum';
+import { TestType } from '@application/reports/domain/enums/test-type.enum';
 
 /**
  * MCP request shapes. Every reference to another record accepts *either* an id
@@ -234,4 +237,145 @@ export class McpGetBacklogItemDto {
   @ApiProperty({ example: 'RM-6HCUHKX', description: 'Backlog item ref, uuid, or exact title' })
   @IsString()
   ref: string;
+}
+
+/* ── Testing ──────────────────────────────────────────────────────────────── */
+
+/** The features (feature reports) of one testing project. */
+export class McpListTestFeaturesDto {
+  @ApiPropertyOptional({
+    description: 'Project id, slug or title. Defaults to the only project when there is one',
+  })
+  @IsOptional()
+  @IsString()
+  project?: string;
+}
+
+export class McpGetTestCasesDto {
+  @ApiProperty({ description: 'Feature title, label, slug, feature id or uuid' })
+  @IsString()
+  @IsNotEmpty()
+  feature: string;
+
+  @ApiPropertyOptional({ description: 'Project id, slug or title' })
+  @IsOptional()
+  @IsString()
+  project?: string;
+
+  @ApiPropertyOptional({ enum: TestResult, description: 'Only cases with this result' })
+  @IsOptional()
+  @IsEnum(TestResult)
+  result?: TestResult;
+}
+
+/**
+ * One test case as an assistant writes it.
+ *
+ * `type` and `result` are typed as strings rather than enums because everything
+ * here is normalised by the same rules a spreadsheet import goes through — the
+ * aliases it accepts ("functional", "e2e", "pass", "n/a") work, and anything
+ * unrecognised lands as blank / Untested instead of failing the batch.
+ *
+ * The MCP tool schema is stricter than this on purpose: it advertises the exact
+ * six results and ten types, so a model is told the vocabulary up front rather
+ * than discovering it from a value that quietly became "Untested".
+ */
+export class McpTestCaseInputDto {
+  @ApiProperty({
+    example: 'Sign in with a valid email and password',
+    description: 'What is being tested — the Area column',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(300)
+  area: string;
+
+  @ApiPropertyOptional({ enum: TestType, description: 'Functional, UI, API, Regression…' })
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @ApiPropertyOptional({ enum: TestResult, default: TestResult.UNTESTED })
+  @IsOptional()
+  @IsString()
+  result?: string;
+
+  @ApiPropertyOptional({ description: 'Who runs it' })
+  @IsOptional()
+  @IsString()
+  owner?: string;
+
+  @ApiPropertyOptional({ description: 'State the system must be in first' })
+  @IsOptional()
+  @IsString()
+  precondition?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'The steps, in order' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  testSteps?: string[];
+
+  @ApiPropertyOptional({ description: 'What should happen' })
+  @IsOptional()
+  @IsString()
+  expectedResult?: string;
+
+  @ApiPropertyOptional({ description: 'What did happen — usually left empty until it is run' })
+  @IsOptional()
+  @IsString()
+  actualResult?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  note?: string;
+}
+
+/**
+ * Write test cases into a feature. The batch is the point: a model that has read
+ * a spec has twenty cases to file, and twenty tool calls is twenty chances to
+ * stop halfway.
+ */
+export class McpAddTestCasesDto {
+  @ApiProperty({ description: 'Feature title, label, slug, feature id or uuid' })
+  @IsString()
+  @IsNotEmpty()
+  feature: string;
+
+  @ApiProperty({ type: [McpTestCaseInputDto] })
+  @IsArray()
+  @ArrayMaxSize(200)
+  @ValidateNested({ each: true })
+  @Type(() => McpTestCaseInputDto)
+  cases: McpTestCaseInputDto[];
+
+  @ApiPropertyOptional({ description: 'Project id, slug or title' })
+  @IsOptional()
+  @IsString()
+  project?: string;
+
+  @ApiPropertyOptional({
+    description: 'Create the feature when no existing one matches, instead of failing',
+    default: false,
+  })
+  @IsOptional()
+  createFeature?: boolean;
+}
+
+/** Record a run: one case's outcome, audited like the tester's own dropdown. */
+export class McpSetTestCaseResultDto {
+  @ApiProperty({ example: '6HCUHKX', description: 'The case short id shown in the test table' })
+  @IsString()
+  @IsNotEmpty()
+  testCase: string;
+
+  @ApiProperty({ enum: TestResult })
+  @IsEnum(TestResult)
+  result: TestResult;
+
+  @ApiPropertyOptional({ description: 'Project id, slug or title — searched everywhere if absent' })
+  @IsOptional()
+  @IsString()
+  project?: string;
 }

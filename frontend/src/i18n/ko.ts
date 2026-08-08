@@ -991,7 +991,7 @@ export const ko: Record<I18nKey, string> = {
   'settings.apiGuideResultsSuffix': '값:',
   'settings.mcp': 'MCP',
   'settings.mcpHint':
-    'Claude — 또는 MCP를 지원하는 어떤 어시스턴트든 — 를 연결하면 대화에서 바로 기존 내용을 읽고, 태스크, 버그, 백로그 항목을 만들며 문서를 작성할 수 있습니다.',
+    'Claude — 또는 MCP를 지원하는 어떤 어시스턴트든 — 를 연결하면 대화에서 바로 기존 내용을 읽고, 태스크, 버그, 백로그 항목을 만들며 테스트 케이스와 문서를 작성할 수 있습니다.',
   'settings.mcpKeyNameDefault': 'Claude MCP',
   'settings.mcpStep1': '키 생성하기',
   'settings.mcpStep1Hint':
@@ -1006,7 +1006,7 @@ export const ko: Record<I18nKey, string> = {
     'Claude Code를 비롯해 헤더를 보낼 수 있는 클라이언트에서 동작합니다. Claude Desktop의 커스텀 커넥터는 키 대신 OAuth 로그인을 요구하므로 아직 이 URL을 쓸 수 없습니다.',
   'settings.mcpKeysNote': 'MCP는 API와 같은 키를 씁니다 — 설정 → API 키에서 해지할 수 있습니다.',
   'settings.mcpTools':
-    '그런 다음 “내 Product OS 워크스페이스를 보여줘”, “TSK-6HCUHKX 읽어줘”, “그 백로그 항목은 무엇을 제안해?”, “QC에 버그를 등록해줘”, “이걸 문서로 정리해줘”처럼 요청하세요. 읽은 내용은 다이어그램을 포함해 평문으로 돌아옵니다. 팀, 상태, 담당자는 이름 그대로 받으며, 알 수 없는 값이면 추측하지 않고 가능한 선택지를 알려줍니다.',
+    '그런 다음 “내 Product OS 워크스페이스를 보여줘”, “TSK-6HCUHKX 읽어줘”, “그 백로그 항목은 무엇을 제안해?”, “QC에 버그를 등록해줘”, “결제 기능의 테스트 케이스를 작성해줘”, “로그인에서 실패한 건 뭐야?”, “이걸 문서로 정리해줘”처럼 요청하세요. 읽은 내용은 다이어그램을 포함해 평문으로 돌아옵니다. 팀, 상태, 담당자, 프로젝트, 기능은 이름 그대로 받으며, 알 수 없는 값이면 추측하지 않고 가능한 선택지를 알려줍니다.',
   'settings.mcpReady': '키가 준비되었습니다',
   'settings.mcpReadyHint': '이 명령에 키가 이미 들어 있습니다 — 터미널에서 실행하세요.',
   'settings.mcpHistory': 'MCP로 만든 항목',

@@ -8,29 +8,42 @@ import {
   RoadmapDifficulty,
   RoadmapItemStatus,
 } from '@application/roadmaps/domain/enums/roadmap.enums';
+import { TestResult } from '@application/reports/domain/enums/test-result.enum';
+import { TestType } from '@application/reports/domain/enums/test-type.enum';
 import {
+  McpAddTestCasesDto,
   McpCreateBacklogItemDto,
   McpCreateDocDto,
   McpCreateIssueDto,
   McpGetBacklogItemDto,
   McpGetIssueDto,
+  McpGetTestCasesDto,
+  McpListTestFeaturesDto,
   McpSearchIssuesDto,
+  McpSetTestCaseResultDto,
 } from '@application/mcp/dtos/mcp.dtos';
 import {
+  McpAddTestCasesResponseDto,
   McpBacklogItemResponseDto,
   McpContextResponseDto,
   McpDocResponseDto,
   McpIssueResponseDto,
+  McpTestCaseResponseDto,
+  McpTestFeatureResponseDto,
 } from '@application/mcp/dtos/mcp.response.dto';
 import {
   GetMcpContextUseCase,
   McpActor,
+  McpAddTestCasesUseCase,
   McpCreateBacklogItemUseCase,
   McpCreateDocUseCase,
   McpCreateIssueUseCase,
   McpGetBacklogItemUseCase,
   McpGetIssueUseCase,
+  McpGetTestCasesUseCase,
+  McpListTestFeaturesUseCase,
   McpSearchIssuesUseCase,
+  McpSetTestCaseResultUseCase,
 } from '@application/mcp/use-cases';
 
 /** Version advertised to the client during the MCP handshake. */
@@ -86,6 +99,10 @@ export class McpServerFactory {
     private readonly searchIssues: McpSearchIssuesUseCase,
     private readonly getIssue: McpGetIssueUseCase,
     private readonly getBacklogItem: McpGetBacklogItemUseCase,
+    private readonly listTestFeatures: McpListTestFeaturesUseCase,
+    private readonly getTestCases: McpGetTestCasesUseCase,
+    private readonly addTestCases: McpAddTestCasesUseCase,
+    private readonly setTestCaseResult: McpSetTestCaseResultUseCase,
     config: ConfigService,
   ) {
     this.appUrl = (config.get<string>('APP_BASE_URL') ?? 'http://localhost:3001').replace(
@@ -124,6 +141,10 @@ export class McpServerFactory {
     this.registerCreateIssue(server, run);
     this.registerCreateBacklogItem(server, run);
     this.registerCreateDoc(server, run);
+    this.registerListTestFeatures(server, run);
+    this.registerGetTestCases(server, run);
+    this.registerAddTestCases(server, run);
+    this.registerSetTestCaseResult(server, run);
 
     return server;
   }
@@ -137,9 +158,10 @@ export class McpServerFactory {
       {
         title: 'List the Product OS workspace',
         description:
-          'Teams (with the exact status keys their boards accept), roadmaps (with their column keys) ' +
-          'and the people who can be assigned. Call this before creating anything so you use real ' +
-          'names — bugs go to bug teams, tasks to task teams.',
+          'Teams (with the exact status keys their boards accept), roadmaps (with their column ' +
+          'keys), testing projects and the people who can be assigned. Call this before creating ' +
+          'anything so you use real names — bugs go to bug teams, tasks to task teams, test cases ' +
+          'go into a feature of a testing project.',
         annotations: { readOnlyHint: true },
       },
       () =>
@@ -346,10 +368,205 @@ export class McpServerFactory {
     );
   }
 
+  /* ── Testing ────────────────────────────────────────────────────────────── */
+
+  private registerListTestFeatures(server: McpServer, run: Run): void {
+    registerTool<McpListTestFeaturesDto>(
+      server,
+      'list_test_features',
+      {
+        title: 'List the features under test',
+        description:
+          'The features of a testing project, each with how many test cases it holds and how ' +
+          'they stand (passed / failed / blocked / untested). Call it to answer "how is testing ' +
+          'going?", or before writing cases so you use a feature that already exists. Omit ' +
+          '`project` when the workspace only has one.',
+        inputSchema: {
+          project: z.string().optional().describe('Project title or id'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      (dto) =>
+        run<McpTestFeatureResponseDto[]>(
+          (actor) => this.listTestFeatures.execute({ actor, dto }),
+          (features) =>
+            features.length
+              ? [
+                  `${features.length} feature(s) in ${features[0].projectTitle}:`,
+                  '',
+                  features.map((f) => this.describeFeature(f)).join('\n\n'),
+                ].join('\n')
+              : 'That project has no features yet — add_test_cases with createFeature: true starts one.',
+        ),
+    );
+  }
+
+  private registerGetTestCases(server: McpServer, run: Run): void {
+    registerTool<McpGetTestCasesDto>(
+      server,
+      'get_test_cases',
+      {
+        title: 'Read a feature’s test cases',
+        description:
+          'Every test case of one feature, in full — preconditions, steps, expected result and ' +
+          'the last recorded outcome. Use it to review coverage before writing more (so you add ' +
+          'what is missing instead of what is already there), or with `result` to answer "what ' +
+          'is failing?".',
+        inputSchema: {
+          feature: z.string().min(1).describe('Feature title, label, slug or feature id'),
+          project: z.string().optional().describe('Project title or id'),
+          result: z.nativeEnum(TestResult).optional().describe('Only cases with this outcome'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      (dto) =>
+        run<McpTestCaseResponseDto[]>(
+          (actor) => this.getTestCases.execute({ actor, dto }),
+          (cases) =>
+            cases.length
+              ? [
+                  `${cases.length} test case(s) · ${cases[0].featureTitle} · ${cases[0].projectTitle}`,
+                  `  ${this.url(cases[0].link)}`,
+                  '',
+                  cases.map((c) => this.describeTestCase(c)).join('\n\n'),
+                ].join('\n')
+              : 'No test cases match.',
+        ),
+    );
+  }
+
+  private registerAddTestCases(server: McpServer, run: Run): void {
+    registerTool<McpAddTestCasesDto>(
+      server,
+      'add_test_cases',
+      {
+        title: 'Write test cases',
+        description:
+          'Write test cases into a feature — the whole batch in one call, exactly as a ' +
+          'spreadsheet import would. Read the spec or the issue first, then cover the happy ' +
+          'path, the edge cases and the failure modes; each case gets a short id back, which is ' +
+          'what a result is later recorded against. An unknown feature name comes back with the ' +
+          'real ones — pass `createFeature: true` when you genuinely mean a new feature.',
+        inputSchema: {
+          feature: z
+            .string()
+            .min(1)
+            .describe('Feature to file them under — title, label, slug or feature id'),
+          cases: z
+            .array(
+              z.object({
+                area: z
+                  .string()
+                  .min(1)
+                  .describe('What this case tests, e.g. "Sign in with a valid password"'),
+                type: z
+                  .nativeEnum(TestType)
+                  .optional()
+                  .describe('Functional, UI, API, Regression… — defaults to blank'),
+                result: z
+                  .nativeEnum(TestResult)
+                  .optional()
+                  .describe('Defaults to Untested — leave it unless you ran the case'),
+                owner: z.string().optional().describe('Who runs it'),
+                precondition: z.string().optional().describe('State the system must be in first'),
+                testSteps: z.array(z.string()).optional().describe('The steps, in order'),
+                expectedResult: z.string().optional().describe('What should happen'),
+                actualResult: z.string().optional(),
+                note: z.string().optional(),
+              }),
+            )
+            .min(1)
+            .max(200),
+          project: z.string().optional().describe('Project title or id'),
+          createFeature: z
+            .boolean()
+            .optional()
+            .describe('Create the feature when none matches, instead of failing'),
+        },
+      },
+      (dto) =>
+        run<McpAddTestCasesResponseDto>(
+          (actor) => this.addTestCases.execute({ actor, dto }),
+          (res) =>
+            [
+              `Added ${res.added.length} test case(s) to ${res.featureCreated ? 'new feature ' : ''}` +
+                `"${res.feature.title}" in ${res.feature.projectTitle}` +
+                (res.skipped ? ` (${res.skipped} empty row(s) skipped)` : ''),
+              `  ${this.url(res.feature.link)}`,
+              '',
+              res.added.map((c) => `  ${c.shortId} · ${c.area}`).join('\n'),
+            ].join('\n'),
+        ),
+    );
+  }
+
+  private registerSetTestCaseResult(server: McpServer, run: Run): void {
+    registerTool<McpSetTestCaseResultDto>(
+      server,
+      'set_test_case_result',
+      {
+        title: 'Record a test run',
+        description:
+          'Set one test case’s outcome by its short id. The change is audited in the project’s ' +
+          'History under your name, exactly as if a tester had set it in the app — so only ' +
+          'record what was actually run.',
+        inputSchema: {
+          testCase: z.string().min(1).describe('The case short id shown in the test table'),
+          result: z.nativeEnum(TestResult),
+          project: z.string().optional().describe('Project title or id — searched all if omitted'),
+        },
+      },
+      (dto) =>
+        run<McpTestCaseResponseDto>(
+          (actor) => this.setTestCaseResult.execute({ actor, dto }),
+          (c) =>
+            [
+              `${c.shortId} · ${c.area} → ${c.result}`,
+              `  ${c.featureTitle} · ${c.projectTitle}`,
+              `  ${this.url(c.link)}`,
+            ].join('\n'),
+        ),
+    );
+  }
+
   /* ── Formatting ─────────────────────────────────────────────────────────── */
 
   private url(path: string): string {
     return `${this.appUrl}${path}`;
+  }
+
+  /** A feature as one line of identity and one of tally — zero counts omitted,
+   *  so a feature nobody has run reads "12 cases · 12 untested" and no noise. */
+  private describeFeature(f: McpTestFeatureResponseDto): string {
+    const tally = [
+      f.passed ? `${f.passed} passed` : '',
+      f.failed ? `${f.failed} failed` : '',
+      f.blocked ? `${f.blocked} blocked` : '',
+      f.retest ? `${f.retest} retest` : '',
+      f.skipped ? `${f.skipped} skipped` : '',
+      f.untested ? `${f.untested} untested` : '',
+    ].filter(Boolean);
+    return [
+      `${f.title}${f.featureId ? ` (${f.featureId})` : ''}`,
+      `  ${f.status} · ${f.caseCount} case(s)${tally.length ? ` · ${tally.join(', ')}` : ''}`,
+      `  ${this.url(f.link)}`,
+    ].join('\n');
+  }
+
+  private describeTestCase(c: McpTestCaseResponseDto): string {
+    const facts = [
+      c.type ? `type: ${c.type}` : '',
+      `result: ${c.result}`,
+      c.owner ? `owner: ${c.owner}` : '',
+      c.precondition ? `precondition: ${c.precondition}` : '',
+      c.testSteps.length
+        ? `steps:\n${c.testSteps.map((s, i) => `    ${i + 1}. ${s}`).join('\n')}`
+        : '',
+      c.expectedResult ? `expected: ${c.expectedResult}` : '',
+      c.actualResult ? `actual: ${c.actualResult}` : '',
+      c.note ? `note: ${c.note}` : '',
+    ].filter(Boolean);
+    return [`${c.shortId} · ${c.area}`, facts.map((f) => `  ${f}`).join('\n')].join('\n');
   }
 
   /** The long form: everything `describeIssue` prints, plus what it leaves out. */
@@ -420,6 +637,11 @@ export class McpServerFactory {
           )
           .join('\n')
       : '- (none yet)';
+    const projects = ctx.projects.length
+      ? ctx.projects
+          .map((p) => `- ${p.title} (${p.featureCount} feature${p.featureCount === 1 ? '' : 's'})`)
+          .join('\n')
+      : '- (none yet)';
     const people = ctx.people.map((p) => `- ${p.name} <${p.email}>`).join('\n');
     return [
       `Acting as ${ctx.userName}${ctx.userEmail ? ` <${ctx.userEmail}>` : ''} via API key "${ctx.keyName}".`,
@@ -429,6 +651,9 @@ export class McpServerFactory {
       '',
       'Roadmaps:',
       roadmaps,
+      '',
+      'Testing projects (test cases live in a feature of one of these):',
+      projects,
       '',
       'People:',
       people || '- (none)',

@@ -1008,7 +1008,7 @@ export const en = {
   'settings.apiGuideResultsSuffix': 'values:',
   'settings.mcp': 'MCP',
   'settings.mcpHint':
-    'Connect Claude — or any assistant that speaks MCP — so it can read what is already here, and file tasks, bugs and backlog items and write docs, straight from a conversation.',
+    'Connect Claude — or any assistant that speaks MCP — so it can read what is already here, and file tasks, bugs and backlog items, write test cases and write docs, straight from a conversation.',
   'settings.mcpKeyNameDefault': 'Claude MCP',
   'settings.mcpStep1': 'Generate a key',
   'settings.mcpStep1Hint':
@@ -1024,7 +1024,7 @@ export const en = {
   'settings.mcpKeysNote':
     'MCP uses the same keys as the API — revoke one under Settings → API keys.',
   'settings.mcpTools':
-    'Then ask it to “list my Product OS workspace”, “read TSK-6HCUHKX”, “what does that backlog item propose?”, “file a bug for QC”, or “write this up as a doc — with a diagram of the flow”. Reads come back as plain text, diagrams included. Team, status and assignee accept plain names; an unknown one comes back with the valid choices instead of guessing.',
+    'Then ask it to “list my Product OS workspace”, “read TSK-6HCUHKX”, “what does that backlog item propose?”, “file a bug for QC”, “write test cases for the checkout feature”, “what’s failing on Login?”, or “write this up as a doc — with a diagram of the flow”. Reads come back as plain text, diagrams included. Team, status, assignee, project and feature accept plain names; an unknown one comes back with the valid choices instead of guessing.',
   'settings.mcpReady': 'Your key is ready',
   'settings.mcpReadyHint': 'This command already contains it — run it in your terminal.',
   'settings.mcpHistory': 'Created via MCP',
