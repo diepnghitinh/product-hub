@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { FilterQuery, Model } from 'mongoose';
 import { UniqueEntityID } from '@core/domain';
 import { BaseRepository } from '@core/infrastructure/database/mongoose/base';
-import { IDocRepository } from '@application/docs/repositories/doc.repository';
+import { DocViewer, IDocRepository } from '@application/docs/repositories/doc.repository';
 import { DocEntity } from '@application/docs/domain/entities/doc.entity';
 import { DocDoc } from '../entities/doc.schema';
 
@@ -28,6 +28,7 @@ export class DocRepository
         tags: doc.tags ?? [],
         createdBy: doc.createdBy ?? '',
         createdByName: doc.createdByName ?? '',
+        isPrivate: doc.isPrivate ?? false,
         publicEnabled: doc.publicEnabled ?? false,
         publicToken: doc.publicToken ?? null,
         createdAt: doc.createdAt,
@@ -51,6 +52,7 @@ export class DocRepository
       tags: doc.tags,
       createdBy: doc.createdBy,
       createdByName: doc.createdByName,
+      isPrivate: doc.isPrivate,
       publicEnabled: doc.publicEnabled,
       publicToken: doc.publicToken,
       createdAt: doc.createdAt,
@@ -83,20 +85,36 @@ export class DocRepository
     return (await this.model.countDocuments({ tenantId, ref }).exec()) > 0;
   }
 
+  /**
+   * `isPrivate` is in the query as a second lock, not because the first one is
+   * doubtful: going private already calls `disableSharing`, so a private doc has
+   * no live token to match. But this is the one route with no signed-in user
+   * behind it, and a stray token left enabled by some future write path would go
+   * straight to the open internet. `$ne: true` so pre-flag docs still resolve.
+   */
   async findByPublicToken(token: string): Promise<DocEntity | null> {
     const doc = await this.model
-      .findOne({ publicToken: token, publicEnabled: true })
+      .findOne({ publicToken: token, publicEnabled: true, isPrivate: { $ne: true } })
       .lean<DocDoc>()
       .exec();
     return doc ? this.toDomain(doc) : null;
   }
 
-  async findByTenant(tenantId: string): Promise<DocEntity[]> {
-    const docs = await this.model
-      .find({ tenantId })
-      .sort({ updatedAt: -1 })
-      .lean<DocDoc[]>()
-      .exec();
+  /**
+   * The privacy boundary for the *list*. Single-doc reads re-check with
+   * `DocEntity.isVisibleTo`; here it has to be a query clause, because the whole
+   * point of this call is to return docs the caller never named.
+   *
+   * `isPrivate: { $ne: true }` rather than `false` — docs written before the flag
+   * existed have no such field at all, and `{ isPrivate: false }` would silently
+   * drop every one of them.
+   */
+  async findByTenant(tenantId: string, viewer: DocViewer | null): Promise<DocEntity[]> {
+    const filter: FilterQuery<DocDoc> = { tenantId };
+    if (viewer && !viewer.isAdmin) {
+      filter.$or = [{ isPrivate: { $ne: true } }, { createdBy: viewer.userId }];
+    }
+    const docs = await this.model.find(filter).sort({ updatedAt: -1 }).lean<DocDoc[]>().exec();
     return docs.map((d) => this.toDomain(d));
   }
 

@@ -3,7 +3,8 @@ import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { PdfService, PuppeteerPage } from '@module-shared/services/pdf.service';
 import { docPagePrintHtml, pdfFilename } from '../services/doc-page-print';
-import { IDocRepository } from '../repositories/doc.repository';
+import { DocAccess } from '../services/doc-access';
+import { DocViewer } from '../repositories/doc.repository';
 import { IDocPageRepository } from '../repositories/doc-page.repository';
 
 /** A rendered page: the bytes, and what the browser should call the file. */
@@ -39,38 +40,40 @@ interface MermaidGlobal {
 }
 
 @Injectable()
-export class ExportDocPagePdfUseCase
-  implements
-    IUsecaseExecute<
-      { docId: string; pageId: string; tenantId: string; locale: string },
-      Result<DocPagePdf>
-    >
-{
+export class ExportDocPagePdfUseCase implements IUsecaseExecute<
+  { docId: string; pageId: string; tenantId: string; viewer: DocViewer; locale: string },
+  Result<DocPagePdf>
+> {
   private readonly logger = new Logger(ExportDocPagePdfUseCase.name);
 
   constructor(
-    @Inject(IDocRepository) private readonly docs: IDocRepository,
     @Inject(IDocPageRepository) private readonly pages: IDocPageRepository,
     private readonly pdf: PdfService,
+    private readonly access: DocAccess,
   ) {}
 
   async execute({
     docId,
     pageId,
     tenantId,
+    viewer,
     locale,
   }: {
     docId: string;
     pageId: string;
     tenantId: string;
+    viewer: DocViewer;
     locale: string;
   }): Promise<Result<DocPagePdf>> {
     const page = await this.pages.findById(pageId);
     if (!page || page.tenantId !== tenantId || page.docId !== docId) {
       return Result.fail('Page not found');
     }
-    const doc = await this.docs.findById(docId);
-    if (!doc || doc.tenantId !== tenantId) return Result.fail('Doc not found');
+    // The gate the controller's comment already promised — "anyone who can read
+    // the page can export it" only holds if this asks the same question the read
+    // does. An export is the entire private page, as a file, in one request.
+    const doc = await this.access.readById(tenantId, docId, viewer);
+    if (!doc) return Result.fail('Doc not found');
 
     const html = docPagePrintHtml({
       docTitle: doc.title,

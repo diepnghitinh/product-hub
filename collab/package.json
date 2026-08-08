@@ -16,6 +16,7 @@
     "smoke": "tsx scripts/smoke-editorjs.ts",
     "verify": "tsx scripts/verify-sync.ts",
     "corpus": "tsx scripts/verify-corpus.ts",
+    "privacy": "tsx scripts/privacy-probe.ts",
     "typecheck": "tsx scripts/sync-shared.ts --check && tsc -p tsconfig.scripts.json"
   },
   "dependencies": {

@@ -1,9 +1,20 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, FileText, MoreHorizontal, Share2, Tag, Trash2, UserRound } from 'lucide-react';
+import {
+  Copy,
+  FileText,
+  Lock,
+  MoreHorizontal,
+  Share2,
+  Tag,
+  Trash2,
+  Unlock,
+  UserRound,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import {
+  Badge,
   Button,
   Dialog,
   Field,
@@ -28,11 +39,13 @@ import { t } from '@/i18n';
 import { FavouriteKind, TEAM_COLORS } from '@/types/enums';
 import type { DocDto } from '@/types/dto';
 import {
+  canSetDocPrivacy,
   copyDocTitle,
   useCreateDoc,
   useDeleteDoc,
   useDocs,
   useDuplicateDoc,
+  useSetDocPrivacy,
   useSetDocSharing,
   useUpdateDoc,
 } from './api';
@@ -83,7 +96,7 @@ function AuthorScopeSwitch({
  */
 export function DocsHubPage() {
   const navigate = useNavigate();
-  const { user, canWrite, canManageDelivery } = useAuth();
+  const { user, isAdmin, canWrite, canManageDelivery } = useAuth();
   const { data, isLoading } = useDocs();
   // Shared cache with the sidebar — read here only to decide which stars stay
   // visible without a hover.
@@ -93,6 +106,7 @@ export function DocsHubPage() {
   const remove = useDeleteDoc();
   const duplicate = useDuplicateDoc();
   const setSharing = useSetDocSharing();
+  const setPrivacy = useSetDocPrivacy();
 
   const [open, setOpen] = useState(false);
   /** null = creating; a doc = editing that card's title + icon. */
@@ -195,6 +209,24 @@ export function DocsHubPage() {
         onSuccess: (copy) => toast.success(t('docs.duplicated').replace('{title}', copy.title)),
         onError: (e) => toast.error((e as Error).message),
         onSettled: () => setDuplicating(null),
+      },
+    );
+  }
+
+  /**
+   * Take a doc out of the workspace pool, or put it back. Only the author (or an
+   * admin) gets the option, and going private is confirmed: the card is about to
+   * disappear from everyone else's hub, which is the point but is worth saying
+   * once. Coming back is not — nothing is lost by it.
+   */
+  function togglePrivacy(doc: DocDto) {
+    if (!doc.isPrivate && !confirm(t('docs.confirmMakePrivate'))) return;
+    const isPrivate = !doc.isPrivate;
+    setPrivacy.mutate(
+      { id: doc.id, isPrivate },
+      {
+        onSuccess: () => toast.success(isPrivate ? t('docs.madePrivate') : t('docs.madeVisible')),
+        onError: (e) => toast.error((e as Error).message),
       },
     );
   }
@@ -310,11 +342,35 @@ export function DocsHubPage() {
                     },
                   ]
                 : []),
+              // Whoever wrote it decides who sees it — so this gate is the
+              // author, not a role. (Admins keep the override they have
+              // everywhere else.)
+              ...(canSetDocPrivacy(doc, user?.id, isAdmin)
+                ? [
+                    {
+                      label: doc.isPrivate ? t('docs.makeVisible') : t('docs.makePrivate'),
+                      icon: doc.isPrivate ? (
+                        <Unlock className="size-4" />
+                      ) : (
+                        <Lock className="size-4" />
+                      ),
+                      disabled: setPrivacy.isPending,
+                      closeOnSelect: true,
+                      onClick: () => togglePrivacy(doc),
+                    },
+                  ]
+                : []),
               ...(canManageDelivery
                 ? [
                     {
                       label: t('docs.share'),
                       icon: <Share2 className="size-4" />,
+                      // A private doc has no public link and can't be given one
+                      // — the API refuses it too. Disabled rather than hidden:
+                      // the tooltip is the reason, and hiding it would read as
+                      // "sharing isn't a thing here".
+                      disabled: doc.isPrivate,
+                      title: doc.isPrivate ? t('docs.privateShareBlocked') : undefined,
                       closeOnSelect: true,
                       onClick: () => setSharingDoc(doc),
                     },
@@ -349,8 +405,22 @@ export function DocsHubPage() {
                   <h3 className="min-w-0 text-[15px] font-medium leading-tight">{doc.title}</h3>
                 </div>
 
-                <p className="text-xs text-muted-foreground">
+                {/* Author line, and — when it applies — who else can read it.
+                    A private card only ever appears in its author's hub (and an
+                    admin's), so the badge isn't a warning to others; it's the
+                    author's reminder that nobody else is seeing this one. */}
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   {t('docs.createdBy').replace('{name}', doc.createdByName || '—')}
+                  {doc.isPrivate && (
+                    <Badge
+                      variant="muted"
+                      className="gap-1 px-1.5 py-0 text-[11px]"
+                      title={t('docs.privateBadgeHint')}
+                    >
+                      <Lock className="size-3" aria-hidden />
+                      {t('docs.private')}
+                    </Badge>
+                  )}
                 </p>
 
                 {(doc.tags ?? []).length > 0 && (

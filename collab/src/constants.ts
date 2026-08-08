@@ -20,5 +20,8 @@ export const ROOM_SEPARATOR = ':';
 /** Mongo collections owned by the API (Mongoose model name → lowercased plural). */
 export const PAGES_COLLECTION = 'docpages';
 
+/** The page's container. Read at connect time to answer "is this doc private?". */
+export const DOCS_COLLECTION = 'docs';
+
 /** Ours: one row per page holding the Yjs update log. */
 export const CRDT_COLLECTION = 'docpagecrdts';

@@ -14,6 +14,11 @@ export interface MenuItem {
   danger?: boolean;
   disabled?: boolean;
   /**
+   * Native tooltip on the row. Mostly for a `disabled` item: greyed out with no
+   * reason reads as broken, and the reason is usually one short sentence.
+   */
+  title?: string;
+  /**
    * Close the menu and let the action keep whatever focus it takes — for
    * actions that hand focus somewhere else, like opening an inline editor.
    *
@@ -77,6 +82,7 @@ export function Menu({
         <DropdownMenu.Sub key={key}>
           <DropdownMenu.SubTrigger
             disabled={item.disabled}
+            title={item.title}
             className={cn(ROW, item.danger && DANGER)}
           >
             {item.icon && glyph(item.icon)}
@@ -91,10 +97,11 @@ export function Menu({
         </DropdownMenu.Sub>
       );
     }
-    return (
+    const row = (
       <DropdownMenu.Item
         key={key}
         disabled={item.disabled}
+        title={item.title}
         onSelect={(e) => {
           if (item.closeOnSelect) yieldFocus.current = true;
           else e.preventDefault();
@@ -105,6 +112,16 @@ export function Menu({
         {item.icon && glyph(item.icon)}
         {item.label}
       </DropdownMenu.Item>
+    );
+    // A disabled row is `pointer-events-none`, so its own `title` never fires on
+    // hover — which is the one case the tooltip exists for. Hang it on a wrapper
+    // that still gets the hover.
+    return item.disabled && item.title ? (
+      <div key={key} title={item.title}>
+        {row}
+      </div>
+    ) : (
+      row
     );
   };
 

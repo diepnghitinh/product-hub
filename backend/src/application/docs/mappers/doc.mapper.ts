@@ -86,6 +86,7 @@ export class DocMapper {
       tags: doc.tags,
       createdBy: doc.createdBy,
       createdByName: doc.createdByName,
+      isPrivate: doc.isPrivate,
       publicEnabled: doc.publicEnabled,
       publicToken: doc.publicToken,
       pageCount: pages.length,

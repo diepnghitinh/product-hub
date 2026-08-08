@@ -51,6 +51,7 @@ export class DocEntity extends AggregateRoot<DocProps> {
       tags?: string[];
       createdBy?: string;
       createdByName?: string;
+      isPrivate?: boolean;
       publicEnabled?: boolean;
       publicToken?: string | null;
       createdAt?: Date;
@@ -77,6 +78,7 @@ export class DocEntity extends AggregateRoot<DocProps> {
           tags: this.normalizeTags(props.tags),
           createdBy: props.createdBy || '',
           createdByName: props.createdByName || '',
+          isPrivate: props.isPrivate ?? false,
           publicEnabled: props.publicEnabled ?? false,
           publicToken: props.publicToken ?? null,
           createdAt: props.createdAt || now,
@@ -117,6 +119,9 @@ export class DocEntity extends AggregateRoot<DocProps> {
   get createdByName(): string {
     return this.props.createdByName;
   }
+  get isPrivate(): boolean {
+    return this.props.isPrivate;
+  }
   get publicEnabled(): boolean {
     return this.props.publicEnabled;
   }
@@ -147,6 +152,43 @@ export class DocEntity extends AggregateRoot<DocProps> {
     // Sent whole, replacing the list — there's no add/remove endpoint, the
     // editor always knows the full set.
     if (meta.tags !== undefined) this.props.tags = DocEntity.normalizeTags(meta.tags);
+    this.touch();
+  }
+
+  /**
+   * Whether this reader may see the doc at all. A workspace doc is everyone's; a
+   * private one is its author's, plus admins — the same line
+   * `IssueEntity.isVisibleTo` draws around a personal task, so the app answers
+   * "private" the same way twice rather than inventing a second rule.
+   *
+   * Admins are in on purpose: somebody has to be able to reach a doc after the
+   * person who wrote it leaves the workspace. Every read path calls this and
+   * reports a doc it hides as *not found*, never as forbidden — "you may not read
+   * DOC-4KQ2P9X" still tells you DOC-4KQ2P9X exists.
+   */
+  isVisibleTo(userId: string, isAdmin: boolean): boolean {
+    return !this.props.isPrivate || this.props.createdBy === userId || isAdmin;
+  }
+
+  /**
+   * Who may flip the switch — the author, or an admin. Deliberately *narrower*
+   * than who may edit the doc: writing is Admin/Tester/Product, but any of those
+   * being able to un-private somebody else's doc would make the setting a
+   * suggestion rather than a boundary.
+   */
+  canSetPrivacy(userId: string, isAdmin: boolean): boolean {
+    return isAdmin || (!!this.props.createdBy && this.props.createdBy === userId);
+  }
+
+  /**
+   * Going private revokes the public link in the same move. The two settings
+   * answer the same question — who can read this — and a doc marked private
+   * while a public URL still resolves it is the setting quietly lying. Coming
+   * back out does *not* re-share it: that's a separate, deliberate act.
+   */
+  setPrivate(isPrivate: boolean): void {
+    this.props.isPrivate = isPrivate;
+    if (isPrivate && this.props.publicEnabled) this.disableSharing();
     this.touch();
   }
 

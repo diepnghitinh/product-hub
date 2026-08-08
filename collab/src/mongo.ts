@@ -1,5 +1,5 @@
 import { Binary, MongoClient, type Collection, type Db } from 'mongodb';
-import { CRDT_COLLECTION, PAGES_COLLECTION } from './constants.js';
+import { CRDT_COLLECTION, DOCS_COLLECTION, PAGES_COLLECTION } from './constants.js';
 import { env } from './env.js';
 import { log } from './log.js';
 
@@ -16,6 +16,18 @@ export interface PageRow {
   updatedBy?: string;
   updatedByName?: string;
   updatedAt?: Date;
+}
+
+/**
+ * The page's container, narrowed to the two fields that decide who may open the
+ * room. `isPrivate` is absent on every doc written before the flag existed, hence
+ * `boolean | undefined` — read it as false.
+ */
+export interface DocRow {
+  _id: string;
+  tenantId: string;
+  createdBy?: string;
+  isPrivate?: boolean;
 }
 
 /**
@@ -54,3 +66,4 @@ export async function closeMongo(): Promise<void> {
 
 export const pages = (db: Db): Collection<PageRow> => db.collection<PageRow>(PAGES_COLLECTION);
 export const crdt = (db: Db): Collection<CrdtRow> => db.collection<CrdtRow>(CRDT_COLLECTION);
+export const docs = (db: Db): Collection<DocRow> => db.collection<DocRow>(DOCS_COLLECTION);

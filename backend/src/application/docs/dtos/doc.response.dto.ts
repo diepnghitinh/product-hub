@@ -85,6 +85,8 @@ export class DocResponseDto {
   @ApiProperty({ type: [String] }) tags: string[];
   @ApiProperty() createdBy: string;
   @ApiProperty() createdByName: string;
+  @ApiProperty({ description: 'Private to its author (and admins) — see DocEntity.isVisibleTo' })
+  isPrivate: boolean;
   @ApiProperty() publicEnabled: boolean;
   @ApiProperty({ nullable: true }) publicToken: string | null;
   @ApiProperty() pageCount: number;

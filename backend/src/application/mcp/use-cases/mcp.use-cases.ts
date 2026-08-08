@@ -415,6 +415,10 @@ export class McpCreateDocUseCase implements IUsecaseExecute<
         docId,
         pageId,
         tenantId: actor.tenantId,
+        // The actor wrote this doc two statements ago, so it's theirs to fill in.
+        // `isAdmin: false` on purpose — an API key shouldn't inherit admin reach
+        // over *other* people's docs just because the tool needs to write its own.
+        viewer: { userId: actor.userId, isAdmin: false },
         author,
         dto: { content } as UpdateDocPageDto,
       });

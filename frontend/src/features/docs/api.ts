@@ -160,6 +160,43 @@ export function useSetDocSharing() {
   });
 }
 
+/**
+ * Take a doc out of the workspace pool, or put it back. Only its author (or an
+ * admin) may — see `canSetDocPrivacy`; anyone else gets a 404, because the API
+ * won't confirm a doc exists to someone who can't act on it.
+ *
+ * Invalidating `['docs']` matters more here than anywhere else in this file:
+ * going private *removes rows from other lists too* — the hub for everyone else,
+ * and the Docs strip on any issue the doc's pages are linked to. This client only
+ * refetches its own; the rest catch up on their next load, which is the honest
+ * behaviour for a change made in someone else's browser.
+ */
+export function useSetDocPrivacy() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, isPrivate }: { id: string; isPrivate: boolean }) =>
+      apiPost<DocDto>(`/docs/${id}/privacy`, { isPrivate }),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * Who may flip that switch. Mirrors `DocEntity.canSetPrivacy` on the API — the
+ * author decides who reads their doc, and an admin can still reach it once
+ * they've left. Deliberately *not* `canWrite`: everyone who may edit a doc being
+ * able to un-private it would make the setting a suggestion.
+ *
+ * A doc written before authorship was recorded has `createdBy: ''`, which matches
+ * nobody — those are an admin's to manage.
+ */
+export function canSetDocPrivacy(
+  doc: Pick<DocDto, 'createdBy'>,
+  userId: string | undefined,
+  isAdmin: boolean,
+): boolean {
+  return isAdmin || (!!doc.createdBy && doc.createdBy === userId);
+}
+
 export function useCreateDocPage() {
   const invalidate = useInvalidate();
   return useMutation({

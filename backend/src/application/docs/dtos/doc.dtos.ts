@@ -109,6 +109,17 @@ export class ShareDocDto {
   enabled: boolean;
 }
 
+/** Take a doc out of the workspace pool, or put it back. Author or admin only. */
+export class SetDocPrivacyDto {
+  @ApiProperty({
+    description:
+      "Private to the doc's author (admins included). Turning it on also revokes " +
+      'the public share link, if one is live.',
+  })
+  @IsBoolean()
+  isPrivate: boolean;
+}
+
 /** One record a page is attached to. Denormalized on purpose — see `DocLinkRef`. */
 export class DocLinkInputDto {
   @ApiProperty({ enum: DocLinkKind })

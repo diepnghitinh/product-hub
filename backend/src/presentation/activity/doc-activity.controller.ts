@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser, Roles } from '@core/decorators';
 import { JwtPayload, Role } from '@core/interfaces';
@@ -22,6 +22,7 @@ import {
 import { UpdateCommentDto } from '@application/activity/dtos/update-comment.dto';
 import { CommentResponseDto } from '@application/activity/dtos/comment.response.dto';
 import { CommentMapper } from '@application/activity/mappers';
+import { DocReadableGuard } from '@application/docs/services/doc-readable.guard';
 
 /**
  * Comments on a doc page — the threads that hang off a highlighted passage.
@@ -31,10 +32,15 @@ import { CommentMapper } from '@application/activity/mappers';
  * next to it: editing a doc's body is Admin / Tester / Product, but asking a
  * question about it can't be, or the people a spec is written *for* have no way
  * to answer back.
+ *
+ * What it does *not* part company on is who may see the doc at all. A comment
+ * quotes the passage it's anchored to, so this list is a way to read a private
+ * page sideways — `DocReadableGuard` closes it for every route below at once.
  */
 @ApiTags('Activity')
 @ApiBearerAuth('JWT-auth')
 @Controller('docs/:docId')
+@UseGuards(DocReadableGuard)
 export class DocActivityController {
   constructor(
     private readonly getComments: GetDocCommentsUseCase,
