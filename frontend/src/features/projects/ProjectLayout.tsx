@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom';
 import { useIsMutating } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
+import { useEscapeBack } from '@/lib/useEscapeBack';
 import { ChevronRight, X } from 'lucide-react';
 import { Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
@@ -84,6 +85,7 @@ Feature to document:
 export function ProjectLayout() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  useEscapeBack();
   const location = useLocation();
   const { user, canManageDelivery: isAdmin, canEditDelivery: canWrite } = useAuth();
 

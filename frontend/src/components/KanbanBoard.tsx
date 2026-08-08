@@ -887,6 +887,10 @@ export function KanbanBoard<T>({
             })
           : renderColumns(SOLO_LANE, 0)}
       </div>
+      {/* dnd-kit's own pointer sensor cancels a drag on Escape but never calls
+          preventDefault — this marks a drag as an "overlay" so useEscapeBack
+          (on pages that use it) backs off instead of also navigating away. */}
+      {activeId && <div data-overlay-panel aria-hidden className="hidden" />}
       <DragOverlay dropAnimation={null}>
         {activeItem ? (
           renderCard(activeItem, true)
