@@ -129,6 +129,7 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
     mine: teamId ? undefined : user?.id ?? '__none__',
     status: filters.status as TaskStatus[] | undefined,
     assigneeId: filters.assigneeId,
+    roadmapId: filters.roadmapId,
     roadmapItemId: filters.roadmapItemId,
     projectId: filters.projectId,
     cycleId: teamId ? cycleParam || undefined : undefined,
@@ -170,6 +171,16 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
         { id: UNASSIGNED, label: t('filters.unassigned') },
         ...(usersData?.items ?? []).map((u) => ({ id: u.id, label: u.name })),
       ],
+    },
+    // The whole roadmap, one level above the item below it — "what is this team
+    // doing for Q3?" without having to tick every backlog item in it. Both read
+    // the link the issue itself carries (`roadmapId` / `roadmapItemId`), so the
+    // two AND together naturally: roadmap narrows, item narrows further.
+    {
+      id: 'roadmapId',
+      label: t('filters.roadmap'),
+      searchable: true,
+      options: (roadmaps ?? []).map((r) => ({ id: r.id, label: r.title })),
     },
     {
       id: 'roadmapItemId',
