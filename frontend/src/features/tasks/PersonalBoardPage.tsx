@@ -15,7 +15,6 @@ import {
   useCreateTask,
   useDeleteTask,
   usePersonalStatuses,
-  useReplacePersonalStatuses,
   useSetTaskStatus,
   useTasks,
 } from './api';
@@ -50,9 +49,6 @@ export function PersonalBoardPage() {
 
   const setStatus = useSetTaskStatus();
   const remove = useDeleteTask();
-  // No role gate here, unlike a team board: these columns are this person's own,
-  // so whoever is looking at this board already owns them.
-  const saveColumns = useReplacePersonalStatuses();
 
   const [columnsOpen, setColumnsOpen] = useState(false);
   // The column key to pre-select in the quick-add dialog; null = closed.
@@ -121,7 +117,6 @@ export function PersonalBoardPage() {
           getColumnKey={(tk) => tk.status}
           renderCard={(task, overlay) => <PersonalCard task={task} overlay={overlay} />}
           onMove={onMove}
-          onColumnsReorder={(cols) => saveColumns.mutate(cols)}
           onCardClick={(task) => navigate(`/issues/${task.shortId || task.id}`)}
           renderCardToolbar={(task) => (
             <KanbanCardToolbar

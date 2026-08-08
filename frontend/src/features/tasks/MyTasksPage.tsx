@@ -17,7 +17,7 @@ import { useAuth } from '@/lib/auth';
 import { useUsers } from '@/features/users/api';
 import { useProjects } from '@/features/projects/api';
 import { useRoadmaps } from '@/features/roadmaps/api';
-import { useReorderTeamColumns, useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
+import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
 import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
 import {
   CarryOverBadge,
@@ -50,11 +50,9 @@ interface MyTasksPageProps {
 export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksPageProps = {}) {
   const { user, canEditDelivery: canWrite, canManageDelivery } = useAuth();
   const navigate = useNavigate();
-  // Columns belong to the team that owns this board (default task team when standalone).
+  // Columns belong to the team that owns this board (default task team when
+  // standalone) — and so does their order, edited only in Settings → Teams.
   const columns = useTeamStatuses(teamId, TeamIssueType.TASK);
-  // ...and so does their order — only on a team board, where there's one team to
-  // save it to. Same gate as Settings → Teams, which edits the same list.
-  const reorderColumns = useReorderTeamColumns(teamId);
   // Labels resolve per-task — the "assigned to me" board spans teams, so each card
   // resolves against its own item's teamId (see BugsBoardPage for the same note).
   const labelsFor = useTeamLabelsLookup();
@@ -303,7 +301,6 @@ export function MyTasksPage({ teamId, teamName, titleIcon, shareTeam }: MyTasksP
           )}
           onMove={onMove}
           disabled={!canWrite}
-          onColumnsReorder={canManageDelivery ? reorderColumns : undefined}
           onCardClick={(task) => navigate(`/issues/${task.shortId || task.id}`)}
           // The add + card-toolbar affordances, same as every board.
           renderCardToolbar={

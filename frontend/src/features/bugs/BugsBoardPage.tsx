@@ -36,7 +36,7 @@ import {
 import type { TaskLabelConfig } from '@/types/enums';
 import type { BugDto, TeamDto } from '@/types/dto';
 import { useBugs, useDeleteBug, useSetBugStatus } from './api';
-import { useReorderTeamColumns, useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
+import { useTeamStatuses, useTeamLabelsLookup } from '@/features/teams/api';
 import { TeamShareMenu } from '@/features/teams/TeamShareMenu';
 import {
   CarryOverBadge,
@@ -166,11 +166,9 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
 
   const setStatus = useSetBugStatus();
   const remove = useDeleteBug();
-  // Columns belong to the team that owns this board (default bug team when standalone).
+  // Columns belong to the team that owns this board (default bug team when
+  // standalone) — and so does their order, edited only in Settings → Teams.
   const columns = useTeamStatuses(teamId, TeamIssueType.BUG);
-  // ...and so does their order — only on a team board, where there's one team to
-  // save it to. Same gate as Settings → Teams, which edits the same list.
-  const reorderColumns = useReorderTeamColumns(teamId);
   // Labels resolve per-bug (a standalone board's bugs all sit in the default team,
   // but each still carries its own teamId — so resolve against that, not the board's).
   const labelsFor = useTeamLabelsLookup();
@@ -375,7 +373,6 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           )}
           onMove={onMove}
           disabled={!canWrite}
-          onColumnsReorder={canManageDelivery ? reorderColumns : undefined}
           onCardClick={(bug) => navigate(`/issues/${bug.shortId || bug.id}`)}
           // The add + card-toolbar affordances, same as every board.
           renderCardToolbar={

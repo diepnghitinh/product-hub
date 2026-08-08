@@ -1489,8 +1489,6 @@ export const en = {
 
   'board.collapseColumn': 'Collapse',
   'board.expandColumn': 'Expand',
-  'board.reorderColumn': 'Drag to reorder column',
-  'board.reorderColumnFailed': "Couldn't save the column order",
   'board.ageToday': 'today',
   /** Day count on a card / in a workflow stat — the unit trails the number in Korean. */
   'board.ageDays': '{n}d',
