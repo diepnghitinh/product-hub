@@ -1,4 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
 import { makeIssueHooks } from './hook-factory';
+import { apiGet } from '@/lib/api';
 import type { BugAttachment, IssueDto } from '@/types/dto';
 import type { BugSeverity, CustomFieldValue, IssueKind } from '@/types/enums';
 
@@ -151,3 +153,22 @@ export const useUpdateIssue = hooks.useUpdate;
  * now over one collection (see `makeIssueHooks`). */
 export const useSetIssueStatus = hooks.useSetStatus;
 export const useDeleteIssue = hooks.useRemove;
+
+/**
+ * How many issues currently sit in each column of **one** board — the "9 issues"
+ * a status shows in settings, so you can see what deleting or regrouping a column
+ * would touch before you do it.
+ *
+ * `teamId` picks a team's board; omitting it counts the caller's personal board.
+ * Counted server-side (an aggregation, not a list), so a busy board costs the
+ * same as an empty one. Keys are status keys; a column with nothing in it is
+ * simply absent.
+ */
+export function useStatusCounts(teamId?: string, enabled = true) {
+  return useQuery({
+    queryKey: ['issue-status-counts', teamId ?? 'personal'],
+    queryFn: () =>
+      apiGet<Record<string, number>>('/issues/status-counts', teamId ? { teamId } : undefined),
+    enabled,
+  });
+}

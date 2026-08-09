@@ -5,6 +5,7 @@ import { ITeamRepository } from '@application/teams/repositories/team.repository
 import { TeamEntity } from '@application/teams/domain/entities/team.entity';
 import { TEAM_NOT_FOUND } from '@application/teams/use-cases/team.use-cases';
 import { IIssueRepository } from '@application/issues/repositories/issue.repository';
+import { IssueStatusCategory } from '@application/issues/domain/enums/status-category.enums';
 import {
   CreateCycleDto,
   CycleBurndownResponseDto,
@@ -14,7 +15,6 @@ import {
 } from '../dtos/cycle.dtos';
 import { CycleEntity } from '../domain/entities/cycle.entity';
 import { CycleMapper } from '../mappers/cycle.mapper';
-import { completedStatusKeysFor } from '../domain/enums/cycle.enums';
 import { buildBurndown } from '../domain/cycle-burndown';
 import { todayISO } from '../domain/cycle-dates';
 import { ICycleRepository } from '../repositories/cycle.repository';
@@ -77,7 +77,7 @@ export class GetTeamCyclesUseCase
 
     const openIds = cycles.filter((c) => !c.isClosed).map((c) => c.id.toString());
     const live = openIds.length
-      ? await this.issues.cycleRollups(tenantId, openIds, completedStatusKeysFor(team.issueType))
+      ? await this.issues.cycleRollups(tenantId, openIds, team.completedStatusKeys)
       : {};
 
     // Newest *window* first, not highest number: a manual team numbers cycles in
@@ -128,13 +128,19 @@ export class GetCycleBurndownUseCase
     const cycle = await this.cycles.findById(tenantId, cycleId);
     if (!cycle || cycle.teamId !== teamId) return Result.fail(CYCLE_NOT_FOUND);
 
-    const completedKeys = completedStatusKeysFor(team.issueType);
+    const completedKeys = team.completedStatusKeys;
     const statuses = team.statuses;
-    // "Not started" is exactly the first board column; everything past it counts
-    // as started. The chart's colours borrow the team's own started/done columns.
-    const unstartedKey = statuses[0]?.key ?? '';
-    const completedCol = statuses.find((s) => completedKeys.includes(s.key));
-    const startedCol = statuses.find((s) => s.key !== unstartedKey);
+    // The three bands the chart draws, read off the columns' categories rather
+    // than guessed from board position — a team whose first column is a Backlog
+    // one used to have its whole backlog counted as "not started yet in this
+    // cycle". Falling back to the first column keeps a board with no unstarted
+    // category drawing something sensible.
+    const unstartedKey =
+      statuses.find((s) => s.category === IssueStatusCategory.UNSTARTED)?.key ??
+      statuses[0]?.key ??
+      '';
+    const completedCol = statuses.find((s) => s.category === IssueStatusCategory.COMPLETED);
+    const startedCol = statuses.find((s) => s.category === IssueStatusCategory.STARTED);
     const labelLookup = Object.fromEntries(
       team.labels.map((l) => [l.key, { name: l.name, color: l.color }]),
     );
@@ -299,7 +305,7 @@ export class UpdateCycleUseCase
     // frozen history — so the returned DTO matches what a re-list would show.
     const live = cycle.isClosed
       ? undefined
-      : (await this.issues.cycleRollups(tenantId, [cycleId], completedStatusKeysFor(team.issueType)))[
+      : (await this.issues.cycleRollups(tenantId, [cycleId], team.completedStatusKeys))[
           cycleId
         ];
     return Result.ok(CycleMapper.toResponseDto(cycle, today, live));

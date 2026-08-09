@@ -1224,7 +1224,7 @@ export const en = {
   'settings.addColumn': 'Add column',
   'settings.columns': 'Board columns',
   'settings.teamStatusesHint':
-    "This team's board columns. Built-in ones can be renamed, recoloured and reordered, but not removed — reports read them.",
+    "This team's board columns, grouped by what each group means to the rest of the app. Built-in ones can be renamed, recoloured and regrouped, but not removed — reports read them.",
   'settings.builtIn': 'Built-in',
   // Roadmap column templates — the workspace-wide half of a backlog board's
   // layout. A roadmap either points at one of these or keeps columns of its own.
@@ -1411,6 +1411,22 @@ export const en = {
   'settings.statusLabel': 'Column name',
   'settings.moveUp': 'Move up',
   'settings.moveDown': 'Move down',
+
+  // Board columns, grouped by category. The group a column sits in is what the
+  // rest of the app reads — see `enum.statusCategory.*Hint` for what each means.
+  'settings.statusCategory': 'Group',
+  'settings.statusDescription': 'Description',
+  'settings.statusDescriptionPlaceholder': 'What this column means (optional)',
+  'settings.statusIssueCount': '{count} issues',
+  'settings.statusIssueCountOne': '1 issue',
+  'settings.statusGroupEmpty': 'No columns in this group',
+  'settings.statusAddTo': 'Add a column here',
+  'settings.editColumn': 'Edit column',
+  'settings.newColumn': 'New column',
+  'settings.needCompletedColumn':
+    'Keep at least one column in Completed — progress, burn-up and the resolved date all read it.',
+  'settings.statusDeleteWithIssues':
+    'Delete this column? The issues on it keep the status until someone moves them, and it disappears from the board.',
 
   'share.title': 'Share project',
   'share.public': 'Public read-only link',
@@ -1705,6 +1721,27 @@ export const en = {
   'enum.sectionType.bullets': 'Bullet list',
   'enum.sectionType.ordered': 'Numbered list',
   'enum.sectionType.testing': 'Testing',
+
+  // A board column's group. A team can call a column anything it likes; the group
+  // is how the rest of the app knows what that name *means*, so the hints below
+  // spell out the consequence rather than restating the word.
+  'enum.statusCategory.backlog': 'Backlog',
+  'enum.statusCategory.backlogHint':
+    'Raised, not yet scheduled. Sits outside the sprint and outside progress counts.',
+  'enum.statusCategory.unstarted': 'Unstarted',
+  'enum.statusCategory.unstartedHint':
+    'Planned and waiting to be picked up. Counted as work in the cycle, not yet begun.',
+  'enum.statusCategory.started': 'Started',
+  'enum.statusCategory.startedHint': 'Someone is on it. Counted as work in progress.',
+  'enum.statusCategory.completed': 'Completed',
+  'enum.statusCategory.completedHint':
+    'Done. Counts toward progress and burn-up, stamps the resolved date, and never rolls into the next cycle.',
+  'enum.statusCategory.canceled': 'Canceled',
+  'enum.statusCategory.canceledHint':
+    'Closed without being delivered. Off the board and out of the next cycle, but never counted as done.',
+  'enum.statusCategory.duplicate': 'Duplicate',
+  'enum.statusCategory.duplicateHint':
+    'Closed because another issue covers it. Treated like Canceled — closed, never done.',
 
   'enum.testResult.passed': 'Passed',
   'enum.testResult.failed': 'Failed',

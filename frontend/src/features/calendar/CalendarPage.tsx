@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 import { useUpdateTask } from '@/features/tasks/api';
 import { useTeams } from '@/features/teams/api';
 import type { TaskDto } from '@/types/dto';
-import { TaskStatus } from '@/types/enums';
+import { isCompletedStatus } from '@/types/enums';
 import {
   CALENDAR_SOURCES,
   useCalendarTasks,
@@ -154,7 +154,7 @@ export function CalendarPage() {
   // Open work with no dates at all — done tasks don't count, since an undated
   // finished task isn't something waiting to be scheduled.
   const unscheduledCount = useMemo(
-    () => items.filter((task) => !taskSpan(task) && task.status !== TaskStatus.DONE).length,
+    () => items.filter((task) => !taskSpan(task) && !isCompletedStatus(task.status)).length,
     [items],
   );
 

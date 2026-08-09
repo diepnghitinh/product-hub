@@ -35,6 +35,14 @@ export abstract class IIssueRepository {
     opts?: { personalOwnerId?: string },
   ) => Promise<IssuePaginationResponse>;
   countByStatus: (tenantId: string, status: string) => Promise<number>;
+  /** How many issues sit in each column of one board, keyed by status. Feeds the
+   *  "N issues" beside every status in settings — and the warning before deleting
+   *  a column that still holds work. A board is a team's (`teamId`) or one
+   *  person's private one (`ownerId`); exactly one is passed. */
+  countsByStatus: (
+    tenantId: string,
+    scope: { teamId?: string; ownerId?: string },
+  ) => Promise<Record<string, number>>;
   /** Scope/completed (count + points) per cycle id, in one aggregation. Feeds
    *  both the live rollups and the freeze at cycle completion. */
   cycleRollups: (

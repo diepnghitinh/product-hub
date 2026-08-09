@@ -43,7 +43,13 @@ import {
   useRelinkBacklogItem,
   type IssueGroup,
 } from '@/features/issues/backlogGroups';
-import { TaskStatus, TeamIssueType, type TaskLabelConfig, type TeamStatusConfig } from '@/types/enums';
+import {
+  isCompletedStatus,
+  TaskStatus,
+  TeamIssueType,
+  type TaskLabelConfig,
+  type TeamStatusConfig,
+} from '@/types/enums';
 import type { TaskDto, TeamDto } from '@/types/dto';
 import { useDeleteTask, useSetTaskStatus, useTasks } from './api';
 
@@ -426,7 +432,7 @@ export function TaskCard({
   labels?: TaskLabelConfig[];
   overlay?: boolean;
 }) {
-  const done = task.status === TaskStatus.DONE;
+  const done = isCompletedStatus(task.status);
   return (
     <BoardCard
       overlay={overlay}
@@ -539,7 +545,10 @@ function TaskRow({
       <span
         className={cn(
           'min-w-0 flex-1 truncate text-sm',
-          task.status === TaskStatus.DONE && 'text-muted-foreground line-through',
+          // The row's own column when the list carries one, so a team's
+          // "Released" reads as done here too.
+          isCompletedStatus(task.status, status && [status]) &&
+            'text-muted-foreground line-through',
         )}
       >
         {task.title}

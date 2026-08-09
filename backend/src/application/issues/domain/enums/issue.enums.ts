@@ -36,19 +36,32 @@ import { TaskStatus as TaskStatusEnum } from '@application/tasks/domain/enums/ta
 import { BugStatus as BugStatusEnum } from '@application/bugs/domain/enums/bug.enums';
 
 /**
- * The statuses that count as **finished**, per kind — the single source of truth
- * for "this issue is done". Statuses have no done-category yet, so this reads the
- * built-in keys literally: an issue parked in a team's *custom* column counts as
- * unfinished. Cycle rollups/rollover (`completedStatusKeysFor`) and the issue's
- * own `resolvedAt` stamp both read this, so a bug can never be "solved" for one
- * and open for the other.
+ * The **fallback** answer to "is this issue done?", per kind: the shipped keys,
+ * read literally.
+ *
+ * The real answer lives on the board's own columns — a status whose category is
+ * `completed` means done, whatever it is called (`TeamEntity.completedStatusKeys`
+ * / `UserEntity.completedStatusKeys`). This list is what's used when those
+ * columns aren't at hand: an issue whose team can't be loaded, and the shipped
+ * defaults themselves, which map to exactly these keys. So the fallback never
+ * *contradicts* a board — at worst it knows less about one.
  */
 export const COMPLETED_STATUS_KEYS: Record<IssueKind, string[]> = {
   [IssueKind.BUG]: [BugStatusEnum.RESOLVED, BugStatusEnum.CLOSED],
   [IssueKind.TASK]: [TaskStatusEnum.DONE],
 };
 
-/** Whether `status` means "finished" for this kind of issue. */
-export function isCompletedStatus(kind: IssueKind, status: string): boolean {
-  return COMPLETED_STATUS_KEYS[kind].includes(status);
+/**
+ * Whether `status` means "finished".
+ *
+ * Pass `completedKeys` — the board's own completed columns — whenever the caller
+ * has them; a team that added a "Released" column is only understood through
+ * those. Without them this falls back to the shipped keys for the kind.
+ */
+export function isCompletedStatus(
+  kind: IssueKind,
+  status: string,
+  completedKeys?: readonly string[],
+): boolean {
+  return (completedKeys ?? COMPLETED_STATUS_KEYS[kind]).includes(status);
 }

@@ -1,6 +1,3 @@
-import { COMPLETED_STATUS_KEYS, IssueKind } from '@application/issues/domain/enums/issue.enums';
-import { TeamIssueType } from '@application/teams/domain/enums/team.enums';
-
 /** Derived from the cycle's dates on read — never stored. */
 export enum CycleStatus {
   UPCOMING = 'upcoming',
@@ -20,15 +17,17 @@ export const CYCLE_FILTER_NONE = 'none';
 export const CYCLE_FILTER_NO_MATCH = '__no-cycle__';
 
 /**
- * The status keys that count as "finished" for cycle rollups and rollover — the
- * team's issue type read through the issue domain's `COMPLETED_STATUS_KEYS`, so
- * rollups and an issue's own `resolvedAt` stamp can never disagree about what
- * "done" means. Issues in a team's custom columns count as unfinished and
- * therefore roll over (see features/cycles.md §7.2).
+ * What "finished" means for a cycle's rollups and rollover: **the team's own
+ * `completed`-category columns**, read straight off the team as
+ * `TeamEntity.completedStatusKeys`. There is deliberately no helper here — the
+ * answer is a property of the board, not of the issue type, and the issue's own
+ * `resolvedAt` stamp reads the same list, so a bug can never be solved for one
+ * and open for the other.
+ *
+ * A column in any other category — a team's own "In review", or a `canceled` /
+ * `duplicate` one — counts as unfinished and therefore rolls over (see
+ * features/cycles.md §7.2).
  */
-export function completedStatusKeysFor(issueType: TeamIssueType): string[] {
-  return COMPLETED_STATUS_KEYS[issueType === TeamIssueType.BUG ? IssueKind.BUG : IssueKind.TASK];
-}
 
 /** Max length of a cycle's free-text goal/notes (plain text). Generous for a
  *  sprint goal + a few notes, short enough to keep it a note, not a document. */

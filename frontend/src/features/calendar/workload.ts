@@ -1,4 +1,4 @@
-import { TaskStatus } from '@/types/enums';
+import { isCompletedStatus } from '@/types/enums';
 import type { CalendarTask } from './api';
 import { addDays, diffDays, taskSpan, todayISO } from './model';
 
@@ -48,7 +48,7 @@ export interface CalendarLoad {
  * today is never "overdue" until tomorrow, in the user's own timezone.
  */
 export function isOverdue(task: CalendarTask, today: string = todayISO()): boolean {
-  if (task.status === TaskStatus.DONE) return false;
+  if (isCompletedStatus(task.status)) return false;
   const span = taskSpan(task);
   return !!span && span.end < today;
 }

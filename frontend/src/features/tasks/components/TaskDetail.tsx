@@ -39,9 +39,9 @@ import { CustomFields } from '@/features/custom-fields/CustomFields';
 import {
   ClickUpLinkTarget,
   FavouriteKind,
+  isCompletedStatus,
   IssueKind,
   TASK_ESTIMATES,
-  TaskStatus,
   TeamIssueType,
   taskEstimateLabel,
 } from '@/types/enums';
@@ -288,7 +288,7 @@ export function TaskDetail({
                   className={cn(
                     endDate &&
                       endDate < todayStr() &&
-                      task.status !== TaskStatus.DONE &&
+                      !isCompletedStatus(task.status, columns) &&
                       'font-medium text-destructive',
                   )}
                 >

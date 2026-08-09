@@ -3,6 +3,11 @@ import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
 import { TaskLabelConfig } from '@application/tasks/domain/enums/task.enums';
 import {
+  STATUS_DESCRIPTION_MAX,
+  StatusConfig,
+  completedKeysOf,
+} from '@application/issues/domain/enums/status-category.enums';
+import {
   CUSTOM_FIELD_TYPES,
   CustomFieldConfig,
   fieldTypeHasOptions,
@@ -16,11 +21,15 @@ import {
   builtinStatusKeys,
   defaultIconFor,
   defaultStatusesFor,
+  resolveTeamStatuses,
 } from '../enums/team.enums';
 import { TeamProps } from './team.props';
 
 /** Sentinel so the controller can map a dropped built-in status to 400. */
 export const STATUS_BUILTIN_LOCKED = 'Built-in statuses cannot be removed';
+
+/** Sentinel for a board with no way to finish anything. */
+export const STATUS_NEEDS_COMPLETED = 'At least one status must be in the Completed category';
 
 /** A team: an area of the workspace with its own list of issues. */
 export class TeamEntity extends AggregateRoot<TeamProps> {
@@ -128,11 +137,24 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
   get color(): string | null {
     return this.props.color;
   }
-  /** The board columns to render — the type's defaults until the team sets its own. */
-  get statuses(): TeamStatusConfig[] {
-    return this.props.statuses?.length
-      ? this.props.statuses
-      : defaultStatusesFor(this.props.issueType);
+  /**
+   * The board columns to render — the type's defaults until the team sets its own,
+   * every category resolved. A team configured before categories existed is read
+   * through its type's built-in map rather than rewritten, so nothing changes for
+   * it until someone opens settings and saves.
+   */
+  get statuses(): StatusConfig[] {
+    return resolveTeamStatuses(
+      this.props.statuses?.length ? this.props.statuses : defaultStatusesFor(this.props.issueType),
+      this.props.issueType,
+    );
+  }
+
+  /** The keys of the columns that mean **done** on this team's board. The single
+   *  answer to "is this issue finished?" — rollups, rollover and `resolvedAt`
+   *  all read it, so they cannot disagree. */
+  get completedStatusKeys(): string[] {
+    return completedKeysOf(this.statuses);
   }
 
   /** What's actually stored (undefined = never configured). For persistence + migration. */
@@ -220,8 +242,13 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
   }
 
   /**
-   * Replace the board columns. Built-ins may be renamed, recoloured and
-   * reordered, but not dropped — the rollups read their keys.
+   * Replace the board columns. Built-ins may be renamed, recoloured, recategorised
+   * and reordered, but not dropped — every issue in one stores its key.
+   *
+   * A team must keep at least one **completed** column: that category is the only
+   * thing that means "done", so a board without one is a board where nothing can
+   * ever finish — no `resolvedAt`, no burn-up ever reaching the top, and every
+   * issue rolling into the next cycle forever.
    */
   setStatuses(statuses: TeamStatusConfig[]): Result<void> {
     if (!statuses.length) return Result.fail('A team needs at least one status');
@@ -235,10 +262,15 @@ export class TeamEntity extends AggregateRoot<TeamProps> {
       return Result.fail(`${STATUS_BUILTIN_LOCKED}: ${missing.join(', ')}`);
     }
 
-    this.props.statuses = statuses.map((s) => ({
+    const resolved = resolveTeamStatuses(statuses, this.props.issueType);
+    if (!completedKeysOf(resolved).length) return Result.fail(STATUS_NEEDS_COMPLETED);
+
+    this.props.statuses = resolved.map((s) => ({
       key: s.key,
       label: s.label.trim(),
       color: s.color,
+      category: s.category,
+      description: s.description?.slice(0, STATUS_DESCRIPTION_MAX) || '',
     }));
     this.touch();
     return Result.ok();

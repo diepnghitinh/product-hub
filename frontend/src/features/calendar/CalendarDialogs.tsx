@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { usePersonalStatuses, useCreateTask, useUpdateTask } from '@/features/tasks/api';
 import { useTeams, useTeamStatuses } from '@/features/teams/api';
-import { TaskStatus, TeamIssueType } from '@/types/enums';
+import { isCompletedStatus, TeamIssueType } from '@/types/enums';
 import type { CalendarTask } from './api';
 import { parseISO, taskSpan } from './model';
 
@@ -252,7 +252,7 @@ export function UnscheduledDrawer({
 }) {
   const update = useUpdateTask();
   const undated = tasks
-    .filter((task) => !taskSpan(task) && task.status !== TaskStatus.DONE)
+    .filter((task) => !taskSpan(task) && !isCompletedStatus(task.status))
     .sort((a, b) => a.title.localeCompare(b.title));
 
   return (
@@ -326,7 +326,7 @@ function TaskRow({
   onNavigate: () => void;
 }) {
   const navigate = useNavigate();
-  const done = task.status === TaskStatus.DONE;
+  const done = isCompletedStatus(task.status);
 
   return (
     <button

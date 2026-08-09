@@ -16,6 +16,7 @@ import { IssueEntity } from '../domain/entities/issue.entity';
 import { IssueKind } from '../domain/enums/issue.enums';
 import { IIssueRepository } from '../repositories/issue.repository';
 import { resolveIssueAssignees } from './resolve-assignees';
+import { resolveCompletedKeys } from './resolve-completed-keys';
 
 export interface CreateIssueRequest {
   tenantId: string;
@@ -97,11 +98,21 @@ export class CreateIssueUseCase
       }
     }
 
+    // Creating straight into a done column (the + Add on a "Released" column)
+    // stamps resolvedAt — so the board's own completed columns have to be known
+    // here too, not just on a drag.
+    const completedKeys = await resolveCompletedKeys(this.teams, this.users, {
+      tenantId,
+      teamId: dto.personal ? undefined : teamId,
+      ownerId: dto.personal ? createdBy : undefined,
+    });
+
     const created = IssueEntity.create({
       kind,
       tenantId,
       teamId,
       cycleId,
+      completedKeys,
       ownerId: dto.personal ? createdBy : '',
       parentId: dto.parentId,
       shortId: await uniqueRef(isBug ? 'BUG' : 'TSK', (ref) =>

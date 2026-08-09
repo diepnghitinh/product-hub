@@ -94,6 +94,10 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
       ciProvider?: string;
       ciBranch?: string;
       ciUpdatedAt?: Date | null;
+      /** The board's completed columns, when the caller has them — that's what
+       *  lets an issue created straight into a team's own done column (say
+       *  "Released") be stamped as resolved. Absent = the shipped keys. */
+      completedKeys?: readonly string[];
     },
     id?: UniqueEntityID,
   ): Result<IssueEntity> {
@@ -166,7 +170,7 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
           resolvedAt:
             props.resolvedAt !== undefined
               ? props.resolvedAt
-              : isCompletedStatus(props.kind, status)
+              : isCompletedStatus(props.kind, status, props.completedKeys)
                 ? now
                 : null,
           // Read-through only — a create never has a pipeline, and every write
@@ -336,9 +340,16 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
   get ciUpdatedAt(): Date | null {
     return this.props.ciUpdatedAt;
   }
-  /** In a done column right now (resolved/closed for a bug, done for a task). */
+  /** In a done column right now, judged by the shipped keys alone. Only safe
+   *  where the board's own columns aren't available — prefer
+   *  {@link isCompletedIn}. */
   get isCompleted(): boolean {
     return isCompletedStatus(this.props.kind, this.props.status);
+  }
+
+  /** In a done column right now, judged by *this board's* completed columns. */
+  isCompletedIn(completedKeys?: readonly string[]): boolean {
+    return isCompletedStatus(this.props.kind, this.props.status, completedKeys);
   }
 
   /**
@@ -419,10 +430,14 @@ export class IssueEntity extends AggregateRoot<IssueProps> {
    * Crossing **into** the done set stamps the moment; crossing back **out** — a
    * reopen — clears it. Moving *within* the done set (resolved → closed) is not
    * a new fix, so the original moment stands.
+   *
+   * What counts as the done set is the board's own — pass `completedKeys` (its
+   * `completed`-category columns) so a team that finishes work in "Released"
+   * gets the same stamp as one that finishes in "Done".
    */
-  setStatus(status: string): void {
-    const wasCompleted = this.isCompleted;
-    const nowCompleted = isCompletedStatus(this.props.kind, status);
+  setStatus(status: string, completedKeys?: readonly string[]): void {
+    const wasCompleted = this.isCompletedIn(completedKeys);
+    const nowCompleted = isCompletedStatus(this.props.kind, status, completedKeys);
     this.props.status = status;
     if (nowCompleted && !wasCompleted) this.props.resolvedAt = new Date();
     else if (!nowCompleted && wasCompleted) this.props.resolvedAt = null;
