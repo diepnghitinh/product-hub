@@ -1,5 +1,16 @@
-import { DEFAULT_BUG_STATUSES } from '@application/bugs/domain/enums/bug.enums';
-import { DEFAULT_TASK_STATUSES } from '@application/tasks/domain/enums/task.enums';
+import {
+  BUILTIN_BUG_STATUS_CATEGORY,
+  DEFAULT_BUG_STATUSES,
+} from '@application/bugs/domain/enums/bug.enums';
+import {
+  BUILTIN_TASK_STATUS_CATEGORY,
+  DEFAULT_TASK_STATUSES,
+} from '@application/tasks/domain/enums/task.enums';
+import {
+  IssueStatusCategory,
+  StatusConfig,
+  normalizeStatuses,
+} from '@application/issues/domain/enums/status-category.enums';
 
 /**
  * What kind of issues a team's list holds. A team owns exactly one type, so its
@@ -73,12 +84,38 @@ export interface TeamStatusConfig {
   key: string;
   label: string;
   color: string;
+  /** What the column means (backlog / started / completed …). Optional here
+   *  because a team configured before categories existed has columns without
+   *  one; {@link resolveTeamStatuses} fills it in on read. */
+  category?: IssueStatusCategory;
+  /** Optional one-liner shown under the label. */
+  description?: string;
 }
 
 /** The statuses a team of this type starts with — also the ones it can never drop. */
 export function defaultStatusesFor(issueType: TeamIssueType): TeamStatusConfig[] {
   const base = issueType === TeamIssueType.BUG ? DEFAULT_BUG_STATUSES : DEFAULT_TASK_STATUSES;
   return base.map((s) => ({ ...s }));
+}
+
+/** What each *shipped* column of this team type has always meant — the map that
+ *  lets a pre-category board read correctly without being rewritten. */
+export function builtinCategoriesFor(
+  issueType: TeamIssueType,
+): Record<string, IssueStatusCategory> {
+  return issueType === TeamIssueType.BUG
+    ? BUILTIN_BUG_STATUS_CATEGORY
+    : BUILTIN_TASK_STATUS_CATEGORY;
+}
+
+/** A team's columns with every category resolved — the form the rest of the
+ *  system reasons about. Reading is the only place this happens; nothing is
+ *  written back until the team saves its settings. */
+export function resolveTeamStatuses(
+  statuses: TeamStatusConfig[],
+  issueType: TeamIssueType,
+): StatusConfig[] {
+  return normalizeStatuses(statuses, builtinCategoriesFor(issueType));
 }
 
 /**

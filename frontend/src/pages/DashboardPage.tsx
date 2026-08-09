@@ -9,12 +9,11 @@ import { localeTag, t } from '@/i18n';
 import { timeAgo } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import {
-  BugStatus,
   InboxKind,
+  isCompletedStatus,
   IssueKind,
   ROADMAP_PHASE_LABEL,
   ROADMAP_PHASES,
-  TaskStatus,
 } from '@/types/enums';
 import type { InboxItemDto, IssueDto } from '@/types/dto';
 import { ProjectCard } from '@/features/projects/components/ProjectCard';
@@ -32,13 +31,13 @@ const CARD_GRID = 'grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260
 const PANEL = 'divide-y overflow-hidden rounded-xl border bg-card text-card-foreground';
 const ROW = 'flex gap-3 px-4 py-3 transition-colors hover:bg-accent';
 
-/** Statuses that mean "off my plate" — a task's Done, a bug's Resolved/Closed.
- *  A team's custom columns are its own words, so anything else counts as open. */
-const TERMINAL: ReadonlySet<string> = new Set([
-  TaskStatus.DONE,
-  BugStatus.RESOLVED,
-  BugStatus.CLOSED,
-]);
+/**
+ * Is this issue off my plate? The dashboard spans every team, so there's no one
+ * board whose columns to read a custom "Released" against — this falls back to
+ * what the shipped keys have always meant (a task's Done, a bug's
+ * Resolved/Closed), and a team's own words count as still open.
+ */
+const isTerminal = (status: string) => isCompletedStatus(status);
 
 /** Local calendar day (YYYY-MM-DD), string-compared to an issue's date so
  *  timezones never shift the boundary. `en-CA` is the ISO shape, not a language. */
@@ -76,13 +75,13 @@ export function DashboardPage() {
   // Everything assigned to me, both kinds — a bug on my plate is my work too.
   const { data: mineData, isLoading: mineLoading } = useIssues({ mine: user?.id ?? '__none__' });
   const { data: bugData } = useBugs();
-  const openBugs = (bugData?.items ?? []).filter((b) => !TERMINAL.has(b.status)).length;
+  const openBugs = (bugData?.items ?? []).filter((b) => !isTerminal(b.status)).length;
   const { data: roadmaps } = useRoadmaps();
   const { data: milestones } = useMilestones();
   const { data: inbox } = useInbox();
 
   const { focus, upNext, overdueCount, todayCount, openCount } = useMemo(() => {
-    const open = (mineData?.items ?? []).filter((i) => !TERMINAL.has(i.status));
+    const open = (mineData?.items ?? []).filter((i) => !isTerminal(i.status));
     const due = open.filter((i) => dueDay(i) && dueDay(i) <= today);
     const dueIds = new Set(due.map((i) => i.id));
     return {

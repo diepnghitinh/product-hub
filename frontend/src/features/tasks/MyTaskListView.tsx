@@ -6,7 +6,7 @@ import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { localeTag, t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
-import { TaskStatus } from '@/types/enums';
+import { isCompletedStatus, TaskStatus } from '@/types/enums';
 import type { TaskDto } from '@/types/dto';
 import { useSetTaskStatus, useTasks } from './api';
 
@@ -36,13 +36,13 @@ export function MyTaskListView({ mode }: { mode: 'today' | 'personal' }) {
 
   const { overdue, dueToday, personal } = useMemo(() => {
     const now = todayStr();
-    const active = tasks.filter((tk) => tk.status !== TaskStatus.DONE);
+    const active = tasks.filter((tk) => !isCompletedStatus(tk.status));
     return {
       overdue: active.filter((tk) => dueDay(tk) && dueDay(tk) < now),
       dueToday: active.filter((tk) => dueDay(tk) === now),
       // Personal: not-done first, then by due date (undated last), then title.
       personal: [...tasks].sort((a, b) => {
-        const done = Number(a.status === TaskStatus.DONE) - Number(b.status === TaskStatus.DONE);
+        const done = Number(isCompletedStatus(a.status)) - Number(isCompletedStatus(b.status));
         if (done) return done;
         const da = dueDay(a) || '9999';
         const db = dueDay(b) || '9999';
@@ -54,7 +54,9 @@ export function MyTaskListView({ mode }: { mode: 'today' | 'personal' }) {
   const toggle = (task: TaskDto) =>
     setStatus.mutate({
       id: task.id,
-      status: task.status === TaskStatus.DONE ? TaskStatus.TODO : TaskStatus.DONE,
+      // This list spans every team, so there's no one board whose Completed
+      // column to tick into — the built-ins are the only shared vocabulary.
+      status: isCompletedStatus(task.status) ? TaskStatus.TODO : TaskStatus.DONE,
     });
 
   const isToday = mode === 'today';
@@ -131,7 +133,7 @@ function TaskChecklistRow({
   onToggle: (t: TaskDto) => void;
   overdue?: boolean;
 }) {
-  const done = task.status === TaskStatus.DONE;
+  const done = isCompletedStatus(task.status);
   const day = dueDay(task);
   return (
     <div className="flex items-center gap-3 rounded-md px-3 py-2.5 transition-colors hover:bg-accent [&:not(:last-child)]:border-b">

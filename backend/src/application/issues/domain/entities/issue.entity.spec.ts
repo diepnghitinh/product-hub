@@ -75,11 +75,34 @@ describe('IssueEntity resolvedAt', () => {
     expect(bug.resolvedAt).toBeNull();
   });
 
-  it("treats a team's custom column as still open", () => {
-    // Custom columns have no done-category (see COMPLETED_STATUS_KEYS), so an
-    // issue parked in one is unfinished — as cycle rollover already reads it.
+  it("treats a team's custom column as still open when no board is passed", () => {
+    // Without the board's own done set the shipped keys are all we know, and a
+    // column we've never heard of is unfinished — never a silent "done".
     const bug = makeBug();
     bug.setStatus('waiting-on-vendor');
+    expect(bug.resolvedAt).toBeNull();
+  });
+
+  it("stamps a custom column the board puts in Completed", () => {
+    // The whole point of status categories: a team that ships through "Released"
+    // gets a resolved date, exactly as one that ships through "Resolved" does.
+    const bug = makeBug();
+    bug.setStatus('released', ['released']);
+    expect(bug.resolvedAt).not.toBeNull();
+  });
+
+  it("clears the stamp when the board's done column is left", () => {
+    const bug = makeBug();
+    bug.setStatus('released', ['released']);
+    bug.setStatus('waiting-on-vendor', ['released']);
+    expect(bug.resolvedAt).toBeNull();
+  });
+
+  it('does not stamp a shipped done key the board has regrouped elsewhere', () => {
+    // A board that moved "Resolved" out of Completed means it — its own set wins
+    // over the shipped default.
+    const bug = makeBug();
+    bug.setStatus(BugStatus.RESOLVED, ['released']);
     expect(bug.resolvedAt).toBeNull();
   });
 

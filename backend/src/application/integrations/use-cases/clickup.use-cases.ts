@@ -5,7 +5,9 @@ import { shareToken } from '@module-shared/utils/short-id.util';
 import { AppSettingsEntity } from '@application/app-settings/domain/app-settings.entity';
 import { IAppSettingsRepository } from '@application/app-settings/repositories/app-settings.repository';
 import { IIssueRepository } from '@application/issues/repositories/issue.repository';
+import { completedKeysForIssue } from '@application/issues/use-cases/resolve-completed-keys';
 import { IRoadmapRepository } from '@application/roadmaps/repositories/roadmap.repository';
+import { ITeamRepository } from '@application/teams/repositories/team.repository';
 import { IUserRepository } from '@application/users/repositories/user.repository';
 import { UserEntity } from '@application/users/domain/entities/user.entity';
 import { QueryUserDto } from '@application/users/dtos/query-user.dto';
@@ -921,6 +923,10 @@ export class ReceiveClickUpEventUseCase {
     @Inject(IClickUpSyncRepository) private readonly bindings: IClickUpSyncRepository,
     @Inject(IIssueRepository) private readonly issues: IIssueRepository,
     @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
+    // Only to answer "which of this board's columns mean done" when ClickUp moves
+    // a card — see `applyInboundStatus`.
+    @Inject(ITeamRepository) private readonly teams: ITeamRepository,
+    @Inject(IUserRepository) private readonly users: IUserRepository,
     private readonly client: ClickUpClient,
   ) {}
 
@@ -1036,7 +1042,9 @@ export class ReceiveClickUpEventUseCase {
           if (!binding?.enabled) continue;
           const wanted = ourStatusFor(binding.statusMap, clickupStatus);
           if (!wanted || wanted === issue.status) continue;
-          issue.setStatus(wanted);
+          // The board's own Completed columns, so a card ClickUp drops into
+          // "Released" is finished here too — same rule as a drag on our board.
+          issue.setStatus(wanted, await completedKeysForIssue(this.teams, this.users, issue));
           await this.issues.update(issue);
         } else {
           const roadmap = await this.roadmaps.findById(link.roadmapId);

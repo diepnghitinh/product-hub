@@ -296,6 +296,25 @@ export class IssueRepository
     return this.model.countDocuments({ tenantId, status }).exec();
   }
 
+  async countsByStatus(
+    tenantId: string,
+    scope: { teamId?: string; ownerId?: string },
+  ): Promise<Record<string, number>> {
+    // A personal board is `ownerId` set; a team board is that team *and* no owner
+    // — without the second half a team's count would swallow the private tasks
+    // its members happen to have filed under the same status key.
+    const match = scope.ownerId
+      ? { tenantId, ownerId: scope.ownerId }
+      : { tenantId, teamId: scope.teamId ?? '', ownerId: '' };
+    const rows = await this.model
+      .aggregate<{ _id: string; count: number }>([
+        { $match: match },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ])
+      .exec();
+    return Object.fromEntries(rows.map((r) => [r._id, r.count]));
+  }
+
   async columnPeerIds(of: IssueEntity): Promise<string[]> {
     // A board column is exactly one (kind, team-or-owner, status) cell, so that
     // is the set a manual order is kept within. `ownerId` is part of it, not an

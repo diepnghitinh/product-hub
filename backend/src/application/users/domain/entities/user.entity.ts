@@ -4,7 +4,16 @@ import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
 import { FavouriteKind } from '@application/favourites/domain/favourite-kind.enum';
 import { FavouriteRef } from '@application/favourites/domain/favourite.ref';
-import { TaskStatusConfig, DEFAULT_TASK_STATUSES } from '@application/tasks/domain/enums/task.enums';
+import {
+  BUILTIN_TASK_STATUS_CATEGORY,
+  TaskStatusConfig,
+  DEFAULT_TASK_STATUSES,
+} from '@application/tasks/domain/enums/task.enums';
+import {
+  StatusConfig,
+  completedKeysOf,
+  normalizeStatuses,
+} from '@application/issues/domain/enums/status-category.enums';
 import { UserProps } from './user.props';
 
 /**
@@ -105,8 +114,18 @@ export class UserEntity extends AggregateRoot<UserProps> {
   get favourites(): FavouriteRef[] {
     return this.props.favourites;
   }
-  get personalStatuses(): TaskStatusConfig[] {
-    return this.props.personalStatuses;
+  /** The private board's columns, every category resolved — columns saved before
+   *  categories existed read through the shipped task map (see
+   *  {@link normalizeStatuses}), so a personal board behaves identically until
+   *  its owner changes something. */
+  get personalStatuses(): StatusConfig[] {
+    return normalizeStatuses(this.props.personalStatuses, BUILTIN_TASK_STATUS_CATEGORY);
+  }
+
+  /** Which of this board's columns mean **done** — the personal-board answer to
+   *  the question a team answers with `TeamEntity.completedStatusKeys`. */
+  get completedStatusKeys(): string[] {
+    return completedKeysOf(this.personalStatuses);
   }
   get readInboxKeys(): string[] {
     return this.props.readInboxKeys;

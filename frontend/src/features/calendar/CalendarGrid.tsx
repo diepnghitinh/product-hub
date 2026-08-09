@@ -3,7 +3,7 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { AlertTriangle, Lock, Plus } from 'lucide-react';
 import { localeTag, t } from '@/i18n';
 import { cn } from '@/lib/utils';
-import { TaskStatus, taskEstimateLabel } from '@/types/enums';
+import { isCompletedStatus, taskEstimateLabel } from '@/types/enums';
 import type { CalendarTask } from './api';
 import { packWeek, sameMonth, todayISO, type Segment } from './model';
 import { chipDetail, type DayLoad, type TaskChip } from './workload';
@@ -411,7 +411,7 @@ function TaskBar({
 }) {
   const { task, from, to, lane, clippedStart, clippedEnd } = segment;
   const { attributes, listeners, setNodeRef } = useDraggable({ id: task.id, data: { task } });
-  const done = task.status === TaskStatus.DONE;
+  const done = isCompletedStatus(task.status);
   const late = !!chip?.overdue;
   // What fits beside the title at this width — the title always wins.
   const detail = chip ? chipDetail(to - from + 1, dense) : 'none';

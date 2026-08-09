@@ -2,8 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { IClickUpSync } from '@application/integrations/clickup-sync.port';
+import { ITeamRepository } from '@application/teams/repositories/team.repository';
+import { IUserRepository } from '@application/users/repositories/user.repository';
 import { IssueEntity } from '../domain/entities/issue.entity';
 import { IIssueRepository } from '../repositories/issue.repository';
+import { completedKeysForIssue } from './resolve-completed-keys';
 
 export interface SetIssueStatusRequest {
   id: string;
@@ -25,6 +28,8 @@ export class SetIssueStatusUseCase
 {
   constructor(
     @Inject(IIssueRepository) private readonly issues: IIssueRepository,
+    @Inject(ITeamRepository) private readonly teams: ITeamRepository,
+    @Inject(IUserRepository) private readonly users: IUserRepository,
     @Inject(IClickUpSync) private readonly clickup: IClickUpSync,
   ) {}
 
@@ -33,7 +38,11 @@ export class SetIssueStatusUseCase
     if (!issue || issue.tenantId !== tenantId) return Result.fail('Issue not found');
     // A personal task can only be moved by its owner (or an admin).
     if (!issue.isVisibleTo(requesterId, isAdmin)) return Result.fail('Issue not found');
-    issue.setStatus(status);
+    // Read the board's own done-columns first: dropping a card into a team's
+    // "Released" column has to stamp resolvedAt exactly like dropping it into
+    // the shipped "Done" one.
+    const completedKeys = await completedKeysForIssue(this.teams, this.users, issue);
+    issue.setStatus(status, completedKeys);
     await this.issues.update(issue);
     await this.placeInColumn(issue, beforeId);
     // The outbound half of the two-way status rule: a drag here moves the card in

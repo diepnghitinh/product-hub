@@ -42,8 +42,12 @@ export const TeamSchema = new Schema<TeamDoc>(
     icon: { type: String, enum: TEAM_ICONS },
     color: { type: String, default: null },
     // Optional: teams stored before per-team statuses resolve defaults in the entity.
+    // `category` and `description` are absent on columns stored before they
+    // existed; the entity resolves both on read, so no migration is needed.
     statuses: {
-      type: [{ _id: false, key: String, label: String, color: String }],
+      type: [
+        { _id: false, key: String, label: String, color: String, category: String, description: String },
+      ],
       default: undefined,
     },
     // Item labels shared by the team's tasks/bugs. No built-ins — empty is valid.

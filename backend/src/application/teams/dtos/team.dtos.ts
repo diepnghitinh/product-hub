@@ -13,6 +13,10 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import {
+  IssueStatusCategory,
+  STATUS_DESCRIPTION_MAX,
+} from '@application/issues/domain/enums/status-category.enums';
 import { CycleMode, TEAM_COLORS, TeamIssueType } from '../domain/enums/team.enums';
 import { CustomFieldType } from '../domain/enums/custom-field.enums';
 import { TEAM_ICONS } from '../domain/enums/team-icons';
@@ -34,6 +38,24 @@ export class TeamStatusDto {
   @ApiProperty({ example: '#a855f7' })
   @IsString()
   color: string;
+
+  @ApiPropertyOptional({
+    enum: IssueStatusCategory,
+    description:
+      'What the column means. `completed` is the only category that counts as done ' +
+      '(resolvedAt, cycle rollups, rollover); `canceled`/`duplicate` are closed but ' +
+      'never finished. Omitted on a column stored before categories existed — the ' +
+      'server resolves those from the built-in key.',
+  })
+  @IsOptional()
+  @IsEnum(IssueStatusCategory)
+  category?: IssueStatusCategory;
+
+  @ApiPropertyOptional({ example: 'Ready for QC to test', description: 'One-line hint' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(STATUS_DESCRIPTION_MAX)
+  description?: string;
 }
 
 export class UpdateTeamStatusesDto {

@@ -8,7 +8,6 @@ import {
   CYCLE_FILTER_NO_MATCH,
   CYCLE_FILTER_UPCOMING,
   CycleStatus,
-  completedStatusKeysFor,
 } from '../domain/enums/cycle.enums';
 import { addDays, daysBetween, startDayOnOrBefore, todayISO } from '../domain/cycle-dates';
 import { ICycleRepository } from '../repositories/cycle.repository';
@@ -150,7 +149,7 @@ export class CycleSchedulerService {
       .map((c) => c.id.toString());
     if (!completedIds.length) return false;
 
-    const doneKeys = completedStatusKeysFor(team.issueType);
+    const doneKeys = team.completedStatusKeys;
     const due = all.filter((c) => c.statusOn(today) === CycleStatus.COMPLETED && !c.isClosed);
 
     if (due.length) {

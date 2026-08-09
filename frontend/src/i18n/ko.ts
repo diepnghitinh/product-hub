@@ -1194,7 +1194,7 @@ export const ko: Record<I18nKey, string> = {
   'settings.addColumn': '컬럼 추가',
   'settings.columns': '보드 컬럼',
   'settings.teamStatusesHint':
-    '이 팀의 보드 컬럼입니다. 기본 컬럼은 이름·색상·순서를 바꿀 수 있지만 삭제할 수는 없습니다 — 리포트가 이 값을 읽습니다.',
+    '이 팀의 보드 컬럼입니다. 각 컬럼이 앱 전체에서 어떤 의미인지에 따라 그룹으로 묶여 있습니다. 기본 컬럼은 이름·색상·그룹을 바꿀 수 있지만 삭제할 수는 없습니다 — 리포트가 이 값을 읽습니다.',
   'settings.builtIn': '기본',
   'settings.roadmapColumns': '로드맵 컬럼',
   'settings.roadmapColumnsHint':
@@ -1377,6 +1377,20 @@ export const ko: Record<I18nKey, string> = {
   'settings.statusLabel': '컬럼 이름',
   'settings.moveUp': '위로 이동',
   'settings.moveDown': '아래로 이동',
+
+  'settings.statusCategory': '그룹',
+  'settings.statusDescription': '설명',
+  'settings.statusDescriptionPlaceholder': '이 컬럼의 의미 (선택)',
+  'settings.statusIssueCount': '이슈 {count}개',
+  'settings.statusIssueCountOne': '이슈 1개',
+  'settings.statusGroupEmpty': '이 그룹에는 컬럼이 없습니다',
+  'settings.statusAddTo': '이 그룹에 컬럼 추가',
+  'settings.editColumn': '컬럼 편집',
+  'settings.newColumn': '새 컬럼',
+  'settings.needCompletedColumn':
+    '완료 그룹에 컬럼을 최소 하나는 남겨두세요 — 진행률, 번업, 완료 일시가 모두 이 값을 읽습니다.',
+  'settings.statusDeleteWithIssues':
+    '이 컬럼을 삭제할까요? 이 컬럼에 있던 이슈는 누군가 옮기기 전까지 상태를 유지하고, 컬럼은 보드에서 사라집니다.',
 
   'share.title': '프로젝트 공유',
   'share.public': '공개 읽기 전용 링크',
@@ -1667,6 +1681,24 @@ export const ko: Record<I18nKey, string> = {
   'enum.sectionType.bullets': '글머리 목록',
   'enum.sectionType.ordered': '번호 목록',
   'enum.sectionType.testing': '테스트',
+
+  'enum.statusCategory.backlog': '백로그',
+  'enum.statusCategory.backlogHint':
+    '등록만 되고 아직 일정이 잡히지 않은 상태입니다. 스프린트와 진행률 집계 밖에 있습니다.',
+  'enum.statusCategory.unstarted': '시작 전',
+  'enum.statusCategory.unstartedHint':
+    '계획에 들어왔고 착수를 기다리는 상태입니다. 사이클의 작업량에는 포함되지만 아직 시작되지 않았습니다.',
+  'enum.statusCategory.started': '진행 중',
+  'enum.statusCategory.startedHint': '누군가 작업 중입니다. 진행 중인 작업으로 집계됩니다.',
+  'enum.statusCategory.completed': '완료',
+  'enum.statusCategory.completedHint':
+    '끝난 상태입니다. 진행률과 번업에 반영되고, 완료 일시가 기록되며, 다음 사이클로 넘어가지 않습니다.',
+  'enum.statusCategory.canceled': '취소',
+  'enum.statusCategory.canceledHint':
+    '전달되지 않은 채 닫힌 상태입니다. 보드와 다음 사이클에서 빠지지만 완료로는 절대 집계되지 않습니다.',
+  'enum.statusCategory.duplicate': '중복',
+  'enum.statusCategory.duplicateHint':
+    '다른 이슈가 같은 내용을 다뤄서 닫힌 상태입니다. 취소와 동일하게 — 닫혔지만 완료는 아닙니다.',
 
   'enum.testResult.passed': '통과',
   'enum.testResult.failed': '실패',

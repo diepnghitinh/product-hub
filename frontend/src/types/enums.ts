@@ -27,6 +27,47 @@ export enum ProjectEnvironment {
   PRODUCTION = 'production',
 }
 
+/**
+ * Where a board column sits in the flow of work — mirrors the backend enum of
+ * the same name.
+ *
+ * The status *key* is what an issue stores; the category is what everything else
+ * reads to know what the column **means**. It is the reason a team can call its
+ * done column "Released" and still have burn-ups, `resolvedAt` and cycle rollover
+ * understand it. Declared up here because the `BUILTIN_*_STATUS_CATEGORY` maps
+ * below are built at module load.
+ */
+export enum IssueStatusCategory {
+  BACKLOG = 'backlog',
+  UNSTARTED = 'unstarted',
+  STARTED = 'started',
+  COMPLETED = 'completed',
+  CANCELED = 'canceled',
+  DUPLICATE = 'duplicate',
+}
+
+/** Display order — and therefore board order: settings saves the columns already
+ *  flattened in this sequence, so a board renders the array as given. */
+export const ISSUE_STATUS_CATEGORIES: IssueStatusCategory[] = [
+  IssueStatusCategory.BACKLOG,
+  IssueStatusCategory.UNSTARTED,
+  IssueStatusCategory.STARTED,
+  IssueStatusCategory.COMPLETED,
+  IssueStatusCategory.CANCELED,
+  IssueStatusCategory.DUPLICATE,
+];
+
+/** Categories where an issue has left the flow of work. Only COMPLETED is
+ *  *finished* — canceled and duplicate work was never delivered. */
+export const CLOSED_STATUS_CATEGORIES: IssueStatusCategory[] = [
+  IssueStatusCategory.COMPLETED,
+  IssueStatusCategory.CANCELED,
+  IssueStatusCategory.DUPLICATE,
+];
+
+/** Mirrors the backend DTO's `@MaxLength` so the field stops you before the save does. */
+export const STATUS_DESCRIPTION_MAX = 200;
+
 export enum FeatureStatus {
   TESTING = 'testing',
   DONE = 'done',
@@ -464,13 +505,29 @@ export const BUG_STATUS_LABEL: Record<BugStatus, string> = {
 };
 
 /** A tenant-configurable bug board column. `key` is the fixed workflow value;
- * `label`, `color` and order are admin-editable (see AdminSettingsPage). */
+ * `label`, `color`, `category`, `description` and order are admin-editable
+ * (see AdminSettingsPage). */
 export interface BugStatusConfig {
   /** Built-in `BugStatus` or a tenant's custom column slug. */
   key: string;
   label: string;
   color: string;
+  /** What the column means — see {@link IssueStatusCategory}. Optional only
+   *  because a column saved before categories existed doesn't carry one;
+   *  {@link resolveStatusCategories} fills it in on read. */
+  category?: IssueStatusCategory;
+  /** Optional one-liner shown under the label ("Ready for QC to test"). */
+  description?: string;
 }
+
+/** What each shipped bug column means (mirrors the backend map). */
+export const BUILTIN_BUG_STATUS_CATEGORY: Record<BugStatus, IssueStatusCategory> = {
+  [BugStatus.OPEN]: IssueStatusCategory.UNSTARTED,
+  [BugStatus.IN_PROGRESS]: IssueStatusCategory.STARTED,
+  [BugStatus.BLOCKED]: IssueStatusCategory.STARTED,
+  [BugStatus.RESOLVED]: IssueStatusCategory.COMPLETED,
+  [BugStatus.CLOSED]: IssueStatusCategory.COMPLETED,
+};
 
 export const DEFAULT_BUG_STATUS_COLOR: Record<BugStatus, string> = {
   [BugStatus.OPEN]: '#6b7280',
@@ -485,6 +542,8 @@ export const DEFAULT_BUG_STATUSES: BugStatusConfig[] = BUG_STATUSES.map((key) =>
   key,
   label: BUG_STATUS_LABEL[key],
   color: DEFAULT_BUG_STATUS_COLOR[key],
+  category: BUILTIN_BUG_STATUS_CATEGORY[key],
+  description: '',
 }));
 
 export const INBOX_KIND_LABEL: Record<InboxKind, string> = {
@@ -763,10 +822,93 @@ export function defaultStatusesFor(issueType: TeamIssueType): TeamStatusConfig[]
   return issueType === TeamIssueType.BUG ? DEFAULT_BUG_STATUSES : DEFAULT_TASK_STATUSES;
 }
 
-/** Built-ins are the board's contract: rollups read their keys literally. */
+/** Built-ins are the board's contract: every issue in one stores its key. */
 export function builtinStatusKeys(issueType: TeamIssueType): Set<string> {
   return new Set(defaultStatusesFor(issueType).map((s) => s.key));
 }
+
+/** What each *shipped* column of this team type means — the map a board
+ *  configured before categories existed is read through. */
+export function builtinCategoriesFor(
+  issueType: TeamIssueType,
+): Record<string, IssueStatusCategory> {
+  return issueType === TeamIssueType.BUG
+    ? BUILTIN_BUG_STATUS_CATEGORY
+    : BUILTIN_TASK_STATUS_CATEGORY;
+}
+
+/**
+ * Fill in the category of any column stored before categories existed: a shipped
+ * key reads as what it has always meant, anything else as STARTED (in flight —
+ * never a silent "done"). The backend does exactly the same on read, so the two
+ * can't drift; this exists so the client doesn't have to wait for a save to
+ * render a board correctly.
+ */
+export function resolveStatusCategories<T extends TeamStatusConfig>(
+  statuses: T[],
+  builtins: Record<string, IssueStatusCategory>,
+): T[] {
+  return statuses.map((s) =>
+    s.category
+      ? s
+      : { ...s, category: builtins[s.key] ?? IssueStatusCategory.STARTED },
+  );
+}
+
+/** The columns that mean **done** on this board. */
+export function completedStatusKeys(statuses: TeamStatusConfig[]): string[] {
+  return statuses.filter((s) => s.category === IssueStatusCategory.COMPLETED).map((s) => s.key);
+}
+
+/**
+ * Is an issue in this status finished?
+ *
+ * Ask with the board's own columns whenever they're at hand — that's the only
+ * way a team's "Released" column reads as done. `statuses` omitted (or a column
+ * with no category) falls back to the shipped meaning of the key.
+ */
+export function isCompletedStatus(status: string, statuses?: TeamStatusConfig[]): boolean {
+  const column = statuses?.find((s) => s.key === status);
+  if (column?.category) return column.category === IssueStatusCategory.COMPLETED;
+  return (
+    BUILTIN_TASK_STATUS_CATEGORY[status as TaskStatus] === IssueStatusCategory.COMPLETED ||
+    BUILTIN_BUG_STATUS_CATEGORY[status as BugStatus] === IssueStatusCategory.COMPLETED
+  );
+}
+
+/** The column a "tick it off" gesture should move an issue into — the first
+ *  completed one on the board, whatever it's called. */
+export function firstCompletedKey(statuses: TeamStatusConfig[]): string | undefined {
+  return statuses.find((s) => s.category === IssueStatusCategory.COMPLETED)?.key;
+}
+
+/** …and the column that un-ticking returns it to: the first unstarted one,
+ *  falling back to the first column on the board. */
+export function firstUnstartedKey(statuses: TeamStatusConfig[]): string | undefined {
+  return (
+    statuses.find((s) => s.category === IssueStatusCategory.UNSTARTED)?.key ?? statuses[0]?.key
+  );
+}
+
+export const ISSUE_STATUS_CATEGORY_LABEL: Record<IssueStatusCategory, string> = {
+  [IssueStatusCategory.BACKLOG]: t('enum.statusCategory.backlog'),
+  [IssueStatusCategory.UNSTARTED]: t('enum.statusCategory.unstarted'),
+  [IssueStatusCategory.STARTED]: t('enum.statusCategory.started'),
+  [IssueStatusCategory.COMPLETED]: t('enum.statusCategory.completed'),
+  [IssueStatusCategory.CANCELED]: t('enum.statusCategory.canceled'),
+  [IssueStatusCategory.DUPLICATE]: t('enum.statusCategory.duplicate'),
+};
+
+/** One line under each group heading in settings, so the choice is explainable
+ *  without a doc: what putting a column here actually does. */
+export const ISSUE_STATUS_CATEGORY_HINT: Record<IssueStatusCategory, string> = {
+  [IssueStatusCategory.BACKLOG]: t('enum.statusCategory.backlogHint'),
+  [IssueStatusCategory.UNSTARTED]: t('enum.statusCategory.unstartedHint'),
+  [IssueStatusCategory.STARTED]: t('enum.statusCategory.startedHint'),
+  [IssueStatusCategory.COMPLETED]: t('enum.statusCategory.completedHint'),
+  [IssueStatusCategory.CANCELED]: t('enum.statusCategory.canceledHint'),
+  [IssueStatusCategory.DUPLICATE]: t('enum.statusCategory.duplicateHint'),
+};
 
 /** A team with no icon stored falls back to the symbol for the list it owns. */
 export function defaultTeamIcon(issueType: TeamIssueType): string {
@@ -830,18 +972,43 @@ export interface TaskStatusConfig {
   key: string;
   label: string;
   color: string;
+  /** What the column means — see {@link IssueStatusCategory}. */
+  category?: IssueStatusCategory;
+  /** Optional one-liner shown under the label. */
+  description?: string;
 }
+
+/** What each shipped task column means (mirrors the backend map). */
+export const BUILTIN_TASK_STATUS_CATEGORY: Record<TaskStatus, IssueStatusCategory> = {
+  [TaskStatus.TODO]: IssueStatusCategory.UNSTARTED,
+  [TaskStatus.IN_PROGRESS]: IssueStatusCategory.STARTED,
+  [TaskStatus.DONE]: IssueStatusCategory.COMPLETED,
+};
 
 /** Client fallback until the tenant's task columns load (mirrors the backend).
  * Colors are concrete hex (the config stores hex), matching the token hues. */
 export const DEFAULT_TASK_STATUSES: TaskStatusConfig[] = [
-  { key: TaskStatus.TODO, label: TASK_STATUS_LABEL[TaskStatus.TODO], color: '#6b7280' },
+  {
+    key: TaskStatus.TODO,
+    label: TASK_STATUS_LABEL[TaskStatus.TODO],
+    color: '#6b7280',
+    category: IssueStatusCategory.UNSTARTED,
+    description: '',
+  },
   {
     key: TaskStatus.IN_PROGRESS,
     label: TASK_STATUS_LABEL[TaskStatus.IN_PROGRESS],
     color: '#2563eb',
+    category: IssueStatusCategory.STARTED,
+    description: '',
   },
-  { key: TaskStatus.DONE, label: TASK_STATUS_LABEL[TaskStatus.DONE], color: '#16a34a' },
+  {
+    key: TaskStatus.DONE,
+    label: TASK_STATUS_LABEL[TaskStatus.DONE],
+    color: '#16a34a',
+    category: IssueStatusCategory.COMPLETED,
+    description: '',
+  },
 ];
 
 export const WEBHOOK_PROVIDERS: WebhookProvider[] = [

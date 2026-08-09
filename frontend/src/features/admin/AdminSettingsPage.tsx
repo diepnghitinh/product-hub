@@ -1,8 +1,6 @@
 import { useEffect, useState, type ComponentType } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  ArrowDown,
-  ArrowUp,
   Blocks,
   Cloud,
   Columns3,
@@ -38,12 +36,14 @@ import {
   Switch,
   TagInput,
 } from '@/components/ui';
+import { normalizeStatusRows, StatusColumnsList } from '@/components/StatusColumnsList';
 import { RowsSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { timeAgo } from '@/lib/format';
 import { env } from '@/lib/env';
 import {
+  builtinCategoriesFor,
   builtinStatusKeys,
   CUSTOM_FIELD_TYPE_LABEL,
   CUSTOM_FIELD_TYPES,
@@ -54,6 +54,8 @@ import {
   defaultStatusesFor,
   defaultTeamIcon,
   fieldTypeHasOptions,
+  IssueStatusCategory,
+  resolveStatusCategories,
   TEST_RESULTS,
 } from '@/types/enums';
 import type { CreatedApiKeyDto } from '@/types/dto';
@@ -70,7 +72,13 @@ import { useUpdateCycleConfig } from '@/features/cycles/api';
 import { TeamCyclePlanner } from '@/features/cycles/components/TeamCyclePlanner';
 import { ClickUpSyncEditor } from '@/features/clickup/ClickUpSyncEditor';
 import type { TeamDto } from '@/types/dto';
-import { ClickUpSyncScope, type CustomFieldConfig, type TaskLabelConfig } from '@/types/enums';
+import {
+  ClickUpSyncScope,
+  type CustomFieldConfig,
+  type TaskLabelConfig,
+  type TeamStatusConfig,
+} from '@/types/enums';
+import { useStatusCounts } from '@/features/issues/api';
 import { CloudStorageSection } from './CloudStorageSection';
 import { RoadmapColumnsSection } from './RoadmapColumnsSection';
 import { IntegrationsSection } from './IntegrationsSection';
@@ -233,12 +241,13 @@ export function AdminSettingsPage() {
   );
 }
 
-type StatusColumn = { key: string; label: string; color: string };
-
 /**
- * Shared board-columns editor for the bug + task settings sections. Built-ins
- * (relabel/recolor/reorder, no delete) and custom columns (add/delete), saved
- * as one array — the backend enforces that built-ins survive.
+ * A team's board columns — the card around {@link StatusColumnsList}, holding
+ * the title, "Reset to defaults" and the one Save for the whole board.
+ *
+ * Built-ins can be relabelled, recoloured, described and regrouped, but not
+ * deleted (the backend enforces that too); custom columns can be added to any
+ * group and removed.
  */
 function StatusColumnsEditor({
   title,
@@ -247,58 +256,57 @@ function StatusColumnsEditor({
   value,
   defaults,
   builtinKeys,
+  builtinCategories,
+  counts,
   onSave,
 }: {
   title: string;
   hint: string;
   saveLabel: string;
   /** Current config from settings (undefined while loading). */
-  value: StatusColumn[] | undefined;
-  defaults: StatusColumn[];
+  value: TeamStatusConfig[] | undefined;
+  defaults: TeamStatusConfig[];
   builtinKeys: Set<string>;
-  onSave: (rows: StatusColumn[]) => Promise<unknown>;
+  /** What each shipped column of this board type means, for columns saved
+   *  before categories existed. */
+  builtinCategories: Record<string, IssueStatusCategory>;
+  /** Issues currently sitting in each column, keyed by status key. */
+  counts?: Record<string, number>;
+  onSave: (rows: TeamStatusConfig[]) => Promise<unknown>;
 }) {
-  const [rows, setRows] = useState<StatusColumn[]>([]);
+  const [rows, setRows] = useState<TeamStatusConfig[]>([]);
   const loading = value === undefined;
-  // Save stays disabled until the columns differ from what's saved.
-  const dirty = !deepEqual(rows, value ?? []);
+  // Compared against the *resolved* config, not the raw one: a board saved before
+  // categories existed reads as unchanged until someone actually changes it.
+  const saved = normalizeStatusRows(resolveStatusCategories(value ?? [], builtinCategories));
+  const dirty = !deepEqual(normalizeStatusRows(rows), saved);
+  // A board with no Completed column has no way to finish anything, so the save
+  // is blocked (the backend rejects it too) with the reason spelled out.
+  const missingCompleted =
+    rows.length > 0 && !rows.some((r) => r.category === IssueStatusCategory.COMPLETED);
 
   useEffect(() => {
-    if (value?.length) setRows(value);
+    if (value?.length)
+      setRows(normalizeStatusRows(resolveStatusCategories(value, builtinCategories)));
+    // `builtinCategories` is a module-level constant per board type.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
-
-  function update(key: string, patch: Partial<StatusColumn>) {
-    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
-  }
-  function move(i: number, dir: -1 | 1) {
-    const j = i + dir;
-    if (j < 0 || j >= rows.length) return;
-    setRows((rs) => {
-      const copy = [...rs];
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-      return copy;
-    });
-  }
-  function addColumn() {
-    // Stable generated slug — the label is editable but the key mustn't change
-    // once items reference it.
-    const taken = new Set(rows.map((r) => r.key));
-    let n = rows.length + 1;
-    while (taken.has(`custom-${n}`)) n += 1;
-    setRows((rs) => [...rs, { key: `custom-${n}`, label: 'New column', color: '#a855f7' }]);
-  }
-  function removeColumn(key: string) {
-    setRows((rs) => rs.filter((r) => r.key !== key));
-  }
 
   return (
     <Card>
-      <CardHeader className="flex-row items-start justify-between gap-4">
+      {/* Stacked on a phone — side by side the title is squeezed into a three-line
+          sliver by the Reset button. */}
+      <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="space-y-1.5">
           <CardTitle>{title}</CardTitle>
           <CardDescription>{hint}</CardDescription>
         </div>
-        <Button className="shrink-0" size="sm" variant="ghost" onClick={() => setRows(defaults)}>
+        <Button
+          className="shrink-0 self-start"
+          size="sm"
+          variant="ghost"
+          onClick={() => setRows(defaults)}
+        >
           <RotateCcw className="mr-1.5 size-3.5" />
           {t('settings.resetDefaults')}
         </Button>
@@ -307,72 +315,23 @@ function StatusColumnsEditor({
         {loading ? (
           <RowsSkeleton />
         ) : (
-          <div className="divide-y rounded-xl border">
-            {rows.map((r, i) => (
-              <div key={r.key} className="flex flex-wrap items-center gap-3 p-3 sm:gap-4 sm:px-4">
-                <div className="flex flex-col">
-                  <button
-                    type="button"
-                    className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
-                    aria-label={t('settings.moveUp')}
-                    disabled={i === 0}
-                    onClick={() => move(i, -1)}
-                  >
-                    <ArrowUp className="size-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="grid size-5 place-items-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
-                    aria-label={t('settings.moveDown')}
-                    disabled={i === rows.length - 1}
-                    onClick={() => move(i, 1)}
-                  >
-                    <ArrowDown className="size-3.5" />
-                  </button>
-                </div>
-                <input
-                  type="color"
-                  className="size-8 shrink-0 cursor-pointer rounded-md border bg-transparent p-0.5"
-                  value={r.color}
-                  aria-label={t('settings.statusColor')}
-                  onChange={(e) => update(r.key, { color: e.target.value })}
-                />
-                <Input
-                  className="min-w-0 flex-1 sm:max-w-xs"
-                  value={r.label}
-                  placeholder={t('settings.statusLabel')}
-                  onChange={(e) => update(r.key, { label: e.target.value })}
-                />
-                <span className="font-mono text-xs text-muted-foreground">{r.key}</span>
-                {builtinKeys.has(r.key) ? (
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                    {t('settings.builtIn')}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    aria-label={t('common.delete')}
-                    className="grid size-7 place-items-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => removeColumn(r.key)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
-              </div>
-            ))}
-            <div className="p-2">
-              <Button variant="ghost" size="sm" onClick={addColumn}>
-                <Plus className="mr-1.5 size-3.5" />
-                {t('settings.addColumn')}
-              </Button>
-            </div>
-          </div>
+          <StatusColumnsList
+            rows={rows}
+            onChange={setRows}
+            builtinKeys={builtinKeys}
+            counts={counts}
+          />
         )}
       </CardContent>
-      <CardFooter className="justify-end">
+      <CardFooter className="flex-wrap justify-end gap-3">
+        {missingCompleted && (
+          <p className="mr-auto text-xs text-destructive">{t('settings.needCompletedColumn')}</p>
+        )}
         <SaveButton
-          onSave={() => onSave(rows)}
-          disabled={!dirty || rows.length === 0 || rows.some((r) => !r.label.trim())}
+          onSave={() => onSave(normalizeStatusRows(rows))}
+          disabled={
+            !dirty || rows.length === 0 || missingCompleted || rows.some((r) => !r.label.trim())
+          }
         >
           {saveLabel}
         </SaveButton>
@@ -388,6 +347,9 @@ function StatusColumnsEditor({
  */
 function TeamSettingsSection({ team }: { team: TeamDto }) {
   const save = useUpdateTeamStatuses();
+  // What each column is actually holding right now — so "delete this one" and
+  // "move it to Completed" are decisions made with the consequence in view.
+  const counts = useStatusCounts(team.id);
   return (
     <div className="space-y-6">
       <StatusColumnsEditor
@@ -397,6 +359,8 @@ function TeamSettingsSection({ team }: { team: TeamDto }) {
         value={team.statuses}
         defaults={defaultStatusesFor(team.issueType)}
         builtinKeys={builtinStatusKeys(team.issueType)}
+        builtinCategories={builtinCategoriesFor(team.issueType)}
+        counts={counts.data}
         onSave={(rows) => save.mutateAsync({ id: team.id, statuses: rows })}
       />
       {/* Directly under the columns it maps: the mapping is only readable next to

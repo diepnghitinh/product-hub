@@ -1,4 +1,10 @@
-import { IssueKind, TaskStatus, type TeamStatusConfig } from '@/types/enums';
+import {
+  firstCompletedKey,
+  isCompletedStatus,
+  IssueKind,
+  TaskStatus,
+  type TeamStatusConfig,
+} from '@/types/enums';
 import type { IssueDto } from '@/types/dto';
 
 /** Bucket id for issues with no assignee — kept distinct from any real user id. */
@@ -24,11 +30,10 @@ export interface ColumnBucket {
 
 /**
  * One person's slice of a team's board — the shape the Box view's cards and the
- * Workload summary both read from. "Done" is the board's terminal column
- * (`doneKey`): a task board's built-in `DONE`, or a bug board's last column (e.g.
- * `closed`), so a bug team's progress isn't stuck at 0%. Effort is in **story
- * points** (`estimate`), the only size we track — bugs carry none, so a bug
- * team's points and no-estimate caveat both stay silent.
+ * Workload summary both read from. "Done" is any column in the **Completed**
+ * group, so a team that ships through "Released" gets credit for it. Effort is in
+ * **story points** (`estimate`), the only size we track — bugs carry none, so a
+ * bug team's points and no-estimate caveat both stay silent.
  */
 export interface PersonWorkload {
   /** Assignee id, or `UNASSIGNED_ID`. */
@@ -55,13 +60,16 @@ export interface PersonWorkload {
 const pointsOf = (t: IssueDto) => (t.estimate > 0 ? t.estimate : 0);
 
 /**
- * The column that means "complete". A task board has an explicit `done` column;
- * a bug board doesn't, so its terminal column (last in order, e.g. `closed`)
- * counts as done — otherwise a bug team's progress would be stuck at 0%.
+ * The column that means "complete" — the board's first **Completed** one, whatever
+ * the team calls it. Only used to mark that column in the per-column breakdown;
+ * the counts below ask every column's category, so a board with two done columns
+ * ("Released" *and* "Closed") credits both.
+ *
+ * The fallback is the last column in order: a board configured before categories
+ * existed reads exactly as it used to, rather than dropping to 0%.
  */
 function doneKeyOf(columns: TeamStatusConfig[]): string {
-  if (columns.some((c) => c.key === TaskStatus.DONE)) return TaskStatus.DONE;
-  return columns[columns.length - 1]?.key ?? TaskStatus.DONE;
+  return firstCompletedKey(columns) ?? columns[columns.length - 1]?.key ?? TaskStatus.DONE;
 }
 
 function buildPerson(
@@ -71,7 +79,7 @@ function buildPerson(
   columns: TeamStatusConfig[],
 ): PersonWorkload {
   const doneKey = doneKeyOf(columns);
-  const done = tasks.filter((t) => t.status === doneKey);
+  const done = tasks.filter((t) => isCompletedStatus(t.status, columns) || t.status === doneKey);
   const totalPoints = tasks.reduce((s, t) => s + pointsOf(t), 0);
   const donePoints = done.reduce((s, t) => s + pointsOf(t), 0);
   const total = tasks.length;

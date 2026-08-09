@@ -1,3 +1,5 @@
+import { IssueStatusCategory } from '@application/issues/domain/enums/status-category.enums';
+
 /**
  * Task workflow status — the checkable state of a piece of engineering work.
  * These are the fixed columns of a task list, in this order. The vocabulary is
@@ -26,6 +28,12 @@ export interface TaskStatusConfig {
   key: string;
   label: string;
   color: string;
+  /** What this column *means* — see {@link IssueStatusCategory}. Optional on the
+   *  way in: a column stored before categories existed resolves through
+   *  {@link BUILTIN_TASK_STATUS_CATEGORY} on read. */
+  category?: IssueStatusCategory;
+  /** Optional one-liner shown under the label ("Ready for QC to test"). */
+  description?: string;
 }
 
 const DEFAULT_TASK_STATUS_LABEL: Record<TaskStatus, string> = {
@@ -41,10 +49,20 @@ const DEFAULT_TASK_STATUS_COLOR: Record<TaskStatus, string> = {
   [TaskStatus.DONE]: '#16a34a',
 };
 
+/** What each shipped column means. `done` is the one that has always counted as
+ *  finished, so mapping it to COMPLETED keeps every existing board unchanged. */
+export const BUILTIN_TASK_STATUS_CATEGORY: Record<TaskStatus, IssueStatusCategory> = {
+  [TaskStatus.TODO]: IssueStatusCategory.UNSTARTED,
+  [TaskStatus.IN_PROGRESS]: IssueStatusCategory.STARTED,
+  [TaskStatus.DONE]: IssueStatusCategory.COMPLETED,
+};
+
 export const DEFAULT_TASK_STATUSES: TaskStatusConfig[] = TASK_STATUSES.map((key) => ({
   key,
   label: DEFAULT_TASK_STATUS_LABEL[key],
   color: DEFAULT_TASK_STATUS_COLOR[key],
+  category: BUILTIN_TASK_STATUS_CATEGORY[key],
+  description: '',
 }));
 
 /**

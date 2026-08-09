@@ -45,6 +45,10 @@ const PersonalStatusSchema = new Schema<TaskStatusConfig>(
     key: { type: String, required: true },
     label: { type: String, required: true },
     color: { type: String, required: true },
+    // Both absent on columns saved before categories existed — the entity
+    // resolves them on read rather than migrating the collection.
+    category: { type: String },
+    description: { type: String },
   },
   { _id: false },
 );

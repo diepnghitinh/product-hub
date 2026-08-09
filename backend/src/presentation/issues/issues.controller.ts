@@ -17,6 +17,7 @@ import {
   CreateIssueUseCase,
   GetIssuesUseCase,
   GetIssueUseCase,
+  GetStatusCountsUseCase,
   UpdateIssueUseCase,
   SetIssueStatusUseCase,
   DeleteIssueUseCase,
@@ -40,6 +41,7 @@ export class IssuesController {
     private readonly createIssue: CreateIssueUseCase,
     private readonly getIssues: GetIssuesUseCase,
     private readonly getIssue: GetIssueUseCase,
+    private readonly getStatusCounts: GetStatusCountsUseCase,
     private readonly updateIssue: UpdateIssueUseCase,
     private readonly setStatus: SetIssueStatusUseCase,
     private readonly deleteIssue: DeleteIssueUseCase,
@@ -75,6 +77,23 @@ export class IssuesController {
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     return IssueMapper.toResponseDto(result.getValue());
+  }
+
+  // Declared above `:id` — otherwise the wildcard route swallows the word.
+  @Get('status-counts')
+  @ApiOperation({
+    summary: 'How many issues sit in each status of one board (a team\'s, or my personal one)',
+  })
+  async statusCounts(
+    @AuthUser() auth: JwtPayload,
+    @Query('teamId') teamId?: string,
+  ): Promise<Record<string, number>> {
+    const result = await this.getStatusCounts.execute({
+      tenantId: auth.tenantId,
+      teamId,
+      requesterId: auth.userId,
+    });
+    return result.getValue();
   }
 
   @Get(':id')
