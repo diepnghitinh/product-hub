@@ -5,7 +5,8 @@ import { IAppSettingsRepository } from '@application/app-settings/repositories/a
 import { ClickUpConfig, ClickUpSyncScope } from '@application/app-settings/domain/clickup.types';
 import { ITeamRepository } from '@application/teams/repositories/team.repository';
 import { IRoadmapRepository } from '@application/roadmaps/repositories/roadmap.repository';
-import { DEFAULT_ROADMAP_COLUMNS } from '@application/roadmaps/domain/types/roadmap-item.type';
+import { resolveRoadmapColumns } from '@application/roadmaps/domain/types/roadmap-item.type';
+import { tenantTemplates } from '@application/roadmaps/use-cases/roadmap-template.use-cases';
 import {
   ClickUpApiError,
   ClickUpClient,
@@ -86,6 +87,7 @@ export class ClickUpScopeColumns {
   constructor(
     @Inject(ITeamRepository) private readonly teams: ITeamRepository,
     @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
+    @Inject(IAppSettingsRepository) private readonly settings: IAppSettingsRepository,
   ) {}
 
   /** `null` when the board doesn't exist (or belongs to another workspace). */
@@ -103,7 +105,10 @@ export class ClickUpScopeColumns {
     }
     const roadmap = await this.roadmaps.findById(scopeId);
     if (!roadmap || roadmap.tenantId !== tenantId) return null;
-    const columns = roadmap.columns.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS;
+    // The resolved set: a roadmap on a column template maps ClickUp statuses
+    // against the template's columns, not the dormant ones it stopped using.
+    const templates = await tenantTemplates(this.settings, tenantId);
+    const { columns } = resolveRoadmapColumns(roadmap, templates);
     return columns.map((c) => ({ key: c.key, label: c.label }));
   }
 }

@@ -22,6 +22,15 @@ export class RoadmapColumnDto {
   @ApiProperty() color: string;
 }
 
+/** A workspace-wide, named set of board columns any roadmap can point at. */
+export class RoadmapColumnTemplateDto {
+  @ApiProperty() id: string;
+  @ApiProperty() name: string;
+  @ApiProperty({ type: [RoadmapColumnDto] }) columns: RoadmapColumnDto[];
+  @ApiProperty({ description: 'New roadmaps start linked to this template' })
+  isDefault: boolean;
+}
+
 /** A named, coloured group of backlog items ("Checkout revamp"). */
 export class RoadmapEpicDto {
   @ApiProperty() id: string;
@@ -85,7 +94,15 @@ export class RoadmapResponseDto {
   @ApiProperty() title: string;
   @ApiProperty() description: string;
   @ApiProperty({ type: [RoadmapItemDto] }) items: RoadmapItemDto[];
-  @ApiProperty({ type: [RoadmapColumnDto] }) columns: RoadmapColumnDto[];
+  @ApiProperty({
+    type: [RoadmapColumnDto],
+    description: 'The columns the board shows — already resolved from the template when linked',
+  })
+  columns: RoadmapColumnDto[];
+  @ApiProperty({ description: 'Linked column template id; empty when the roadmap runs its own' })
+  columnTemplateId: string;
+  @ApiProperty({ description: 'Name of that template, so a client need not fetch the list' })
+  columnTemplateName: string;
   @ApiProperty({ type: [RoadmapEpicDto] }) epics: RoadmapEpicDto[];
   @ApiProperty() itemCount: number;
   @ApiProperty() publicEnabled: boolean;

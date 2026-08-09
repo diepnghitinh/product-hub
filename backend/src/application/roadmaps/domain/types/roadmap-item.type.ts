@@ -51,6 +51,75 @@ export const DEFAULT_ROADMAP_COLUMNS: RoadmapColumn[] = [
   { key: RoadmapPhase.DONE, label: 'Done', color: 'hsl(142 55% 40%)' },
 ];
 
+/**
+ * A named set of board columns held once for the whole workspace, that any
+ * roadmap can point at instead of keeping its own.
+ *
+ * A roadmap runs on exactly one of two footings. **Linked** — it stores a
+ * `columnTemplateId` and its columns are read live from here, so editing the
+ * template moves every roadmap on it together. **Custom** — it keeps its own
+ * `columns` array and nothing outside the roadmap can change it.
+ *
+ * Linking never erases the roadmap's own array; it's left dormant in the
+ * document, so unlinking later restores the board it had rather than dropping
+ * it onto a default. That's also what makes deleting a template safe: the
+ * columns are copied back down onto the roadmaps that used it (see
+ * `ReplaceRoadmapTemplatesUseCase`) and nothing on any board moves.
+ */
+export interface RoadmapColumnTemplate {
+  id: string;
+  name: string;
+  columns: RoadmapColumn[];
+  /** New roadmaps start linked to this one. At most one template carries it. */
+  isDefault: boolean;
+}
+
+/**
+ * The template every workspace has. Present for the same reason a team's
+ * statuses have built-ins: there is always something for a roadmap to point at,
+ * so "use a template" is never an empty menu.
+ *
+ * Its id is a fixed string rather than a generated one on purpose — the seed
+ * runs whenever a workspace has no templates stored, and a fresh uuid each time
+ * would break every roadmap already linked to it.
+ */
+export const BUILTIN_ROADMAP_TEMPLATE_ID = 'builtin-default';
+
+/** What a workspace starts with, and falls back to if every template is removed. */
+export function defaultRoadmapTemplates(): RoadmapColumnTemplate[] {
+  return [
+    {
+      id: BUILTIN_ROADMAP_TEMPLATE_ID,
+      name: 'Now / Next / Later',
+      columns: DEFAULT_ROADMAP_COLUMNS,
+      isDefault: true,
+    },
+  ];
+}
+
+/**
+ * The columns a roadmap actually shows, and the template they came from.
+ *
+ * One function because the answer has to be the same everywhere — the API
+ * response, the "which column is this?" check when an item is added, the public
+ * share view. A link that no longer resolves (its template was deleted out from
+ * under a stale client) reads as custom rather than as an error: the roadmap's
+ * own array is still there, so the board keeps working.
+ */
+export function resolveRoadmapColumns(
+  roadmap: { columns: RoadmapColumn[]; columnTemplateId: string | null },
+  templates: RoadmapColumnTemplate[],
+): { columns: RoadmapColumn[]; template: RoadmapColumnTemplate | null } {
+  const template = roadmap.columnTemplateId
+    ? templates.find((tpl) => tpl.id === roadmap.columnTemplateId)
+    : undefined;
+  if (template?.columns.length) return { columns: template.columns, template };
+  return {
+    columns: roadmap.columns?.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS,
+    template: null,
+  };
+}
+
 /** The ref prefix for a roadmap (backlog) item — `RM-6HCUHKX`, alongside
  *  `TSK-…` / `BUG-…` for issues. */
 export const ROADMAP_ITEM_REF_PREFIX = 'RM';

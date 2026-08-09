@@ -14,6 +14,9 @@ export interface RoadmapDoc {
   description: string;
   items: RoadmapItemData[];
   columns: RoadmapColumn[];
+  /** Linked workspace column template. Absent/null on roadmaps that run their
+   *  own columns — including every roadmap that predates templates. */
+  columnTemplateId?: string | null;
   epics: RoadmapEpic[];
   publicEnabled: boolean;
   publicToken: string | null;
@@ -30,6 +33,7 @@ export const RoadmapSchema = new Schema<RoadmapDoc>(
     description: { type: String, default: '' },
     items: { type: [Schema.Types.Mixed], default: [] } as unknown as RoadmapItemData[],
     columns: { type: [Schema.Types.Mixed], default: [] } as unknown as RoadmapColumn[],
+    columnTemplateId: { type: String, default: null },
     epics: { type: [Schema.Types.Mixed], default: [] } as unknown as RoadmapEpic[],
     publicEnabled: { type: Boolean, default: false },
     publicToken: { type: String, default: null },

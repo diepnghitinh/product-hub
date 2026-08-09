@@ -2,7 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
 import { t } from '@/i18n';
-import type { RoadmapColumn, RoadmapDto, RoadmapEpic, RoadmapItem } from '@/types/dto';
+import type {
+  RoadmapColumn,
+  RoadmapColumnTemplate,
+  RoadmapDto,
+  RoadmapEpic,
+  RoadmapItem,
+} from '@/types/dto';
 
 export function useRoadmaps() {
   return useQuery({ queryKey: ['roadmaps'], queryFn: () => apiGet<RoadmapDto[]>('/roadmaps') });
@@ -72,27 +78,75 @@ export function useReplaceRoadmapItems() {
 }
 
 /**
- * Replace the roadmap's columns — the whole set, in order. `⋯ → Manage columns`
- * is the only screen that calls it (the board itself never edits its columns).
+ * Point the roadmap at a column template, or give it columns of its own —
+ * whichever of the two is sent. `⋯ → Manage columns` is the only screen that
+ * calls it (the board itself never edits its columns).
+ *
  * Optimistic anyway: the board behind the dialog renders `['roadmap', id]`, so
- * this is what lets a save land there the moment it's made.
+ * this is what lets a save land there the moment it's made. With a `templateId`
+ * the caller passes the template's columns as well, purely so the board can
+ * repaint before the server answers.
  */
 export function useReplaceRoadmapColumns() {
   const qc = useQueryClient();
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: ({ id, columns }: { id: string; columns: RoadmapColumn[] }) =>
-      apiPut<RoadmapDto>(`/roadmaps/${id}/columns`, { columns }),
-    onMutate: async ({ id, columns }) => {
+    mutationFn: ({
+      id,
+      columns,
+      templateId,
+    }: {
+      id: string;
+      columns: RoadmapColumn[];
+      templateId?: string;
+    }) =>
+      apiPut<RoadmapDto>(`/roadmaps/${id}/columns`, templateId ? { templateId } : { columns }),
+    onMutate: async ({ id, columns, templateId }) => {
       await qc.cancelQueries({ queryKey: ['roadmap', id] });
       const previous = qc.getQueryData<RoadmapDto>(['roadmap', id]);
-      qc.setQueryData<RoadmapDto>(['roadmap', id], (old) => (old ? { ...old, columns } : old));
+      qc.setQueryData<RoadmapDto>(['roadmap', id], (old) =>
+        old ? { ...old, columns, columnTemplateId: templateId ?? '' } : old,
+      );
       return { previous };
     },
     onError: (_e, { id }, ctx) => {
       if (ctx?.previous) qc.setQueryData(['roadmap', id], ctx.previous);
     },
     onSettled: invalidate,
+  });
+}
+
+/**
+ * The workspace's column templates. Its own route, not part of `/settings`:
+ * that one is admin-only because it carries credentials, and any board may need
+ * to say which template it's on.
+ */
+export function useRoadmapTemplates() {
+  return useQuery({
+    queryKey: ['roadmap-templates'],
+    queryFn: () => apiGet<RoadmapColumnTemplate[]>('/roadmap-templates'),
+  });
+}
+
+/**
+ * Replace the whole template list (Settings → Roadmap columns).
+ *
+ * Invalidates roadmaps too, not just the list: every board linked to an edited
+ * template is showing columns that just changed. Deleting a template doesn't
+ * move anyone's board — the server copies its columns down onto the roadmaps
+ * that used it — but those roadmaps do become custom, so they need the refetch
+ * either way.
+ */
+export function useReplaceRoadmapTemplates() {
+  const qc = useQueryClient();
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (templates: RoadmapColumnTemplate[]) =>
+      apiPut<RoadmapColumnTemplate[]>('/roadmap-templates', { templates }),
+    onSuccess: (data) => {
+      qc.setQueryData(['roadmap-templates'], data);
+      invalidate();
+    },
   });
 }
 

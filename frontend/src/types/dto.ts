@@ -441,6 +441,22 @@ export interface RoadmapColumn {
 }
 
 /**
+ * A **column template** — one named set of columns, saved for the whole
+ * workspace, that any number of roadmaps can point at.
+ *
+ * The link is live: edit the template and every roadmap on it changes with it.
+ * A roadmap is either on a template or has its own custom columns — never both
+ * at once (see `RoadmapDto.columnTemplateId`).
+ */
+export interface RoadmapColumnTemplate {
+  id: string;
+  name: string;
+  columns: RoadmapColumn[];
+  /** New roadmaps start on this one. Exactly one template carries it. */
+  isDefault: boolean;
+}
+
+/**
  * An **epic** — a named, coloured group of backlog items under one bigger bet
  * ("Checkout revamp"), cutting across the Now/Next/Later columns.
  *
@@ -518,7 +534,16 @@ export interface RoadmapDto {
   title: string;
   description: string;
   items: RoadmapItem[];
+  /** The columns this board actually shows — already resolved by the server, so
+   *  a templated roadmap and a custom one are read exactly the same way. */
   columns: RoadmapColumn[];
+  /** The template `columns` came from, '' when this roadmap has its own custom
+   *  set. Only the *effective* link: a template deleted out from under the
+   *  roadmap reads as custom here rather than as a dangling name. */
+  columnTemplateId: string;
+  /** Its name, so a board can say which template it's on without fetching the
+   *  list ('' when custom). */
+  columnTemplateName: string;
   /** Item groups. Empty until someone defines one — there is no default set. */
   epics: RoadmapEpic[];
   itemCount: number;

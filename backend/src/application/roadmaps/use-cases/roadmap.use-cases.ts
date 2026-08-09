@@ -5,6 +5,7 @@ import { Result } from '@shared/logic/result';
 import { randomRef } from '@module-shared/utils/short-id.util';
 import { sanitizeStoredFiles } from '@application/storage/domain/stored-file.type';
 import { IClickUpSync } from '@application/integrations/clickup-sync.port';
+import { IAppSettingsRepository } from '@application/app-settings/repositories/app-settings.repository';
 import { IIssueRepository } from '@application/issues/repositories/issue.repository';
 import {
   CreateRoadmapDto,
@@ -16,12 +17,13 @@ import {
 import { RoadmapEntity } from '../domain/entities/roadmap.entity';
 import { RoadmapDifficulty, RoadmapItemStatus } from '../domain/enums/roadmap.enums';
 import {
-  DEFAULT_ROADMAP_COLUMNS,
+  resolveRoadmapColumns,
   ROADMAP_ITEM_REF_PREFIX,
   RoadmapEpic,
   RoadmapItemData,
 } from '../domain/types/roadmap-item.type';
 import { IRoadmapRepository } from '../repositories/roadmap.repository';
+import { tenantTemplates } from './roadmap-template.use-cases';
 
 /**
  * A fresh `RM-…` ref that no item in this roadmap already holds. Items live
@@ -47,7 +49,10 @@ function mintItemRef(taken: Set<string>): string {
 export class CreateRoadmapUseCase
   implements IUsecaseExecute<{ tenantId: string; dto: CreateRoadmapDto }, Result<RoadmapEntity>>
 {
-  constructor(@Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository) {}
+  constructor(
+    @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
+    @Inject(IAppSettingsRepository) private readonly settings: IAppSettingsRepository,
+  ) {}
   async execute({
     tenantId,
     dto,
@@ -55,11 +60,18 @@ export class CreateRoadmapUseCase
     tenantId: string;
     dto: CreateRoadmapDto;
   }): Promise<Result<RoadmapEntity>> {
+    // A new roadmap starts on the workspace's default template — that's what
+    // makes the template *global* rather than something to remember to apply.
+    // Its own `columns` are seeded with the shipped defaults regardless, so
+    // unlinking later still lands on a working board.
+    const templates = await tenantTemplates(this.settings, tenantId);
+    const fallback = templates.find((tpl) => tpl.isDefault) ?? templates[0];
     const created = RoadmapEntity.create({
       tenantId,
       title: dto.title,
       description: dto.description,
       projectId: dto.projectId,
+      columnTemplateId: fallback?.id ?? null,
     });
     if (created.isFailure) return Result.fail(created.error as string);
     const roadmap = created.getValue();
@@ -243,6 +255,7 @@ export class AddRoadmapItemUseCase
   constructor(
     @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
     @Inject(IClickUpSync) private readonly clickup: IClickUpSync,
+    @Inject(IAppSettingsRepository) private readonly settings: IAppSettingsRepository,
   ) {}
   async execute({
     id,
@@ -252,7 +265,13 @@ export class AddRoadmapItemUseCase
     const roadmap = await this.roadmaps.findById(id);
     if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
 
-    const columns = roadmap.columns.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS;
+    // The resolved set, not `roadmap.columns` — on a templated roadmap that
+    // array is the dormant one, so validating against it would reject the very
+    // columns the board is showing.
+    const { columns } = resolveRoadmapColumns(
+      roadmap,
+      await tenantTemplates(this.settings, tenantId),
+    );
     const phase = item.phase || columns[0].key;
     if (!columns.some((c) => c.key === phase)) {
       return Result.fail(
@@ -313,7 +332,10 @@ export class ReplaceRoadmapColumnsUseCase
       Result<RoadmapEntity>
     >
 {
-  constructor(@Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository) {}
+  constructor(
+    @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
+    @Inject(IAppSettingsRepository) private readonly settings: IAppSettingsRepository,
+  ) {}
   async execute({
     id,
     tenantId,
@@ -325,7 +347,20 @@ export class ReplaceRoadmapColumnsUseCase
   }): Promise<Result<RoadmapEntity>> {
     const roadmap = await this.roadmaps.findById(id);
     if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
-    roadmap.replaceColumns(dto.columns);
+    if (dto.templateId) {
+      // Checked, not trusted: a link to a template that doesn't exist would
+      // resolve as custom on the next read, so the board would silently ignore
+      // the save rather than fail it.
+      const templates = await tenantTemplates(this.settings, tenantId);
+      if (!templates.some((tpl) => tpl.id === dto.templateId)) {
+        return Result.fail(`Unknown column template "${dto.templateId}"`);
+      }
+      roadmap.useColumnTemplate(dto.templateId);
+    } else if (dto.columns?.length) {
+      roadmap.replaceColumns(dto.columns);
+    } else {
+      return Result.fail('Send either a templateId or a non-empty columns array');
+    }
     await this.roadmaps.update(roadmap);
     return Result.ok(roadmap);
   }

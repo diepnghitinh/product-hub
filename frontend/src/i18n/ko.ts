@@ -600,6 +600,18 @@ export const ko: Record<I18nKey, string> = {
   'roadmaps.moveItemsTrail': '제거하기 전에 항목을 옮길 컬럼을 선택하세요.',
   'roadmaps.moveItemsTo': '항목을 옮길 컬럼',
   'roadmaps.moveAndRemove': '옮기고 제거',
+  'roadmaps.columnsSource': '컬럼을 어디서 가져올까요',
+  'roadmaps.useTemplate': '템플릿 사용',
+  'roadmaps.customColumns': '직접 설정',
+  'roadmaps.template': '템플릿',
+  'roadmaps.pickTemplate': '템플릿 선택…',
+  'roadmaps.pickColumn': '컬럼 선택…',
+  'roadmaps.templateHint':
+    '템플릿은 워크스페이스 전체가 함께 씁니다 — 설정 → 로드맵 컬럼에서 수정하면 그 템플릿을 쓰는 모든 로드맵이 함께 바뀝니다.',
+  'roadmaps.templateStranded':
+    '이 템플릿에 없는 컬럼({columns})에 {count}개 항목이 있습니다. 저장하면 아래 컬럼으로 옮겨집니다.',
+  'roadmaps.templateStrandedOne':
+    '이 템플릿에 없는 컬럼({columns})에 항목 1개가 있습니다. 저장하면 아래 컬럼으로 옮겨집니다.',
   'roadmaps.epic': '에픽',
   'roadmaps.epics': '에픽',
   'roadmaps.noEpic': '에픽 없음',
@@ -1184,6 +1196,16 @@ export const ko: Record<I18nKey, string> = {
   'settings.teamStatusesHint':
     '이 팀의 보드 컬럼입니다. 기본 컬럼은 이름·색상·순서를 바꿀 수 있지만 삭제할 수는 없습니다 — 리포트가 이 값을 읽습니다.',
   'settings.builtIn': '기본',
+  'settings.roadmapColumns': '로드맵 컬럼',
+  'settings.roadmapColumnsHint':
+    '어떤 로드맵이든 가져다 쓸 수 있는, 이름이 붙은 백로그 보드 컬럼 세트입니다. 연결은 실시간이라 여기서 템플릿을 바꾸면 그 템플릿을 쓰는 모든 로드맵이 함께 바뀝니다. 템플릿을 삭제해도 해당 로드맵은 같은 컬럼을 자기 것으로 그대로 유지합니다.',
+  'settings.roadmapTemplateAdd': '템플릿 추가',
+  'settings.roadmapTemplateNew': '새 템플릿',
+  'settings.roadmapTemplateName': '템플릿 이름',
+  'settings.roadmapTemplateDefault': '새 로드맵 기본값',
+  'settings.roadmapTemplateMakeDefault': '기본값으로 지정',
+  'settings.roadmapTemplateUsed': '로드맵 {count}개가 사용 중',
+  'settings.roadmapTemplateUsedOne': '로드맵 1개가 사용 중',
   // Task labels — tenant-defined, no built-ins
   'labels.title': '라벨',
   'labels.hint': '태스크에 붙일 수 있는 라벨입니다. 기본 라벨은 없으니 직접 추가하세요.',
