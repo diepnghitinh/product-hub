@@ -15,6 +15,7 @@ import {
   AddRoadmapItemUseCase,
   GetRoadmapsUseCase,
 } from '@application/roadmaps/use-cases/roadmap.use-cases';
+import { GetRoadmapTemplatesUseCase } from '@application/roadmaps/use-cases/roadmap-template.use-cases';
 import {
   findRoadmapItem,
   riceScore,
@@ -89,15 +90,17 @@ export class GetMcpContextUseCase implements IUsecaseExecute<
   constructor(
     private readonly getTeams: GetTeamsUseCase,
     private readonly getRoadmaps: GetRoadmapsUseCase,
+    private readonly getTemplates: GetRoadmapTemplatesUseCase,
     private readonly getProjects: GetProjectsUseCase,
     private readonly getProjectStats: GetProjectStatsUseCase,
     @Inject(IUserRepository) private readonly users: IUserRepository,
   ) {}
 
   async execute({ actor }: { actor: McpActor }): Promise<Result<McpContextResponseDto>> {
-    const [teams, roadmaps, projects, people, owner] = await Promise.all([
+    const [teams, roadmaps, templates, projects, people, owner] = await Promise.all([
       this.getTeams.execute({ tenantId: actor.tenantId }),
       this.getRoadmaps.execute({ tenantId: actor.tenantId }),
+      this.getTemplates.execute({ tenantId: actor.tenantId }),
       this.getProjects.execute({ tenantId: actor.tenantId, query: ALL_PROJECTS }),
       this.users.findByTenant(actor.tenantId, ALL_USERS),
       this.users.findById(actor.userId),
@@ -131,7 +134,7 @@ export class GetMcpContextUseCase implements IUsecaseExecute<
       roadmaps: roadmaps.getValue().map((r) => ({
         id: r.id.toString(),
         title: r.title,
-        columns: columnsOf(r),
+        columns: columnsOf(r, templates.getValue()),
         itemCount: r.items.length,
       })),
       projects: projectList.map((p) => ({
@@ -287,6 +290,7 @@ export class McpCreateBacklogItemUseCase implements IUsecaseExecute<
 > {
   constructor(
     private readonly getRoadmaps: GetRoadmapsUseCase,
+    private readonly getTemplates: GetRoadmapTemplatesUseCase,
     private readonly addItem: AddRoadmapItemUseCase,
     @Inject(IUserRepository) private readonly users: IUserRepository,
     @Inject(IMcpEventRepository) private readonly events: IMcpEventRepository,
@@ -315,7 +319,8 @@ export class McpCreateBacklogItemUseCase implements IUsecaseExecute<
       );
     }
 
-    const columns = columnsOf(roadmap);
+    const templates = (await this.getTemplates.execute({ tenantId: actor.tenantId })).getValue();
+    const columns = columnsOf(roadmap, templates);
     const phase = resolvePhase(columns, dto.phase);
     if (!phase) {
       return Result.fail(

@@ -6,6 +6,7 @@ import { WebhookConfig } from '@application/app-settings/domain/webhook.types';
 import { CloudStorageConfig } from '@application/app-settings/domain/storage.types';
 import { GitIntegrationConfig } from '@application/app-settings/domain/integration.types';
 import { ClickUpConfig } from '@application/app-settings/domain/clickup.types';
+import { RoadmapColumnTemplate } from '@application/roadmaps/domain/types/roadmap-item.type';
 
 export interface AppSettingsDoc {
   _id: string;
@@ -18,6 +19,9 @@ export interface AppSettingsDoc {
   clickup?: ClickUpConfig | null;
   bugStatuses: BugStatusConfig[];
   taskStatuses: TaskStatusConfig[];
+  /** Workspace-wide roadmap column templates. Absent until one is saved — the
+   *  domain seeds the built-in until then. */
+  roadmapColumnTemplates?: RoadmapColumnTemplate[];
   /** Legacy: workspace-wide task labels, now per-team. Read once by the boot
    *  backfill to seed teams, then unset. No API path writes it anymore. */
   taskLabels?: TaskLabelConfig[];
@@ -38,6 +42,12 @@ export const AppSettingsSchema = new Schema<AppSettingsDoc>(
     // Left undefined until customized — the domain seeds the shipped defaults.
     bugStatuses: { type: [Schema.Types.Mixed], default: undefined } as unknown as BugStatusConfig[],
     taskStatuses: { type: [Schema.Types.Mixed], default: undefined } as unknown as TaskStatusConfig[],
+    // Left undefined until customized, like the statuses above — the domain
+    // seeds the built-in template so a roadmap always has one to point at.
+    roadmapColumnTemplates: {
+      type: [Schema.Types.Mixed],
+      default: undefined,
+    } as unknown as RoadmapColumnTemplate[],
     // Legacy — kept only so the boot backfill can read + unset it (see AppSettingsDoc).
     taskLabels: { type: [Schema.Types.Mixed], default: undefined } as unknown as TaskLabelConfig[],
     // Whole config as one mixed blob (secrets included; masked at the API edge).

@@ -5,6 +5,7 @@ import {
   ArrowUp,
   Blocks,
   Cloud,
+  Columns3,
   Copy,
   GitBranch,
   KeyRound,
@@ -71,6 +72,7 @@ import { ClickUpSyncEditor } from '@/features/clickup/ClickUpSyncEditor';
 import type { TeamDto } from '@/types/dto';
 import { ClickUpSyncScope, type CustomFieldConfig, type TaskLabelConfig } from '@/types/enums';
 import { CloudStorageSection } from './CloudStorageSection';
+import { RoadmapColumnsSection } from './RoadmapColumnsSection';
 import { IntegrationsSection } from './IntegrationsSection';
 import { ExternalToolsSection } from './ExternalToolsSection';
 import { McpSection } from './McpSection';
@@ -93,6 +95,9 @@ const TABS: {
   adminOnly?: boolean;
 }[] = [
   { key: 'teams', labelKey: 'teams.title', icon: Users, Section: TeamsSection },
+  // Not adminOnly: roadmap column templates are delivery config, the same call
+  // as a team's statuses, and `PUT /roadmap-templates` is (ADMIN, PRODUCT) too.
+  { key: 'roadmap-columns', labelKey: 'settings.roadmapColumns', icon: Columns3, Section: RoadmapColumnsSection },
   { key: 'api-keys', labelKey: 'settings.apiKeys', icon: KeyRound, Section: ApiKeysSection, adminOnly: true },
   // Admin-only because connecting an assistant means generating a key, and keys
   // are `@Roles(ADMIN)` — the tab would render a Generate button that 403s.

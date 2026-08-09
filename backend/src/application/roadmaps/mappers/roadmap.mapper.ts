@@ -1,9 +1,26 @@
 import { RoadmapEntity } from '../domain/entities/roadmap.entity';
-import { DEFAULT_ROADMAP_COLUMNS, riceScore } from '../domain/types/roadmap-item.type';
+import {
+  RoadmapColumnTemplate,
+  resolveRoadmapColumns,
+  riceScore,
+} from '../domain/types/roadmap-item.type';
 import { RoadmapResponseDto } from '../dtos/roadmap.response.dto';
 
 export class RoadmapMapper {
-  static toResponseDto(roadmap: RoadmapEntity): RoadmapResponseDto {
+  /**
+   * `templates` is the workspace's column templates. Columns are resolved here,
+   * at the API edge, rather than left to each client: a roadmap linked to a
+   * template stores its own (dormant) array, so a response that handed back
+   * `roadmap.columns` raw would show every reader the board's *previous*
+   * layout. Resolving once also means nothing downstream — the board, the
+   * timeline, the RICE table, backlog grouping, the public share view — had to
+   * learn that templates exist.
+   */
+  static toResponseDto(
+    roadmap: RoadmapEntity,
+    templates: RoadmapColumnTemplate[] = [],
+  ): RoadmapResponseDto {
+    const { columns, template } = resolveRoadmapColumns(roadmap, templates);
     return {
       id: roadmap.id.toString(),
       tenantId: roadmap.tenantId,
@@ -34,7 +51,12 @@ export class RoadmapMapper {
         // own creation date so their age is sensible rather than blank.
         createdAt: item.createdAt ?? new Date(roadmap.createdAt).toISOString(),
       })),
-      columns: roadmap.columns?.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS,
+      columns,
+      // The *effective* link, not the stored one: a template deleted out from
+      // under this roadmap resolves as custom, and saying so is what lets the
+      // Manage-columns dialog show the truth instead of a dangling name.
+      columnTemplateId: template?.id ?? '',
+      columnTemplateName: template?.name ?? '',
       // No default here, unlike columns: a roadmap nobody has grouped genuinely
       // has no epics, and inventing one would put an empty swimlane on the board.
       epics: (roadmap.epics ?? []).map((epic) => ({ ...epic, description: epic.description ?? '' })),
@@ -56,12 +78,18 @@ export class RoadmapMapper {
    * public, and anything left in the response is readable by whoever holds the
    * link whether or not a page draws it.
    */
-  static toPublicResponseDto(roadmap: RoadmapEntity): RoadmapResponseDto {
-    const dto = this.toResponseDto(roadmap);
+  static toPublicResponseDto(
+    roadmap: RoadmapEntity,
+    templates: RoadmapColumnTemplate[] = [],
+  ): RoadmapResponseDto {
+    const dto = this.toResponseDto(roadmap, templates);
     return { ...dto, items: dto.items.map((item) => ({ ...item, attachments: [] })) };
   }
 
-  static toResponseDtoArray(roadmaps: RoadmapEntity[]): RoadmapResponseDto[] {
-    return roadmaps.map((r) => this.toResponseDto(r));
+  static toResponseDtoArray(
+    roadmaps: RoadmapEntity[],
+    templates: RoadmapColumnTemplate[] = [],
+  ): RoadmapResponseDto[] {
+    return roadmaps.map((r) => this.toResponseDto(r, templates));
   }
 }

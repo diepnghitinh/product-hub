@@ -508,6 +508,7 @@ export function RoadmapBoardPage() {
           roadmapId={roadmap.id}
           columns={columns}
           items={items}
+          columnTemplateId={roadmap.columnTemplateId}
         />
       )}
       {epicsOpen && (

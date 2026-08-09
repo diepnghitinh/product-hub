@@ -5,8 +5,9 @@ import { ProjectEntity } from '@application/projects/domain/entities/project.ent
 import { ReportEntity } from '@application/reports/domain/entities/report.entity';
 import { RoadmapEntity } from '@application/roadmaps/domain/entities/roadmap.entity';
 import {
-  DEFAULT_ROADMAP_COLUMNS,
+  resolveRoadmapColumns,
   RoadmapColumn,
+  RoadmapColumnTemplate,
 } from '@application/roadmaps/domain/types/roadmap-item.type';
 import { IssueKind } from '@application/issues/domain/enums/issue.enums';
 
@@ -93,8 +94,13 @@ export function resolveRoadmap(
   );
 }
 
-export const columnsOf = (roadmap: RoadmapEntity): RoadmapColumn[] =>
-  roadmap.columns.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS;
+/** The board an assistant would see. Pass the workspace's templates: a roadmap
+ *  linked to one keeps its own `columns` dormant, and naming a column from that
+ *  stale set would file an item into a phase the board doesn't show. */
+export const columnsOf = (
+  roadmap: RoadmapEntity,
+  templates: RoadmapColumnTemplate[],
+): RoadmapColumn[] => resolveRoadmapColumns(roadmap, templates).columns;
 
 export function resolvePhase(columns: RoadmapColumn[], ref: string | undefined): string | null {
   if (!ref) return columns[0]?.key ?? null;

@@ -23,6 +23,7 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
       description?: string;
       items?: RoadmapItemData[];
       columns?: RoadmapColumn[];
+      columnTemplateId?: string | null;
       epics?: RoadmapEpic[];
       publicEnabled?: boolean;
       publicToken?: string | null;
@@ -47,6 +48,7 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
           description: props.description?.trim() || '',
           items: props.items ?? [],
           columns: props.columns?.length ? props.columns : DEFAULT_ROADMAP_COLUMNS,
+          columnTemplateId: props.columnTemplateId ?? null,
           // No default set — an ungrouped backlog is the honest starting state.
           epics: props.epics ?? [],
           publicEnabled: props.publicEnabled ?? false,
@@ -80,6 +82,9 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
   get columns(): RoadmapColumn[] {
     return this.props.columns;
   }
+  get columnTemplateId(): string | null {
+    return this.props.columnTemplateId;
+  }
   get epics(): RoadmapEpic[] {
     return this.props.epics;
   }
@@ -111,8 +116,26 @@ export class RoadmapEntity extends AggregateRoot<RoadmapProps> {
     this.touch();
   }
 
+  /**
+   * Give this roadmap its own columns — which is also how it leaves a template.
+   * Sending a column set *is* the decision to run custom ones, so the link is
+   * dropped here rather than needing a second call nobody would remember to
+   * make: otherwise the save would appear to do nothing, because the template
+   * would still be what the board reads.
+   */
   replaceColumns(columns: RoadmapColumn[]): void {
     this.props.columns = columns;
+    this.props.columnTemplateId = null;
+    this.touch();
+  }
+
+  /**
+   * Point the board at a workspace template. The roadmap's own `columns` are
+   * left exactly as they are — dormant, so unlinking restores the board it had
+   * instead of dropping it onto the defaults.
+   */
+  useColumnTemplate(templateId: string): void {
+    this.props.columnTemplateId = templateId;
     this.touch();
   }
 

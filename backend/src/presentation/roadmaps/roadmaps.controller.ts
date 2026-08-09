@@ -23,6 +23,7 @@ import {
   DeleteRoadmapUseCase,
   SetRoadmapSharingUseCase,
 } from '@application/roadmaps/use-cases/roadmap.use-cases';
+import { GetRoadmapTemplatesUseCase } from '@application/roadmaps/use-cases/roadmap-template.use-cases';
 import {
   CreateRoadmapDto,
   ReplaceRoadmapColumnsDto,
@@ -48,13 +49,26 @@ export class RoadmapsController {
     private readonly replaceEpics: ReplaceRoadmapEpicsUseCase,
     private readonly deleteRoadmap: DeleteRoadmapUseCase,
     private readonly setSharing: SetRoadmapSharingUseCase,
+    private readonly getTemplates: GetRoadmapTemplatesUseCase,
   ) {}
+
+  /**
+   * The workspace's column templates, fetched once per response so the mapper
+   * can resolve what each roadmap's board actually shows. Every endpoint here
+   * does it — a write returns the roadmap too, and a response whose columns
+   * disagreed with the next GET would show the board reverting a moment later.
+   */
+  private templates(auth: JwtPayload) {
+    return this.getTemplates
+      .execute({ tenantId: auth.tenantId })
+      .then((result) => result.getValue());
+  }
 
   @Get()
   @ApiOperation({ summary: 'List roadmaps' })
   async list(@AuthUser() auth: JwtPayload): Promise<RoadmapResponseDto[]> {
     const result = await this.getRoadmaps.execute({ tenantId: auth.tenantId });
-    return RoadmapMapper.toResponseDtoArray(result.getValue());
+    return RoadmapMapper.toResponseDtoArray(result.getValue(), await this.templates(auth));
   }
 
   @Post()
@@ -66,7 +80,7 @@ export class RoadmapsController {
   ): Promise<RoadmapResponseDto> {
     const result = await this.createRoadmap.execute({ tenantId: auth.tenantId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return RoadmapMapper.toResponseDto(result.getValue(), await this.templates(auth));
   }
 
   @Get(':id')
@@ -77,7 +91,7 @@ export class RoadmapsController {
   ): Promise<RoadmapResponseDto> {
     const result = await this.getRoadmap.execute({ id, tenantId: auth.tenantId });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return RoadmapMapper.toResponseDto(result.getValue(), await this.templates(auth));
   }
 
   @Patch(':id')
@@ -90,7 +104,7 @@ export class RoadmapsController {
   ): Promise<RoadmapResponseDto> {
     const result = await this.updateRoadmap.execute({ id, tenantId: auth.tenantId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return RoadmapMapper.toResponseDto(result.getValue(), await this.templates(auth));
   }
 
   @Put(':id/items')
@@ -103,7 +117,7 @@ export class RoadmapsController {
   ): Promise<RoadmapResponseDto> {
     const result = await this.replaceItems.execute({ id, tenantId: auth.tenantId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return RoadmapMapper.toResponseDto(result.getValue(), await this.templates(auth));
   }
 
   @Put(':id/columns')
@@ -116,7 +130,7 @@ export class RoadmapsController {
   ): Promise<RoadmapResponseDto> {
     const result = await this.replaceColumns.execute({ id, tenantId: auth.tenantId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return RoadmapMapper.toResponseDto(result.getValue(), await this.templates(auth));
   }
 
   // Same gate as columns: how the board is organised is a product decision, so
@@ -131,7 +145,7 @@ export class RoadmapsController {
   ): Promise<RoadmapResponseDto> {
     const result = await this.replaceEpics.execute({ id, tenantId: auth.tenantId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return RoadmapMapper.toResponseDto(result.getValue(), await this.templates(auth));
   }
 
   @Post(':id/share')
@@ -148,7 +162,7 @@ export class RoadmapsController {
       enabled: dto.enabled,
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return RoadmapMapper.toResponseDto(result.getValue(), await this.templates(auth));
   }
 
   @Delete(':id')

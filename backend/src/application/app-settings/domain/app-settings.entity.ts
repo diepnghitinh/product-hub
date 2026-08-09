@@ -3,6 +3,10 @@ import { Result } from '@shared/logic/result';
 import { Guard } from '@shared/logic/guard';
 import { BugStatusConfig, DEFAULT_BUG_STATUSES } from '@application/bugs/domain/enums/bug.enums';
 import { TaskStatusConfig, DEFAULT_TASK_STATUSES } from '@application/tasks/domain/enums/task.enums';
+import {
+  defaultRoadmapTemplates,
+  RoadmapColumnTemplate,
+} from '@application/roadmaps/domain/types/roadmap-item.type';
 import { WebhookConfig, normalizeWebhook } from './webhook.types';
 import { CloudStorageConfig, defaultStorageConfig } from './storage.types';
 import { GitIntegrationConfig } from './integration.types';
@@ -16,6 +20,11 @@ interface AppSettingsProps {
   clickup: ClickUpConfig | null;
   bugStatuses: BugStatusConfig[];
   taskStatuses: TaskStatusConfig[];
+  /** Workspace-wide roadmap column templates — the "global" half of how a
+   *  backlog board is laid out; the per-roadmap half is the roadmap's own
+   *  `columns`. Here rather than on each roadmap because the whole point is
+   *  that one edit moves every roadmap pointing at it. */
+  roadmapColumnTemplates: RoadmapColumnTemplate[];
   storage: CloudStorageConfig;
   createdAt: Date;
   updatedAt: Date;
@@ -36,6 +45,7 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
       clickup?: ClickUpConfig | null;
       bugStatuses?: BugStatusConfig[];
       taskStatuses?: TaskStatusConfig[];
+      roadmapColumnTemplates?: RoadmapColumnTemplate[];
       storage?: CloudStorageConfig;
       createdAt?: Date;
       updatedAt?: Date;
@@ -55,6 +65,12 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
           // Fall back to the shipped defaults for tenants that predate the field.
           bugStatuses: props.bugStatuses?.length ? props.bugStatuses : DEFAULT_BUG_STATUSES,
           taskStatuses: props.taskStatuses?.length ? props.taskStatuses : DEFAULT_TASK_STATUSES,
+          // Same fallback, and the reason the built-in template's id is a fixed
+          // string: this re-seeds on every load until something is stored, so a
+          // generated id would differ each time and orphan every link to it.
+          roadmapColumnTemplates: props.roadmapColumnTemplates?.length
+            ? props.roadmapColumnTemplates
+            : defaultRoadmapTemplates(),
           // Merge over defaults so provider + size caps are always present, even
           // for docs that predate the storage field or persist a partial config.
           storage: props.storage
@@ -88,6 +104,9 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
   }
   get taskStatuses(): TaskStatusConfig[] {
     return this.props.taskStatuses;
+  }
+  get roadmapColumnTemplates(): RoadmapColumnTemplate[] {
+    return this.props.roadmapColumnTemplates;
   }
   get storage(): CloudStorageConfig {
     return this.props.storage;
@@ -153,6 +172,11 @@ export class AppSettingsEntity extends AggregateRoot<AppSettingsProps> {
 
   setTaskStatuses(taskStatuses: TaskStatusConfig[]): void {
     this.props.taskStatuses = taskStatuses;
+    this.props.updatedAt = new Date();
+  }
+
+  setRoadmapColumnTemplates(templates: RoadmapColumnTemplate[]): void {
+    this.props.roadmapColumnTemplates = templates;
     this.props.updatedAt = new Date();
   }
 

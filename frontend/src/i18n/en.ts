@@ -608,6 +608,21 @@ export const en = {
   'roadmaps.moveItemsTrail': 'Choose a column to move them to before removing it.',
   'roadmaps.moveItemsTo': 'Move items to',
   'roadmaps.moveAndRemove': 'Move & remove',
+  // A roadmap's columns come from one of two places, and never both at once:
+  // a workspace template (live — edit it once, every board on it moves) or a
+  // set of its own.
+  'roadmaps.columnsSource': 'Where these columns come from',
+  'roadmaps.useTemplate': 'Use a template',
+  'roadmaps.customColumns': 'Custom',
+  'roadmaps.template': 'Template',
+  'roadmaps.pickTemplate': 'Pick a template…',
+  'roadmaps.pickColumn': 'Pick a column…',
+  'roadmaps.templateHint':
+    'Templates are shared by the whole workspace — editing one in Settings → Roadmap columns changes every roadmap using it.',
+  'roadmaps.templateStranded':
+    '{count} items are in columns this template doesn’t have ({columns}). They’ll move when you save.',
+  'roadmaps.templateStrandedOne':
+    '1 item is in a column this template doesn’t have ({columns}). It’ll move when you save.',
   // Epics — the second axis: a column says where an item is, an epic says which
   // bet it belongs to.
   'roadmaps.epic': 'Epic',
@@ -1211,6 +1226,18 @@ export const en = {
   'settings.teamStatusesHint':
     "This team's board columns. Built-in ones can be renamed, recoloured and reordered, but not removed — reports read them.",
   'settings.builtIn': 'Built-in',
+  // Roadmap column templates — the workspace-wide half of a backlog board's
+  // layout. A roadmap either points at one of these or keeps columns of its own.
+  'settings.roadmapColumns': 'Roadmap columns',
+  'settings.roadmapColumnsHint':
+    'Named sets of backlog board columns that any roadmap can use. The link is live — change a template here and every roadmap on it changes with it. Delete one and those roadmaps keep the same columns as their own.',
+  'settings.roadmapTemplateAdd': 'Add template',
+  'settings.roadmapTemplateNew': 'New template',
+  'settings.roadmapTemplateName': 'Template name',
+  'settings.roadmapTemplateDefault': 'Default for new roadmaps',
+  'settings.roadmapTemplateMakeDefault': 'Make default',
+  'settings.roadmapTemplateUsed': 'Used by {count} roadmaps',
+  'settings.roadmapTemplateUsedOne': 'Used by 1 roadmap',
   // Task labels — tenant-defined, no built-ins
   'labels.title': 'Labels',
   'labels.hint': 'Labels you can put on tasks. Add your own — there are no built-in labels.',

@@ -15,6 +15,7 @@ import { FavouritesPresentationModule } from './favourites/favourites.module';
 import { ReactionsPresentationModule } from './reactions/reactions.module';
 import { IssueLinksPresentationModule } from './issue-links/issue-links.module';
 import { RoadmapsPresentationModule } from './roadmaps/roadmaps.module';
+import { RoadmapTemplatesPresentationModule } from './roadmap-templates/roadmap-templates.module';
 import { DocsPresentationModule } from './docs/docs.module';
 import { MilestonesPresentationModule } from './milestones/milestones.module';
 import { ApiKeysPresentationModule } from './api-keys/api-keys.module';
@@ -50,6 +51,9 @@ import { PlatformPresentationModule } from './platform/platform.module';
     // Controller is @Controller('issue-links') → /v1/issue-links, so no RouterModule prefix.
     IssueLinksPresentationModule,
     RoadmapsPresentationModule,
+    // Controller is @Controller('roadmap-templates') → /v1/roadmap-templates,
+    // so no RouterModule prefix (and no clash with /roadmaps/:id).
+    RoadmapTemplatesPresentationModule,
     DocsPresentationModule,
     MilestonesPresentationModule,
     ApiKeysPresentationModule,
