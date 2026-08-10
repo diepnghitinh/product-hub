@@ -1,5 +1,7 @@
 import { TeamEntity } from '@application/teams/domain/entities/team.entity';
 import { TeamIssueType, TeamStatusConfig } from '@application/teams/domain/enums/team.enums';
+import { DocEntity } from '@application/docs/domain/entities/doc.entity';
+import { DocPageEntity } from '@application/docs/domain/entities/doc-page.entity';
 import { UserEntity } from '@application/users/domain/entities/user.entity';
 import { ProjectEntity } from '@application/projects/domain/entities/project.entity';
 import { ReportEntity } from '@application/reports/domain/entities/report.entity';
@@ -155,6 +157,53 @@ export function resolveFeature(reports: ReportEntity[], ref: string): ReportEnti
   );
 }
 
+/**
+ * A doc, by ref (`DOC-6HCUHKX`), uuid or the title people call it by. The pool
+ * handed in is already narrowed to what this caller may see, so resolution never
+ * has to think about privacy — see `MCP_VIEWER` in the use-cases.
+ */
+export function resolveDoc(docs: DocEntity[], ref: string): DocEntity | null {
+  const wanted = norm(ref);
+  return (
+    docs.find((d) => d.id.toString() === ref) ??
+    docs.find((d) => norm(d.ref) === wanted) ??
+    docs.find((d) => norm(d.title) === wanted) ??
+    // Same "unmistakable partial" rule projects get: two docs sharing a word
+    // must not silently resolve to whichever was written first.
+    (docs.filter((d) => norm(d.title).includes(wanted)).length === 1
+      ? (docs.find((d) => norm(d.title).includes(wanted)) ?? null)
+      : null)
+  );
+}
+
+/**
+ * A page's short handle: the first eight characters of its id, which is exactly
+ * what the app's page URLs are keyed on (`research-notes-622436d1`). Printed
+ * beside every page a tool lists, so there is always one unambiguous way to name
+ * a page without quoting a uuid at the user.
+ */
+export const pageKey = (pageId: string): string => pageId.slice(0, 8).toLowerCase();
+
+/**
+ * A page inside one doc. Its title is the only handle a person has for it — that
+ * is what the rail shows and what they'd say out loud — so the uuid is accepted
+ * but never required.
+ */
+export function resolveDocPage(pages: DocPageEntity[], ref: string): DocPageEntity | null {
+  const wanted = norm(ref);
+  return (
+    pages.find((p) => p.id.toString() === ref) ??
+    // The eight-character key the app's own page URLs end in, and what
+    // `list_docs` prints beside each title — so a doc holding two pages called
+    // "Notes" can still have one of them named exactly.
+    pages.find((p) => pageKey(p.id.toString()) === wanted) ??
+    pages.find((p) => norm(p.title) === wanted) ??
+    (pages.filter((p) => norm(p.title).includes(wanted)).length === 1
+      ? (pages.find((p) => norm(p.title).includes(wanted)) ?? null)
+      : null)
+  );
+}
+
 /** In-app paths, so a history row and a tool reply both link to the real page.
  *  Tasks and bugs share one detail URL — the ref/id names the issue, and the app
  *  works out which kind it is. */
@@ -167,5 +216,14 @@ export const featureLink = (projectId: string, reportId: string): string =>
 export const backlogItemLink = (roadmapId: string, itemId: string): string =>
   `/roadmaps/${roadmapId}/items/${itemId}`;
 
-/** A doc is only ever read through a page, so link to the one that was written. */
-export const docPageLink = (docId: string, pageId: string): string => `/docs/${docId}/${pageId}`;
+/**
+ * A doc is only ever read through a page, so link to the one that was written.
+ * `docKey` is the doc's ref when it has one — the app resolves either form, and
+ * `/docs/DOC-6HCUHKX/…` is the half of the URL a person can read. The page stays
+ * a uuid: the app rewrites the address bar to the canonical slug on arrival.
+ */
+export const docPageLink = (docKey: string, pageId: string): string =>
+  `/docs/${docKey}/${pageId}`;
+
+/** The doc itself, which opens on its first page. */
+export const docLink = (docKey: string): string => `/docs/${docKey}`;

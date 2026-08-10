@@ -199,6 +199,66 @@ export class McpCreateDocDto {
   tags?: string[];
 }
 
+/**
+ * The docs shelf, or one doc's page tree.
+ *
+ * Two questions with one answer shape, because they're asked in sequence: "what
+ * docs are there?" and then "what's already in that one?" — and the second is
+ * what a page has to be written *next to*.
+ */
+export class McpListDocsDto {
+  @ApiPropertyOptional({
+    description: 'A doc ref, id or title — returns that doc with its pages listed',
+  })
+  @IsOptional()
+  @IsString()
+  doc?: string;
+
+  @ApiPropertyOptional({ description: 'Free text matched against title and tags' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({ default: 30, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 30;
+}
+
+/**
+ * A page written into a doc that already exists.
+ *
+ * The counterpart to `McpCreateDocDto`, which only ever fills the *first* page:
+ * a doc grows by pages, and without this a second chapter meant a second doc.
+ */
+export class McpCreateDocPageDto {
+  @ApiProperty({ example: 'DOC-6HCUHKX', description: 'Doc ref, id or title' })
+  @IsString()
+  @IsNotEmpty()
+  doc: string;
+
+  @ApiProperty({ example: 'Solution sketch', description: 'The page title, shown in the rail' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(300)
+  title: string;
+
+  @ApiPropertyOptional({ description: 'The page body as HTML; Markdown is accepted and converted' })
+  @IsOptional()
+  @IsString()
+  content?: string;
+
+  @ApiPropertyOptional({
+    description: 'Title or id of a page in the same doc — nests the new page under it',
+  })
+  @IsOptional()
+  @IsString()
+  parentPage?: string;
+}
+
 /** Lookup before creating, so an assistant can spot a duplicate itself. */
 export class McpSearchIssuesDto {
   @ApiPropertyOptional({ description: 'Free-text match on title / reference' })

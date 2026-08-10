@@ -23,6 +23,9 @@ export enum McpTool {
   CREATE_ISSUE = 'create_issue',
   CREATE_BACKLOG_ITEM = 'create_backlog_item',
   CREATE_DOC = 'create_doc',
+  /** A page written into a doc that already existed — its own row, because the
+   *  doc's history row is about the day it was started, not about this page. */
+  CREATE_DOC_PAGE = 'create_doc_page',
   ADD_TEST_CASES = 'add_test_cases',
 }
 

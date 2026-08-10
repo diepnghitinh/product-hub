@@ -14,10 +14,12 @@ import {
   McpAddTestCasesDto,
   McpCreateBacklogItemDto,
   McpCreateDocDto,
+  McpCreateDocPageDto,
   McpCreateIssueDto,
   McpGetBacklogItemDto,
   McpGetIssueDto,
   McpGetTestCasesDto,
+  McpListDocsDto,
   McpListTestFeaturesDto,
   McpSearchIssuesDto,
   McpSetTestCaseResultDto,
@@ -26,7 +28,9 @@ import {
   McpAddTestCasesResponseDto,
   McpBacklogItemResponseDto,
   McpContextResponseDto,
+  McpDocPageResponseDto,
   McpDocResponseDto,
+  McpDocSummaryResponseDto,
   McpIssueResponseDto,
   McpTestCaseResponseDto,
   McpTestFeatureResponseDto,
@@ -36,11 +40,13 @@ import {
   McpActor,
   McpAddTestCasesUseCase,
   McpCreateBacklogItemUseCase,
+  McpCreateDocPageUseCase,
   McpCreateDocUseCase,
   McpCreateIssueUseCase,
   McpGetBacklogItemUseCase,
   McpGetIssueUseCase,
   McpGetTestCasesUseCase,
+  McpListDocsUseCase,
   McpListTestFeaturesUseCase,
   McpSearchIssuesUseCase,
   McpSetTestCaseResultUseCase,
@@ -96,6 +102,8 @@ export class McpServerFactory {
     private readonly createIssue: McpCreateIssueUseCase,
     private readonly createBacklogItem: McpCreateBacklogItemUseCase,
     private readonly createDoc: McpCreateDocUseCase,
+    private readonly listDocs: McpListDocsUseCase,
+    private readonly createDocPage: McpCreateDocPageUseCase,
     private readonly searchIssues: McpSearchIssuesUseCase,
     private readonly getIssue: McpGetIssueUseCase,
     private readonly getBacklogItem: McpGetBacklogItemUseCase,
@@ -140,7 +148,9 @@ export class McpServerFactory {
     this.registerGetBacklogItem(server, run);
     this.registerCreateIssue(server, run);
     this.registerCreateBacklogItem(server, run);
+    this.registerListDocs(server, run);
     this.registerCreateDoc(server, run);
+    this.registerCreateDocPage(server, run);
     this.registerListTestFeatures(server, run);
     this.registerGetTestCases(server, run);
     this.registerAddTestCases(server, run);
@@ -334,10 +344,12 @@ export class McpServerFactory {
       {
         title: 'Write a doc',
         description:
-          'Write a document into the workspace — a PRD, discovery notes, a spec, a decision record. ' +
-          'Use this for prose the team should read; work to be done belongs in create_issue or ' +
-          'create_backlog_item. The doc opens on a first page holding the body you pass, and can ' +
-          'include Mermaid diagrams — draw the flow rather than describing it in a paragraph.',
+          'Start a new document in the workspace — a PRD, discovery notes, a spec, a decision ' +
+          'record. Use this for prose the team should read; work to be done belongs in ' +
+          'create_issue or create_backlog_item. The doc opens on a first page holding the body ' +
+          'you pass, and can include Mermaid diagrams — draw the flow rather than describing it ' +
+          'in a paragraph. Only for something new: a further chapter of a doc that already ' +
+          'exists is a page — check list_docs, then create_doc_page.',
         inputSchema: {
           title: z.string().min(1).describe('Doc title, e.g. "Discovery — Ads Connect"'),
           content: z
@@ -364,6 +376,93 @@ export class McpServerFactory {
               `Created doc "${doc.title}"${doc.tags.length ? ` · ${doc.tags.join(', ')}` : ''}`,
               this.url(doc.link),
             ].join('\n'),
+        ),
+    );
+  }
+
+  private registerListDocs(server: McpServer, run: Run): void {
+    registerTool<McpListDocsDto>(
+      server,
+      'list_docs',
+      {
+        title: 'List the docs',
+        description:
+          'The docs in this workspace — ref, title, tags and how many pages each holds. Name a ' +
+          '`doc` and you get that one back with its page tree instead, which is what says where a ' +
+          'new page belongs and whether what you were about to write is already there. Call it ' +
+          'before create_doc_page, and before create_doc — a chapter of something that exists is ' +
+          'a page, not a second doc. Private docs are not visible through MCP.',
+        inputSchema: {
+          doc: z
+            .string()
+            .optional()
+            .describe('Ref (DOC-6HCUHKX), id or title — returns that doc with its pages'),
+          search: z.string().optional().describe('Free text matched against title and tags'),
+          limit: z.number().int().min(1).max(100).optional().describe('Default 30'),
+        },
+        annotations: { readOnlyHint: true },
+      },
+      (dto) =>
+        run<McpDocSummaryResponseDto[]>(
+          (actor) => this.listDocs.execute({ actor, dto }),
+          (docs) => {
+            // "Nothing matched" and "nothing exists" are different answers: the
+            // first invites a wider search, the second invites create_doc.
+            if (!docs.length) {
+              return dto.search
+                ? `No doc matches "${dto.search}" — call list_docs with no search to see them all.`
+                : 'No docs yet — create_doc starts one.';
+            }
+            // One doc asked for by name comes back with its tree; a list stays
+            // one row per doc, however many there are.
+            if (docs.length === 1 && docs[0].pages.length) return this.describeDocInFull(docs[0]);
+            return `${docs.length} doc(s):\n\n${docs.map((d) => this.describeDoc(d)).join('\n\n')}`;
+          },
+        ),
+    );
+  }
+
+  private registerCreateDocPage(server: McpServer, run: Run): void {
+    registerTool<McpCreateDocPageDto>(
+      server,
+      'create_doc_page',
+      {
+        title: 'Add a page to a doc',
+        description:
+          'Write another page into a doc that already exists — the next chapter of a PRD, the ' +
+          'research behind a decision, a spec that belongs beside its discovery. `doc` accepts a ' +
+          'ref, an id or the title. Pass `parentPage` to nest it under an existing page; ' +
+          'list_docs prints the tree and the short key of every page in it. Body rules are ' +
+          'create_doc’s: HTML or Markdown, ```mermaid fences become diagrams.',
+        inputSchema: {
+          doc: z.string().min(1).describe('Doc ref (DOC-6HCUHKX), id or title'),
+          title: z.string().min(1).describe('The page title, shown in the doc’s rail'),
+          content: z
+            .string()
+            .optional()
+            .describe(
+              'The page body. HTML is stored as-is — <h2>, <p>, <ul>/<ol>, <pre>, <table>, <b>, ' +
+                '<i>, <a>, <img> all survive into the editor. Markdown is accepted too and is ' +
+                'converted to those tags. A ```mermaid fence becomes a diagram block.',
+            ),
+          parentPage: z
+            .string()
+            .optional()
+            .describe('Title or short key of a page in the same doc — nests the new page under it'),
+        },
+      },
+      (dto) =>
+        run<McpDocPageResponseDto>(
+          (actor) => this.createDocPage.execute({ actor, dto }),
+          (page) =>
+            [
+              `Added page "${page.title}" to ${page.docTitle}` +
+                `${page.docRef ? ` (${page.docRef})` : ''}`,
+              page.parentTitle ? `  under: ${page.parentTitle}` : '',
+              `  ${this.url(page.link)}`,
+            ]
+              .filter(Boolean)
+              .join('\n'),
         ),
     );
   }
@@ -533,6 +632,46 @@ export class McpServerFactory {
 
   private url(path: string): string {
     return `${this.appUrl}${path}`;
+  }
+
+  /** ISO day. Docs are listed by activity, and "which of these is current?" is
+   *  answered by a date — the exact minute never is. `en-CA` is YYYY-MM-DD in
+   *  local time; `toISOString` would print yesterday for anything written this
+   *  evening, which reads as stale for a doc saved a minute ago. */
+  private day(value: Date): string {
+    return new Date(value).toLocaleDateString('en-CA');
+  }
+
+  /** A doc as one line of identity and one of facts — the shelf view. */
+  private describeDoc(d: McpDocSummaryResponseDto): string {
+    const facts = [
+      `${d.pageCount} page(s)`,
+      d.tags.length ? d.tags.join(', ') : '',
+      d.createdByName ? `by ${d.createdByName}` : '',
+      `updated ${this.day(d.updatedAt)}`,
+    ].filter(Boolean);
+    return [
+      `${d.title}${d.ref ? ` (${d.ref})` : ''}`,
+      `  ${facts.join(' · ')}`,
+      `  ${this.url(d.link)}`,
+    ].join('\n');
+  }
+
+  /**
+   * One doc with its page tree. Nesting is shown by indentation and each page
+   * carries its short key, because that is what `parentPage` takes — a tree
+   * printed as titles alone leaves a doc with two "Notes" pages unaddressable.
+   * `(empty)` marks a page nobody has written on yet: it is the one that should
+   * be filled in rather than followed by a second page saying the same thing.
+   */
+  private describeDocInFull(d: McpDocSummaryResponseDto): string {
+    const tree = d.pages
+      .map(
+        (p) =>
+          `${'  '.repeat(p.depth)}- ${p.title} · ${p.key}${p.hasContent ? '' : ' (empty)'}`,
+      )
+      .join('\n');
+    return [this.describeDoc(d), '', 'Pages:', tree].join('\n');
   }
 
   /** A feature as one line of identity and one of tally — zero counts omitted,
