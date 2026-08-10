@@ -235,18 +235,25 @@ export function useSelectedArea(routeAreaId: string | undefined, fallbackId: str
  * `width` is published as a CSS variable rather than an inline `width`, because
  * only the desktop menu resizes — the mobile drawer and the collapsed rail keep
  * their own fixed widths, and a media query can't reach an inline style.
+ *
+ * Not only the nav uses it: a doc's page rail is the same control — a remembered
+ * width on a panel of names beside the thing you're reading — so it drags with
+ * the same handle rather than a second one that behaves nearly the same.
  */
 export function useSidebarWidth({
   storageKey,
   initial,
   min,
   max,
+  label,
 }: {
   storageKey: string;
   /** Width to fall back to, and what a double-click on the handle restores. */
   initial: number;
   min: number;
   max: number;
+  /** What the handle announces. Defaults to the app sidebar's wording. */
+  label?: string;
 }) {
   const clamp = (n: number) => Math.min(max, Math.max(min, Math.round(n)));
   const [width, setWidth] = useState<number>(() => {
@@ -312,7 +319,7 @@ export function useSidebarWidth({
       // make the width unreachable without a pointer.
       role="separator"
       aria-orientation="vertical"
-      aria-label={t('nav.resize')}
+      aria-label={label ?? t('nav.resize')}
       aria-valuenow={width}
       aria-valuemin={min}
       aria-valuemax={max}

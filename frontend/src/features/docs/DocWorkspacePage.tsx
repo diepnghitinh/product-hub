@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Copy,
@@ -21,6 +21,7 @@ import { DetailSkeleton } from '@/components/Skeletons';
 import { ShareLinkDialog } from '@/components/ShareLinkDialog';
 import { PageHeader } from '@/layouts/headers/PageHeader';
 import { FullScreenLayout } from '@/layouts/shared';
+import { useSidebarWidth } from '@/layouts/sidebar/navPrimitives';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { FavouriteKind } from '@/types/enums';
@@ -47,6 +48,17 @@ import { DocPageTree } from './components/DocPageTree';
 import { DocPageEditor } from './components/DocPageEditor';
 import { DocTagsBar } from './components/DocTagsBar';
 import { docKey, docPath, pageFromSlug } from './slug';
+
+/**
+ * How wide the page rail is, dragged and remembered per browser — one key for
+ * every doc, because it's a preference about your screen, not about a document.
+ * The default is the width the rail always had, so nobody's layout moves.
+ *
+ * The bounds are what a *page title* gets: under ~200px a nested title is mostly
+ * ellipsis, and past 460 the rail is taking room from the thing you came to read.
+ */
+const RAIL_WIDTH_KEY = 'ph_docs_rail_width';
+const RAIL_W = { initial: 256, min: 200, max: 460 };
 
 /**
  * A doc: its pages in a left rail, the selected page on the right. The rail
@@ -133,6 +145,13 @@ export function DocWorkspacePage() {
   const exportPdf = useExportDocPagePdf();
 
   const [railOpen, setRailOpen] = useState(true);
+  // The same drag the app sidebar uses — the rail is the same kind of thing, a
+  // remembered strip of names beside what you're reading.
+  const { width: railWidth, handle: railHandle } = useSidebarWidth({
+    storageKey: RAIL_WIDTH_KEY,
+    label: t('docs.resizeRail'),
+    ...RAIL_W,
+  });
   const [mobileRail, setMobileRail] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   /**
@@ -417,8 +436,13 @@ export function DocWorkspacePage() {
 
       <div className="flex min-h-0 flex-1">
         <aside
+          // The dragged width rides as a variable, not an inline `width`: only
+          // this rail resizes — the mobile drawer below keeps its own — and a
+          // media query can't reach an inline style. `relative` is what the
+          // handle, which straddles the right border, positions against.
+          style={{ '--doc-rail-w': `${railWidth}px` } as CSSProperties}
           className={cn(
-            'flex w-64 shrink-0 flex-col border-r bg-muted/20 pt-3 max-md:hidden',
+            'relative flex w-64 shrink-0 flex-col border-r bg-muted/20 pt-3 max-md:hidden md:w-[var(--doc-rail-w)]',
             !railOpen && 'hidden',
           )}
         >
@@ -435,6 +459,8 @@ export function DocWorkspacePage() {
               <PanelLeftClose className="size-4" />
             </Button>,
           )}
+          {/* Last, so it paints over the tree's rows rather than under them. */}
+          {railHandle}
         </aside>
 
         {/* Hidden rail: one pill in a slim gutter, holding the way back and the

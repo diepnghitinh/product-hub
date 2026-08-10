@@ -473,6 +473,7 @@ export const ko: Record<I18nKey, string> = {
   'docs.collab.live': '실시간',
   'docs.collab.liveHint': '변경 사항은 자동으로 저장되며 입력하는 즉시 모두에게 보입니다.',
   'docs.collapseRail': '페이지 숨기기',
+  'docs.resizeRail': '페이지 패널 너비 조절',
   'docs.expandRail': '페이지 보기',
   'docs.pagesLabel': '페이지',
   'docs.share': '문서 공유',

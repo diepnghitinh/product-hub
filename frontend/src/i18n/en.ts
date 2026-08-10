@@ -476,6 +476,7 @@ export const en = {
   'docs.collab.live': 'Live',
   'docs.collab.liveHint': 'Changes save themselves and everyone sees them as you type.',
   'docs.collapseRail': 'Hide pages',
+  'docs.resizeRail': 'Resize pages panel',
   'docs.expandRail': 'Show pages',
   'docs.pagesLabel': 'Pages',
   'docs.share': 'Share doc',
