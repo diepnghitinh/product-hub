@@ -638,6 +638,11 @@ export const en = {
     'An epic groups backlog items into one bet. Its size, progress and dates are read from the items in it — there is nothing else to keep up to date.',
   'roadmaps.epicsEmpty': 'No epics yet — add one to start grouping items.',
   'roadmaps.groupByEpic': 'Group by epic',
+  // The all-roadmaps timeline bands its rows too — by the plan they came from,
+  // or by the bet they belong to.
+  'roadmaps.groupBy': 'Group by',
+  'roadmaps.groupByNone': 'No grouping',
+  'roadmaps.groupByRoadmap': 'Group by roadmap',
   'roadmaps.epicDoneOf': '{done} of {total} done',
   'roadmaps.moveEpicItemsTitle': 'Move items first',
   'roadmaps.moveEpicItemsTrail': 'Choose where they go before removing it.',

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MultiSelect } from '@/components/ui';
+import { MultiSelect, Select } from '@/components/ui';
 import { TimelineSkeleton } from '@/components/Skeletons';
 import { BOARD_GUTTER } from '@/components/IssueBoardLayout';
 import { BackLink } from '@/components/BackLink';
@@ -12,7 +12,11 @@ import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import { useUsers } from '@/features/users/api';
 import { useRoadmaps } from './api';
-import { AllRoadmapsGanttView, unionColumns } from './components/AllRoadmapsGanttView';
+import {
+  AllRoadmapsGanttView,
+  unionColumns,
+  type TimelineGrouping,
+} from './components/AllRoadmapsGanttView';
 
 /**
  * The Timeline tab of the planning page (`PlanningPage`) — every roadmap's items
@@ -77,6 +81,25 @@ export function RoadmapTimelinePanel() {
     setParams(p, { replace: true });
   };
 
+  // How the rows are banded. In the URL beside the phase filter and for the same
+  // reason the view is: "every roadmap's Now, grouped by plan" is a reading worth
+  // sending someone, and it has to survive a reload.
+  //
+  // Epic grouping is only offered once something on screen *has* an epic, and only
+  // honoured while that's still true — narrowing to a project with no epics can't
+  // strand the chart in a one-band "grouped" state that looks broken. Same guard
+  // the roadmap board puts on its own epic toggle.
+  const canGroupByEpic = useMemo(() => roadmaps.some((r) => r.epics?.length), [roadmaps]);
+  const groupParam = params.get('group');
+  const grouping: TimelineGrouping =
+    groupParam === 'roadmap' ? 'roadmap' : groupParam === 'epic' && canGroupByEpic ? 'epic' : '';
+  const setGrouping = (next: string) => {
+    const p = new URLSearchParams(params);
+    if (next) p.set('group', next);
+    else p.delete('group');
+    setParams(p, { replace: true });
+  };
+
   // Same title as the Roadmaps tab: they're two views of one thing, and a crumb
   // that changed under you when you switched tabs would say otherwise.
   const title = projectName ? `${t('roadmaps.title')} — ${projectName}` : t('roadmaps.title');
@@ -84,7 +107,27 @@ export function RoadmapTimelinePanel() {
 
   return (
     <>
-      <PageHeader title={title} />
+      <PageHeader
+        title={title}
+        // Grouping shapes the chart rather than narrowing it, so it sits with the
+        // page's actions — where the roadmap board and the task boards keep
+        // theirs — and not in the toolbar row, which holds only filters.
+        actions={
+          hasRoadmaps ? (
+            <Select
+              className="h-8 w-auto max-w-[50vw] sm:max-w-none"
+              aria-label={t('roadmaps.groupBy')}
+              value={grouping}
+              onValueChange={setGrouping}
+              options={[
+                { value: '', label: t('roadmaps.groupByNone') },
+                { value: 'roadmap', label: t('roadmaps.groupByRoadmap') },
+                ...(canGroupByEpic ? [{ value: 'epic', label: t('roadmaps.groupByEpic') }] : []),
+              ]}
+            />
+          ) : undefined
+        }
+      />
 
       {projectId && (
         <div className={cn('shrink-0 pt-6', BOARD_GUTTER)}>
@@ -152,6 +195,7 @@ export function RoadmapTimelinePanel() {
             roadmaps={roadmaps}
             phases={phases}
             assigneeIds={filters.assigneeId}
+            grouping={grouping}
           />
         </div>
       )}
