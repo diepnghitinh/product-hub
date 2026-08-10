@@ -23,6 +23,12 @@ const BULLET = /^\s*[-*+]\s+(.*)$/;
 const NUMBERED = /^\s*\d+[.)]\s+(.*)$/;
 const QUOTE = /^\s*>\s?(.*)$/;
 const FENCE = /^\s*```(\w*)/;
+/** A table row — pipes with something between them. The outer pipes are required
+ *  so a sentence that merely contains a `|` is still a sentence. */
+const TABLE_ROW = /^\s*\|(.+)\|\s*$/;
+/** The `| --- | :--: |` line under the header. Its presence is what makes the
+ *  rows above and below a table, exactly as in Markdown itself. */
+const TABLE_DIVIDER = /^\s*\|(?:\s*:?-+:?\s*\|)+\s*$/;
 /** Whole fenced blocks, used to keep their contents out of prose-level checks. */
 const FENCED_BLOCK = /```[\s\S]*?```/g;
 
@@ -196,12 +202,23 @@ const escapeHtml = (s: string): string =>
 const unescapeHtml = (s: string): string =>
   s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
-const startsBlock = (line: string): boolean =>
+/** A table needs the line after it too, which is why `next` is passed along. */
+const startsBlock = (line: string, next?: string): boolean =>
   HEADING.test(line) ||
   BULLET.test(line) ||
   NUMBERED.test(line) ||
   QUOTE.test(line) ||
-  FENCE.test(line);
+  FENCE.test(line) ||
+  startsTable(line, next);
+
+const startsTable = (line: string, next?: string): boolean =>
+  TABLE_ROW.test(line) && !!next && TABLE_DIVIDER.test(next);
+
+/** One row's cells. `\|` is an escaped pipe inside a cell, not a cell boundary. */
+const tableCells = (line: string): string[] =>
+  ((line.match(TABLE_ROW) as RegExpMatchArray)[1] || '')
+    .split(/(?<!\\)\|/)
+    .map((cell) => cell.trim().replace(/\\\|/g, '|'));
 
 /**
  * Inline emphasis. Code spans are stashed first and put back last, so a `**` or
@@ -277,6 +294,21 @@ function renderMarkdown(body: string): string {
       continue;
     }
 
+    // A table, which an assistant writes far more readily than <table> markup —
+    // and which, left as text, is the one shape that renders as visible rubbish
+    // rather than as plain prose: a paragraph of pipes.
+    if (startsTable(line, lines[i + 1])) {
+      const header = tableCells(line);
+      i += 2; // the header and the divider under it
+      const body: string[] = [];
+      while (i < lines.length && TABLE_ROW.test(lines[i])) {
+        body.push(`<tr>${tableCells(lines[i++]).map((c) => `<td>${inline(c)}</td>`).join('')}</tr>`);
+      }
+      const head = header.map((c) => `<th>${inline(c)}</th>`).join('');
+      out.push(`<table><thead><tr>${head}</tr></thead><tbody>${body.join('')}</tbody></table>`);
+      continue;
+    }
+
     if (QUOTE.test(line)) {
       const quoted: string[] = [];
       while (i < lines.length && QUOTE.test(lines[i])) {
@@ -290,7 +322,8 @@ function renderMarkdown(body: string): string {
     // A paragraph runs to the next blank line or block marker; a single newline
     // inside it is a soft wrap, not a new paragraph.
     const para: string[] = [];
-    while (i < lines.length && lines[i].trim() && !startsBlock(lines[i])) para.push(lines[i++]);
+    while (i < lines.length && lines[i].trim() && !startsBlock(lines[i], lines[i + 1]))
+      para.push(lines[i++]);
     out.push(`<p>${inline(para.join(' '))}</p>`);
   }
 

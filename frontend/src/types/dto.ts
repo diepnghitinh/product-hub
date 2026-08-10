@@ -793,11 +793,13 @@ export interface McpEventDto {
   userName: string;
   /** Which assistant made the call, e.g. `claude-code/2.1.0`. */
   clientName: string;
-  /** The MCP tool that ran — `create_issue`, `create_backlog_item`, `create_doc`. */
+  /** The MCP tool that ran — `create_issue`, `create_backlog_item`, `create_doc`,
+   *  `create_doc_page`, `add_test_cases`. */
   tool: string;
   entity: McpEntity;
   entityId: string;
-  /** `TSK-6HCUHKX` for an issue, empty for a backlog item. */
+  /** `TSK-6HCUHKX` for an issue, `RM-…` for a backlog item, `DOC-…` for a doc or
+   *  one of its pages — a doc page's row points at the doc it went into. */
   entityRef: string;
   entityTitle: string;
   /** The team's name, or the roadmap's title. */

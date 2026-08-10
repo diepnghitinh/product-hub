@@ -159,6 +159,90 @@ export class McpDocResponseDto {
   link: string;
 }
 
+/**
+ * One page of a doc: where it sits and how to reach it, not what it says.
+ *
+ * The body is deliberately absent — this is the tree an assistant reads to
+ * decide where a *new* page goes, and printing every word of a doc to answer
+ * "what's in it?" would spend the context on the answer to a different question.
+ * `hasContent` is the part that matters here: a page somebody created and never
+ * filled in is a fair place to write, an existing chapter is not.
+ */
+export class McpDocPageResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({
+    example: '622436d1',
+    description: 'Short handle — what the app’s own page URLs end in, and what `parentPage` takes',
+  })
+  key: string;
+
+  @ApiProperty()
+  docId: string;
+
+  @ApiProperty({ example: 'DOC-6HCUHKX' })
+  docRef: string;
+
+  @ApiProperty()
+  docTitle: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty({ description: 'Empty when the page sits at the top level of the doc' })
+  parentId: string;
+
+  @ApiProperty({ description: 'Title of the page it nests under, empty at top level' })
+  parentTitle: string;
+
+  @ApiProperty({ description: 'How deep in the tree — 0 is top level' })
+  depth: number;
+
+  @ApiProperty({ description: 'False when the page is still empty' })
+  hasContent: boolean;
+
+  @ApiProperty()
+  updatedByName: string;
+
+  @ApiProperty()
+  updatedAt: Date;
+
+  @ApiProperty({ description: 'In-app path, e.g. /docs/DOC-6HCUHKX/<pageId>' })
+  link: string;
+}
+
+/** A doc as the hub lists it. `pages` is filled only when one doc was asked
+ *  for — a list of every page of every doc is a tree nobody asked to read. */
+export class McpDocSummaryResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ example: 'DOC-6HCUHKX' })
+  ref: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty({ type: [String] })
+  tags: string[];
+
+  @ApiProperty()
+  pageCount: number;
+
+  @ApiProperty({ description: 'Who started it' })
+  createdByName: string;
+
+  @ApiProperty({ description: 'Last activity anywhere in the doc, newest doc first' })
+  updatedAt: Date;
+
+  @ApiProperty({ description: 'In-app path to the doc' })
+  link: string;
+
+  @ApiProperty({ type: [McpDocPageResponseDto], description: 'Empty unless one doc was named' })
+  pages: McpDocPageResponseDto[];
+}
+
 export class McpBacklogItemResponseDto {
   @ApiProperty()
   id: string;

@@ -24,9 +24,23 @@ import {
 import { IUserRepository } from '@application/users/repositories/user.repository';
 import { UserEntity } from '@application/users/domain/entities/user.entity';
 import { QueryUserDto } from '@application/users/dtos/query-user.dto';
-import { CreateDocUseCase } from '@application/docs/use-cases/doc.use-cases';
-import { UpdateDocPageUseCase } from '@application/docs/use-cases/doc-page.use-cases';
-import { CreateDocDto, UpdateDocPageDto } from '@application/docs/dtos/doc.dtos';
+import {
+  CreateDocUseCase,
+  GetDocsUseCase,
+  GetDocUseCase,
+} from '@application/docs/use-cases/doc.use-cases';
+import {
+  CreateDocPageUseCase,
+  UpdateDocPageUseCase,
+} from '@application/docs/use-cases/doc-page.use-cases';
+import {
+  CreateDocDto,
+  CreateDocPageDto,
+  UpdateDocPageDto,
+} from '@application/docs/dtos/doc.dtos';
+import { DocEntity } from '@application/docs/domain/entities/doc.entity';
+import { DocPageEntity } from '@application/docs/domain/entities/doc-page.entity';
+import { DocViewer } from '@application/docs/repositories/doc.repository';
 import { GetProjectsUseCase } from '@application/projects/use-cases';
 import { QueryProjectDto } from '@application/projects/dtos/query-project.dto';
 import { GetProjectStatsUseCase } from '@application/reports/use-cases';
@@ -37,8 +51,12 @@ import {
   backlogItemLink,
   columnsOf,
   didYouMean,
+  docLink,
   docPageLink,
   issueLink,
+  pageKey,
+  resolveDoc,
+  resolveDocPage,
   resolvePerson,
   resolvePhase,
   resolveRoadmap,
@@ -49,15 +67,19 @@ import {
 import {
   McpCreateBacklogItemDto,
   McpCreateDocDto,
+  McpCreateDocPageDto,
   McpCreateIssueDto,
   McpGetBacklogItemDto,
   McpGetIssueDto,
+  McpListDocsDto,
   McpSearchIssuesDto,
 } from '../dtos/mcp.dtos';
 import {
   McpBacklogItemResponseDto,
   McpContextResponseDto,
+  McpDocPageResponseDto,
   McpDocResponseDto,
+  McpDocSummaryResponseDto,
   McpIssueResponseDto,
 } from '../dtos/mcp.response.dto';
 import {
@@ -81,6 +103,47 @@ const ALL_USERS = { page: 1, limit: 100 } as QueryUserDto;
 
 /** Same reasoning for testing projects — a workspace has a handful. */
 const ALL_PROJECTS = { page: 1, limit: 100, archived: false } as QueryProjectDto;
+
+/**
+ * How every doc read through MCP asks — as nobody.
+ *
+ * The same stance `search_issues` takes when it passes an empty `userId` to keep
+ * personal tasks out: a key is not a person. It acts *as* its owner for
+ * attribution, which is a statement about who wrote something, not a reason to
+ * hand a string living in a config file the one shelf in the workspace that was
+ * marked as nobody else's business.
+ */
+const MCP_VIEWER: DocViewer = { userId: '', isAdmin: false };
+
+/**
+ * Private docs are out, the key owner's own included. Checked here rather than
+ * left to the viewer filter alone, because that filter matches `createdBy` — and
+ * a doc written before authors were recorded has an empty one, which an empty
+ * viewer id would match.
+ */
+const isWorkspaceDoc = (doc: DocEntity): boolean => !doc.isPrivate;
+
+/** Docs to name back when one couldn't be resolved. Capped: a workspace can hold
+ *  hundreds, and a failure message is guidance, not an inventory. */
+function unknownDoc(ref: string, docs: DocEntity[]): string {
+  const shown = docs.slice(0, 15).map((d) => d.title);
+  const rest = docs.length - shown.length;
+  return (
+    `Unknown doc "${ref}". Available: ${shown.join(', ') || '(none yet)'}` +
+    `${rest > 0 ? `, and ${rest} more — list_docs names them all` : ''}. ` +
+    `Private docs are not visible through MCP.`
+  );
+}
+
+/** The doc's own pages, each named the way `parentPage` will take it back — a
+ *  doc with two "Notes" pages has to be answerable, and the key is the answer. */
+function unknownPage(ref: string, doc: DocEntity, pages: DocPageEntity[]): string {
+  const choices = pages.map((p) => `${p.title} (${pageKey(p.id.toString())})`);
+  return (
+    `Unknown page "${ref}" in "${doc.title}". Available: ${choices.join(', ') || '(none)'}. ` +
+    `Omit parentPage to add the page at the top level.`
+  );
+}
 
 @Injectable()
 export class GetMcpContextUseCase implements IUsecaseExecute<
@@ -430,7 +493,7 @@ export class McpCreateDocUseCase implements IUsecaseExecute<
       if (written.isFailure) return Result.fail(written.error as string);
     }
 
-    const link = docPageLink(docId, pageId);
+    const link = docPageLink(doc.ref || docId, pageId);
     const event = McpEventEntity.create({
       tenantId: actor.tenantId,
       keyId: actor.keyId,
@@ -441,6 +504,7 @@ export class McpCreateDocUseCase implements IUsecaseExecute<
       tool: McpTool.CREATE_DOC,
       entity: McpEntity.DOC,
       entityId: docId,
+      entityRef: doc.ref,
       entityTitle: doc.title,
       // A doc has no team or roadmap behind it; its tags are the nearest thing
       // to the context the other history rows show.
@@ -450,6 +514,180 @@ export class McpCreateDocUseCase implements IUsecaseExecute<
     if (event.isSuccess) await this.events.append(event.getValue());
 
     return Result.ok({ id: docId, pageId, title: doc.title, tags: doc.tags, link });
+  }
+}
+
+/**
+ * The docs shelf — and, when one doc is named, what is already written in it.
+ *
+ * `list_workspace` names teams, roadmaps and projects because those are the
+ * places a *new* record goes. Docs aren't like that: a doc is somewhere writing
+ * already lives, and the useful question is which one, and where in it. So they
+ * get a tool of their own rather than a fourth list nobody reads.
+ */
+@Injectable()
+export class McpListDocsUseCase implements IUsecaseExecute<
+  { actor: McpActor; dto: McpListDocsDto },
+  Result<McpDocSummaryResponseDto[]>
+> {
+  constructor(
+    private readonly getDocs: GetDocsUseCase,
+    private readonly getDoc: GetDocUseCase,
+  ) {}
+
+  async execute({
+    actor,
+    dto,
+  }: {
+    actor: McpActor;
+    dto: McpListDocsDto;
+  }): Promise<Result<McpDocSummaryResponseDto[]>> {
+    const rows = (
+      await this.getDocs.execute({ tenantId: actor.tenantId, viewer: MCP_VIEWER })
+    ).getValue();
+    const visible = rows.filter(({ doc }) => isWorkspaceDoc(doc));
+
+    // A doc named: this is the "what's in it?" call, so answer with the tree.
+    if (dto.doc) {
+      const doc = resolveDoc(
+        visible.map((r) => r.doc),
+        dto.doc,
+      );
+      if (!doc) {
+        return Result.fail(
+          unknownDoc(
+            dto.doc,
+            visible.map((r) => r.doc),
+          ),
+        );
+      }
+      const found = await this.getDoc.execute({
+        id: doc.id.toString(),
+        tenantId: actor.tenantId,
+        viewer: MCP_VIEWER,
+      });
+      if (found.isFailure) return Result.fail(found.error as string);
+      const { pages } = found.getValue();
+      return Result.ok([toDocSummaryResponse(doc, pages.length, pages)]);
+    }
+
+    const wanted = (dto.search ?? '').trim().toLowerCase();
+    const matched = wanted
+      ? visible.filter(
+          ({ doc }) =>
+            doc.title.toLowerCase().includes(wanted) ||
+            doc.ref.toLowerCase().includes(wanted) ||
+            doc.tags.some((tag) => tag.toLowerCase().includes(wanted)),
+        )
+      : visible;
+
+    // Already sorted by last activity, so a cap keeps the docs somebody touched
+    // this week and drops the ones nobody has opened in a year.
+    return Result.ok(
+      matched
+        .slice(0, dto.limit ?? 30)
+        .map(({ doc, pageCount }) => toDocSummaryResponse(doc, pageCount)),
+    );
+  }
+}
+
+/**
+ * Write a page into a doc that already exists.
+ *
+ * `create_doc` fills the one page a new doc is born with; everything after that
+ * used to mean a second doc. The page is created with its body in place rather
+ * than created empty and then written to, which also keeps it clear of the
+ * collaborative editor: a page that has never been opened has no live session to
+ * argue with, and the room seeds itself from this HTML the first time somebody
+ * opens it.
+ */
+@Injectable()
+export class McpCreateDocPageUseCase implements IUsecaseExecute<
+  { actor: McpActor; dto: McpCreateDocPageDto },
+  Result<McpDocPageResponseDto>
+> {
+  constructor(
+    private readonly getDocs: GetDocsUseCase,
+    private readonly getDoc: GetDocUseCase,
+    private readonly createPage: CreateDocPageUseCase,
+    @Inject(IUserRepository) private readonly users: IUserRepository,
+    @Inject(IMcpEventRepository) private readonly events: IMcpEventRepository,
+  ) {}
+
+  async execute({
+    actor,
+    dto,
+  }: {
+    actor: McpActor;
+    dto: McpCreateDocPageDto;
+  }): Promise<Result<McpDocPageResponseDto>> {
+    const docs = (await this.getDocs.execute({ tenantId: actor.tenantId, viewer: MCP_VIEWER }))
+      .getValue()
+      .map((r) => r.doc)
+      .filter(isWorkspaceDoc);
+
+    const doc = resolveDoc(docs, dto.doc);
+    if (!doc) return Result.fail(unknownDoc(dto.doc, docs));
+    const docId = doc.id.toString();
+
+    const found = await this.getDoc.execute({
+      id: docId,
+      tenantId: actor.tenantId,
+      viewer: MCP_VIEWER,
+    });
+    if (found.isFailure) return Result.fail(found.error as string);
+    const existing = found.getValue().pages;
+
+    // A parent named by title: an unknown one lists the doc's real pages rather
+    // than quietly putting a sub-page at the top level, where nobody looks for it.
+    let parent: DocPageEntity | null = null;
+    if (dto.parentPage) {
+      parent = resolveDocPage(existing, dto.parentPage);
+      if (!parent) return Result.fail(unknownPage(dto.parentPage, doc, existing));
+    }
+
+    const actorUser = await this.users.findById(actor.userId);
+    const author = { userId: actor.userId, name: actorUser?.name ?? actor.keyName };
+    // The page prints its own title above the body, same as the first page does.
+    const content = stripEchoedTitle(docBodyToHtml(dto.content), dto.title);
+
+    const created = await this.createPage.execute({
+      docId,
+      tenantId: actor.tenantId,
+      author,
+      viewer: MCP_VIEWER,
+      dto: {
+        title: dto.title,
+        parentId: parent?.id.toString(),
+        content,
+      } as CreateDocPageDto,
+    });
+    if (created.isFailure) return Result.fail(created.error as string);
+    const page = created.getValue();
+
+    const depth = parent ? depthOf(existing, parent) + 1 : 0;
+    const response = toDocPageResponse(page, doc, depth, parent?.title ?? '');
+
+    const event = McpEventEntity.create({
+      tenantId: actor.tenantId,
+      keyId: actor.keyId,
+      keyName: actor.keyName,
+      userId: actor.userId,
+      userName: author.name,
+      clientName: actor.clientName,
+      tool: McpTool.CREATE_DOC_PAGE,
+      entity: McpEntity.DOC,
+      entityId: page.id.toString(),
+      entityRef: doc.ref,
+      // The page is what was written; the doc is the context it landed in — the
+      // same shape an issue row takes, where the team is the context.
+      entityTitle: page.title,
+      contextLabel: doc.title,
+      link: response.link,
+    });
+    if (event.isSuccess) await this.events.append(event.getValue());
+
+    return Result.ok(response);
   }
 }
 
@@ -621,6 +859,104 @@ export class GetMcpEventsUseCase implements IUsecaseExecute<
   }): Promise<Result<McpEventPaginationResponse>> {
     return Result.ok(await this.events.findByTenant(tenantId, query));
   }
+}
+
+/**
+ * A doc's pages in reading order — a parent, then everything nested under it —
+ * each with the depth it sits at, because indentation is the only way a flat
+ * list shows a tree. Pages arrive sorted by `order` and grouping preserves that,
+ * so the result is the rail as the app draws it. A page whose parent has gone
+ * missing is treated as top level rather than dropped: an orphan is still a page
+ * somebody wrote, and a tool that silently omits one invites a second copy.
+ */
+function pagesInOrder(pages: DocPageEntity[]): { page: DocPageEntity; depth: number }[] {
+  const ids = new Set(pages.map((p) => p.id.toString()));
+  const byParent = new Map<string, DocPageEntity[]>();
+  for (const page of pages) {
+    const parentId = page.parentId && ids.has(page.parentId) ? page.parentId : '';
+    byParent.set(parentId, [...(byParent.get(parentId) ?? []), page]);
+  }
+
+  const out: { page: DocPageEntity; depth: number }[] = [];
+  const seen = new Set<string>();
+  const walk = (parentId: string, depth: number): void => {
+    for (const page of byParent.get(parentId) ?? []) {
+      const id = page.id.toString();
+      // Cycles are forbidden when pages are moved, so this only ever guards
+      // against old data — but a read that can loop forever is not worth having.
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({ page, depth });
+      walk(id, depth + 1);
+    }
+  };
+  walk('', 0);
+  return out;
+}
+
+/** How deep one page sits. Walks up, because the caller already has the page. */
+function depthOf(pages: DocPageEntity[], page: DocPageEntity): number {
+  const byId = new Map(pages.map((p) => [p.id.toString(), p]));
+  let depth = 0;
+  let cursor = page.parentId;
+  const seen = new Set<string>();
+  while (cursor && byId.has(cursor) && !seen.has(cursor)) {
+    seen.add(cursor);
+    depth += 1;
+    cursor = (byId.get(cursor) as DocPageEntity).parentId;
+  }
+  return depth;
+}
+
+/** One page shape for every MCP reply — listed and just-created read the same. */
+function toDocPageResponse(
+  page: DocPageEntity,
+  doc: DocEntity,
+  depth: number,
+  parentTitle: string,
+): McpDocPageResponseDto {
+  const docId = doc.id.toString();
+  return {
+    id: page.id.toString(),
+    key: pageKey(page.id.toString()),
+    docId,
+    docRef: doc.ref,
+    docTitle: doc.title,
+    title: page.title,
+    parentId: page.parentId,
+    parentTitle,
+    depth,
+    hasContent: !!page.content.trim(),
+    updatedByName: page.updatedByName,
+    updatedAt: page.updatedAt,
+    link: docPageLink(doc.ref || docId, page.id.toString()),
+  };
+}
+
+/** One doc shape for every MCP reply. `pages` is only filled when the caller
+ *  asked about a single doc — see `McpListDocsUseCase`. */
+function toDocSummaryResponse(
+  doc: DocEntity,
+  pageCount: number,
+  pages?: DocPageEntity[],
+): McpDocSummaryResponseDto {
+  const docId = doc.id.toString();
+  const titles = new Map((pages ?? []).map((p) => [p.id.toString(), p.title]));
+  return {
+    id: docId,
+    ref: doc.ref,
+    title: doc.title,
+    tags: doc.tags,
+    pageCount,
+    createdByName: doc.createdByName,
+    updatedAt: doc.updatedAt,
+    link: docLink(doc.ref || docId),
+    pages: pages
+      ? pagesInOrder(pages).map(({ page, depth }) =>
+          toDocPageResponse(page, doc, depth, titles.get(page.parentId) ?? ''),
+        )
+      : [],
+  };
 }
 
 /** One backlog-item shape for every MCP reply — create and read the same. */
