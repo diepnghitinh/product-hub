@@ -1339,6 +1339,8 @@ export const ko: Record<I18nKey, string> = {
   'cycles.insights.assignees': '담당자',
   'cycles.insights.labels': '라벨',
   'cycles.insights.projects': '프로젝트',
+  'cycles.insights.pointsCol': '포인트',
+  'cycles.insights.issuesCol': '이슈',
   'cycles.insights.noBreakdown': '나눠 볼 항목이 없습니다.',
   'cycles.insights.noAssignee': '담당자 미지정',
   'cycles.insights.noLabel': '라벨 없음',
@@ -1409,6 +1411,7 @@ export const ko: Record<I18nKey, string> = {
 
   // Boards — shared kanban feedback
   'boards.moveFailed': '카드를 옮기지 못했습니다 — 되돌립니다.',
+  'boards.saveFailed': '변경 사항을 저장하지 못했습니다 — 되돌립니다.',
   // Boards — the shared Timeline (Gantt) view on every issue board
   'boards.today': '오늘',
   'boards.resizeColumn': '드래그해서 열 너비 조절',

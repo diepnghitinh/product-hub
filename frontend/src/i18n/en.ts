@@ -1373,6 +1373,8 @@ export const en = {
   'cycles.insights.assignees': 'Assignees',
   'cycles.insights.labels': 'Labels',
   'cycles.insights.projects': 'Projects',
+  'cycles.insights.pointsCol': 'Points',
+  'cycles.insights.issuesCol': 'Issues',
   'cycles.insights.noBreakdown': 'Nothing to break down here.',
   'cycles.insights.noAssignee': 'Unassigned',
   'cycles.insights.noLabel': 'No label',
@@ -1445,6 +1447,7 @@ export const en = {
 
   // Boards — shared kanban feedback
   'boards.moveFailed': 'Couldn’t move that card — put it back.',
+  'boards.saveFailed': 'Couldn’t save that change — put it back.',
   // Boards — the shared Timeline (Gantt) view on every issue board
   'boards.today': 'Today',
   'boards.resizeColumn': 'Drag to resize this column',
