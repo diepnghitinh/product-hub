@@ -402,11 +402,28 @@ function GroupList({
         ? t('cycles.insights.noLabel')
         : t('cycles.insights.noProject');
 
+  // Story points get their own column whenever this cycle is sized in them, so
+  // "how many points is this person carrying?" is answered without doing the
+  // arithmetic — and next to the issue count, since a person with 3 issues worth
+  // 13 points and one with 3 worth 3 are not carrying the same sprint. A cycle
+  // with no estimates at all (a QC/bug board) shows issues alone, as it did.
+  const showPoints = unit === 'points';
+
   return (
     <div className="rounded-xl border bg-card">
+      {/* Column headings — two bare numbers side by side read as one otherwise.
+          Only earned once there are two of them. */}
+      {showPoints && (
+        <div className="flex items-center gap-3 border-b px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="min-w-0 flex-1" />
+          <span className="hidden w-16 shrink-0 sm:block" aria-hidden />
+          <span className="w-16 shrink-0 text-right">{t('cycles.insights.pointsCol')}</span>
+          <span className="w-14 shrink-0 text-right">{t('cycles.insights.issuesCol')}</span>
+        </div>
+      )}
       {groups.map((g) => {
-        const total = unit === 'points' ? g.points : g.count;
-        const done = unit === 'points' ? g.completedPoints : g.completedCount;
+        const total = showPoints ? g.points : g.count;
+        const done = showPoints ? g.completedPoints : g.completedCount;
         const name = (kind === 'project' ? resolve?.(g) : g.label) || (g.key ? g.label || g.key : noneLabel);
         return (
           <div
@@ -419,11 +436,42 @@ function GroupList({
               value={total ? (done / total) * 100 : 0}
               className="hidden h-1.5 w-16 shrink-0 sm:block"
             />
-            <span className="w-8 shrink-0 text-right text-sm font-medium tabular-nums">{total}</span>
+            {showPoints && (
+              <Tally done={g.completedPoints} total={g.points} className="w-16" />
+            )}
+            <Tally done={g.completedCount} total={g.count} className="w-14" muted={showPoints} />
           </div>
         );
       })}
     </div>
+  );
+}
+
+/** "8 / 13" — done in the foreground, the total behind it. The same shape the
+ *  cycle bar and the cycles list use, so one cycle reads the same everywhere. */
+function Tally({
+  done,
+  total,
+  className,
+  muted = false,
+}: {
+  done: number;
+  total: number;
+  className?: string;
+  /** Secondary column (issues, when points lead) — the whole tally goes quiet. */
+  muted?: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        'shrink-0 text-right text-sm tabular-nums',
+        muted ? 'text-muted-foreground' : 'text-foreground',
+        className,
+      )}
+    >
+      <span className={cn(!muted && 'font-medium')}>{done}</span>
+      <span className="text-muted-foreground">/{total}</span>
+    </span>
   );
 }
 
