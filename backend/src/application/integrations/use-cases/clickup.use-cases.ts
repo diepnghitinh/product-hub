@@ -548,12 +548,68 @@ export class GetClickUpLinksUseCase implements IUsecaseExecute<
   }
 }
 
+/** Which board a record belongs to, in binding terms. */
+interface RecordScope {
+  scope: ClickUpSyncScope;
+  scopeId: string;
+}
+
+/**
+ * The board behind a record, or `null` if it has none we're allowed to sync.
+ *
+ * Shared by the two use-cases that ask it — "may I adopt this pasted task?" and
+ * "may I create this record in ClickUp?" — because they are the same question
+ * about the same record, and two copies would be one copy away from disagreeing
+ * about whether a personal task counts.
+ */
+async function scopeOfRecord(
+  issues: IIssueRepository,
+  roadmaps: IRoadmapRepository,
+  tenantId: string,
+  targetType: ClickUpLinkTarget,
+  targetId: string,
+  roadmapId?: string,
+): Promise<RecordScope | null> {
+  if (targetType === ClickUpLinkTarget.ISSUE) {
+    const issue = await issues.findById(targetId);
+    // A personal task is skipped here for the same reason the automatic push
+    // skips it: a private board has no team, and no shared list to leak into.
+    if (!issue || issue.tenantId !== tenantId || issue.isPersonal || !issue.teamId) return null;
+    return { scope: ClickUpSyncScope.TEAM, scopeId: issue.teamId };
+  }
+  const id = roadmapId?.trim();
+  if (!id) return null;
+  const roadmap = await roadmaps.findById(id);
+  if (!roadmap || roadmap.tenantId !== tenantId) return null;
+  return roadmap.items.some((i) => i.id === targetId)
+    ? { scope: ClickUpSyncScope.ROADMAP, scopeId: id }
+    : null;
+}
+
 /**
  * Link a ClickUp task to an issue or a backlog item.
  *
  * Reads the task straight away rather than storing a bare id and waiting for an
  * event: an admin who pastes the wrong URL should find out now, and the panel
  * should have something to render the moment it appears.
+ *
+ * **What a paste means depends on the board, not on the gesture.** On an unbound
+ * board it is what it always was: a one-way mirror, read-only, removable. But
+ * when this record's board is bound to a list and the pasted task is *in that
+ * list*, pasting it **adopts** it — the task becomes this record's synced task,
+ * pushed to and taking status back, exactly as if the board had created it.
+ *
+ * That's the case the two-way sync couldn't answer before. A team that made its
+ * tasks in ClickUp first had only "Create in ClickUp", which mints a second task
+ * beside the real one; the honest answer to "we already have that task" is to
+ * point at it. Adoption is refused outside the bound list because the status map
+ * is written against that list's statuses — a task somewhere else would be
+ * pushed statuses its own list has never heard of.
+ *
+ * Nothing is written to ClickUp here. Adoption declares the two are the same
+ * work; the next ordinary save is what pushes, on the same path every other
+ * synced record uses. A paste must never silently overwrite what someone typed
+ * on the ClickUp side.
  */
 @Injectable()
 export class LinkClickUpTaskUseCase implements IUsecaseExecute<
@@ -563,6 +619,7 @@ export class LinkClickUpTaskUseCase implements IUsecaseExecute<
   constructor(
     @Inject(IAppSettingsRepository) private readonly settingsRepo: IAppSettingsRepository,
     @Inject(IClickUpLinkRepository) private readonly links: IClickUpLinkRepository,
+    @Inject(IClickUpSyncRepository) private readonly bindings: IClickUpSyncRepository,
     @Inject(IIssueRepository) private readonly issues: IIssueRepository,
     @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
     private readonly client: ClickUpClient,
@@ -601,6 +658,8 @@ export class LinkClickUpTaskUseCase implements IUsecaseExecute<
       return Result.fail(apiFailure(err));
     }
 
+    const adopt = await this.adopts(tenantId, dto, roadmapId, task);
+
     const link = await this.links.create({
       tenantId,
       // ClickUp's own id, never the pasted one: a custom id (`DEV-123`) is not
@@ -610,11 +669,75 @@ export class LinkClickUpTaskUseCase implements IUsecaseExecute<
       targetType: dto.targetType,
       targetId: dto.targetId,
       roadmapId,
+      origin: adopt ? ClickUpLinkOrigin.SYNC : ClickUpLinkOrigin.MANUAL,
       createdBy: userId,
       createdByName: userName,
       ...snapshotOf(task),
     });
-    return Result.ok(link);
+    if (!adopt) return Result.ok(link);
+
+    // `create` is an upsert and its `origin` is insert-only, so pasting a task
+    // that is already on this record as a mirror lands here still `manual`.
+    // Promoting it out loud is the point: this is the second paste of a task
+    // someone linked before the board was bound, and the answer to "make this
+    // the synced one" can't be "it already exists, so no".
+    const promoted =
+      link.origin === ClickUpLinkOrigin.SYNC
+        ? link
+        : ((await this.links.setOrigin(tenantId, link.id, ClickUpLinkOrigin.SYNC)) ?? link);
+    // Pasting the task a detached record used to sync with is how you take it
+    // back — the same gesture that made the link, meaning the same thing.
+    if (!promoted.detached) return Result.ok(promoted);
+    return Result.ok((await this.links.setDetached(tenantId, promoted.id, false)) ?? promoted);
+  }
+
+  /**
+   * Does pasting this task make it the record's *synced* task, or only a mirror?
+   *
+   * Four things have to be true, and every one of them is the difference between
+   * a link and a duplicate:
+   *
+   * 1. **The connection is live** — a paused ClickUp mirrors, it doesn't write.
+   * 2. **This record's board is bound and syncing.** No binding, no direction.
+   * 3. **Nothing else already syncs this record.** A record owns at most one
+   *    ClickUp task; a second would double every push. The paste still lands, as
+   *    a mirror beside it — that's a legitimate thing to want.
+   * 4. **The task is in the bound list.** The status map is written against that
+   *    list's statuses, so adopting a task elsewhere would push it statuses its
+   *    own list has never defined, and ClickUp would reject every one.
+   *
+   * Anything short of all four is a mirror, silently — the panel says which it
+   * got, and none of these are errors.
+   */
+  private async adopts(
+    tenantId: string,
+    dto: LinkClickUpTaskDto,
+    roadmapId: string,
+    task: ClickUpTask,
+  ): Promise<boolean> {
+    const settings = await this.settingsRepo.findByTenant(tenantId);
+    const config = settings?.clickup;
+    if (!config?.apiToken || !config.enabled) return false;
+
+    const existing = await this.links.findForTarget(tenantId, dto.targetType, dto.targetId);
+    const otherSync = existing.find(
+      (l) => l.origin === ClickUpLinkOrigin.SYNC && l.clickupTaskId !== task.id,
+    );
+    if (otherSync) return false;
+
+    const scope = await scopeOfRecord(
+      this.issues,
+      this.roadmaps,
+      tenantId,
+      dto.targetType,
+      dto.targetId,
+      roadmapId,
+    );
+    if (!scope) return false;
+
+    const binding = await this.bindings.findForScope(tenantId, scope.scope, scope.scopeId);
+    if (!binding?.enabled || !binding.listId) return false;
+    return !!task.listId && task.listId === binding.listId;
   }
 
   /**
@@ -637,13 +760,18 @@ export class LinkClickUpTaskUseCase implements IUsecaseExecute<
 /** Whether one record can be created in ClickUp on demand, and where it'd land. */
 export interface ClickUpPushTarget {
   canPush: boolean;
+  /**
+   * Is this record's board bound and syncing at all — regardless of what this
+   * record has already got?
+   *
+   * The wider of the two answers, and the one a *warning* needs: removing a
+   * detached link from a record on a bound board means the board will make it a
+   * new task on the next save, and the panel can only say so out loud if it
+   * knows the binding is still there. `canPush` can't answer that — it's false
+   * both when there's no board and when there's a board plus a link already.
+   */
+  bound: boolean;
   listName: string;
-}
-
-/** Which board a record belongs to, in binding terms. */
-interface RecordScope {
-  scope: ClickUpSyncScope;
-  scopeId: string;
 }
 
 /**
@@ -682,48 +810,34 @@ export class GetClickUpPushTargetUseCase implements IUsecaseExecute<
     targetId: string;
     roadmapId?: string;
   }): Promise<Result<ClickUpPushTarget>> {
-    const no: ClickUpPushTarget = { canPush: false, listName: '' };
+    const no: ClickUpPushTarget = { canPush: false, bound: false, listName: '' };
     if (!targetId) return Result.ok(no);
 
     const settings = await this.settingsRepo.findByTenant(tenantId);
     const config = settings?.clickup;
     if (!config?.apiToken || !config.enabled) return Result.ok(no);
 
-    // Already has a task of its own. Pushing again would only re-send fields the
-    // board already keeps in step, and "Create in ClickUp" beside a row that says
-    // Synced would read as an offer to make a second one.
-    const existing = await this.links.findForTarget(tenantId, targetType, targetId);
-    if (existing.some((l) => l.origin === ClickUpLinkOrigin.SYNC)) return Result.ok(no);
-
-    const scope = await this.scopeOf(tenantId, targetType, targetId, roadmapId);
+    const scope = await scopeOfRecord(
+      this.issues,
+      this.roadmaps,
+      tenantId,
+      targetType,
+      targetId,
+      roadmapId,
+    );
     if (!scope) return Result.ok(no);
 
     const binding = await this.bindings.findForScope(tenantId, scope.scope, scope.scopeId);
     if (!binding?.enabled || !binding.listId) return Result.ok(no);
-    return Result.ok({ canPush: true, listName: binding.listName });
-  }
 
-  /** The board behind a record, or `null` if it has none we're allowed to push to. */
-  private async scopeOf(
-    tenantId: string,
-    targetType: ClickUpLinkTarget,
-    targetId: string,
-    roadmapId?: string,
-  ): Promise<RecordScope | null> {
-    if (targetType === ClickUpLinkTarget.ISSUE) {
-      const issue = await this.issues.findById(targetId);
-      // A personal task is skipped here for the same reason the automatic push
-      // skips it: a private board has no team, and no shared list to leak into.
-      if (!issue || issue.tenantId !== tenantId || issue.isPersonal || !issue.teamId) return null;
-      return { scope: ClickUpSyncScope.TEAM, scopeId: issue.teamId };
-    }
-    const id = roadmapId?.trim();
-    if (!id) return null;
-    const roadmap = await this.roadmaps.findById(id);
-    if (!roadmap || roadmap.tenantId !== tenantId) return null;
-    return roadmap.items.some((i) => i.id === targetId)
-      ? { scope: ClickUpSyncScope.ROADMAP, scopeId: id }
-      : null;
+    // Bound either way. What a link already there decides is only whether
+    // *creating* one is still the right offer — and a detached link counts, which
+    // is the case this must not get wrong: "Create in ClickUp" beside a detached
+    // row would mint the second task that detaching exists to avoid. Resuming is
+    // the way back, and it lives on the row.
+    const existing = await this.links.findForTarget(tenantId, targetType, targetId);
+    const synced = existing.some((l) => l.origin === ClickUpLinkOrigin.SYNC);
+    return Result.ok({ canPush: !synced, bound: true, listName: binding.listName });
   }
 }
 
@@ -760,6 +874,16 @@ export class PushClickUpTaskUseCase implements IUsecaseExecute<
     tenantId: string;
     dto: ClickUpTargetDto;
   }): Promise<Result<ClickUpLinkRecord>> {
+    // Someone stopped syncing this one record. The push path would skip it
+    // anyway, and the button isn't drawn — but this endpoint must never answer
+    // "created" for a write it didn't do, and "resume" is a different verb.
+    const before = await this.links.findForTarget(tenantId, dto.targetType, dto.targetId);
+    if (before.some((l) => l.origin === ClickUpLinkOrigin.SYNC && l.detached)) {
+      return Result.fail(
+        'This item was taken out of ClickUp sync. Resume syncing on its link rather than creating a second task.',
+      );
+    }
+
     let pushed: Result<void>;
     try {
       pushed =
@@ -816,19 +940,66 @@ export class UnlinkClickUpTaskUseCase implements IUsecaseExecute<
   async execute({ tenantId, id }: { tenantId: string; id: string }): Promise<Result<boolean>> {
     const link = await this.links.findById(tenantId, id);
     if (!link) return Result.fail('Link not found');
-    // A synced link isn't this record's to remove — it exists because the whole
-    // board is bound, and it's the only thing that knows which ClickUp task this
-    // record already owns. Delete it and the next edit mints a *second* task, so
-    // "unlink" would quietly mean "duplicate". Unbinding is a board decision, and
-    // it's made where the binding was made.
-    if (link.origin === ClickUpLinkOrigin.SYNC) {
+    // A link that is *still syncing* isn't this record's to remove: it's the only
+    // thing that knows which ClickUp task this record already owns, so deleting it
+    // means the next edit mints a *second* task — "unlink" quietly meaning
+    // "duplicate". Stopping the sync is a separate, reversible step, and it comes
+    // first; once a link is detached the row is an ordinary mirror and removing it
+    // is an ordinary removal.
+    if (link.origin === ClickUpLinkOrigin.SYNC && !link.detached) {
       return Result.fail(
-        'This task is synced from a bound ClickUp list. Unbind the board in its settings to stop syncing.',
+        'This task is still syncing with a bound ClickUp list. Stop syncing this item first, then remove the link.',
       );
     }
     const removed = await this.links.removeById(tenantId, id);
     if (!removed) return Result.fail('Link not found');
     return Result.ok(true);
+  }
+}
+
+/**
+ * Step one record out of its board's sync, or put it back.
+ *
+ * The per-record answer to a board-level binding. Unbinding was the only way to
+ * stop syncing, and it is far too big a hammer for the ordinary case: one item
+ * that shouldn't be in ClickUp, or one whose ClickUp task somebody else now owns.
+ *
+ * Detaching stops **both** legs — nothing is pushed, no inbound status moves the
+ * card — and changes nothing in ClickUp. The row stays, still refreshing, so the
+ * record keeps saying which task it came from. The link keeps `origin: sync`
+ * throughout: it is still the record's memory of which task it owns, and that
+ * memory is the whole reason a detached record doesn't get a duplicate.
+ *
+ * Both directions are one use-case because they're one switch. A separate
+ * "resume" class would be the same four lines with a `true` in it, and the pair
+ * would drift the first time one of them learned a new guard.
+ */
+@Injectable()
+export class SetClickUpLinkDetachedUseCase implements IUsecaseExecute<
+  { tenantId: string; id: string; detached: boolean },
+  Result<ClickUpLinkRecord>
+> {
+  constructor(@Inject(IClickUpLinkRepository) private readonly links: IClickUpLinkRepository) {}
+
+  async execute({
+    tenantId,
+    id,
+    detached,
+  }: {
+    tenantId: string;
+    id: string;
+    detached: boolean;
+  }): Promise<Result<ClickUpLinkRecord>> {
+    const link = await this.links.findById(tenantId, id);
+    if (!link) return Result.fail('Link not found');
+    // A pasted link never synced, so there is nothing to stop or resume. Saying
+    // so is better than silently succeeding at nothing.
+    if (link.origin !== ClickUpLinkOrigin.SYNC) {
+      return Result.fail('This link is a read-only mirror — it was never syncing. Remove it instead.');
+    }
+    if (link.detached === detached) return Result.ok(link);
+    const updated = await this.links.setDetached(tenantId, id, detached);
+    return updated ? Result.ok(updated) : Result.fail('Link not found');
   }
 }
 
@@ -1002,20 +1173,22 @@ export class ReceiveClickUpEventUseCase {
    * Move the records behind these links into the column their bound list's
    * status maps to. Returns how many actually moved.
    *
-   * Four gates, and every one of them is load-bearing:
+   * Five gates, and every one of them is load-bearing:
    *
    * 1. **Synced links only.** A pasted link is a mirror and stays one — nobody
    *    gets to move a card on this board by editing a task in a list we were
    *    only ever shown.
-   * 2. **Not our own echo.** Pushing a status makes ClickUp fire
+   * 2. **Not detached.** One record can step out of its board's sync without
+   *    losing the task; inbound is half of what stepping out turns off.
+   * 3. **Not our own echo.** Pushing a status makes ClickUp fire
    *    `taskStatusUpdated` straight back at us. Without this, that delivery reads
    *    as "someone moved the card in ClickUp" and we re-apply our own change as
    *    if it were theirs — harmless once, and a loop the moment anything on the
    *    way back differs. Compared against what we recorded sending, so there's no
    *    debounce window to tune and no clock to skew.
-   * 3. **A mapped status.** An unmapped ClickUp status leaves the card where it
+   * 4. **A mapped status.** An unmapped ClickUp status leaves the card where it
    *    is. A board that stays put is honest; one that guesses is not.
-   * 4. **Actually different.** ClickUp fires on edits we don't mirror at all
+   * 5. **Actually different.** ClickUp fires on edits we don't mirror at all
    *    (a comment, a tag), so most deliveries arrive with the status unchanged.
    */
   private async applyInboundStatus(
@@ -1028,6 +1201,10 @@ export class ReceiveClickUpEventUseCase {
 
     for (const link of links) {
       if (link.origin !== ClickUpLinkOrigin.SYNC) continue;
+      // Detached: the mirror above still refreshed — the row shows ClickUp's new
+      // status, which is the point of keeping it — but this record asked to stop
+      // being moved by that board, and inbound is half of what it asked to stop.
+      if (link.detached) continue;
       if (link.pushedStatus && sameStatus(link.pushedStatus, clickupStatus)) continue;
 
       try {

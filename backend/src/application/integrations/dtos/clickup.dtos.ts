@@ -127,7 +127,15 @@ export class ClickUpPushTargetResponseDto {
   })
   canPush: boolean;
 
-  @ApiProperty({ description: 'The list it would land in. "" whenever canPush is false.' })
+  @ApiProperty({
+    description:
+      'true → the board is bound and syncing, whatever this record already has. ' +
+      'Wider than canPush: it stays true beside a link, which is how the panel ' +
+      'knows that removing one means the board will make a new task.',
+  })
+  bound: boolean;
+
+  @ApiProperty({ description: 'The list it would land in. "" whenever bound is false.' })
   listName: string;
 }
 
@@ -169,10 +177,18 @@ export class ClickUpLinkResponseDto {
   @ApiProperty({
     enum: ClickUpLinkOrigin,
     description:
-      'manual = pasted, read-only, unlinkable. sync = created by a bound board, ' +
-      'kept in step both ways, and unlinked by unbinding the board.',
+      'manual = pasted, read-only, removable. sync = created by a bound board or ' +
+      'adopted from its list, kept in step both ways.',
   })
   origin: ClickUpLinkOrigin;
+
+  @ApiProperty({
+    description:
+      'Only meaningful on a sync link. true → this item stepped out of its ' +
+      'board’s sync: nothing is pushed, no inbound status moves it, and the row ' +
+      'is now an ordinary mirror that can be resumed or removed.',
+  })
+  detached: boolean;
 
   @ApiProperty()
   taskName: string;

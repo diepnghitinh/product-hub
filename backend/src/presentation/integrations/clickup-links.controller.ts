@@ -18,6 +18,7 @@ import {
   LinkClickUpTaskUseCase,
   PushClickUpTaskUseCase,
   RefreshClickUpLinkUseCase,
+  SetClickUpLinkDetachedUseCase,
   UnlinkClickUpTaskUseCase,
 } from '@application/integrations/use-cases/clickup.use-cases';
 import {
@@ -38,6 +39,7 @@ function present(l: ClickUpLinkRecord): ClickUpLinkResponseDto {
     targetId: l.targetId,
     roadmapId: l.roadmapId,
     origin: l.origin,
+    detached: l.detached,
     taskName: l.taskName,
     taskUrl: l.taskUrl,
     customId: l.customId,
@@ -74,6 +76,7 @@ export class ClickUpLinksController {
     private readonly refresh: RefreshClickUpLinkUseCase,
     private readonly pushTarget: GetClickUpPushTargetUseCase,
     private readonly push: PushClickUpTaskUseCase,
+    private readonly setDetached: SetClickUpLinkDetachedUseCase,
   ) {}
 
   @Get()
@@ -172,13 +175,51 @@ export class ClickUpLinksController {
     return present(result.getValue());
   }
 
+  @Post(':id/detach')
+  @HttpCode(200)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
+  @ApiOperation({
+    summary: 'Stop syncing this one item with ClickUp',
+    description:
+      'Turns off both legs for this record alone, leaving the board bound for ' +
+      'everything else. Nothing changes in ClickUp and the link stays on screen ' +
+      'as a mirror — which is also what stops a later save creating a second task.',
+  })
+  async detachOne(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+  ): Promise<ClickUpLinkResponseDto> {
+    const result = await this.setDetached.execute({ tenantId: auth.tenantId, id, detached: true });
+    if (result.isFailure) throw new BadRequestException(result.error as string);
+    return present(result.getValue());
+  }
+
+  @Post(':id/attach')
+  @HttpCode(200)
+  @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
+  @ApiOperation({
+    summary: 'Resume syncing this item with the task it already has',
+    description:
+      'The way back from detach. Picks up the same ClickUp task rather than ' +
+      'making a new one, so nothing is duplicated by changing your mind.',
+  })
+  async attachOne(
+    @AuthUser() auth: JwtPayload,
+    @Param('id') id: string,
+  ): Promise<ClickUpLinkResponseDto> {
+    const result = await this.setDetached.execute({ tenantId: auth.tenantId, id, detached: false });
+    if (result.isFailure) throw new BadRequestException(result.error as string);
+    return present(result.getValue());
+  }
+
   @Delete(':id')
   @Roles(Role.ADMIN, Role.TESTER, Role.PRODUCT, Role.DEVELOPER)
   @ApiOperation({
-    summary: 'Remove a pasted link',
+    summary: 'Remove a link',
     description:
       'The ClickUp task is untouched — nothing here ever deletes one. Rejects a ' +
-      'link a bound board created: that one is unlinked by unbinding the board.',
+      'link that is still syncing: detach it first, so the row can never be ' +
+      'removed while it is the only record of which task this item owns.',
   })
   async del(@AuthUser() auth: JwtPayload, @Param('id') id: string): Promise<{ ok: boolean }> {
     const result = await this.unlink.execute({ tenantId: auth.tenantId, id });

@@ -914,8 +914,14 @@ export interface ClickUpLinkDto {
   targetId: string;
   /** '' for an issue. */
   roadmapId: string;
-  /** `manual` = pasted and read-only. `sync` = created by a bound board. */
+  /** `manual` = pasted and read-only. `sync` = created by, or adopted into, a bound board. */
   origin: ClickUpLinkOrigin;
+  /**
+   * Only meaningful on a `sync` link: this item stepped out of its board's sync.
+   * Nothing is pushed, no inbound status moves it, and the row is a plain mirror
+   * that can be resumed or removed.
+   */
+  detached: boolean;
   taskName: string;
   taskUrl: string;
   /** `DEV-123`, or '' unless the workspace uses custom ids. */
@@ -948,7 +954,13 @@ export interface ClickUpLinkDto {
  */
 export interface ClickUpPushTargetDto {
   canPush: boolean;
-  /** The list it would land in. '' whenever `canPush` is false. */
+  /**
+   * The board is bound and syncing, whatever this record already has. Wider than
+   * `canPush`, which also needs "and nothing is synced yet" — this one stays true
+   * beside a link, so the panel can warn that removing one means a new task.
+   */
+  bound: boolean;
+  /** The list it would land in. '' whenever `bound` is false. */
   listName: string;
 }
 

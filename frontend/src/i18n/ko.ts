@@ -714,12 +714,24 @@ export const ko: Record<I18nKey, string> = {
   'clickup.referenceRequired': 'ClickUp 작업 링크나 ID를 붙여넣으세요.',
   'clickup.oneWayNote':
     '표시 전용입니다. 작업 상태가 여기에 보이고 ClickUp에서 바뀌면 함께 갱신되지만, 이 항목을 옮기지 않고 ClickUp으로 다시 쓰지도 않습니다.',
+  'clickup.adoptNote':
+    '이 보드는 {list}와(과) 동기화됩니다. 해당 리스트의 작업을 붙여넣으면 이 항목의 동기화 작업이 되어, 이 항목의 내용이 그쪽으로 전송되고 그쪽 상태가 이 항목을 옮깁니다. 다른 곳의 작업은 표시 전용으로 남습니다.',
   'clickup.open': 'ClickUp에서 열기',
   'clickup.refresh': 'ClickUp에서 새로고침',
   'clickup.unlink': '연결 해제',
+  'clickup.removeConfirm': '이 연결을 해제할까요? ClickUp의 작업은 그대로 남습니다.',
+  'clickup.removeConfirmBound':
+    '이 연결을 해제할까요? ClickUp의 작업은 그대로 남지만, 이 보드는 아직 ClickUp 리스트에 연결되어 있으므로 이 항목을 다음에 수정하면 새 작업이 만들어집니다.',
   'clickup.lastSynced': '마지막 갱신',
   'clickup.synced': '동기화됨',
   'clickup.syncedNote': '이 보드의 ClickUp 리스트와 동기화되고 있습니다.',
+  'clickup.stopSync': '이 항목만 동기화 중지',
+  'clickup.syncStopped': '이 항목은 더 이상 ClickUp과 동기화되지 않습니다.',
+  'clickup.resumeSync': '동기화 다시 시작',
+  'clickup.syncResumed': '이 작업과 다시 동기화합니다.',
+  'clickup.syncOff': '동기화 꺼짐',
+  'clickup.syncOffNote':
+    '이 항목은 보드의 ClickUp 동기화에서 제외되었습니다. 아무것도 전송되지 않고 그쪽 상태가 이 항목을 옮기지도 않습니다 — 작업 자체는 그대로이며 언제든 다시 시작할 수 있습니다.',
   // 보드를 ClickUp 리스트에 연결 — 팀 설정 및 로드맵 ⋯ 메뉴
   'clickup.sync': 'ClickUp 동기화',
   'clickup.syncHint':

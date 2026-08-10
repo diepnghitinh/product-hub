@@ -117,12 +117,21 @@ export interface LinkClickUpTaskPayload {
   roadmapId?: string;
 }
 
+/**
+ * Paste a task onto this record.
+ *
+ * The push availability moves with it: on a bound board a paste is an *adoption*
+ * — the record now has a synced task — so the offer to create one has to stop
+ * being made in the same beat.
+ */
 export function useLinkClickUpTask() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: LinkClickUpTaskPayload) => apiPost<ClickUpLinkDto>('/clickup/links', input),
-    onSuccess: (_link, input) =>
-      qc.invalidateQueries({ queryKey: linksKey(input.targetType, input.targetId) }),
+    onSuccess: (_link, input) => {
+      qc.invalidateQueries({ queryKey: linksKey(input.targetType, input.targetId) });
+      qc.invalidateQueries({ queryKey: pushTargetKey(input.targetType, input.targetId) });
+    },
   });
 }
 
@@ -144,13 +153,43 @@ export function useRefreshClickUpLink(targetType: ClickUpLinkTarget, targetId: s
   });
 }
 
+/**
+ * Stop syncing this one item with ClickUp, or resume it.
+ *
+ * One hook with a boolean rather than two, because it's one switch — and both
+ * directions write the single row back the same way the refresh does, so the row
+ * flips in place instead of the panel blinking.
+ *
+ * Nothing else needs invalidating: a detached link is still a `sync` link, so
+ * "can this be created in ClickUp?" stays no through both directions. It's
+ * *removing* the row that changes that answer — see `useUnlinkClickUpTask`.
+ */
+export function useSetClickUpLinkDetached(targetType: ClickUpLinkTarget, targetId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, detached }: { id: string; detached: boolean }) =>
+      apiPost<ClickUpLinkDto>(`/clickup/links/${id}/${detached ? 'detach' : 'attach'}`, {}),
+    onSuccess: (fresh) =>
+      qc.setQueryData<ClickUpLinkDto[]>(linksKey(targetType, targetId), (old) =>
+        (old ?? []).map((l) => (l.id === fresh.id ? fresh : l)),
+      ),
+  });
+}
+
+/**
+ * Remove a link. Invalidates the push availability as well as the list: taking
+ * a detached link off a record whose board is still bound is exactly what makes
+ * "Create in ClickUp" the right offer again.
+ */
 export function useUnlinkClickUpTask(targetType: ClickUpLinkTarget, targetId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiDelete<{ ok: boolean }>(`/clickup/links/${id}`),
-    onSuccess: (_res, id) =>
+    onSuccess: (_res, id) => {
       qc.setQueryData<ClickUpLinkDto[]>(linksKey(targetType, targetId), (old) =>
         (old ?? []).filter((l) => l.id !== id),
-      ),
+      );
+      qc.invalidateQueries({ queryKey: pushTargetKey(targetType, targetId) });
+    },
   });
 }

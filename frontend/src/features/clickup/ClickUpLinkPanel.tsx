@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { ExternalLink, Link2, Loader2, Plus, RefreshCw, X } from 'lucide-react';
+import { ExternalLink, Link2, Loader2, Plus, RefreshCw, Unlink, X } from 'lucide-react';
 import { Button, Dialog, Field, Input, Menu } from '@/components/ui';
 import { ClickUpIcon } from '@/components/ClickUpIcon';
 import { PropSection } from '@/features/issues/IssueDetail';
@@ -16,6 +16,7 @@ import {
   useLinkClickUpTask,
   usePushClickUpTask,
   useRefreshClickUpLink,
+  useSetClickUpLinkDetached,
   useUnlinkClickUpTask,
 } from './api';
 
@@ -35,8 +36,10 @@ const FINISHED: string[] = [ClickUpStatusType.DONE, ClickUpStatusType.CLOSED];
  *
  * There are **two ways a link gets here**, and the panel offers whichever apply:
  *
- * - **Link an existing task** — paste a URL. A mirror, one-way, always available
- *   while ClickUp is connected.
+ * - **Link an existing task** — paste a URL. Always available while ClickUp is
+ *   connected. What it *means* depends on the board: a mirror on an unbound one,
+ *   and on a bound one, adoption — the pasted task becomes this record's synced
+ *   task, which is the honest answer for a team who made it in ClickUp first.
  * - **Create in ClickUp** — mint the task through this board's binding. Only
  *   where a binding exists and this record hasn't already got a task, which in
  *   practice means work that predates the binding: the automatic push runs on
@@ -46,6 +49,9 @@ const FINISHED: string[] = [ClickUpStatusType.DONE, ClickUpStatusType.CLOSED];
  * When only the first applies — no bound board, the common case — the header
  * keeps its plain `+` and opens the paste dialog directly. A menu of one is a
  * click asking permission to do the only thing it could have done.
+ *
+ * And one way out that isn't unbinding the whole board: a synced row can be
+ * **detached**, which stops both legs for this record alone.
  */
 export function ClickUpLinkPanel({
   targetType,
@@ -174,6 +180,7 @@ export function ClickUpLinkPanel({
               targetType={targetType}
               targetId={targetId}
               canWrite={canWrite}
+              boardBound={!!pushTarget?.bound}
             />
           ))}
         </div>
@@ -205,10 +212,14 @@ export function ClickUpLinkPanel({
           />
           <p className="mt-1.5 text-xs text-muted-foreground">{t('clickup.referenceHint')}</p>
         </Field>
-        {/* Said once, here, where someone is about to create the link and could
-            otherwise reasonably expect it to sync both ways. */}
+        {/* Said once, here, at the moment the link is about to exist — because
+            the same gesture means two different things and only the board knows
+            which. `canPush` is exactly the adopting case: bound, syncing, and
+            nothing synced on this record yet. */}
         <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-          {t('clickup.oneWayNote')}
+          {pushTarget?.canPush
+            ? t('clickup.adoptNote').replace('{list}', pushTarget.listName)
+            : t('clickup.oneWayNote')}
         </p>
       </Dialog>
     </PropSection>
@@ -218,26 +229,60 @@ export function ClickUpLinkPanel({
 /**
  * One linked task. Sized for the 260px Properties sidebar, so the row is two
  * lines — name, then status and freshness — with the actions on hover.
+ *
+ * A row is in one of three states, and each offers a different way out:
+ *
+ * - **mirror** (`manual`) — nothing was ever written to it. `×` removes it.
+ * - **syncing** (`sync`) — written to, and its status moves this item. `×` is not
+ *   offered, because removing the only record of which ClickUp task this item
+ *   owns is how the next save creates a *second* one. **Stop syncing** is offered
+ *   instead: reversible, and it changes nothing in ClickUp.
+ * - **detached** — was syncing, isn't now. An ordinary mirror again, so both
+ *   **Resume** and `×` apply. The `×` warns when the board is still bound, since
+ *   from there the next save does start a fresh task.
  */
 function ClickUpLinkRow({
   row,
   targetType,
   targetId,
   canWrite,
+  boardBound,
 }: {
   row: ClickUpLinkDto;
   targetType: ClickUpLinkTarget;
   targetId: string;
   canWrite: boolean;
+  /** Is this record's board still bound to a ClickUp list? Only affects wording. */
+  boardBound: boolean;
 }) {
   const refresh = useRefreshClickUpLink(targetType, targetId);
   const unlink = useUnlinkClickUpTask(targetType, targetId);
+  const detach = useSetClickUpLinkDetached(targetType, targetId);
   const finished = FINISHED.includes(row.statusType);
   const broken = !!row.unavailableReason;
-  // A link the board made, not a person: this one is written to, its status moves
-  // this item, and it can't be removed from here — unbinding the board is what
-  // ends it, and the server refuses anything else.
+  // A link the board made or adopted, not a bare mirror.
   const synced = row.origin === ClickUpLinkOrigin.SYNC;
+  const syncing = synced && !row.detached;
+  const detached = synced && row.detached;
+
+  function onSetDetached(next: boolean) {
+    detach.mutate(
+      { id: row.id, detached: next },
+      {
+        onSuccess: () => toast.success(t(next ? 'clickup.syncStopped' : 'clickup.syncResumed')),
+        onError: (e) => toast.error((e as Error).message),
+      },
+    );
+  }
+
+  function onRemove() {
+    // The warning is the whole reason this confirms at all: everywhere else,
+    // removing a link is inert. On a bound board, removing a *detached* one hands
+    // the item back to the board, and the next save makes it a new ClickUp task.
+    const message = detached && boardBound ? 'clickup.removeConfirmBound' : 'clickup.removeConfirm';
+    if (!confirm(t(message))) return;
+    unlink.mutate(row.id, { onError: (e) => toast.error((e as Error).message) });
+  }
 
   return (
     <div
@@ -286,14 +331,38 @@ function ClickUpLinkRow({
               >
                 <RefreshCw className={cn('size-3.5', refresh.isPending && 'animate-spin')} />
               </button>
-              {!synced && (
+              {syncing && (
                 <button
                   type="button"
-                  onClick={() =>
-                    unlink.mutate(row.id, { onError: (e) => toast.error((e as Error).message) })
-                  }
-                  className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-destructive"
+                  onClick={() => onSetDetached(true)}
+                  disabled={detach.isPending}
+                  className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  aria-label={t('clickup.stopSync')}
+                  title={t('clickup.stopSync')}
+                >
+                  <Unlink className="size-3.5" />
+                </button>
+              )}
+              {detached && (
+                <button
+                  type="button"
+                  onClick={() => onSetDetached(false)}
+                  disabled={detach.isPending}
+                  className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  aria-label={t('clickup.resumeSync')}
+                  title={t('clickup.resumeSync')}
+                >
+                  <Link2 className="size-3.5" />
+                </button>
+              )}
+              {!syncing && (
+                <button
+                  type="button"
+                  onClick={onRemove}
+                  disabled={unlink.isPending}
+                  className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-destructive disabled:opacity-50"
                   aria-label={t('clickup.unlink')}
+                  title={t('clickup.unlink')}
                 >
                   <X className="size-3.5" />
                 </button>
@@ -323,12 +392,23 @@ function ClickUpLinkRow({
             >
               · {timeAgo(row.lastSyncedAt)}
             </span>
-            {synced && (
+            {/* Two chips, never both. "Sync off" is not a warning — it's the
+                state someone asked for — so it stays on the same muted chip and
+                only the border says it's the other one. */}
+            {syncing && (
               <span
                 className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
                 title={t('clickup.syncedNote')}
               >
                 {t('clickup.synced')}
+              </span>
+            )}
+            {detached && (
+              <span
+                className="shrink-0 rounded border border-dashed border-border px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                title={t('clickup.syncOffNote')}
+              >
+                {t('clickup.syncOff')}
               </span>
             )}
           </>

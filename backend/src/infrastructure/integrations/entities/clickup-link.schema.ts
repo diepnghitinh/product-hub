@@ -9,6 +9,7 @@ export interface ClickUpLinkDoc {
   targetId: string;
   roadmapId: string;
   origin: string;
+  detached: boolean;
   pushedStatus: string;
   // ── the mirrored snapshot ──
   taskName: string;
@@ -41,6 +42,9 @@ export const ClickUpLinkSchema = new Schema<ClickUpLinkDoc>(
     // `manual` is the right default for a document written before bound boards
     // existed: it was a pasted link, and pasted links are never written to.
     origin: { type: String, default: 'manual' },
+    // Absent on every document written before per-record detaching existed, and
+    // `false` is what those were: syncing, like the board said.
+    detached: { type: Boolean, default: false },
     pushedStatus: { type: String, default: '' },
     taskName: { type: String, default: '' },
     taskUrl: { type: String, default: '' },

@@ -27,6 +27,7 @@ export class ClickUpLinkRepository implements IClickUpLinkRepository {
       targetId: d.targetId,
       roadmapId: d.roadmapId ?? '',
       origin: (d.origin as ClickUpLinkOrigin) ?? ClickUpLinkOrigin.MANUAL,
+      detached: d.detached ?? false,
       pushedStatus: d.pushedStatus ?? '',
       taskName: d.taskName ?? '',
       taskUrl: d.taskUrl ?? '',
@@ -131,6 +132,30 @@ export class ClickUpLinkRepository implements IClickUpLinkRepository {
 
   async markPushed(tenantId: string, id: string, pushedStatus: string): Promise<void> {
     await this.model.updateOne({ _id: id, tenantId }, { $set: { pushedStatus } }).exec();
+  }
+
+  async setDetached(
+    tenantId: string,
+    id: string,
+    detached: boolean,
+  ): Promise<ClickUpLinkRecord | null> {
+    const doc = await this.model
+      .findOneAndUpdate({ _id: id, tenantId }, { $set: { detached } }, { new: true })
+      .lean<ClickUpLinkDoc>()
+      .exec();
+    return doc ? this.toRecord(doc) : null;
+  }
+
+  async setOrigin(
+    tenantId: string,
+    id: string,
+    origin: ClickUpLinkOrigin,
+  ): Promise<ClickUpLinkRecord | null> {
+    const doc = await this.model
+      .findOneAndUpdate({ _id: id, tenantId }, { $set: { origin } }, { new: true })
+      .lean<ClickUpLinkDoc>()
+      .exec();
+    return doc ? this.toRecord(doc) : null;
   }
 
   async updateSnapshot(
