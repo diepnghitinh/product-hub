@@ -730,12 +730,24 @@ export const en = {
   'clickup.referenceRequired': 'Paste a ClickUp task link or ID.',
   'clickup.oneWayNote':
     'Display only. The task’s status shows here and updates when it changes in ClickUp — it never moves this item, and nothing is written back to ClickUp.',
+  'clickup.adoptNote':
+    'This board syncs with {list}. A task from that list becomes this item’s synced task — this item’s details are sent to it, and its status moves this item. A task from anywhere else stays display-only.',
   'clickup.open': 'Open in ClickUp',
   'clickup.refresh': 'Refresh from ClickUp',
   'clickup.unlink': 'Remove link',
+  'clickup.removeConfirm': 'Remove this link? The task stays in ClickUp, untouched.',
+  'clickup.removeConfirmBound':
+    'Remove this link? The task stays in ClickUp, untouched — but this board is still bound to a ClickUp list, so the next edit to this item will create a new task there.',
   'clickup.lastSynced': 'Last refreshed',
   'clickup.synced': 'Synced',
   'clickup.syncedNote': 'Kept in sync with this board’s ClickUp list.',
+  'clickup.stopSync': 'Stop syncing this item',
+  'clickup.syncStopped': 'This item no longer syncs with ClickUp.',
+  'clickup.resumeSync': 'Resume syncing',
+  'clickup.syncResumed': 'Syncing again with this task.',
+  'clickup.syncOff': 'Sync off',
+  'clickup.syncOffNote':
+    'This item was taken out of the board’s ClickUp sync. Nothing is sent and its status no longer moves this item — the task itself is untouched, and syncing can be resumed.',
   // Binding a board to a ClickUp list — team settings, and a roadmap's ⋯ menu
   'clickup.sync': 'ClickUp sync',
   'clickup.syncHint':

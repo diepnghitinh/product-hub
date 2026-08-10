@@ -24,6 +24,7 @@ import {
   RefreshClickUpLinkUseCase,
   SaveClickUpPeopleUseCase,
   SetClickUpEnabledUseCase,
+  SetClickUpLinkDetachedUseCase,
   UnlinkClickUpTaskUseCase,
 } from './use-cases/clickup.use-cases';
 import {
@@ -52,6 +53,7 @@ const useCases = [
   GetClickUpPushTargetUseCase,
   PushClickUpTaskUseCase,
   UnlinkClickUpTaskUseCase,
+  SetClickUpLinkDetachedUseCase,
   RefreshClickUpLinkUseCase,
   ReceiveClickUpEventUseCase,
   GetClickUpSpacesUseCase,

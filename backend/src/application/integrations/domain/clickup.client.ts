@@ -105,6 +105,12 @@ export interface ClickUpTask {
   priority: string;
   /** ISO `YYYY-MM-DD`, or '' when the task has no due date. */
   dueDate: string;
+  /**
+   * Which list the task sits in. Not mirrored onto the link — it's read once,
+   * to answer whether a pasted task is inside the list this board is bound to,
+   * which is the difference between adopting it and only showing it.
+   */
+  listId: string;
   listName: string;
   spaceName: string;
 }
@@ -154,7 +160,7 @@ interface RawTask {
   assignees?: { username?: string; email?: string }[] | null;
   priority?: { priority?: string } | null;
   due_date?: string | number | null;
-  list?: { name?: string } | null;
+  list?: { id?: string; name?: string } | null;
   space?: { name?: string } | null;
 }
 
@@ -454,6 +460,7 @@ export class ClickUpClient {
       assignees: (raw.assignees ?? []).map((a) => a.username || a.email || '').filter(Boolean),
       priority: raw.priority?.priority ?? '',
       dueDate: toIsoDate(raw.due_date),
+      listId: String(raw.list?.id ?? ''),
       listName: raw.list?.name ?? '',
       spaceName: raw.space?.name ?? '',
     };

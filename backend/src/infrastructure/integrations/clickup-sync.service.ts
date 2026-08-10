@@ -185,6 +185,12 @@ export class ClickUpSyncService extends IClickUpSync {
       ClickUpLinkTarget.ISSUE,
       issue.id.toString(),
     );
+    // Detached: this record stepped out of the board's sync. Returning — rather
+    // than letting a `null` link fall through to `write` — is the whole safety
+    // of the feature: "no link" means *create a task*, so treating a detached
+    // record as unlinked would answer "stop syncing" with a second ClickUp task.
+    if (link?.detached) return;
+
     const assigneeIds = issue.assignees.length
       ? issue.assignees.map((a) => a.id)
       : issue.assigneeId
@@ -217,6 +223,9 @@ export class ClickUpSyncService extends IClickUpSync {
     item: RoadmapItemData,
   ): Promise<void> {
     const link = await this.syncLinkFor(ctx.tenantId, ClickUpLinkTarget.ROADMAP_ITEM, item.id);
+    // See `pushIssueTo` — a detached record is not an unlinked one.
+    if (link?.detached) return;
+
     const input: ClickUpTaskInput = {
       name: item.title,
       description: plainTextBlocks(item.description),
@@ -348,6 +357,11 @@ export class ClickUpSyncService extends IClickUpSync {
    * A record can carry both: a task somebody pasted in *and* the one its bound
    * board created. Filtering here is what keeps the pasted one read-only, which
    * is the promise this workspace was already given before boards could be bound.
+   *
+   * A **detached** link comes back like any other. It has to: callers need to
+   * tell "this record owns a task but wants to be left alone" apart from "this
+   * record has no task", and only the first of those must not create one. The
+   * skip is theirs to make, right after this call.
    */
   private async syncLinkFor(
     tenantId: string,

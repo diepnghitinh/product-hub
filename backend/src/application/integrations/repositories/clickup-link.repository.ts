@@ -51,6 +51,19 @@ export interface ClickUpLinkRecord extends ClickUpTaskSnapshot {
    */
   origin: ClickUpLinkOrigin;
   /**
+   * One record stepping out of its board's sync, without losing the task.
+   *
+   * Only meaningful on a {@link ClickUpLinkOrigin.SYNC} link. `true` stops both
+   * legs — nothing is pushed, no inbound status moves the card — while leaving
+   * the row on screen as an ordinary mirror that still refreshes.
+   *
+   * It stays `sync` rather than becoming `manual` on purpose: this row is the
+   * only thing that remembers which ClickUp task this record already owns, and
+   * the push path finds it by origin. Demote it and the next save mints a
+   * *second* task, which is the one outcome "stop syncing" must never produce.
+   */
+  detached: boolean;
+  /**
    * The ClickUp status name **we** last sent, on a synced link.
    *
    * The echo guard. Pushing a status makes ClickUp fire `taskStatusUpdated`
@@ -114,6 +127,25 @@ export abstract class IClickUpLinkRepository {
   ) => Promise<number>;
   /** Record the status we just sent to ClickUp — see {@link ClickUpLinkRecord.pushedStatus}. */
   markPushed: (tenantId: string, id: string, pushedStatus: string) => Promise<void>;
+  /** Step one record out of its board's sync, or put it back. */
+  setDetached: (
+    tenantId: string,
+    id: string,
+    detached: boolean,
+  ) => Promise<ClickUpLinkRecord | null>;
+  /**
+   * Change which direction a link runs.
+   *
+   * Deliberately separate from {@link IClickUpLinkRepository.create}, where
+   * `origin` is insert-only: promoting a link is a decision a use-case makes out
+   * loud after checking the board is bound and the task is in its list — never
+   * something a refresh of the mirror can do on the way past.
+   */
+  setOrigin: (
+    tenantId: string,
+    id: string,
+    origin: ClickUpLinkOrigin,
+  ) => Promise<ClickUpLinkRecord | null>;
   removeById: (tenantId: string, id: string) => Promise<boolean>;
   /** Drop every link in a workspace — used when ClickUp is disconnected for good. */
   removeAllForTenant: (tenantId: string) => Promise<number>;
