@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { MoveHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { t } from '@/i18n';
-import { GanttChart, isEpoch, type GanttRow } from '@/components/GanttChart';
+import { GanttChart, isEpoch, toEpoch, type GanttRow } from '@/components/GanttChart';
 import { useIssues, useUpdateIssue } from '@/features/issues/api';
 import { IssuePeekDrawer, type IssuePeek } from '@/features/issues/IssuePeekDrawer';
 import { useTeamStatusesLookup } from '@/features/teams/api';
@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { DEFAULT_ROADMAP_COLUMNS, IssueKind, TeamIssueType } from '@/types/enums';
 import type { IssueDto, RoadmapColumn, RoadmapDto, RoadmapItem } from '@/types/dto';
 import { useReplaceRoadmapItems } from '../api';
+import { UNGROUPED, epicCountLabel, rollup, type EpicRollup } from '../epics';
 import {
   byIssueDate,
   issueEnd,
@@ -26,6 +27,108 @@ import { TimelineAssignees } from './TimelineAssignees';
 /** A roadmap's columns, with the shared fallback for one that somehow has none. */
 const columnsOf = (r: RoadmapDto): RoadmapColumn[] =>
   r.columns?.length ? r.columns : DEFAULT_ROADMAP_COLUMNS;
+
+/** Names a plan inline on a row's second line — the one thing a cross-roadmap row
+ *  needs that a single-roadmap row never did. Inline, so the line still truncates
+ *  as one piece. */
+const CHIP = 'mr-1.5 rounded-sm border px-1 py-px text-[10px] font-medium';
+
+/** A band that stands for something with no colour of its own — a roadmap, or the
+ *  items nobody put in an epic. Never a phase colour: on this chart that already
+ *  means "which column is it in". */
+const NEUTRAL = 'hsl(var(--muted-foreground))';
+
+/** How the rows are banded. `''` — the default — is one flat, date-ordered list. */
+export type TimelineGrouping = '' | 'roadmap' | 'epic';
+
+/** One item on the chart, with the two things a cross-roadmap row has to name. */
+interface Entry {
+  item: RoadmapItem;
+  roadmap: RoadmapDto;
+  column?: RoadmapColumn;
+}
+
+/** A run of entries under one foldable heading. `rollup: null` marks the single
+ *  bucket the ungrouped chart uses, which draws no heading at all. */
+interface Band {
+  key: string;
+  label: string;
+  color: string;
+  /** The plan an epic belongs to. Named on the heading because two roadmaps can
+   *  each have an epic called "Payments"; empty when the heading *is* a roadmap. */
+  roadmapTitle: string;
+  entries: Entry[];
+  rollup: EpicRollup | null;
+}
+
+/**
+ * Band the entries by the plan they came from or the bet they belong to — or hand
+ * back the one flat bucket, which is what "No grouping" is.
+ *
+ * The bands are ordered **by date, like everything else on this chart**: the one
+ * that starts soonest is on top, undated ones last. A roadmap has a stored order
+ * and an epic has one too, but neither is an answer to "what is happening first?",
+ * which is the question this view exists for. The entries inside a band arrive
+ * already date-sorted and stay that way.
+ *
+ * An `epicId` no epic answers to reads as ungrouped rather than dropping the item —
+ * the server clears stale ids, but a row can render mid-flight.
+ */
+function bandEntries(entries: Entry[], grouping: TimelineGrouping): Band[] {
+  if (!grouping) {
+    return [{ key: '', label: '', color: '', roadmapTitle: '', entries, rollup: null }];
+  }
+
+  const bands = new Map<string, Band>();
+  for (const entry of entries) {
+    const epic =
+      grouping === 'epic'
+        ? entry.roadmap.epics?.find((e) => e.id === entry.item.epicId)
+        : undefined;
+    // An epic band is keyed by *its roadmap's* epic, never by the epic id alone:
+    // ids are only unique inside the roadmap that owns them, and two plans that
+    // happen to share one would otherwise merge into a band whose heading names
+    // just one of them.
+    const key =
+      grouping === 'roadmap'
+        ? entry.roadmap.id
+        : epic
+          ? `${entry.roadmap.id}:${epic.id}`
+          : UNGROUPED;
+    let band = bands.get(key);
+    if (!band) {
+      band = {
+        key,
+        label:
+          grouping === 'roadmap'
+            ? entry.roadmap.title
+            : (epic?.label || (epic ? t('roadmaps.epic') : t('roadmaps.noEpic'))),
+        color: grouping === 'roadmap' ? NEUTRAL : (epic?.color ?? NEUTRAL),
+        roadmapTitle: epic ? entry.roadmap.title : '',
+        entries: [],
+        rollup: null,
+      };
+      bands.set(key, band);
+    }
+    band.entries.push(entry);
+  }
+  // A band's window and progress are read off the rows under it, every render —
+  // the same rule an epic follows on the board, so a band can't claim to be 80%
+  // done when the items in it say otherwise.
+  for (const band of bands.values()) band.rollup = rollup(band.entries.map((e) => e.item));
+
+  return [...bands.values()].sort((a, b) => {
+    // "No epic" is the leftovers, so it trails whatever was actually grouped.
+    if (a.key === UNGROUPED) return 1;
+    if (b.key === UNGROUPED) return -1;
+    // ISO days compare as strings; '' means nothing in the band is scheduled.
+    const sa = a.rollup?.startDate ?? '';
+    const sb = b.rollup?.startDate ?? '';
+    if (sa && sb && sa !== sb) return sa < sb ? -1 : 1;
+    if (!!sa !== !!sb) return sa ? -1 : 1;
+    return a.label.localeCompare(b.label);
+  });
+}
 
 /**
  * Every phase column across every roadmap, de-duplicated by key and kept in the
@@ -52,6 +155,11 @@ interface AllRoadmapsGanttViewProps {
    * `UNASSIGNED` sentinel; empty/omitted = no filter.
    */
   assigneeIds?: string[];
+  /**
+   * Band the rows under a foldable heading — one per roadmap, or one per epic.
+   * Omitted/`''` → the flat, date-ordered list this view has always drawn.
+   */
+  grouping?: TimelineGrouping;
   isLoading?: boolean;
 }
 
@@ -71,6 +179,11 @@ interface AllRoadmapsGanttViewProps {
  * the thing this view exists to show. The roadmap an item belongs to is named by
  * a chip on the row's second line, and the row's colour is its phase column's.
  *
+ * `grouping` bands those rows without changing that: by **roadmap**, when the
+ * question is "how do our plans sit against each other?", or by **epic**, when
+ * it's "which bets are running, and when?". A band's bar is the span of the work
+ * inside it and nothing else, so it can't disagree with the rows it covers.
+ *
  * Dates follow the one rule shared with every other timeline (`../ganttRows`):
  * two dates → a bar, one → a diamond, neither → listed but not placed.
  */
@@ -78,6 +191,7 @@ export function AllRoadmapsGanttView({
   roadmaps,
   phases,
   assigneeIds,
+  grouping = '',
   isLoading,
 }: AllRoadmapsGanttViewProps) {
   const { canWrite } = useAuth();
@@ -106,6 +220,18 @@ export function AllRoadmapsGanttView({
   // What a row click opens — one drawer per kind, only ever one at a time.
   const [issuePeek, setIssuePeek] = useState<IssuePeek | null>(null);
   const [itemPeek, setItemPeek] = useState<RoadmapItemPeek | null>(null);
+
+  // Which bands are folded shut. Presentational + per-session, like the roadmap
+  // board's lanes and the per-roadmap timeline's epics. Keys are roadmap/epic
+  // ids, so switching axis can't leave a band folded by a key that isn't its own.
+  const [foldedBands, setFoldedBands] = useState<Set<string>>(() => new Set());
+  const toggleBand = (key: string) =>
+    setFoldedBands((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   // Dates just dragged, applied over the fetched rows until the refetch agrees.
   // Neither write is optimistic *for this view* — the item write patches the
@@ -143,7 +269,7 @@ export function AllRoadmapsGanttView({
   // its roadmap and its phase column along, so the row below can name both
   // without going back to look them up.
   const phaseSet = new Set(phases);
-  const entries: { item: RoadmapItem; roadmap: RoadmapDto; column?: RoadmapColumn }[] = [];
+  const entries: Entry[] = [];
   for (const roadmap of roadmaps) {
     const cols = columnsOf(roadmap);
     for (const raw of roadmap.items ?? []) {
@@ -212,83 +338,116 @@ export function AllRoadmapsGanttView({
   };
 
   const rows: GanttRow[] = [];
-  for (const { item, roadmap, column } of entries) {
-    const color = column?.color ?? 'hsl(var(--primary))';
-    const issues = (issuesByItem.get(item.id) ?? []).slice().sort(byIssueDate);
-    const label = item.title || t('roadmaps.untitled');
-
-    rows.push({
-      id: `${roadmap.id}:${item.id}`,
-      dotColor: color,
-      label,
-      sublabel: (
-        <>
-          {/* Which plan this belongs to — the one thing a cross-roadmap row needs
-              that a single-roadmap row never did. Inline, so the line still
-              truncates as one piece. */}
-          <span className="mr-1.5 rounded-sm border px-1 py-px text-[10px] font-medium">
-            {roadmap.title}
-          </span>
-          {column?.label ? `${column.label} · ` : ''}
-          {`${item.progress}% · `}
-          {issues.length
-            ? t('roadmaps.ganttIssues').replace('{count}', String(issues.length))
-            : t('roadmaps.ganttNoIssues')}
-        </>
-      ),
-      // An item carries its own people (its DRIs), separately from whoever is on
-      // the work underneath it.
-      trailing: <TimelineAssignees people={item.assignees} />,
-      onClick: () =>
-        setItemPeek({
-          roadmapId: roadmap.id,
-          itemId: item.id,
-          href: `/roadmaps/${roadmap.id}/items/${item.shortId || item.id}`,
-        }),
-      ...placeOnAxis({
-        ...itemWindow(item),
-        color,
-        progress: item.progress,
-        label,
-        suffix: roadmap.title,
-        onChange: canWrite ? (next) => rescheduleItem(item, roadmap, next) : undefined,
-      }),
-    });
-
-    for (const issue of issues) {
-      const issueType = issue.kind === IssueKind.BUG ? TeamIssueType.BUG : TeamIssueType.TASK;
-      const cfg = statusesFor(issue.teamId, issueType).find((c) => c.key === issue.status);
-      const st = {
-        color: cfg?.color ?? 'hsl(var(--muted-foreground))',
-        label: cfg?.label ?? issue.status,
-      };
+  for (const band of bandEntries(entries, grouping)) {
+    const folded = foldedBands.has(band.key);
+    if (band.rollup) {
       rows.push({
-        id: `${roadmap.id}:${item.id}:${issue.id}`,
-        depth: 1,
-        dotColor: st.color,
-        label: issue.title,
-        trailing: <TimelineAssignees people={issue.assignees} />,
-        onClick: () =>
-          setIssuePeek({
-            id: issue.id,
-            issueType,
-            href: `/issues/${issue.shortId || issue.id}`,
-          }),
-        // No `progress`: an issue bar is a schedule, not a fill level.
+        id: `band:${grouping}:${band.key}`,
+        heading: true,
+        collapsed: folded,
+        dotColor: band.color,
+        label: band.label,
+        sublabel: (
+          <>
+            {band.roadmapTitle && <span className={CHIP}>{band.roadmapTitle}</span>}
+            {`${band.rollup.progress}% · ${epicCountLabel(band.rollup)}`}
+          </>
+        ),
+        onClick: () => toggleBand(band.key),
+        // Deliberately no `onChange`: a band's window is the union of the rows
+        // under it, and spreading a drag back over them has no honest answer.
         ...placeOnAxis({
-          start: issueStart(issue),
-          end: issueEnd(issue),
-          color: st.color,
-          label: issue.title,
-          suffix: st.label,
-          onChange: canWrite ? (next) => rescheduleIssue(issue, next) : undefined,
+          start: toEpoch(band.rollup.startDate),
+          end: toEpoch(band.rollup.endDate),
+          color: band.color,
+          progress: band.rollup.progress,
+          label: band.label,
         }),
       });
+      if (folded) continue;
+    }
+
+    // Which plan a row belongs to only needs saying when the heading above doesn't.
+    // A roadmap band says it once; an epic band is scoped to a single plan and
+    // names it on the heading too. "No epic" is the exception — it's the leftovers
+    // from *every* roadmap, so its rows still have to say where they came from.
+    const namesPlan = grouping !== 'roadmap' && !band.roadmapTitle;
+
+    for (const { item, roadmap, column } of band.entries) {
+      const color = column?.color ?? 'hsl(var(--primary))';
+      const issues = (issuesByItem.get(item.id) ?? []).slice().sort(byIssueDate);
+      const label = item.title || t('roadmaps.untitled');
+
+      rows.push({
+        id: `${roadmap.id}:${item.id}`,
+        dotColor: color,
+        label,
+        sublabel: (
+          <>
+            {namesPlan && <span className={CHIP}>{roadmap.title}</span>}
+            {column?.label ? `${column.label} · ` : ''}
+            {`${item.progress}% · `}
+            {issues.length
+              ? t('roadmaps.ganttIssues').replace('{count}', String(issues.length))
+              : t('roadmaps.ganttNoIssues')}
+          </>
+        ),
+        // An item carries its own people (its DRIs), separately from whoever is
+        // on the work underneath it.
+        trailing: <TimelineAssignees people={item.assignees} />,
+        onClick: () =>
+          setItemPeek({
+            roadmapId: roadmap.id,
+            itemId: item.id,
+            href: `/roadmaps/${roadmap.id}/items/${item.shortId || item.id}`,
+          }),
+        ...placeOnAxis({
+          ...itemWindow(item),
+          color,
+          progress: item.progress,
+          label,
+          suffix: roadmap.title,
+          onChange: canWrite ? (next) => rescheduleItem(item, roadmap, next) : undefined,
+        }),
+      });
+
+      for (const issue of issues) {
+        const issueType = issue.kind === IssueKind.BUG ? TeamIssueType.BUG : TeamIssueType.TASK;
+        const cfg = statusesFor(issue.teamId, issueType).find((c) => c.key === issue.status);
+        const st = {
+          color: cfg?.color ?? 'hsl(var(--muted-foreground))',
+          label: cfg?.label ?? issue.status,
+        };
+        rows.push({
+          id: `${roadmap.id}:${item.id}:${issue.id}`,
+          depth: 1,
+          dotColor: st.color,
+          label: issue.title,
+          trailing: <TimelineAssignees people={issue.assignees} />,
+          onClick: () =>
+            setIssuePeek({
+              id: issue.id,
+              issueType,
+              href: `/issues/${issue.shortId || issue.id}`,
+            }),
+          // No `progress`: an issue bar is a schedule, not a fill level.
+          ...placeOnAxis({
+            start: issueStart(issue),
+            end: issueEnd(issue),
+            color: st.color,
+            label: issue.title,
+            suffix: st.label,
+            onChange: canWrite ? (next) => rescheduleIssue(issue, next) : undefined,
+          }),
+        });
+      }
     }
   }
 
-  // Every legend line is earned by something actually on the chart.
-  const hasItemBars = rows.some((r) => !(r.depth ?? 0) && r.bar);
+  // Every legend line is earned by something actually on the chart. A band's own
+  // bar doesn't earn one: it's the union of the item bars below it, and it has
+  // its own two-layer look for exactly that reason.
+  const hasItemBars = rows.some((r) => !r.heading && !(r.depth ?? 0) && r.bar);
   const hasIssueBars = rows.some((r) => (r.depth ?? 0) > 0 && r.bar);
   const hasMarkers = rows.some((r) => r.marker);
   // The list is capped at the API's page size. Saying so beats a chart that
