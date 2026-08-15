@@ -303,8 +303,17 @@ function LightboxOverlay({
   // A different entry is a different picture — don't inherit the last one's zoom.
   useEffect(() => setView(FIT), [index]);
 
+  const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60';
+  // Dark chrome, not a white wash: a diagram now opens on a light sheet, and
+  // white-on-white/10 disappeared the moment the picture slid under the controls.
+  // Black holds against both the backdrop and the sheet.
   const chrome =
-    'grid place-items-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60';
+    `grid place-items-center rounded-full bg-black/60 text-white ring-1 ring-white/15 ` +
+    `backdrop-blur transition-colors hover:bg-black/80 ${focusRing}`;
+  /** A button that already sits on the zoom pill — it borrows that fill. */
+  const onPill =
+    `grid place-items-center rounded-full text-white transition-colors hover:bg-white/20 ` +
+    focusRing;
   /** The chrome sits on the backdrop, which closes on click — keep it to itself. */
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
 
@@ -400,7 +409,7 @@ function LightboxOverlay({
             <div
               onClick={stop}
               onPointerDown={stop}
-              className="fixed bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-white/10 p-1 backdrop-blur"
+              className="fixed bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-black/60 p-1 ring-1 ring-white/15 backdrop-blur"
             >
               <button
                 type="button"
@@ -408,7 +417,7 @@ function LightboxOverlay({
                 title={t('lightbox.zoomOut')}
                 disabled={view.scale <= MIN_SCALE}
                 onClick={() => zoomBy(1 / STEP)}
-                className={`size-8 disabled:opacity-40 ${chrome}`}
+                className={`size-8 disabled:opacity-40 ${onPill}`}
               >
                 <Minus className="size-4" />
               </button>
@@ -418,7 +427,7 @@ function LightboxOverlay({
                 type="button"
                 title={t('lightbox.zoomFit')}
                 onClick={fit}
-                className="min-w-16 rounded-full px-2 py-1 text-xs font-medium tabular-nums text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                className={`min-w-16 px-2 py-1 text-xs font-medium tabular-nums ${onPill}`}
               >
                 {view.scale === 1 ? t('lightbox.zoomFit') : `${Math.round(view.scale * 100)}%`}
               </button>
@@ -428,7 +437,7 @@ function LightboxOverlay({
                 title={t('lightbox.zoomIn')}
                 disabled={view.scale >= MAX_SCALE}
                 onClick={() => zoomBy(STEP)}
-                className={`size-8 disabled:opacity-40 ${chrome}`}
+                className={`size-8 disabled:opacity-40 ${onPill}`}
               >
                 <Plus className="size-4" />
               </button>
@@ -459,7 +468,7 @@ function LightboxOverlay({
               >
                 <ChevronRight className="size-6" />
               </button>
-              <div className="fixed bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-white backdrop-blur">
+              <div className="fixed bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-sm font-medium text-white ring-1 ring-white/15 backdrop-blur">
                 {index + 1} / {count}
               </div>
             </>
@@ -468,6 +477,50 @@ function LightboxOverlay({
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   );
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const SHEET_CLASS = 'lightbox-sheet';
+
+/**
+ * Put a sheet of paper behind the drawing.
+ *
+ * Mermaid draws on transparency and picks its ink for the page the diagram sat
+ * on, so a light-theme diagram opens as near-black strokes on the viewer's
+ * near-black backdrop — bigger, and unreadable. `--card` is the app's own
+ * surface token (white in light mode, near-black in dark), so one fill answers
+ * both themes: the sheet always contrasts with the ink mermaid actually used.
+ *
+ * The sheet goes *inside* the SVG, as a `<rect>` over the viewBox, rather than
+ * behind it as a div. That way it needs no layout of its own — it letterboxes,
+ * zooms and pans with the picture, and lands exactly on the drawing's bounds
+ * instead of on the full-screen box the SVG is stretched to. Idempotent, since
+ * the ref callback can run again over the same clone.
+ */
+function paintSheet(svg: SVGElement) {
+  if (svg.querySelector(`.${SHEET_CLASS}`)) return;
+  const rect = document.createElementNS(SVG_NS, 'rect');
+  rect.setAttribute('class', SHEET_CLASS);
+  // Inline, so mermaid's own `#id rect` rules can't repaint it.
+  rect.style.fill = 'hsl(var(--card))';
+
+  const box = (svg.getAttribute('viewBox') ?? '').split(/[\s,]+/).filter(Boolean).map(Number);
+  const [x, y, w, h] = box as [number, number, number, number];
+  if (box.length === 4 && box.every(Number.isFinite) && w > 0 && h > 0) {
+    // Breathing room, so the drawing doesn't run into the edge of its own sheet.
+    // The viewBox grows with it — content outside it would just be clipped.
+    const pad = Math.min(48, Math.max(12, Math.max(w, h) * 0.03));
+    svg.setAttribute('viewBox', `${x - pad} ${y - pad} ${w + pad * 2} ${h + pad * 2}`);
+    rect.setAttribute('x', String(x - pad));
+    rect.setAttribute('y', String(y - pad));
+    rect.setAttribute('width', String(w + pad * 2));
+    rect.setAttribute('height', String(h + pad * 2));
+  } else {
+    // No viewBox to measure — cover the viewport the SVG ends up with.
+    rect.setAttribute('width', '100%');
+    rect.setAttribute('height', '100%');
+  }
+  svg.insertBefore(rect, svg.firstChild);
 }
 
 /**
@@ -484,6 +537,7 @@ function DiagramLayer({ svg, view, panning }: { svg: SVGElement; view: View; pan
   const mount = useCallback(
     (host: HTMLDivElement | null) => {
       if (!host) return;
+      paintSheet(svg);
       // Mermaid ships the SVG sized for the column it was drawn in — an inline
       // `max-width`, and usually width/height attributes. Clear those and the
       // viewBox takes over, which is what lets it grow to fill the screen while
