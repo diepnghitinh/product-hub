@@ -4,7 +4,6 @@ import { MoreHorizontal } from 'lucide-react';
 import { EditableTitle, Menu, RichText, RichTextEditor, type MenuItem } from '@/components/ui';
 import { AttachmentSection } from '@/components/AttachmentBar';
 import { useHtmlSaveGuard } from '@/components/EditGuard';
-import { useEditToggle } from '@/components/EditToggle';
 import {
   DescriptionTemplates,
   useTemplateSeed,
@@ -120,14 +119,6 @@ export function IssueDetailMain({
   // rewriting the text is one of those. The guard also refuses to write a value
   // that drops most of what's stored without asking first (components/EditGuard).
   const guard = useHtmlSaveGuard({ saved: description, onSave: onSaveDescription });
-  // And what's on screen by default is the *read* view, not the editor: the
-  // editor can't be translated without eating the original, so it only appears
-  // when someone presses Edit (components/EditToggle).
-  const edit = useEditToggle(description, {
-    className: 'text-sm',
-    placeholder: descriptionPlaceholder,
-    onLeaveEdit: guard.flush,
-  });
 
   // Templates: applying one saves at once (no debounce) and remounts the editor
   // via `nonce`, since Editor.js only reads `value` at mount.
@@ -221,33 +212,24 @@ export function IssueDetailMain({
       <div className="mt-4">
         {canWrite ? (
           <>
-            {/* Templates and the Edit toggle share one row rather than stacking
-                two right-aligned strips above the same field. Applying a
-                template opens the editor — it's the start of writing. */}
             <DescriptionTemplates
               templates={templates}
               hasContent={seed.hasContent}
-              onApply={(tpl) => {
-                edit.edit();
-                seed.apply(tpl);
-              }}
-              actions={edit.button}
+              onApply={seed.apply}
             />
-            {edit.view ?? (
-              <RichTextEditor
-                key={`${issueId}:${seed.nonce}:${guard.nonce}`}
-                value={seed.value}
-                onChange={guard.draft}
-                onBlur={guard.commit}
-                placeholder={descriptionPlaceholder}
-                minHeight={80}
-                images
-                // `@` names a person in the description the same way it does in a
-                // comment. The chip is a reference, not a ping — only comments notify.
-                mentions
-                className="border-0"
-              />
-            )}
+            <RichTextEditor
+              key={`${issueId}:${seed.nonce}:${guard.nonce}`}
+              value={seed.value}
+              onChange={guard.draft}
+              onBlur={guard.commit}
+              placeholder={descriptionPlaceholder}
+              minHeight={80}
+              images
+              // `@` names a person in the description the same way it does in a
+              // comment. The chip is a reference, not a ping — only comments notify.
+              mentions
+              className="border-0"
+            />
             {guard.dialog}
           </>
         ) : description ? (

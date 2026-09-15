@@ -29,7 +29,6 @@ import { AssigneeField, fallbackNames } from '@/components/AssigneeField';
 import { DetailSkeleton } from '@/components/Skeletons';
 import { DescriptionTemplates, useTemplateSeed } from '@/components/DescriptionTemplates';
 import { useHtmlSaveGuard } from '@/components/EditGuard';
-import { useEditToggle } from '@/components/EditToggle';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { usePageChrome } from '@/layouts/headers/PageChrome';
@@ -181,13 +180,6 @@ export function RoadmapItemDetail({
   // contract as task/bug detail, so a backlog item can't be lost to a browser
   // translation either.
   const descGuard = useHtmlSaveGuard({ saved: item?.description ?? '', onSave: saveDescription });
-  // The editor can't be translated without eating the original, so the read
-  // view is what's on screen until someone presses Edit (components/EditToggle).
-  const edit = useEditToggle(item?.description ?? '', {
-    className: 'text-sm',
-    placeholder: t('roadmaps.description'),
-    onLeaveEdit: descGuard.flush,
-  });
 
   if (isLoading) {
     return <DetailSkeleton />;
@@ -573,26 +565,20 @@ export function RoadmapItemDetail({
             <DescriptionTemplates
               templates={BACKLOG_TEMPLATES}
               hasContent={seed.hasContent}
-              onApply={(tpl) => {
-                edit.edit();
-                seed.apply(tpl);
-              }}
-              actions={edit.button}
+              onApply={seed.apply}
             />
-            {edit.view ?? (
-              <RichTextEditor
-                key={`${item.id}:${seed.nonce}:${descGuard.nonce}`}
-                value={seed.value}
-                onChange={descGuard.draft}
-                onBlur={descGuard.commit}
-                placeholder={t('roadmaps.description')}
-                minHeight={80}
-                images
-                // `@` names a person here too — a reference in the text, not a ping.
-                mentions
-                className="border-0"
-              />
-            )}
+            <RichTextEditor
+              key={`${item.id}:${seed.nonce}:${descGuard.nonce}`}
+              value={seed.value}
+              onChange={descGuard.draft}
+              onBlur={descGuard.commit}
+              placeholder={t('roadmaps.description')}
+              minHeight={80}
+              images
+              // `@` names a person here too — a reference in the text, not a ping.
+              mentions
+              className="border-0"
+            />
             {descGuard.dialog}
           </>
         ) : item.description ? (
