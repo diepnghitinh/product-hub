@@ -1403,6 +1403,10 @@ export const ko: Record<I18nKey, string> = {
   // Boards — the shared Timeline (Gantt) view on every issue board
   'boards.today': '오늘',
   'boards.resizeColumn': '드래그해서 열 너비 조절',
+  'boards.collapseAll': '모두 접기',
+  'boards.expandAll': '모두 펼치기',
+  'boards.collapseRow': '접기',
+  'boards.expandRow': '펼치기',
   'boards.viewTimeline': '타임라인',
   'boards.timelineIssue': '이슈',
   'boards.timelineEmpty': '아직 일정을 잡을 항목이 없습니다',

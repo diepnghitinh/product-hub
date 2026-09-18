@@ -6,7 +6,8 @@ import {
   type ReactNode,
 } from 'react';
 import { Link } from 'react-router-dom';
-import { Spinner } from '@/components/ui';
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
+import { Button, Spinner } from '@/components/ui';
 import { cn } from '@/lib/utils';
 import { localeTag, t } from '@/i18n';
 import { formatDate } from '@/lib/format';
@@ -209,6 +210,21 @@ export interface GanttChartProps {
   isLoading?: boolean;
   /** Shown when there are no rows at all. */
   empty?: { title: string; hint?: string };
+  /**
+   * Lets a parent row **fold its children away**. A top-level row (`depth` 0)
+   * owns every indented row that follows it until the next top-level row or
+   * group header, so the chart derives the tree from `depth` alone — a caller
+   * just says the rows nest and keeps emitting the same flat list.
+   *
+   * Each parent gets a chevron in the rail, and the chart grows a
+   * "Collapse all / Expand all" pair above it: a roadmap timeline with 15
+   * backlog items and 60 tasks is unreadable as a single 75-row scroll, and
+   * folding it back to its items is the "where does each thing sit?" reading.
+   *
+   * The date window is always measured from **every** row, collapsed or not, so
+   * folding a row never shifts the axis under the bars still on screen.
+   */
+  collapsible?: boolean;
 }
 
 /**
@@ -226,10 +242,21 @@ export interface GanttChartProps {
  * window and its edges resize, snapped to whole days. A single-date row does the
  * same through `onMarkerChange` — its diamond drags to a new date.
  */
-export function GanttChart({ rows, labelHeader, bands = [], legend, isLoading, empty }: GanttChartProps) {
+export function GanttChart({
+  rows,
+  labelHeader,
+  bands = [],
+  legend,
+  isLoading,
+  empty,
+  collapsible,
+}: GanttChartProps) {
   const [railW, setRailW] = useState(readRail);
   const railDrag = useRef<{ x0: number; w0: number } | null>(null);
   const [resizing, setResizing] = useState(false);
+  /** Folded parents, by row id. Empty = everything open, which is the state the
+   *  timeline has always had — collapsing is opt-in, never the first thing you see. */
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
 
   const beginRailDrag = (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
@@ -263,6 +290,45 @@ export function GanttChart({ rows, labelHeader, bands = [], legend, isLoading, e
   /** Two columns, sized from the state — used by the header and every row, so
    *  they can't drift out of lockstep the way the old literals could. */
   const cols = { gridTemplateColumns: `${railW}px minmax(0,1fr)` };
+
+  // ── The row tree ───────────────────────────────────────────────────────────
+  // Derived from `depth`, not from a parent id the caller has to invent: an
+  // indented row belongs to the last top-level row above it, and a group header
+  // ends the run (a sprint's first item can't be a child of the previous one's
+  // last task). Only built when the chart is collapsible, so nothing changes for
+  // the callers that aren't.
+  const parentOf = new Map<string, string>();
+  const childCount = new Map<string, number>();
+  if (collapsible) {
+    let parent: string | null = null;
+    for (const r of rows) {
+      if (r.group) {
+        parent = null;
+      } else if ((r.depth ?? 0) === 0) {
+        parent = r.id;
+      } else if (parent) {
+        parentOf.set(r.id, parent);
+        childCount.set(parent, (childCount.get(parent) ?? 0) + 1);
+      }
+    }
+  }
+  // Nothing nests → no chevrons and no Collapse all, rather than two buttons
+  // that would do nothing.
+  const canCollapse = childCount.size > 0;
+  const visible = canCollapse
+    ? rows.filter((r) => {
+        const p = parentOf.get(r.id);
+        return !p || !collapsed.has(p);
+      })
+    : rows;
+  const allCollapsed = canCollapse && [...childCount.keys()].every((id) => collapsed.has(id));
+
+  const toggleRow = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
 
   if (isLoading) {
     return (
@@ -316,9 +382,35 @@ export function GanttChart({ rows, labelHeader, bands = [], legend, isLoading, e
 
   return (
     <div className="flex flex-col gap-3">
-      {legend && (
+      {(legend || canCollapse) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {legend}
+          {/* Trailing, and pushed to the far edge: these are controls, not part of
+              the legend's reading of the chart. */}
+          {canCollapse && (
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 px-2 text-xs"
+                onClick={() => setCollapsed(new Set(childCount.keys()))}
+                disabled={allCollapsed}
+              >
+                <ChevronsDownUp className="size-3.5" aria-hidden />
+                {t('boards.collapseAll')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 px-2 text-xs"
+                onClick={() => setCollapsed(new Set())}
+                disabled={collapsed.size === 0}
+              >
+                <ChevronsUpDown className="size-3.5" aria-hidden />
+                {t('boards.expandAll')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -417,8 +509,20 @@ export function GanttChart({ rows, labelHeader, bands = [], legend, isLoading, e
             </div>
 
             <div className="relative z-10">
-              {rows.map((row) => (
-                <GanttRowView key={row.id} row={row} cols={cols} pct={pct} spanMs={maxMs - minMs} />
+              {visible.map((row) => (
+                <GanttRowView
+                  key={row.id}
+                  row={row}
+                  cols={cols}
+                  pct={pct}
+                  spanMs={maxMs - minMs}
+                  // Every row in a collapsible chart reserves the chevron's width,
+                  // so a childless item's title still lines up with its neighbours'.
+                  indented={canCollapse}
+                  childCount={childCount.get(row.id) ?? 0}
+                  collapsed={collapsed.has(row.id)}
+                  onToggle={() => toggleRow(row.id)}
+                />
               ))}
             </div>
           </div>
@@ -433,12 +537,22 @@ function GanttRowView({
   cols,
   pct,
   spanMs,
+  indented,
+  childCount,
+  collapsed,
+  onToggle,
 }: {
   row: GanttRow;
   /** The chart's two column widths — the rail is resizable, so they're shared. */
   cols: { gridTemplateColumns: string };
   pct: (v: number) => number;
   spanMs: number;
+  /** The chart has a chevron gutter — reserve it on every row so titles align. */
+  indented?: boolean;
+  /** How many child rows this row owns (0 → no chevron, just the gutter). */
+  childCount?: number;
+  collapsed?: boolean;
+  onToggle?: () => void;
 }) {
   // A section header spans both columns and carries no timeline of its own.
   // Pinned left like the rail: a group you can't read after scrolling the axis
@@ -499,7 +613,15 @@ function GanttRowView({
   // than a target per line, so there are no dead gaps left between them.
   const cellCls = cn(
     'flex min-w-0 flex-1 flex-col justify-center gap-0.5',
-    child ? 'py-1.5 pl-6 pr-3' : 'px-3 py-2',
+    // With a chevron gutter the rail already pays for the left inset, so the cell
+    // only adds the child's extra step; without one the padding is the indent.
+    indented
+      ? child
+        ? 'py-1.5 pl-3 pr-3'
+        : 'py-2 pl-0 pr-3'
+      : child
+        ? 'py-1.5 pl-6 pr-3'
+        : 'px-3 py-2',
     interactive &&
       'text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
   );
@@ -521,6 +643,27 @@ function GanttRowView({
           its own (the row's hover tint can't show through it, hence `group-hover`)
           and `self-stretch` to cover the row's full height as bars scroll under. */}
       <div className="group/rail sticky left-0 z-20 flex self-stretch border-r bg-card group-hover:bg-accent/30">
+        {/* The fold toggle sits **beside** the cell, never inside it: the cell is
+            already a link or a button, and a button inside one isn't a thing.
+            Childless rows still get the empty gutter so every title starts at the
+            same x — a ragged left edge reads as broken indentation. */}
+        {indented &&
+          (childCount ? (
+            <button
+              type="button"
+              onClick={onToggle}
+              aria-expanded={!collapsed}
+              title={collapsed ? t('boards.expandRow') : t('boards.collapseRow')}
+              className="flex w-6 shrink-0 items-center justify-center self-stretch text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            >
+              <ChevronRight
+                className={cn('size-3.5 transition-transform', !collapsed && 'rotate-90')}
+                aria-hidden
+              />
+            </button>
+          ) : (
+            <span className="w-6 shrink-0" aria-hidden />
+          ))}
         {cell}
       </div>
 

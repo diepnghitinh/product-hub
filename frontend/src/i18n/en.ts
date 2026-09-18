@@ -1460,6 +1460,10 @@ export const en = {
   // Boards — the shared Timeline (Gantt) view on every issue board
   'boards.today': 'Today',
   'boards.resizeColumn': 'Drag to resize this column',
+  'boards.collapseAll': 'Collapse all',
+  'boards.expandAll': 'Expand all',
+  'boards.collapseRow': 'Collapse',
+  'boards.expandRow': 'Expand',
   'boards.viewTimeline': 'Timeline',
   'boards.timelineIssue': 'Issue',
   'boards.timelineEmpty': 'Nothing to schedule yet',

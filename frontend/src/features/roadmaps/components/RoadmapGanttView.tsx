@@ -418,6 +418,9 @@ export function RoadmapGantt({
       rows={rows}
       bands={bands}
       isLoading={isLoading}
+      // A backlog item's tasks fold away under it: a cycle routinely charts 15
+      // items and 60 tasks, and folded is the "which item lands when?" reading.
+      collapsible
       labelHeader={t('roadmaps.item')}
       empty={{ title: t('roadmaps.ganttEmpty'), hint: t('roadmaps.ganttEmptyHint') }}
       legend={
