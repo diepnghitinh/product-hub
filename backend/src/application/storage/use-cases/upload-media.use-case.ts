@@ -1,17 +1,8 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  PayloadTooLargeException,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { IAppSettingsRepository } from '@application/app-settings/repositories/app-settings.repository';
-import {
-  DEFAULT_MAX_DOC_MB,
-  StorageProvider,
-  defaultStorageConfig,
-} from '@application/app-settings/domain/storage.types';
-import { UploadKind, classifyUpload } from '../domain/upload-kind';
+import { defaultStorageConfig } from '@application/app-settings/domain/storage.types';
 import { IStorageService, UploadFileInput } from '../storage.port';
+import { resolveUpload } from './upload-policy';
 
 export interface UploadedMediaResult {
   url: string;
@@ -20,18 +11,15 @@ export interface UploadedMediaResult {
   size: number;
 }
 
-/** What each kind is called when it's too big, and which cap it answers to. */
-const KIND_LABEL: Record<UploadKind, string> = {
-  [UploadKind.IMAGE]: 'Image',
-  [UploadKind.VIDEO]: 'Video',
-  [UploadKind.DOCUMENT]: 'File',
-};
-
 /**
  * Store one image, short video or document in the tenant's configured cloud
- * storage. The size ceiling is per kind and comes from the tenant's own config
- * (videos default to 30MB), so the limit an admin sets in Settings is the one
- * enforced.
+ * storage, with the bytes passing through the API.
+ *
+ * This is now the *fallback* door — the browser normally uploads straight to the
+ * provider via {@link CreateUploadUrlUseCase}. It stays because some callers have
+ * no browser to sign for (the MCP upload ticket, a `curl`) and because a tenant
+ * whose bucket has no usable CORS rule would otherwise have no way to upload at
+ * all. Both doors judge a file with the same {@link resolveUpload}.
  */
 @Injectable()
 export class UploadMediaUseCase {
@@ -43,32 +31,7 @@ export class UploadMediaUseCase {
   async execute(tenantId: string, file: UploadFileInput): Promise<UploadedMediaResult> {
     const settings = await this.settingsRepo.findByTenant(tenantId);
     const config = settings?.storage ?? defaultStorageConfig();
-
-    if (config.provider === StorageProvider.NONE) {
-      throw new BadRequestException(
-        'Media storage is not configured. Ask an admin to set it up in Settings → Storage.',
-      );
-    }
-
-    const classified = classifyUpload(file.contentType, file.originalName);
-    if (!classified) {
-      throw new BadRequestException(
-        'That file type cannot be uploaded — images, videos, PDFs, Office documents and text files are accepted.',
-      );
-    }
-
-    const capMb =
-      classified.kind === UploadKind.VIDEO
-        ? config.maxVideoMb
-        : classified.kind === UploadKind.DOCUMENT
-          ? // Absent on configs saved before documents were uploadable.
-            (config.maxDocMb ?? DEFAULT_MAX_DOC_MB)
-          : config.maxImageMb;
-    if (file.size > capMb * 1024 * 1024) {
-      throw new PayloadTooLargeException(
-        `${KIND_LABEL[classified.kind]} is too large — the limit is ${capMb}MB.`,
-      );
-    }
+    const classified = resolveUpload(config, file);
 
     // Stored under the classified type, not the one the browser claimed — see
     // `classifyUpload`.

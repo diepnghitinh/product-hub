@@ -68,12 +68,12 @@ export interface McpTicketFile {
  * one `curl -F`, and the bytes go from disk to storage without ever being read
  * into a model.
  *
- * It is our own endpoint rather than a presigned S3 PUT on purpose. Presigning
- * would hand a caller a URL that writes straight into the bucket, skipping
- * {@link UploadMediaUseCase} and with it the accepted-type list and the tenant's
- * size caps; it would also only work for S3, leaving Azure tenants with no
- * equivalent. Routing through the API keeps one set of rules for every file and
- * every provider.
+ * It is our own endpoint rather than a provider-signed PUT on purpose. The web
+ * app signs one (`POST /uploads/presign`) because the browser knows the file's
+ * name, type and exact size before it sends anything, and those three are what a
+ * signature has to be built around. An assistant handed a URL to `curl` knows
+ * none of them yet — so the ticket stays type- and size-agnostic, and the file is
+ * judged by {@link UploadMediaUseCase} when it arrives.
  */
 @Injectable()
 export class McpCreateUploadUrlUseCase

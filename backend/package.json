@@ -32,6 +32,8 @@
     "backfill:search-text": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/backfill-search-text.ts",
     "backfill:activity-created": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/backfill-activity-created.ts",
     "seed:platform": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/seed-platform.ts",
+    "storage:cors": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/check-storage-cors.ts",
+    "storage:cors:apply": "node -r ts-node/register/transpile-only -r tsconfig-paths/register scripts/check-storage-cors.ts --apply",
     "lint": "eslint \"{src,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -39,6 +41,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1089.0",
+    "@aws-sdk/s3-request-presigner": "^3.1089.0",
     "@azure/storage-blob": "^12.33.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@nestjs/common": "^11.1.2",

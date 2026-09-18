@@ -40,7 +40,14 @@ api.interceptors.request.use((config) => {
  * fall back to `message` for any code they don't know.
  */
 export class ApiError extends Error {
-  constructor(message: string, readonly code?: string) {
+  constructor(
+    message: string,
+    readonly code?: string,
+    /** The HTTP status, when there was a response — `undefined` for a network
+     *  failure. For deciding *how* to react (retry another way on a 404) rather
+     *  than what to say; the message is already worded for a person. */
+    readonly status?: number,
+  ) {
     super(message);
     this.name = 'ApiError';
   }
@@ -58,7 +65,11 @@ api.interceptors.response.use(
       ? data?.message.join(', ')
       : data?.message;
     return Promise.reject(
-      new ApiError(message || error.message || 'Request failed', data?.code),
+      new ApiError(
+        message || error.message || 'Request failed',
+        data?.code,
+        error.response?.status,
+      ),
     );
   },
 );

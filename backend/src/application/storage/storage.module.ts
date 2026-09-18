@@ -2,9 +2,16 @@ import { Module } from '@nestjs/common';
 import { InfrastructureStorageModule } from '@infrastructure/storage/storage.module';
 import { InfrastructureAppSettingsModule } from '@infrastructure/app-settings/app-settings.module';
 import { UploadMediaUseCase } from './use-cases/upload-media.use-case';
+import { CreateUploadUrlUseCase } from './use-cases/create-upload-url.use-case';
+import { FinishUploadUseCase } from './use-cases/finish-upload.use-case';
 import { TestStorageConnectionUseCase } from './use-cases/test-storage.use-case';
 
-const useCases = [UploadMediaUseCase, TestStorageConnectionUseCase];
+const useCases = [
+  UploadMediaUseCase,
+  CreateUploadUrlUseCase,
+  FinishUploadUseCase,
+  TestStorageConnectionUseCase,
+];
 
 @Module({
   // Infra storage provides `IStorageService`; app-settings infra provides the
