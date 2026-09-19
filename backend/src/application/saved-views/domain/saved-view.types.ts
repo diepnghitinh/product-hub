@@ -13,7 +13,7 @@ import { IssueKind } from '@application/issues/domain/enums/issue.enums';
  *  spec. */
 export interface SavedViewQuery {
   kind: IssueKind;
-  view: 'board' | 'list' | 'timeline';
+  view: 'board' | 'list' | 'timeline' | 'calendar';
   filters: Record<string, string[]>;
   sort: { field: string; dir: 'asc' | 'desc' } | null;
   search: string;

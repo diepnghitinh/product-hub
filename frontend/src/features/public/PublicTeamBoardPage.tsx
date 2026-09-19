@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { CalendarRange, LayoutGrid, List } from 'lucide-react';
+import { CalendarDays, CalendarRange, LayoutGrid, List } from 'lucide-react';
 import { BoardSkeleton } from '@/components/Skeletons';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ import { KanbanBoard } from '@/components/KanbanBoard';
 import { BugCard, BugList } from '@/features/bugs/BugsBoardPage';
 import { TaskCard, TaskList } from '@/features/tasks/MyTasksPage';
 import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
+import { IssueCalendarView } from '@/features/issues/IssueCalendarView';
 import { TeamIssueType } from '@/types/enums';
 import type { BugDto, TaskDto } from '@/types/dto';
 import { usePublicTeamBoard } from './api';
@@ -17,12 +18,14 @@ import { PublicIssueDialog } from './PublicIssueDialog';
 
 const noop = () => {};
 
-type TeamView = 'board' | 'list' | 'timeline';
+type TeamView = 'board' | 'list' | 'timeline' | 'calendar';
+
+const TEAM_VIEWS: TeamView[] = ['board', 'list', 'timeline', 'calendar'];
 
 /**
  * A team board (tasks or bugs) shared read-only. Branches the card by the
  * team's issue type and reuses the same `BugCard`/`TaskCard`, and — like the
- * authenticated board — offers List and Timeline alongside Board. This is a
+ * authenticated board — offers List, Timeline and Calendar alongside Board. This is a
  * single team, so the status/label lookups the internal views normally fetch
  * per-row are just `team.statuses`/`team.labels` handed in directly.
  */
@@ -34,8 +37,8 @@ export function PublicTeamBoardPage() {
   // Board is the default and kept out of the URL; ?view=list|timeline survive
   // reloads and are shareable (same pattern as the authenticated board).
   const [searchParams, setSearchParams] = useSearchParams();
-  const viewParam = searchParams.get('view');
-  const view: TeamView = viewParam === 'list' ? 'list' : viewParam === 'timeline' ? 'timeline' : 'board';
+  const viewParam = searchParams.get('view') as TeamView | null;
+  const view: TeamView = viewParam && TEAM_VIEWS.includes(viewParam) ? viewParam : 'board';
   const setView = (v: TeamView) => {
     const next = new URLSearchParams(searchParams);
     if (v === 'board') next.delete('view');
@@ -74,6 +77,7 @@ export function PublicTeamBoardPage() {
             { value: 'board', label: t('tasks.viewBoard'), icon: <LayoutGrid /> },
             { value: 'list', label: t('tasks.viewList'), icon: <List /> },
             { value: 'timeline', label: t('boards.viewTimeline'), icon: <CalendarRange /> },
+            { value: 'calendar', label: t('boards.viewCalendar'), icon: <CalendarDays /> },
           ],
         }}
       />
@@ -113,6 +117,17 @@ export function PublicTeamBoardPage() {
               onOpen={(tk) => setOpenItem(tk)}
             />
           )}
+        </div>
+      ) : view === 'calendar' ? (
+        <div className={cn('min-h-0 flex-1 overflow-y-auto py-4 md:py-6', BOARD_GUTTER)}>
+          <IssueCalendarView
+            items={items}
+            issueType={issueType}
+            statusesFor={() => team.statuses}
+            labelsFor={labelsFor}
+            teamFor={() => team}
+            onOpenItem={(item) => setOpenItem(item as BugDto | TaskDto)}
+          />
         </div>
       ) : (
         <div className={cn('min-h-0 flex-1 overflow-y-auto py-4 md:py-6', BOARD_GUTTER)}>

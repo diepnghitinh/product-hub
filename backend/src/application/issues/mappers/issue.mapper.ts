@@ -1,5 +1,6 @@
 import { IssueEntity } from '../domain/entities/issue.entity';
 import { IssueResponseDto } from '../dtos/issue.response.dto';
+import { ChildRollup, progressOf } from '../domain/issue-progress';
 
 export class IssueMapper {
   /**
@@ -7,8 +8,16 @@ export class IssueMapper {
    * single-issue read — a list mustn't pay a lookup per row. Omitting it leaves
    * the two `parent*` fields '', which reads exactly like a top-level issue; the
    * detail route is the one place that needs to tell those apart.
+   *
+   * `rollup` is this issue's sub-task tally, fetched for the whole page at once
+   * by the read that calls this (see `childRollups`). Omitted, the issue reads
+   * as a leaf: 0% while open, 100% once done — never a wrong percentage.
    */
-  static toResponseDto(issue: IssueEntity, parent?: IssueEntity | null): IssueResponseDto {
+  static toResponseDto(
+    issue: IssueEntity,
+    parent?: IssueEntity | null,
+    rollup?: ChildRollup | null,
+  ): IssueResponseDto {
     return {
       kind: issue.kind,
       id: issue.id.toString(),
@@ -51,10 +60,18 @@ export class IssueMapper {
       createdAt: issue.createdAt,
       updatedAt: issue.updatedAt,
       resolvedAt: issue.resolvedAt,
+      progress: progressOf(issue.kind, issue.status, rollup),
+      subtaskCount: rollup?.total ?? 0,
+      subtaskDoneCount: rollup?.done ?? 0,
     };
   }
 
-  static toResponseDtoArray(issues: IssueEntity[]): IssueResponseDto[] {
-    return issues.map((i) => this.toResponseDto(i));
+  /** `rollups` is keyed by issue id — the one `childRollups` call a list read
+   *  makes for its whole page. Absent, every row maps as a leaf. */
+  static toResponseDtoArray(
+    issues: IssueEntity[],
+    rollups?: Record<string, ChildRollup>,
+  ): IssueResponseDto[] {
+    return issues.map((i) => this.toResponseDto(i, null, rollups?.[i.id.toString()]));
   }
 }

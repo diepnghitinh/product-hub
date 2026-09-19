@@ -69,7 +69,8 @@ export default defineConfig({
   },
   test: {
     environment: 'happy-dom',
-    include: ['src/**/*.spec.ts'],
+    // `.tsx` too: a component's own spec renders it, and JSX needs the extension.
+    include: ['src/**/*.spec.{ts,tsx}'],
     setupFiles: ['./src/test/setup.ts'],
   },
 });

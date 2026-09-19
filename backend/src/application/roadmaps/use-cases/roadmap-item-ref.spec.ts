@@ -190,4 +190,63 @@ describe('ReplaceRoadmapItemsUseCase', () => {
     expect(created.startedAt).toBeTruthy();
     expect(created.completedAt).toBeUndefined();
   });
+
+  /**
+   * Who created an item is the axis the board's "Creator" filter narrows on, and
+   * the board posts its WHOLE array back on every drag — so the three cases that
+   * matter are a new item, an item that already has a creator, and a legacy item
+   * that has none. The third is the trap: filling a blank creator in from the
+   * requester looks like a harmless default and is actually the board silently
+   * reassigning authorship of every old item to whoever dragged a card next.
+   */
+  describe('creator', () => {
+    it('credits a new item to the requester, ignoring what the client sent', async () => {
+      const { useCase, roadmap } = build([]);
+
+      await useCase.execute({
+        id: 'r1',
+        tenantId: 't1',
+        requesterId: 'u1',
+        requesterName: 'Tester',
+        dto: {
+          items: [
+            item({ id: 'new-1', createdById: 'someone-else', createdByName: 'Mallory' } as never),
+          ],
+        } as never,
+      });
+
+      expect(roadmap.items[0]).toMatchObject({ createdById: 'u1', createdByName: 'Tester' });
+    });
+
+    it('keeps an existing item’s creator when somebody else saves the board', async () => {
+      const { useCase, roadmap } = build([
+        item({ id: 'a', shortId: 'RM-1', createdById: 'u9', createdByName: 'Ana' } as never),
+      ]);
+
+      await useCase.execute({
+        id: 'r1',
+        tenantId: 't1',
+        requesterId: 'u1',
+        requesterName: 'Tester',
+        dto: { items: [item({ id: 'a' } as never)] } as never,
+      });
+
+      expect(roadmap.items[0]).toMatchObject({ createdById: 'u9', createdByName: 'Ana' });
+    });
+
+    it('leaves a legacy item creatorless rather than crediting whoever saved next', async () => {
+      const { useCase, roadmap } = build([item({ id: 'a', shortId: 'RM-1' } as never)]);
+
+      await useCase.execute({
+        id: 'r1',
+        tenantId: 't1',
+        requesterId: 'u1',
+        requesterName: 'Tester',
+        dto: { items: [item({ id: 'a' } as never)] } as never,
+      });
+
+      expect(roadmap.items[0].createdById).toBeUndefined();
+      expect(roadmap.items[0].createdByName).toBeUndefined();
+    });
+  });
 });

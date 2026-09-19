@@ -644,6 +644,17 @@ export const en = {
   'roadmaps.ganttDragHint': 'Drag a bar to move it, or an edge to change that date',
   'roadmaps.ganttSaveFailed': 'Couldn’t change those dates — put them back.',
   'roadmaps.ganttLegendMarker': 'Diamond = a task with only one date',
+  'roadmaps.timelineMode': 'Timeline view',
+  'roadmaps.timelineGantt': 'Gantt',
+  'roadmaps.timelineCalendar': 'Calendar',
+  /** The board filtered down to nothing. Separate from the sprint-scope empty
+   *  state because the way out is different: drop the filter, not the sprint. */
+  'roadmaps.filteredEmpty': 'No items match these filters',
+  'roadmaps.filteredEmptyHint':
+    'Nobody picked here is on an item in this view. Clear the filters, or widen the sprint above.',
+  'roadmaps.clearFilters': 'Clear filters',
+  'roadmaps.calendarEmpty': 'Nothing scheduled this month.',
+  'roadmaps.calendarEmptyHint': 'Move to another month, or give an item start and end dates on the Gantt.',
   'roadmaps.newColumn': 'New column',
   'roadmaps.columnName': 'Column name',
   'roadmaps.columnColor': 'Column color',
@@ -663,6 +674,13 @@ export const en = {
   'roadmaps.difficulty': 'Difficulty',
   'roadmaps.status': 'Status',
   'roadmaps.progress': 'Progress %',
+  /** Under the (read-only) progress bar — says where the number comes from, so
+   *  nobody goes looking for the slider that used to be there. */
+  'roadmaps.progressAuto': 'Counted from this item’s sub-tasks — bugs excluded.',
+  /** Toast after a status change that the board disagrees with — one tap moves
+   *  the card, ignoring it leaves the card where it is. */
+  'roadmaps.moveColumnPrompt': 'Set to {status}. Move this card to “{col}”?',
+  'roadmaps.moveColumnAction': 'Move to {col}',
   'roadmaps.sortRice': 'Sort by RICE',
   'roadmaps.notFound': 'Roadmap not found.',
   'roadmaps.itemNotFound': 'Roadmap item not found.',
@@ -1474,6 +1492,29 @@ export const en = {
   'boards.timelineDragHint': 'Drag a bar or a diamond to reschedule, or a bar’s edge to change that date',
   'boards.timelineSaveFailed': 'Couldn’t change those dates — put them back.',
 
+  // Boards — the shared Calendar view, sibling of the Timeline
+  'boards.viewCalendar': 'Calendar',
+  'calendar.prevYear': 'Previous year',
+  'calendar.nextYear': 'Next year',
+  'calendar.prevMonth': 'Previous month',
+  'calendar.nextMonth': 'Next month',
+  'calendar.prevWeek': 'Previous week',
+  'calendar.nextWeek': 'Next week',
+  'calendar.prevDay': 'Previous day',
+  'calendar.nextDay': 'Next day',
+  'calendar.today': 'Today',
+  // How much of the calendar is on screen — the Year · Month · Week · Day switch.
+  'calendar.range': 'Calendar range',
+  'calendar.rangeYear': 'Year',
+  'calendar.rangeMonth': 'Month',
+  'calendar.rangeWeek': 'Week',
+  'calendar.rangeDay': 'Day',
+  'calendar.empty': 'Nothing scheduled this month',
+  'calendar.emptyYear': 'Nothing scheduled this year',
+  'calendar.emptyWeek': 'Nothing scheduled this week',
+  'calendar.emptyDay': 'Nothing scheduled on this day',
+  'calendar.emptyHint': 'Give an issue a start or due date and it lands on the day it’s planned for.',
+
   // Filters — the multi-select filter menu on the bug/task boards
   'filters.title': 'Filter',
   'filters.clearAll': 'Clear all',
@@ -1488,6 +1529,9 @@ export const en = {
   'filters.backlogItem': 'Backlog item',
   'filters.createdDate': 'Created date',
   'filters.solvedDate': 'Solved date',
+  'filters.scheduledDate': 'Scheduled',
+  // Roadmap-only: the complement of an OKR pick — work no objective asked for.
+  'filters.noOkr': 'No objective',
   'filters.dateFrom': 'From',
   'filters.dateTo': 'To',
   'filters.dateClear': 'Clear dates',
@@ -1542,6 +1586,7 @@ export const en = {
   /** Day count on a card / in a workflow stat — the unit trails the number in Korean. */
   'board.ageDays': '{n}d',
   'board.createdOn': 'Created',
+  'board.subtasks': 'Sub-tasks done',
   'tasks.addToColumn': 'Add task',
   'bugs.addToColumn': 'Add bug',
 

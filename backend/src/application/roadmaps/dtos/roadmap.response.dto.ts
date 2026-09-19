@@ -39,6 +39,10 @@ export class RoadmapItemDto {
   @ApiProperty({ type: [RoadmapItemAssigneeDto] }) assignees: RoadmapItemAssigneeDto[];
   @ApiProperty({ description: 'Derived RICE score' }) rice: number;
   @ApiProperty({ description: 'When the item was created (ISO)' }) createdAt: string;
+  @ApiProperty({ description: "Creator's user id, empty for items created before creators were stored" })
+  createdById: string;
+  @ApiProperty({ description: "Creator's name (denormalized), empty when unknown" })
+  createdByName: string;
   @ApiPropertyOptional({ description: 'When work first started (ISO), once In progress' })
   startedAt?: string;
   @ApiPropertyOptional({ description: 'When the item was completed (ISO), once Done' })

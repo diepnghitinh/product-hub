@@ -208,7 +208,25 @@ export class ReplaceRoadmapItemsUseCase
           // Only a genuinely new item draws a number — an existing one keeps its
           // ref, so a save never renumbers the board.
           shortId: prev?.shortId ?? (await mintItemRef(this.counters, tenantId, takenRefs)),
+          // Progress is derived from the item's linked issues on every read (see
+          // `roadmapItemProgress`), so what a client sends is not a fact about
+          // anything. The stored number is frozen at whatever it last held rather
+          // than dropped, so the field stays readable if this is ever reversed.
+          progress: prev?.progress ?? 0,
           createdAt: prev?.createdAt ?? item.createdAt ?? now,
+          // Server-owned like the ref and the timestamps: an existing item keeps
+          // whoever created it, a brand-new one is credited to this requester,
+          // and what the client sent is ignored — the board posts the whole array
+          // back on every drag, so a trusted `createdBy` in the payload would let
+          // any save reassign authorship of every item on the board.
+          // Keyed on whether the item EXISTED, not on whether it has a creator:
+          // `prev?.createdById ?? requesterId` would credit an old item — which
+          // legitimately has no creator stored — to whoever happened to save the
+          // board next, quietly manufacturing wrong attribution for every legacy
+          // item the first time someone drags a card. An existing item keeps what
+          // it has (even nothing, which the backfill can still fill in honestly).
+          createdById: prev ? prev.createdById : requesterId,
+          createdByName: prev ? prev.createdByName : requesterName,
           startedAt: prev?.startedAt ?? (isStarted ? now : undefined),
           completedAt: prev?.completedAt ?? (isCompleted ? now : undefined),
         });
@@ -315,6 +333,10 @@ export class AddRoadmapItemUseCase
       endDate: item.endDate ?? '',
       assignees: item.assignees ?? [],
       createdAt: now,
+      // The caller is the creator — an MCP bot included, which is the honest
+      // answer for an item a bot added on someone's behalf.
+      createdById: requesterId,
+      createdByName: requesterName,
       startedAt: isStarted ? now : undefined,
       completedAt: status === RoadmapItemStatus.DONE ? now : undefined,
       milestoneId: item.milestoneId ?? '',

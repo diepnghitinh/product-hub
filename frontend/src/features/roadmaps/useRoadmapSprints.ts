@@ -34,10 +34,20 @@ export const SPRINT_ALL = 'all';
 export const SPRINT_CURRENT = 'current';
 export const SPRINT_NONE = 'none';
 
-/** The default scope — the sprint running today, per the product owner's ask.
- *  Kept out of the URL so a clean roadmap link means "whatever is current now"
- *  rather than freezing whichever sprint was current when the link was copied. */
-export const SPRINT_DEFAULT = SPRINT_CURRENT;
+/**
+ * The default scope — **the whole board**.
+ *
+ * It was `current`, so opening a roadmap landed you inside one sprint. That read
+ * as the board being broken rather than filtered: the items you were looking for
+ * were simply not in the running sprint, and during a cooldown gap there is no
+ * current sprint at all. The product owner's ask is to see the board itself
+ * first; the sprint scope is still one click away in the banner, and picking one
+ * writes `?sprint=` so that narrowed board is still shareable.
+ *
+ * Kept out of the URL either way — a clean roadmap link means "the whole board",
+ * not whichever sprint happened to be running when it was copied.
+ */
+export const SPRINT_DEFAULT = SPRINT_ALL;
 
 /** One sprint on the roadmap's shared axis: a date window, plus every team cycle
  *  that runs in it. */

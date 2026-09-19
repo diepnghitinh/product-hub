@@ -40,6 +40,17 @@ export interface BugQuery {
   resolvedFrom?: string;
   /** Solved on/before this instant — inclusive. */
   resolvedTo?: string;
+  /**
+   * The scheduled window, as plain `YYYY-MM-DD` days (no time, no zone — a
+   * planned date means the same day everywhere). Matched by **overlap**, not
+   * containment: anything whose start→end run touches the window at all, so an
+   * issue that began before it and ends after it still counts as worked on
+   * during it. `startDate`/`endDate` fall back to `dueDate`; an issue with no
+   * date at all never matches.
+   */
+  scheduledFrom?: string;
+  /** The window's closing day — inclusive. */
+  scheduledTo?: string;
   /** Sort field. Omit to keep the board ordering (drag position, then newest first) —
    *  the kanban view must always omit it. */
   sort?: IssueSortField;

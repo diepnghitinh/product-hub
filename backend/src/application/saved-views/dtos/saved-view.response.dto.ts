@@ -27,8 +27,8 @@ export class SavedViewResponseDto {
   @ApiProperty({ enum: IssueKind })
   kind: IssueKind;
 
-  @ApiProperty({ enum: ['board', 'list', 'timeline'] })
-  view: 'board' | 'list' | 'timeline';
+  @ApiProperty({ enum: ['board', 'list', 'timeline', 'calendar'] })
+  view: 'board' | 'list' | 'timeline' | 'calendar';
 
   @ApiProperty({ type: Object })
   filters: Record<string, string[]>;

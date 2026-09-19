@@ -19,6 +19,10 @@ import { cn } from '@/lib/utils';
 import { firstImageUrl } from '@/lib/editorjs';
 import { t } from '@/i18n';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
+import { FilterMenu } from '@/components/FilterMenu';
+import { useFilterParams } from '@/components/filterParams';
+import { useUsers } from '@/features/users/api';
+import { filterRoadmapItems, hasRoadmapFilters, roadmapFilterCategories } from './roadmapFilters';
 import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
 import {
   DEFAULT_ROADMAP_COLUMNS,
@@ -30,6 +34,8 @@ import {
 } from '@/types/enums';
 import { RoadmapWorkflowView } from './components/RoadmapWorkflowView';
 import { RoadmapGanttView } from './components/RoadmapGanttView';
+import { RoadmapCalendarView } from './components/RoadmapCalendarView';
+import { TimelineModeToggle, type TimelineMode } from './components/TimelineModeToggle';
 import { RoadmapSprintBanner, SprintChip } from './components/RoadmapSprintControls';
 import {
   itemInScope,
@@ -40,6 +46,7 @@ import {
   type RoadmapSprint,
 } from './useRoadmapSprints';
 import { sprintMoveMenu, useSprintMove } from './useSprintMove';
+import { statusForPhase } from './itemStatusPhase';
 import type { RoadmapDto, RoadmapItem } from '@/types/dto';
 import { RoadmapColumnsDialog } from './components/RoadmapColumnsDialog';
 import { ShareLinkDialog } from '@/components/ShareLinkDialog';
@@ -185,7 +192,7 @@ export function RoadmapBoardPage() {
 
 function RoadmapBoard({ roadmap }: { roadmap: RoadmapDto }) {
   const navigate = useNavigate();
-  const { isAdmin, canWrite, canManageDelivery } = useAuth();
+  const { user, isAdmin, canWrite, canManageDelivery } = useAuth();
 
   const replaceItems = useReplaceRoadmapItems();
   const deleteRoadmap = useDeleteRoadmap();
@@ -248,9 +255,54 @@ function RoadmapBoard({ roadmap }: { roadmap: RoadmapDto }) {
     else next.delete('group');
     setSearchParams(next, { replace: true });
   };
-
+  // The Timeline tab's two readings — the chart (default) or a month calendar of
+  // the same items. In the URL like `?group=`, so "open the roadmap on the
+  // calendar" is a link you can paste; `gantt` is the default and stays out of it.
+  const timelineMode: TimelineMode = searchParams.get('tl') === 'calendar' ? 'calendar' : 'gantt';
+  const setTimelineMode = (mode: TimelineMode) => {
+    const next = new URLSearchParams(searchParams);
+    if (mode === 'calendar') next.set('tl', 'calendar');
+    else next.delete('tl');
+    setSearchParams(next, { replace: true });
+  };
+  // ── Filters ────────────────────────────────────────────────────────────────
+  // Status · phase · difficulty · OKR · assignee · creator · created ·
+  // scheduled, held in the URL as `f.<id>`. The ids match the issue boards'
+  // wherever the question is the same, so `f.status=done` or `f.assigneeId=u1`
+  // means one thing anywhere in the app. The people list is manager-only (as
+  // everywhere), and a member still gets their own two rows, which is the pair
+  // they actually want. See `roadmapFilters` for why this one filters in the
+  // browser instead of in the query.
+  const [filters, setFilters] = useFilterParams();
+  const { data: usersData } = useUsers({ limit: 100 }, canManageDelivery);
   const allItems = roadmap.items ?? [];
   const columns = roadmap.columns?.length ? roadmap.columns : DEFAULT_ROADMAP_COLUMNS;
+  // Built from the board's *own* columns and its *unfiltered* items, so the
+  // Phase rows are this roadmap's columns and the OKR rows are the objectives it
+  // actually serves — and picking one can never remove the row you picked.
+  const filterCategories = roadmapFilterCategories({
+    columns,
+    items: allItems,
+    user,
+    users: usersData?.items,
+  });
+  const filterMenu = (size: 'sm' | 'default') => (
+    <FilterMenu size={size} categories={filterCategories} value={filters} onChange={setFilters} />
+  );
+  // The timeline is the one view with a header row of its own (month nav, the
+  // Chart/Calendar switch). Left in the shell's toolbar the Filter button sat on
+  // a row by itself, directly above that one — two thin control strips stacked,
+  // with the calendar pushed a row further down. So on this view the filter
+  // joins the row that's already there, and the shell's toolbar row (which held
+  // nothing else) doesn't render at all.
+  const onTimeline = view === 'gantt';
+  const timelineToolbar = (
+    <div className="flex flex-wrap items-center gap-2">
+      {filterMenu('sm')}
+      <TimelineModeToggle value={timelineMode} onChange={setTimelineMode} />
+    </div>
+  );
+
   // Scoping is **strict** — an item with no work in the sprint drops out of every
   // column, Now through Later — so the count of items nobody has scheduled goes on
   // the filter itself. That's the one thing strict filtering can hide, and it's a
@@ -260,7 +312,16 @@ function RoadmapBoard({ roadmap }: { roadmap: RoadmapDto }) {
   // mid-flight would blank the board and then refill it — worse, it would trip the
   // "nothing in this sprint" panel on data that simply hadn't arrived.
   const scoped = !sprintsLoading && scope.kind !== 'all';
-  const items = scoped ? allItems.filter((i) => itemInScope(sprintsForItem(i.id), scope)) : allItems;
+  const inScope = scoped
+    ? allItems.filter((i) => itemInScope(sprintsForItem(i.id), scope))
+    : allItems;
+  // The people filter narrows *every* view — board, chart, table, workflow and
+  // both timeline readings — because it narrows `items`, which all five read
+  // from. It's applied in the browser: a roadmap's items arrive embedded in the
+  // roadmap, so there's no list query to push it into (and mustn't be — see
+  // `roadmapFilters`).
+  const filtered = hasRoadmapFilters(filters);
+  const items = filtered ? filterRoadmapItems(inScope, filters) : inScope;
   // Sorting the whole array by RICE and then filtering per column gives the same
   // per-column order as sorting each column, so the board can take it directly.
   const boardItems = sortRice ? [...items].sort((a, b) => b.rice - a.rice) : items;
@@ -326,7 +387,14 @@ function RoadmapBoard({ roadmap }: { roadmap: RoadmapDto }) {
   function onMove(id: string, toPhase: string, overId: string | null) {
     const dragged = allItems.find((i) => i.id === id);
     if (!dragged) return;
-    const moved = { ...dragged, phase: toPhase };
+    // Dropping into Done marks the item Done (and dragging it back out un-marks
+    // it) — the mirror of the panel's Select, which moves the card. See
+    // `itemStatusPhase`.
+    const moved = {
+      ...dragged,
+      phase: toPhase,
+      status: statusForPhase(toPhase, dragged.status, columns),
+    };
 
     const without = allItems.filter((i) => i.id !== id);
     if (overId) {
@@ -369,9 +437,13 @@ function RoadmapBoard({ roadmap }: { roadmap: RoadmapDto }) {
           { value: 'gantt', label: t('roadmaps.viewGantt'), icon: <CalendarDays /> },
         ],
       }}
-      // One scope control for all five views, and it lives in the banner — the
-      // roadmap has nothing to *narrow*, so it gets no toolbar row at all (a lone
-      // Select there only restated the sprint the banner already named).
+      // Who the work is on / who put it there. The sprint *scope* stays in the
+      // banner below (it's the board's scope, not a way of narrowing a list), so
+      // the toolbar row holds only what narrows — which is the shell's rule.
+      // On the timeline it moves down into that view's own header row instead of
+      // getting a strip to itself (see `timelineToolbar`); it's the same control
+      // in both places, so `f.assigneeId` keeps its meaning across every view.
+      filters={onTimeline ? undefined : filterMenu('default')}
       banner={
         <RoadmapSprintBanner
           scope={scope}
@@ -384,7 +456,9 @@ function RoadmapBoard({ roadmap }: { roadmap: RoadmapDto }) {
       }
       actions={
         <>
-          {view === 'gantt' && (
+          {/* Grouping is a *chart* reading (rows stacked under sprint headers) —
+              a month calendar has no rows to stack, so the button goes with it. */}
+          {view === 'gantt' && timelineMode === 'gantt' && (
             <Button
               variant={groupBySprint ? 'primary' : 'secondary'}
               size="sm"
@@ -440,24 +514,41 @@ function RoadmapBoard({ roadmap }: { roadmap: RoadmapDto }) {
         </>
       }
     >
-      {/* Strict scoping can empty the board legitimately — say so, rather than
-          leaving five blank columns that look like a failed load. */}
-      {scoped && items.length === 0 && allItems.length > 0 ? (
+      {/* Strict scoping and the people filter can each empty the board
+          legitimately — say which one did it, rather than leaving five blank
+          columns that look like a failed load. The filter is named first when
+          both are on: it's the one the reader just changed, and its way out is
+          the narrower of the two. */}
+      {(filtered || scoped) && items.length === 0 && allItems.length > 0 ? (
         <div className={cn('min-h-0 flex-1 overflow-y-auto py-4 md:py-6', BOARD_GUTTER)}>
+          {/* On the timeline the Filter button lives in *that view's* header row,
+              and this panel replaces the view — so without this the one control
+              that caused the empty board would vanish along with it, leaving
+              "Clear filters" (all of them, at once) as the only way back. Keep
+              the row on screen so a filter can be loosened one pick at a time. */}
+          {onTimeline && <div className="mb-3">{timelineToolbar}</div>}
           <div className="rounded-xl border border-dashed p-10 text-center">
             <p className="text-sm font-medium text-foreground">
-              {scope.kind === 'none' ? t('sprints.emptyNone') : t('sprints.emptyScoped')}
+              {filtered
+                ? t('roadmaps.filteredEmpty')
+                : scope.kind === 'none'
+                  ? t('sprints.emptyNone')
+                  : t('sprints.emptyScoped')}
             </p>
             <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-              {scope.kind === 'none' ? t('sprints.emptyNoneHint') : t('sprints.emptyScopedHint')}
+              {filtered
+                ? t('roadmaps.filteredEmptyHint')
+                : scope.kind === 'none'
+                  ? t('sprints.emptyNoneHint')
+                  : t('sprints.emptyScopedHint')}
             </p>
             <Button
               variant="secondary"
               size="sm"
               className="mt-4"
-              onClick={() => setSprint(SPRINT_ALL)}
+              onClick={() => (filtered ? setFilters({}) : setSprint(SPRINT_ALL))}
             >
-              {t('sprints.all')}
+              {filtered ? t('roadmaps.clearFilters') : t('sprints.all')}
             </Button>
           </div>
         </div>
@@ -498,17 +589,36 @@ function RoadmapBoard({ roadmap }: { roadmap: RoadmapDto }) {
           ) : view === 'workflow' ? (
             <RoadmapWorkflowView items={items} sprintsForItem={sprintsForItem} />
           ) : view === 'gantt' ? (
-            // The timeline peeks a row in a drawer rather than navigating — it owns
-            // both drawers, so it needs no open-item callback from here.
-            <RoadmapGanttView
-              roadmapId={roadmap.id}
-              items={items}
-              allItems={allItems}
-              columns={columns}
-              sprints={sprints}
-              scope={scope}
-              groupBySprint={groupBySprint}
-            />
+            // Two readings of one tab: the chart, where dates are dragged, and the
+            // read-only month calendar. Both peek a row in a drawer rather than
+            // navigating — they own their drawers, so neither needs an open-item
+            // callback from here.
+            timelineMode === 'calendar' ? (
+              <RoadmapCalendarView
+                roadmapId={roadmap.id}
+                items={items}
+                columns={columns}
+                tasksByItem={tasksByItem}
+                sprintsForItem={sprintsForItem}
+                scope={scope}
+                groupBySprint={groupBySprint}
+                filtered={filtered}
+                isLoading={sprintsLoading}
+                toolbar={timelineToolbar}
+              />
+            ) : (
+              <RoadmapGanttView
+                roadmapId={roadmap.id}
+                items={items}
+                allItems={allItems}
+                columns={columns}
+                sprints={sprints}
+                scope={scope}
+                groupBySprint={groupBySprint}
+                filtered={filtered}
+                toolbar={timelineToolbar}
+              />
+            )
           ) : (
             <RoadmapRiceTable
               items={items}

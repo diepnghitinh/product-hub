@@ -626,6 +626,15 @@ export const ko: Record<I18nKey, string> = {
   'roadmaps.ganttDragHint': '막대를 끌면 이동하고, 끝을 끌면 그 날짜가 바뀝니다',
   'roadmaps.ganttSaveFailed': '날짜를 변경하지 못했습니다 — 되돌립니다.',
   'roadmaps.ganttLegendMarker': '다이아몬드 = 날짜가 하나뿐인 태스크',
+  'roadmaps.timelineMode': '타임라인 보기',
+  'roadmaps.timelineGantt': '간트',
+  'roadmaps.timelineCalendar': '캘린더',
+  'roadmaps.filteredEmpty': '필터와 일치하는 항목이 없습니다',
+  'roadmaps.filteredEmptyHint':
+    '선택한 사람이 이 화면의 항목에 없습니다. 필터를 해제하거나 위에서 스프린트 범위를 넓혀보세요.',
+  'roadmaps.clearFilters': '필터 해제',
+  'roadmaps.calendarEmpty': '이번 달에 예정된 일정이 없습니다.',
+  'roadmaps.calendarEmptyHint': '다른 달로 이동하거나, 간트에서 항목에 시작일과 종료일을 지정하세요.',
   'roadmaps.newColumn': '새 컬럼',
   'roadmaps.columnName': '컬럼 이름',
   'roadmaps.columnColor': '컬럼 색상',
@@ -645,6 +654,9 @@ export const ko: Record<I18nKey, string> = {
   'roadmaps.difficulty': '난이도',
   'roadmaps.status': '상태',
   'roadmaps.progress': '진행률 %',
+  'roadmaps.progressAuto': '하위 작업 기준으로 자동 계산됩니다 (버그 제외).',
+  'roadmaps.moveColumnPrompt': '{status}(으)로 변경했습니다. 이 카드를 “{col}” 컬럼으로 옮길까요?',
+  'roadmaps.moveColumnAction': '“{col}”(으)로 이동',
   'roadmaps.sortRice': 'RICE 순 정렬',
   'roadmaps.notFound': '로드맵을 찾을 수 없습니다.',
   'roadmaps.itemNotFound': '로드맵 항목을 찾을 수 없습니다.',
@@ -1418,6 +1430,29 @@ export const ko: Record<I18nKey, string> = {
   'boards.timelineDragHint': '막대나 마름모를 끌어 일정을 옮기고, 막대 끝을 끌면 그 날짜가 바뀝니다',
   'boards.timelineSaveFailed': '날짜를 변경하지 못했습니다 — 되돌립니다.',
 
+  // Boards — 타임라인과 짝을 이루는 공용 캘린더 뷰
+  'boards.viewCalendar': '캘린더',
+  'calendar.prevYear': '이전 해',
+  'calendar.nextYear': '다음 해',
+  'calendar.prevMonth': '이전 달',
+  'calendar.nextMonth': '다음 달',
+  'calendar.prevWeek': '이전 주',
+  'calendar.nextWeek': '다음 주',
+  'calendar.prevDay': '이전 날',
+  'calendar.nextDay': '다음 날',
+  'calendar.today': '오늘',
+  // 화면에 보이는 범위 — 연 · 월 · 주 · 일 전환
+  'calendar.range': '캘린더 범위',
+  'calendar.rangeYear': '연',
+  'calendar.rangeMonth': '월',
+  'calendar.rangeWeek': '주',
+  'calendar.rangeDay': '일',
+  'calendar.empty': '이번 달에 예정된 항목이 없습니다',
+  'calendar.emptyYear': '올해 예정된 항목이 없습니다',
+  'calendar.emptyWeek': '이번 주에 예정된 항목이 없습니다',
+  'calendar.emptyDay': '이 날에 예정된 항목이 없습니다',
+  'calendar.emptyHint': '이슈에 시작일이나 마감일을 넣으면 해당 날짜에 표시됩니다.',
+
   // Filters — the multi-select filter menu on the bug/task boards
   'filters.title': '필터',
   'filters.clearAll': '모두 지우기',
@@ -1432,6 +1467,9 @@ export const ko: Record<I18nKey, string> = {
   'filters.backlogItem': '백로그 항목',
   'filters.createdDate': '등록일',
   'filters.solvedDate': '해결일',
+  'filters.scheduledDate': '일정',
+  // 로드맵 전용: OKR에 연결되지 않은 항목
+  'filters.noOkr': '목표 없음',
   'filters.dateFrom': '시작',
   'filters.dateTo': '종료',
   'filters.dateClear': '날짜 지우기',
@@ -1486,6 +1524,7 @@ export const ko: Record<I18nKey, string> = {
   /** Day count on a card / in a workflow stat — the unit trails the number in Korean. */
   'board.ageDays': '{n}일',
   'board.createdOn': '생성일',
+  'board.subtasks': '완료된 하위 작업',
   'tasks.addToColumn': '태스크 추가',
   'bugs.addToColumn': '버그 추가',
 

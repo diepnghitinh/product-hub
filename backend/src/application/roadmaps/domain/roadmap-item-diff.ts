@@ -23,6 +23,11 @@ import { RoadmapItemData } from './types/roadmap-item.type';
  *    a `status` change (see the use-case), so logging them would emit a second,
  *    identical-timestamp row for the one event `status` already records.
  *  - `shortId` — server-owned and write-once; it can't change by a user action.
+ *  - `progress` — derived from the item's sub-tasks on read, not set by anyone
+ *    (see `roadmap-progress.ts`). The event that moves it is a *child's* status
+ *    change, which is already a row on that child's own timeline; logging it here
+ *    too would attribute "progress 0 → 50" to whoever happened to save the item
+ *    next. Same reasoning as the server-stamped timestamps above.
  *  - `imageUrl` — a URL renders as neither a value nor an event worth a row;
  *    same call as `attachments` on an issue.
  *  - `milestoneId` / `objectiveId` / `keyResultId` — the three ids move together
@@ -37,7 +42,6 @@ export const TRACKED_FIELDS = [
   'status',
   'assignees',
   'difficulty',
-  'progress',
   'startDate',
   'endDate',
   // RICE inputs. Plain numbers that diff cleanly, and the score derived from

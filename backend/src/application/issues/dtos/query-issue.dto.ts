@@ -187,4 +187,30 @@ export class QueryIssueDto extends PaginationDto {
   @IsOptional()
   @IsISO8601()
   resolvedTo?: string;
+
+  // ── scheduled window ────────────────────────────────────────────────────────
+  // Unlike the two above, these match against the issue's **planned dates**
+  // (start → end/due), not a timestamp, and they match by *overlap*: an issue
+  // running 1–31 July is in every week of July, not only the week it started.
+  // That is what "what was being worked on between these dates" means, and it is
+  // also what the calendar view fetches a month with. Both ends are plain
+  // calendar days, because that is how `startDate`/`endDate` are stored.
+
+  @ApiPropertyOptional({
+    description:
+      'Scheduled work overlapping on/after this day — an issue counts when its start→end ' +
+      'window touches the range at all. Issues with no dates are excluded. YYYY-MM-DD.',
+    example: '2026-07-01',
+  })
+  @IsOptional()
+  @IsISO8601()
+  scheduledFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Scheduled work overlapping on/before this day (inclusive) — YYYY-MM-DD',
+    example: '2026-07-31',
+  })
+  @IsOptional()
+  @IsISO8601()
+  scheduledTo?: string;
 }

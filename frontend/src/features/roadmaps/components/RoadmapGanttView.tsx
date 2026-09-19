@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { MoveHorizontal, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import { t } from '@/i18n';
@@ -46,8 +46,9 @@ export interface DateWindow {
 }
 
 /** Epoch ms back to an ISO day. `toEpoch` reads `YYYY-MM-DD` as UTC midnight and
- *  a drag only ever adds whole days, so this round-trips exactly. */
-const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+ *  a drag only ever adds whole days, so this round-trips exactly. Exported for
+ *  the calendar, which speaks ISO days rather than stamps. */
+export const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 /** A linked task's window. `endDate` is the truth; `dueDate` is its legacy
  *  server-synced mirror, kept as a fallback for rows saved before the rename. */
@@ -66,6 +67,67 @@ function byDate(a: TaskDto, b: TaskDto) {
   const db = taskAnchor(b);
   if (isEpoch(da) && isEpoch(db)) return da - db;
   return isEpoch(da) ? -1 : isEpoch(db) ? 1 : 0;
+}
+
+/**
+ * **When an item runs** — its own window when somebody set one, else derived.
+ *
+ * Exported because the calendar draws the same items and the two must not
+ * disagree about where an item sits: a bar that starts on the 3rd in the Gantt
+ * and on the 5th in the calendar is a bug you only notice by switching views.
+ *
+ * The chain: its `startDate` › `startedAt` › `createdAt` for the start; its own
+ * `endDate` › `completedAt` › the latest linked task's end › +2 weeks for the
+ * end. A window set by hand (or dragged) is intent, not a guess, so it wins.
+ */
+export function itemWindow(item: RoadmapItem, tasks: TaskDto[]): { start: number; end: number } {
+  let start = firstEpoch(item.startDate, item.startedAt, item.createdAt);
+  if (!isEpoch(start)) start = Date.now();
+  const ends = tasks.map(taskEnd).filter(isEpoch);
+  let end = firstEpoch(item.endDate, item.completedAt);
+  if (!isEpoch(end)) end = ends.length ? Math.max(...ends) : start + 14 * GANTT_DAY;
+  if (end < start) end = start + GANTT_DAY; // guard odd data (e.g. an end before the start)
+  return { start, end };
+}
+
+/**
+ * **Which items a timeline charts**: the "Now" column only, unless the board has
+ * already been narrowed (a sprint scope, grouping by sprint, or any pick in the
+ * Filter menu) — the reader has then said what they want to see, and half of it
+ * routinely sits in Next.
+ *
+ * Shared with the calendar for the same reason as {@link itemWindow}: switching
+ * the view must not silently change which items you are looking at.
+ */
+export function chartedItems(
+  items: RoadmapItem[],
+  columns: RoadmapColumn[],
+  narrowed: boolean,
+): RoadmapItem[] {
+  if (narrowed) return items;
+  const nowCol = columns.find((c) => c.key === 'now') ?? columns[0];
+  return nowCol ? items.filter((i) => i.phase === nowCol.key) : [];
+}
+
+/**
+ * A backlog item's bar colour: **its status** — Idea, Planned, In progress,
+ * Done — from the one table the chips, the board badges and the agenda already
+ * read (`ROADMAP_ITEM_STATUS_COLOR`). One item is the same colour in the Gantt,
+ * in the calendar and on its card, and the colour *says* something: a month of
+ * green is a month that landed.
+ *
+ * **Not the column colour**, which is what both views used before: they narrow
+ * to a single column ("Now") by default, so every bar came out the same purple
+ * and carried no information at all.
+ *
+ * **Not a per-item hash either**, which is what replaced it: 12 colours drawn
+ * from `TEAM_COLORS` did tell one run from another, but no bar meant anything on
+ * its own — you could not read "what's still just an idea?" off the month
+ * without opening things. Telling runs apart is what the *label* and the lane
+ * packing are for; colour is worth more spent on state.
+ */
+export function itemColor(item: RoadmapItem): string {
+  return ROADMAP_ITEM_STATUS_COLOR[item.status] ?? 'hsl(var(--muted-foreground))';
 }
 
 interface RoadmapGanttProps {
@@ -87,6 +149,11 @@ interface RoadmapGanttProps {
   /** Stack rows under a section header per sprint instead of one flat list — the
    *  "what did that sprint build?" reading of the same data. */
   groupBySprint?: boolean;
+  /** The board's Filter menu has narrowed `items`. Same effect as a scope: the
+   *  reader has picked what they want to see, so the timeline stops picking for
+   *  them and charts every column. Without this, filtering to Phase = Later
+   *  charted nothing at all and looked broken. */
+  filtered?: boolean;
   /** An item's sprints (derived from its tasks) — for its chip and its group. */
   sprintsForItem?: (itemId: string) => RoadmapSprint[];
   /** A task's sprint — for its chip, and for splitting an item that spans two. */
@@ -126,6 +193,9 @@ interface RoadmapGanttProps {
    * commits that window. Omit for the public view.
    */
   onItemDatesChange?: (item: RoadmapItem, next: DateWindow) => void;
+  /** Controls pinned to the right of the legend row — the board's Gantt ↔
+   *  Calendar toggle. See {@link GanttChartProps.toolbar}. */
+  toolbar?: ReactNode;
   isLoading?: boolean;
 }
 
@@ -144,8 +214,9 @@ interface RoadmapGanttProps {
  *     timeline draws it. A task with only one of the two dates falls back to a
  *     diamond on that date; one with neither is listed but not placed.
  *
- * Colours are reused, not invented: the item bar takes the "Now" column colour,
- * task bars/markers take their team-status colour.
+ * Colours are reused, not invented: the item bar takes its **roadmap status**
+ * colour (the same table its status chip reads), task bars/markers take their
+ * team-status colour.
  */
 export function RoadmapGantt({
   items,
@@ -154,6 +225,7 @@ export function RoadmapGantt({
   sprints,
   scope,
   groupBySprint,
+  filtered,
   sprintsForItem,
   sprintForTask,
   taskDone,
@@ -165,30 +237,18 @@ export function RoadmapGantt({
   onOpenTask,
   onTaskDatesChange,
   onItemDatesChange,
+  toolbar,
   isLoading,
 }: RoadmapGanttProps) {
-  // The "Now" column — by key, falling back to the leftmost (most-immediate) one.
-  const nowCol = columns.find((c) => c.key === 'now') ?? columns[0];
-  const barColor = nowCol?.color ?? 'hsl(var(--primary))';
-  // Once the timeline reaches past "Now", an item's bar takes **its own** column's
-  // colour — a Later item drawn in the Now colour would misreport its commitment.
-  const colorOf = (phase: string) => columns.find((c) => c.key === phase)?.color ?? barColor;
-  const narrowed = !!groupBySprint || (!!scope && scope.kind !== 'all');
-  const shown = narrowed ? items : nowCol ? items.filter((i) => i.phase === nowCol.key) : [];
+  const narrowed = !!groupBySprint || !!filtered || (!!scope && scope.kind !== 'all');
+  const shown = chartedItems(items, columns, narrowed);
   const tasksOf = (item: RoadmapItem) => (tasksByItem?.get(item.id) ?? []).slice().sort(byDate);
 
   /** One item and its tasks, as rows. `keyPrefix` keeps ids unique when grouping
    *  puts the same item under two sprints. */
   function itemRows(item: RoadmapItem, tasks: TaskDto[], keyPrefix: string): GanttRow[] {
     const out: GanttRow[] = [];
-    let start = firstEpoch(item.startDate, item.startedAt, item.createdAt);
-    if (!isEpoch(start)) start = Date.now();
-    // The item's own end wins when it has one — a window somebody set by hand (or
-    // dragged) is intent, not a guess. Everything after it is the fallback chain.
-    const ends = tasks.map(taskEnd).filter(isEpoch);
-    let end = firstEpoch(item.endDate, item.completedAt);
-    if (!isEpoch(end)) end = ends.length ? Math.max(...ends) : start + 14 * GANTT_DAY;
-    if (end < start) end = start + GANTT_DAY; // guard odd data (e.g. an end before the start)
+    const { start, end } = itemWindow(item, tasks);
 
     const itemSprints = sprintsForItem?.(item.id) ?? [];
     const itemRow: GanttRow = {
@@ -237,7 +297,7 @@ export function RoadmapGantt({
         </>
       ),
       onClick: () => onOpenItem(item.id),
-      bar: { start, end, color: colorOf(item.phase), progress: item.progress },
+      bar: { start, end, color: itemColor(item), progress: item.progress },
     };
     // Dragging an item's bar commits the window it's showing — including a derived
     // one, which is the point: the derived bar is the proposal, the drag accepts it.
@@ -417,6 +477,7 @@ export function RoadmapGantt({
     <GanttChart
       rows={rows}
       bands={bands}
+      toolbar={toolbar}
       isLoading={isLoading}
       // A backlog item's tasks fold away under it: a cycle routinely charts 15
       // items and 60 tasks, and folded is the "which item lands when?" reading.
@@ -433,10 +494,14 @@ export function RoadmapGantt({
           )}
           <span className="flex items-center gap-1.5">
             {/* Two layers, like the bar itself: a translucent track with a fill —
-                so the swatch reads apart from a task's solid bar below it. */}
-            <span className="relative h-2.5 w-6" aria-hidden>
-              <span className="absolute inset-0 rounded-full" style={{ backgroundColor: barColor, opacity: 0.18 }} />
-              <span className="absolute inset-y-0 left-0 w-3 rounded-full" style={{ backgroundColor: barColor }} />
+                so the swatch reads apart from a task's solid bar below it. Drawn
+                in the legend's own ink (`currentColor`), because a real bar's
+                colour is its *status* now; picking one here would read as a key
+                to a status this swatch isn't about. Each row's status chip is
+                that key, in the colour its own bar carries. */}
+            <span className="relative h-2.5 w-6 text-foreground" aria-hidden>
+              <span className="absolute inset-0 rounded-full bg-current opacity-20" />
+              <span className="absolute inset-y-0 left-0 w-3 rounded-full bg-current" />
             </span>
             {t('roadmaps.ganttLegendBar')}
           </span>
@@ -482,6 +547,10 @@ interface RoadmapGanttViewProps {
   sprints: RoadmapSprint[];
   scope: SprintScope;
   groupBySprint: boolean;
+  /** The Filter menu has narrowed `items` — see `RoadmapGanttProps.filtered`. */
+  filtered?: boolean;
+  /** The board's Gantt ↔ Calendar toggle, pinned to the legend row. */
+  toolbar?: ReactNode;
 }
 
 /**
@@ -503,6 +572,8 @@ export function RoadmapGanttView({
   sprints,
   scope,
   groupBySprint,
+  filtered,
+  toolbar,
 }: RoadmapGanttViewProps) {
   const { canWrite } = useAuth();
   const statusesFor = useTeamStatusesLookup();
@@ -585,6 +656,8 @@ export function RoadmapGanttView({
         sprints={sprints}
         scope={scope}
         groupBySprint={groupBySprint}
+        filtered={filtered}
+        toolbar={toolbar}
         sprintsForItem={sprintsForItem}
         sprintForTask={sprintForTask}
         // Same "done" the boards and the sprint banner use, so a group header

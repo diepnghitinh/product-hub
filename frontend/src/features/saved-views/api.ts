@@ -96,7 +96,7 @@ export interface AppliedSavedView {
   search: string;
 }
 
-const VALID_VIEWS = new Set(['board', 'list', 'timeline']);
+const VALID_VIEWS = new Set(['board', 'list', 'timeline', 'calendar']);
 
 function isFilterSelections(value: unknown): value is FilterSelections {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;

@@ -34,8 +34,24 @@ interface HasStatus {
 
 /** Every cache namespace this factory is bound to, list and detail. They are all
  *  views of the single `issues` collection, so a write through any one of them
- *  can go stale in the others — see {@link makeIssueHooks}'s `useInvalidate`. */
-const ISSUE_CACHE_KEYS = ['issues', 'issue', 'bugs', 'bug', 'tasks', 'task', 'activity'] as const;
+ *  can go stale in the others — see {@link makeIssueHooks}'s `useInvalidate`.
+ *
+ *  `roadmap`/`roadmaps` are not views of an issue, but they *contain* one: a
+ *  backlog item's percent complete is derived server-side from the issues linked
+ *  to it, so moving a sub-task to Done changes what a roadmap read returns.
+ *  Without them the panel's "1 of 2 done" bar updated on the spot while the
+ *  Progress % beside it kept the number from the last fetch. */
+const ISSUE_CACHE_KEYS = [
+  'issues',
+  'issue',
+  'bugs',
+  'bug',
+  'tasks',
+  'task',
+  'activity',
+  'roadmap',
+  'roadmaps',
+] as const;
 
 export function makeIssueHooks<
   TItem extends HasStatus,

@@ -11,6 +11,11 @@ import { RoadmapRiceChart } from '@/features/roadmaps/components/RoadmapRiceChar
 import { RoadmapRiceTable } from '@/features/roadmaps/components/RoadmapRiceTable';
 import { RoadmapWorkflowView } from '@/features/roadmaps/components/RoadmapWorkflowView';
 import { RoadmapGantt } from '@/features/roadmaps/components/RoadmapGanttView';
+import { RoadmapCalendarView } from '@/features/roadmaps/components/RoadmapCalendarView';
+import {
+  TimelineModeToggle,
+  type TimelineMode,
+} from '@/features/roadmaps/components/TimelineModeToggle';
 import { DEFAULT_ROADMAP_COLUMNS } from '@/types/enums';
 import type { RoadmapItem } from '@/types/dto';
 import { usePublicRoadmap } from './api';
@@ -53,6 +58,18 @@ export function PublicRoadmapPage() {
     else next.set('view', v);
     setSearchParams(next, { replace: true });
   };
+
+  // Inside the Timeline tab, ?tl=calendar swaps the Gantt for the month calendar
+  // — the same switch, same URL key, as the authenticated board, so a shared link
+  // lands on whichever reading the sender was looking at.
+  const timelineMode: TimelineMode = searchParams.get('tl') === 'calendar' ? 'calendar' : 'gantt';
+  const setTimelineMode = (mode: TimelineMode) => {
+    const next = new URLSearchParams(searchParams);
+    if (mode === 'calendar') next.set('tl', 'calendar');
+    else next.delete('tl');
+    setSearchParams(next, { replace: true });
+  };
+  const timelineToggle = <TimelineModeToggle value={timelineMode} onChange={setTimelineMode} />;
 
   if (isLoading) {
     return (
@@ -117,11 +134,21 @@ export function PublicRoadmapPage() {
           ) : view === 'workflow' ? (
             <RoadmapWorkflowView items={items} />
           ) : view === 'gantt' ? (
-            <RoadmapGantt
-              items={items}
-              columns={columns}
-              onOpenItem={(id) => setOpenItem(items.find((i) => i.id === id) ?? null)}
-            />
+            timelineMode === 'calendar' ? (
+              <RoadmapCalendarView
+                items={items}
+                columns={columns}
+                onOpenItem={(item) => setOpenItem(item)}
+                toolbar={timelineToggle}
+              />
+            ) : (
+              <RoadmapGantt
+                items={items}
+                columns={columns}
+                onOpenItem={(id) => setOpenItem(items.find((i) => i.id === id) ?? null)}
+                toolbar={timelineToggle}
+              />
+            )
           ) : (
             <RoadmapRiceTable items={items} columns={columns} onOpen={(item) => setOpenItem(item)} />
           )}

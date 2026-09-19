@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { IssueEntity } from '../domain/entities/issue.entity';
+import { ChildRollup, EMPTY_ROLLUP } from '../domain/issue-progress';
 import { IIssueRepository } from '../repositories/issue.repository';
 
 export interface GetIssueRequest {
@@ -24,6 +25,9 @@ export interface IssueWithParent {
    *  can't see it — a dangling `parentId` degrades to "no parent", never to a
    *  broken crumb. */
   parent: IssueEntity | null;
+  /** This issue's own sub-task tally, so the detail page's percentage comes from
+   *  the same rule the board's does. `{0,0}` for a leaf. */
+  rollup: ChildRollup;
 }
 
 @Injectable()
@@ -48,9 +52,13 @@ export class GetIssueUseCase implements IUsecaseExecute<GetIssueRequest, Result<
     // allowed to open.
     const parent = issue.parentId ? await this.issues.findByRef(tenantId, issue.parentId) : null;
 
+    const issueId = issue.id.toString();
+    const rollups = await this.issues.childRollups(tenantId, [issueId]);
+
     return Result.ok({
       issue,
       parent: parent?.isVisibleTo(requesterId, isAdmin) ? parent : null,
+      rollup: rollups[issueId] ?? EMPTY_ROLLUP,
     });
   }
 }

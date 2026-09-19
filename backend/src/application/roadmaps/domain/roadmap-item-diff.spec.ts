@@ -81,14 +81,21 @@ describe('diffRoadmapItems', () => {
   });
 
   it('records the planned window and the RICE inputs with their values', () => {
-    const before = item({ startDate: '2026-01-01', endDate: '', confidence: 3, progress: 0 });
-    const after = item({ startDate: '2026-02-01', endDate: '2026-03-01', confidence: 1, progress: 50 });
+    const before = item({ startDate: '2026-01-01', endDate: '', confidence: 3 });
+    const after = item({ startDate: '2026-02-01', endDate: '2026-03-01', confidence: 1 });
     expect(diffRoadmapItems([before], [after])[0].changes).toEqual([
-      { field: 'progress', oldValue: '0', newValue: '50' },
       { field: 'startDate', oldValue: '2026-01-01', newValue: '2026-02-01' },
       { field: 'endDate', oldValue: '', newValue: '2026-03-01' },
       { field: 'confidence', oldValue: '3', newValue: '1' },
     ]);
+  });
+
+  it('ignores progress — it is derived from the sub-tasks, not set here', () => {
+    // The stored number is a leftover from when Properties had a slider; the
+    // percentage every response carries is computed (see `roadmap-progress.ts`),
+    // and the event behind a change is a child's status move, logged on the child.
+    const out = diffRoadmapItems([item({ progress: 0 })], [item({ progress: 50 })]);
+    expect(out).toEqual([]);
   });
 
   it('ignores the server-stamped dates a status change causes', () => {

@@ -62,8 +62,13 @@ export class IssuesController {
       userId: auth.userId,
       query,
     });
-    const { data, total, page, limit } = result.getValue();
-    return ServiceResponse.paginate(IssueMapper.toResponseDtoArray(data), total, page, limit);
+    const { data, total, page, limit, rollups } = result.getValue();
+    return ServiceResponse.paginate(
+      IssueMapper.toResponseDtoArray(data, rollups),
+      total,
+      page,
+      limit,
+    );
   }
 
   @Post()
@@ -114,8 +119,8 @@ export class IssuesController {
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
     // The one read that carries the parent, so a detail page can name it rather
     // than showing a sub-issue as if it were top-level.
-    const { issue, parent } = result.getValue();
-    return IssueMapper.toResponseDto(issue, parent);
+    const { issue, parent, rollup } = result.getValue();
+    return IssueMapper.toResponseDto(issue, parent, rollup);
   }
 
   @Patch(':id')

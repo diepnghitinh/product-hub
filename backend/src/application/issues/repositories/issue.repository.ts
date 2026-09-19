@@ -3,6 +3,7 @@ import { BurndownIssueRow } from '@application/cycles/domain/cycle-burndown';
 import type { BugStatDimension, RawBugStats } from '@application/mcp/domain/mcp-bug-stats';
 import { IssueEntity } from '../domain/entities/issue.entity';
 import { StabilityIssueRow } from '../domain/bug-stability';
+import { ChildRollup } from '../domain/issue-progress';
 import { QueryIssueDto } from '../dtos/query-issue.dto';
 
 export interface IssuePaginationResponse {
@@ -50,6 +51,34 @@ export abstract class IIssueRepository {
    *  caller's job: e.g. Task 17's related-history assembly runs each child
    *  through its own `isVisibleTo` guard before using it). */
   findChildren: (tenantId: string, parentId: string) => Promise<IssueEntity[]>;
+  /**
+   * `{ total, done }` per parent for many parents at once — what a board's
+   * progress bars are computed from, in **one** aggregation for the whole page
+   * rather than a count per card. Parents with no children are simply absent
+   * from the map (the caller reads that as {@link EMPTY_ROLLUP}).
+   *
+   * No ownerId scoping, like its two neighbours: a private sub-task still counts
+   * towards its parent's percentage, and only the number is exposed — never the
+   * child.
+   */
+  childRollups: (tenantId: string, parentIds: string[]) => Promise<Record<string, ChildRollup>>;
+  /**
+   * The same `{ total, done }`, but per **backlog item** — the issues linked to it
+   * (`roadmapItemId`) *plus everything nested under those*, in one aggregation for
+   * the whole roadmap. What a backlog item's derived progress is computed from
+   * (see `roadmapItemProgress`).
+   *
+   * Two deliberate differences from {@link childRollups}:
+   *  - it walks the subtree, because a linked task's own sub-tasks are work on
+   *    that item too and only the roots carry `roadmapItemId`;
+   *  - **bugs are excluded** — a bug against an item is work found, not work
+   *    planned, and counting it would drop the delivery number the moment one is
+   *    filed. Tasks *under* a bug still count; only the bug rows themselves drop.
+   *
+   * Items with no linked work are absent from the map (the caller falls back to
+   * the item's own status).
+   */
+  roadmapItemRollups: (tenantId: string, itemIds: string[]) => Promise<Record<string, ChildRollup>>;
   /** Scope/completed (count + points) per cycle id, in one aggregation. Feeds
    *  both the live rollups and the freeze at cycle completion. */
   cycleRollups: (

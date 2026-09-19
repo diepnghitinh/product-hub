@@ -4,6 +4,7 @@ import { Result } from '@shared/logic/result';
 import { ITeamRepository } from '@application/teams/repositories/team.repository';
 import { CycleSchedulerService } from '@application/cycles/services/cycle-scheduler.service';
 import { QueryIssueDto } from '../dtos/query-issue.dto';
+import { ChildRollup } from '../domain/issue-progress';
 import { IssuePaginationResponse, IIssueRepository } from '../repositories/issue.repository';
 
 export interface GetIssuesRequest {
@@ -13,9 +14,15 @@ export interface GetIssuesRequest {
   query: QueryIssueDto;
 }
 
+/** The page, plus the sub-task tally behind each row's percentage — keyed by
+ *  issue id, and only holding the rows that actually have children. */
+export interface IssueListResult extends IssuePaginationResponse {
+  rollups: Record<string, ChildRollup>;
+}
+
 @Injectable()
 export class GetIssuesUseCase
-  implements IUsecaseExecute<GetIssuesRequest, Result<IssuePaginationResponse>>
+  implements IUsecaseExecute<GetIssuesRequest, Result<IssueListResult>>
 {
   constructor(
     @Inject(IIssueRepository) private readonly issues: IIssueRepository,
@@ -23,7 +30,7 @@ export class GetIssuesUseCase
     private readonly cycleScheduler: CycleSchedulerService,
   ) {}
 
-  async execute({ tenantId, userId, query }: GetIssuesRequest): Promise<Result<IssuePaginationResponse>> {
+  async execute({ tenantId, userId, query }: GetIssuesRequest): Promise<Result<IssueListResult>> {
     // Cycles are lazy — a team board read is one of the ticks that advances the
     // clock (there is no cron; see CycleSchedulerService). Only reads that name a
     // team pay the team lookup, and only cycles-enabled teams run the scheduler.
@@ -42,6 +49,14 @@ export class GetIssuesUseCase
     const result = await this.issues.findByTenant(tenantId, query, {
       personalOwnerId: query.personal ? userId : undefined,
     });
-    return Result.ok(result);
+
+    // One aggregation for the whole page, so every card can draw its "3 of 5
+    // done" bar without a count per row. Rows with no children don't come back
+    // and map as leaves.
+    const rollups = await this.issues.childRollups(
+      tenantId,
+      result.data.map((i) => i.id.toString()),
+    );
+    return Result.ok({ ...result, rollups });
   }
 }

@@ -15,6 +15,9 @@ const makeIssue = (over: Partial<Parameters<typeof IssueEntity.create>[0]> = {})
  *  (which matches a shortId first, then an id). */
 const repoOf = (byRef: Record<string, IssueEntity>) => ({
   findByRef: jest.fn((_tenantId: string, ref: string) => Promise.resolve(byRef[ref] ?? null)),
+  // No sub-tasks in these fixtures — an empty map is what the real aggregation
+  // returns for a leaf, and the use-case reads that as `{0,0}`.
+  childRollups: jest.fn(() => Promise.resolve({})),
 });
 
 const build = (byRef: Record<string, IssueEntity>) => {

@@ -102,6 +102,56 @@ const TIMELINE_BARS: Array<[number, number]> = [
  * The rail is two lines, like a real row — a title over its chips (status,
  * labels, people) — so the layout doesn't jump when the rows land.
  */
+// Which cells hold a placeholder bar, and how wide (in days) — fixed so the
+// month reads like a real schedule and stays stable across renders.
+// Each span is kept inside its own week row, so no bar runs off the grid.
+const CALENDAR_BARS: Array<[cell: number, span: number]> = [
+  [2, 3], [8, 1], [10, 3], [15, 2], [19, 1], [22, 4], [30, 2],
+];
+
+/**
+ * The calendar view mid-load: the month grid with a few placeholder bars laid
+ * across it. Drops into the same content slot as `TimelineSkeleton`, below the
+ * shared board chrome.
+ *
+ * The grid is drawn for real rather than shimmered as a block — a calendar's
+ * shape *is* the information, so keeping it fixed means nothing jumps when the
+ * month lands.
+ */
+export function CalendarSkeleton() {
+  const bars = new Map(CALENDAR_BARS);
+  return (
+    <div className={cn('pb-6 pt-2', BOARD_GUTTER)}>
+      <div className="mb-3 flex items-center gap-2">
+        <Skeleton className="h-8 w-44 rounded-md" />
+        <Skeleton className="h-8 w-20 rounded-md" />
+      </div>
+      <div className="overflow-hidden rounded-xl border">
+        <div className="grid grid-cols-7 border-b bg-muted/40">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="grid place-items-center px-2 py-2">
+              <Skeleton className="h-3 w-8" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7">
+          {Array.from({ length: 35 }).map((_, i) => (
+            <div key={i} className="min-h-[6rem] border-b border-r p-1.5 last:border-r-0">
+              <Skeleton className="size-6 rounded-full" />
+              {bars.has(i) && (
+                <Skeleton
+                  className="mt-2 h-[18px] rounded"
+                  style={{ width: `calc(${(bars.get(i) as number) * 100}% - 8px)` }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TimelineSkeleton({ rows = 7 }: { rows?: number }) {
   return (
     <div className={cn('flex flex-col gap-3 pb-6 pt-2', BOARD_GUTTER)}>

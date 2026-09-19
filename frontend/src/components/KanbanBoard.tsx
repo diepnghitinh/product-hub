@@ -14,7 +14,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { ChevronLeft, ChevronRight, Clock, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, ListChecks, Pencil, Plus, Trash2 } from 'lucide-react';
 import {
   ContextMenu,
   ProgressBar,
@@ -126,6 +126,32 @@ export function BoardCardAge({ createdAt }: { createdAt?: string }) {
     <span className="flex items-center gap-1" title={`${t('board.createdOn')} ${formatDate(createdAt)}`}>
       <Clock className="size-3" aria-hidden />
       {days === 0 ? t('board.ageToday') : t('board.ageDays').replace('{n}', String(days))}
+    </span>
+  );
+}
+
+/**
+ * "3/5" — how many of an issue's sub-tasks are done. Sits in the same trailing
+ * chip cluster as the age, so a parent reads its own state at a glance.
+ *
+ * Renders nothing on a leaf: a card with no sub-tasks has nothing to count, and
+ * a "0/0" on every ordinary card is noise, not information.
+ */
+export function SubtaskCount({
+  done,
+  total,
+  className,
+}: {
+  done: number;
+  total: number;
+  /** For a list row, which needs its own colour/size and a mobile hide. */
+  className?: string;
+}) {
+  if (!total) return null;
+  return (
+    <span className={cn('flex items-center gap-1', className)} title={t('board.subtasks')}>
+      <ListChecks className="size-3" aria-hidden />
+      {done}/{total}
     </span>
   );
 }

@@ -29,8 +29,10 @@ import {
   ShareRoadmapDto,
   UpdateRoadmapDto,
 } from '@application/roadmaps/dtos/roadmap.dtos';
+import { GetRoadmapProgressUseCase } from '@application/roadmaps/use-cases/roadmap-progress.use-case';
 import { RoadmapResponseDto } from '@application/roadmaps/dtos/roadmap.response.dto';
 import { RoadmapMapper } from '@application/roadmaps/mappers';
+import { RoadmapEntity } from '@application/roadmaps/domain/entities/roadmap.entity';
 
 @ApiTags('Roadmaps')
 @ApiBearerAuth('JWT-auth')
@@ -45,13 +47,32 @@ export class RoadmapsController {
     private readonly replaceColumns: ReplaceRoadmapColumnsUseCase,
     private readonly deleteRoadmap: DeleteRoadmapUseCase,
     private readonly setSharing: SetRoadmapSharingUseCase,
+    private readonly getProgress: GetRoadmapProgressUseCase,
   ) {}
+
+  /**
+   * Every roadmap response, read or write, goes out through here.
+   *
+   * An item's `progress` is derived from the issues linked to it, so the value in
+   * the document is never the answer — see `roadmapItemProgress`. Routing all
+   * eight endpoints through one helper is what stops a write response (the board
+   * re-renders from it) disagreeing with the next read.
+   */
+  private async toDto(tenantId: string, roadmap: RoadmapEntity): Promise<RoadmapResponseDto> {
+    const progress = await this.getProgress.execute({ tenantId, items: roadmap.items });
+    return RoadmapMapper.toResponseDto(roadmap, progress);
+  }
 
   @Get()
   @ApiOperation({ summary: 'List roadmaps' })
   async list(@AuthUser() auth: JwtPayload): Promise<RoadmapResponseDto[]> {
-    const result = await this.getRoadmaps.execute({ tenantId: auth.tenantId });
-    return RoadmapMapper.toResponseDtoArray(result.getValue());
+    const roadmaps = (await this.getRoadmaps.execute({ tenantId: auth.tenantId })).getValue();
+    // One aggregation for every item on every roadmap, rather than one per card.
+    const progress = await this.getProgress.execute({
+      tenantId: auth.tenantId,
+      items: roadmaps.flatMap((r) => r.items),
+    });
+    return RoadmapMapper.toResponseDtoArray(roadmaps, progress);
   }
 
   @Post()
@@ -63,7 +84,7 @@ export class RoadmapsController {
   ): Promise<RoadmapResponseDto> {
     const result = await this.createRoadmap.execute({ tenantId: auth.tenantId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return this.toDto(auth.tenantId, result.getValue());
   }
 
   @Get(':id')
@@ -74,7 +95,7 @@ export class RoadmapsController {
   ): Promise<RoadmapResponseDto> {
     const result = await this.getRoadmap.execute({ id, tenantId: auth.tenantId });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return this.toDto(auth.tenantId, result.getValue());
   }
 
   @Patch(':id')
@@ -87,7 +108,7 @@ export class RoadmapsController {
   ): Promise<RoadmapResponseDto> {
     const result = await this.updateRoadmap.execute({ id, tenantId: auth.tenantId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return this.toDto(auth.tenantId, result.getValue());
   }
 
   @Put(':id/items')
@@ -106,7 +127,7 @@ export class RoadmapsController {
       requesterName: auth.name,
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return this.toDto(auth.tenantId, result.getValue());
   }
 
   @Put(':id/columns')
@@ -119,7 +140,7 @@ export class RoadmapsController {
   ): Promise<RoadmapResponseDto> {
     const result = await this.replaceColumns.execute({ id, tenantId: auth.tenantId, dto });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return this.toDto(auth.tenantId, result.getValue());
   }
 
   @Post(':id/share')
@@ -136,7 +157,7 @@ export class RoadmapsController {
       enabled: dto.enabled,
     });
     if (result.isFailure) throw new EntityNotFoundException(result.error as string);
-    return RoadmapMapper.toResponseDto(result.getValue());
+    return this.toDto(auth.tenantId, result.getValue());
   }
 
   @Delete(':id')

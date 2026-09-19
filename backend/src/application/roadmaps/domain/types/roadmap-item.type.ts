@@ -69,6 +69,17 @@ export interface RoadmapItemData {
    *  never resets it. Optional because items created before this field existed
    *  have none stored — the mapper backfills those to the roadmap's own date. */
   createdAt?: string;
+  /** Who created it — id and name, denormalized exactly like `assignees`, and
+   *  server-owned exactly like `createdAt`: stamped from the requester on the
+   *  save that first introduces the item, then preserved through every later
+   *  wholesale replace. What a client sends is ignored, so nobody can hand an
+   *  item to someone else by editing a payload.
+   *
+   *  Optional because items created before this field existed have no creator
+   *  stored; `backfill:roadmap-item-creator` recovers those from their `created`
+   *  activity row, and anything it can't reach simply filters as "no creator". */
+  createdById?: string;
+  createdByName?: string;
   /** When the item first entered a started status (in-progress, or straight to
    *  done), ISO. Set once then preserved; absent until work starts. Drives cycle
    *  time (startedAt → completedAt). */

@@ -19,8 +19,10 @@ import { StabilityIssueRow } from '@application/issues/domain/bug-stability';
 import {
   BUG_SEVERITIES,
   BugSeverity,
+  COMPLETED_STATUS_KEYS,
   IssueKind,
 } from '@application/issues/domain/enums/issue.enums';
+import { ChildRollup } from '@application/issues/domain/issue-progress';
 import {
   IssueSortDir,
   IssueSortField,
@@ -166,6 +168,46 @@ export function buildIssueTextFilter(search: string) {
   const raw = new RegExp(escapeRegex(search), 'i');
   const norm = new RegExp(escapeRegex(normalizeSearchText(search)), 'i');
   return [{ searchText: norm }, { description: raw }, { _id: raw }];
+}
+
+/** The day part of a filter endpoint. Plain days are what the schedule fields
+ *  hold, so a caller that sent a full instant is read as its UTC day. */
+function scheduleDay(value?: string): string | null {
+  return value ? value.slice(0, 10) : null;
+}
+
+/**
+ * "Its planned work touches this window" as a Mongo expression.
+ *
+ * `startDate`/`endDate`/`dueDate` are stored as `YYYY-MM-DD` **strings** (unset
+ * is `''`), and that format sorts chronologically as text — so the whole test is
+ * string comparison, with no date parsing anywhere.
+ *
+ * An issue given only one end is treated as a single-day window on that end,
+ * which is what a board already renders it as; one with no dates at all never
+ * matches, because it is not scheduled. `dueDate` is folded in as the legacy
+ * mirror of `endDate` so tasks written before `endDate` existed still land in
+ * their own week.
+ */
+export function scheduledOverlapExpr(from?: string, to?: string): Record<string, unknown> | null {
+  const start = scheduleDay(from);
+  const end = scheduleDay(to);
+  if (!start && !end) return null;
+  const firstSet = (...fields: string[]) =>
+    fields.reduceRight<unknown>(
+      (fallback, field) => ({ $cond: [{ $ne: [field, ''] }, field, fallback] }),
+      '',
+    );
+  // The issue's own window, each end falling back to whichever date it has.
+  const issueStart = firstSet('$startDate', '$endDate', '$dueDate');
+  const issueEnd = firstSet('$endDate', '$dueDate', '$startDate');
+  return {
+    $and: [
+      { $ne: [issueStart, ''] },
+      ...(end ? [{ $lte: [issueStart, end] }] : []),
+      ...(start ? [{ $gte: [issueEnd, start] }] : []),
+    ],
+  };
 }
 
 @Injectable()
@@ -373,6 +415,12 @@ export class IssueRepository
     if (created) filter.createdAt = created;
     const resolved = dateRangeFilter(query.resolvedFrom, query.resolvedTo);
     if (resolved) filter.resolvedAt = resolved;
+    // Scheduled window — an overlap test, not a point-in-range one (see the DTO).
+    // Written as a top-level `$expr` on purpose: the assignee and search clauses
+    // below already own `$or`/`$and`, and a third writer of either would silently
+    // drop one of the other two.
+    const scheduled = scheduledOverlapExpr(query.scheduledFrom, query.scheduledTo);
+    if (scheduled) filter.$expr = scheduled;
     // Assignee match. An issue counts as someone's when they are *any* of its
     // assignees, not only the primary — that's what multi-assign means for "my
     // work". Both halves are required: an issue written before multi-assign has
@@ -474,6 +522,118 @@ export class IssueRepository
       .lean<IssueDoc[]>()
       .exec();
     return docs.map((d) => this.toDomain(d));
+  }
+
+  async childRollups(
+    tenantId: string,
+    parentIds: string[],
+  ): Promise<Record<string, ChildRollup>> {
+    if (!parentIds.length) return {};
+    // "Done" is kind-specific — a bug finishes at `resolved`/`closed`, a task at
+    // `done` — and one parent can hold both, so each child is matched against
+    // *its own* vocabulary rather than the union. (The union would be near
+    // enough today, but only until a team names a custom task column
+    // `resolved`; `isCompletedStatus` is the rule, and this is it in Mongo.)
+    const rows = await this.model
+      .aggregate<{ _id: string; total: number; done: number }>([
+        { $match: { tenantId, parentId: { $in: parentIds } } },
+        {
+          $group: {
+            _id: '$parentId',
+            total: { $sum: 1 },
+            done: {
+              $sum: {
+                $cond: [
+                  {
+                    $in: [
+                      '$status',
+                      {
+                        $cond: [
+                          { $eq: ['$kind', IssueKind.BUG] },
+                          COMPLETED_STATUS_KEYS[IssueKind.BUG],
+                          COMPLETED_STATUS_KEYS[IssueKind.TASK],
+                        ],
+                      },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ])
+      .exec();
+    return Object.fromEntries(rows.map((r) => [r._id, { total: r.total, done: r.done }]));
+  }
+
+  async roadmapItemRollups(
+    tenantId: string,
+    itemIds: string[],
+  ): Promise<Record<string, ChildRollup>> {
+    if (!itemIds.length) return {};
+    const rows = await this.model
+      .aggregate<{ _id: string; total: number; done: number }>([
+        { $match: { tenantId, roadmapItemId: { $in: itemIds } } },
+        // Only the *roots* carry `roadmapItemId`, so the subtree under each one
+        // has to be pulled in or a grandchild counts as no work at all. One
+        // recursive lookup for the whole roadmap beats a level-at-a-time fan-out;
+        // `maxDepth: 4` is five levels, the same cap the client's tree walk uses
+        // (`issueTree.ts`), and it is what stops a corrupt `parentId` cycle.
+        {
+          $graphLookup: {
+            from: this.model.collection.name,
+            startWith: '$_id',
+            connectFromField: '_id',
+            connectToField: 'parentId',
+            as: '__descendants',
+            maxDepth: 4,
+            restrictSearchWithMatch: { tenantId },
+          },
+        },
+        // Root + subtree flattened to the three fields the count needs. `_id`
+        // rides along so `$addToSet` can dedupe below.
+        {
+          $project: {
+            roadmapItemId: 1,
+            node: {
+              $concatArrays: [
+                [{ id: '$_id', kind: '$kind', status: '$status' }],
+                {
+                  $map: {
+                    input: '$__descendants',
+                    as: 'd',
+                    in: { id: '$$d._id', kind: '$$d.kind', status: '$$d.status' },
+                  },
+                },
+              ],
+            },
+          },
+        },
+        { $unwind: '$node' },
+        // See the port's note: bug rows drop out, their task children don't.
+        { $match: { 'node.kind': { $ne: IssueKind.BUG } } },
+        // A set, not a count: two linked issues can be parent and child of each
+        // other, and that one issue must not count twice.
+        { $group: { _id: '$roadmapItemId', nodes: { $addToSet: '$node' } } },
+        {
+          $project: {
+            total: { $size: '$nodes' },
+            done: {
+              $size: {
+                $filter: {
+                  input: '$nodes',
+                  as: 'n',
+                  cond: { $in: ['$$n.status', COMPLETED_STATUS_KEYS[IssueKind.TASK]] },
+                },
+              },
+            },
+          },
+        },
+      ])
+      .exec();
+    return Object.fromEntries(rows.map((r) => [r._id, { total: r.total, done: r.done }]));
   }
 
   async cycleRollups(

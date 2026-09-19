@@ -62,7 +62,8 @@ export class PublicTeamsController {
       userId: '',
       query: { teamId, kind: [kind] } as QueryIssueDto,
     });
-    const items = IssueMapper.toResponseDtoArray(issues.getValue().data);
+    const { data, rollups } = issues.getValue();
+    const items = IssueMapper.toResponseDtoArray(data, rollups);
     // Nothing on a shared board is editable, but the flag must still tell the
     // truth rather than default to `false` — an absent answer is fine, a wrong
     // one is not, and `tenantId` is right here to resolve it properly.

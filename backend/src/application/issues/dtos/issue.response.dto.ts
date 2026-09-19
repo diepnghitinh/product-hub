@@ -165,4 +165,19 @@ export class IssueResponseDto {
       'cleared again if it is reopened. Server-owned: a client cannot set it.',
   })
   resolvedAt: Date | null;
+
+  @ApiProperty({
+    description:
+      'Percent complete, 0–100. Derived from the sub-tasks when there are any ' +
+      '("3 of 5 done" = 60), otherwise 0 while open and 100 once the issue itself ' +
+      'reaches a done status. Never stored — a client cannot set it.',
+    example: 60,
+  })
+  progress: number;
+
+  @ApiProperty({ description: 'How many sub-tasks this issue has (0 = none)' })
+  subtaskCount: number;
+
+  @ApiProperty({ description: 'How many of those sub-tasks are in a done status' })
+  subtaskDoneCount: number;
 }

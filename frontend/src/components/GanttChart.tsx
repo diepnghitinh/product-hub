@@ -207,6 +207,14 @@ export interface GanttChartProps {
   bands?: GanttBand[];
   /** Optional legend row above the chart explaining bars/markers. */
   legend?: ReactNode;
+  /**
+   * Controls pinned to the **right of the legend row**, before "Collapse all" —
+   * for something that switches what you're looking at rather than explaining it
+   * (the roadmap's Gantt ↔ Calendar toggle). Unlike the legend it survives the
+   * loading and empty states: a control that disappears when the chart has
+   * nothing to draw would strand you in an empty view with no way out.
+   */
+  toolbar?: ReactNode;
   isLoading?: boolean;
   /** Shown when there are no rows at all. */
   empty?: { title: string; hint?: string };
@@ -247,6 +255,7 @@ export function GanttChart({
   labelHeader,
   bands = [],
   legend,
+  toolbar,
   isLoading,
   empty,
   collapsible,
@@ -330,19 +339,29 @@ export function GanttChart({
       return next;
     });
 
+  /** The toolbar on its own row — what the loading and empty states keep of the
+   *  legend row, so its controls stay reachable with no chart under them. */
+  const toolbarRow = toolbar ? <div className="flex justify-end">{toolbar}</div> : null;
+
   if (isLoading) {
     return (
-      <div className="grid place-items-center py-16">
-        <Spinner />
+      <div className="flex flex-col gap-3">
+        {toolbarRow}
+        <div className="grid place-items-center py-16">
+          <Spinner />
+        </div>
       </div>
     );
   }
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed p-10 text-center">
-        <p className="text-sm font-medium text-foreground">{empty?.title}</p>
-        {empty?.hint && <p className="mt-1 text-sm text-muted-foreground">{empty.hint}</p>}
+      <div className="flex flex-col gap-3">
+        {toolbarRow}
+        <div className="rounded-xl border border-dashed p-10 text-center">
+          <p className="text-sm font-medium text-foreground">{empty?.title}</p>
+          {empty?.hint && <p className="mt-1 text-sm text-muted-foreground">{empty.hint}</p>}
+        </div>
       </div>
     );
   }
@@ -382,33 +401,38 @@ export function GanttChart({
 
   return (
     <div className="flex flex-col gap-3">
-      {(legend || canCollapse) && (
+      {(legend || canCollapse || toolbar) && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {legend}
           {/* Trailing, and pushed to the far edge: these are controls, not part of
               the legend's reading of the chart. */}
-          {canCollapse && (
+          {(canCollapse || toolbar) && (
             <div className="ml-auto flex shrink-0 items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1.5 px-2 text-xs"
-                onClick={() => setCollapsed(new Set(childCount.keys()))}
-                disabled={allCollapsed}
-              >
-                <ChevronsDownUp className="size-3.5" aria-hidden />
-                {t('boards.collapseAll')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1.5 px-2 text-xs"
-                onClick={() => setCollapsed(new Set())}
-                disabled={collapsed.size === 0}
-              >
-                <ChevronsUpDown className="size-3.5" aria-hidden />
-                {t('boards.expandAll')}
-              </Button>
+              {toolbar}
+              {canCollapse && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2 text-xs"
+                    onClick={() => setCollapsed(new Set(childCount.keys()))}
+                    disabled={allCollapsed}
+                  >
+                    <ChevronsDownUp className="size-3.5" aria-hidden />
+                    {t('boards.collapseAll')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2 text-xs"
+                    onClick={() => setCollapsed(new Set())}
+                    disabled={collapsed.size === 0}
+                  >
+                    <ChevronsUpDown className="size-3.5" aria-hidden />
+                    {t('boards.expandAll')}
+                  </Button>
+                </>
+              )}
             </div>
           )}
         </div>

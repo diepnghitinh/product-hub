@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { FilterSelections } from './FilterMenu';
+import { periodCells, type CalendarRange } from './CalendarView';
 
 /**
  * The board's *narrowing* state — what the Filter menu and the search box hold —
@@ -102,7 +103,7 @@ export function applySearchParam(params: URLSearchParams, search: string): void 
 /** Which view tab the board is on. Not every board offers every one — the bug
  *  boards add `stability` (a chart, not a list of issues); a board that doesn't
  *  list it in its `view.options` simply never writes it. */
-export type BoardView = 'board' | 'list' | 'timeline' | 'stability';
+export type BoardView = 'board' | 'list' | 'timeline' | 'calendar' | 'stability';
 
 /**
  * The subset of views a *saved view* can carry.
@@ -125,9 +126,11 @@ export const VIEW_PARAM = 'view';
 /** Read the picked view. Anything unrecognised — a stale link, a hand-edited
  *  URL — reads as the board, the same degrade-to-default rule the sort and the
  *  filters follow. */
+const BOARD_VIEWS: BoardView[] = ['board', 'list', 'timeline', 'calendar', 'stability'];
+
 export function readBoardView(params: URLSearchParams): BoardView {
-  const value = params.get(VIEW_PARAM);
-  return value === 'list' || value === 'timeline' || value === 'stability' ? value : 'board';
+  const value = params.get(VIEW_PARAM) as BoardView | null;
+  return value && value !== 'board' && BOARD_VIEWS.includes(value) ? value : 'board';
 }
 
 /** Write the view in place, for a caller building the next query string (a
@@ -162,6 +165,113 @@ export function useBoardView(): [BoardView, (next: BoardView) => void] {
     [setParams],
   );
   return [view, setView];
+}
+
+/**
+ * The calendar's month param, `YYYY-MM`. The current month is the default and
+ * stays *out* of the URL, like `view=board` and "no sort".
+ *
+ * In the URL for the same reason the filters are: a month you paged to is a
+ * place. Without it, opening an issue from March and pressing Back dropped you
+ * on today — the one month you weren't reading.
+ */
+export const MONTH_PARAM = 'month';
+
+/** First of the month, in local time — what `CalendarView` takes. */
+const monthStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
+
+/** The calendar's range param, and the anchor day a week/day range is read from
+ *  (`YYYY-MM-DD`). `month` alone still says which month a month view is on, so a
+ *  link written before ranges existed keeps meaning what it meant — and it is
+ *  what a year range reads its year off, so zooming out and back in lands you on
+ *  the month you left. */
+export const CALENDAR_RANGE_PARAM = 'cal';
+export const CALENDAR_DAY_PARAM = 'day';
+
+/** The ranges that are a window over days, not a single day — they need no
+ *  `day` param, and carrying one would silently pick the day you land on when
+ *  you zoom back in. */
+const DAYLESS = new Set<CalendarRange>(['year', 'month']);
+
+const isoOf = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/**
+ * Where the calendar is looking: how much of it (`range`) and which day
+ * (`anchor`), both in the URL for the same reason the month already was — a
+ * week you paged to is a place you can send someone.
+ *
+ * The two params divide cleanly: `month` is the month on screen (and the month a
+ * week/day sits in, so switching back up lands where you were), `day` is the
+ * exact day a week or day range is read from. A month range doesn't need a day
+ * and doesn't keep one.
+ *
+ * Anything unparseable degrades to "this month, today" — the same rule the view
+ * and the sort follow.
+ */
+export function useCalendarPeriod(): {
+  range: CalendarRange;
+  anchor: Date;
+  setRange: (next: CalendarRange) => void;
+  setAnchor: (next: Date) => void;
+} {
+  const [params, setParams] = useSearchParams();
+  const rawRange = params.get(CALENDAR_RANGE_PARAM) ?? '';
+  const range: CalendarRange =
+    rawRange === 'year' || rawRange === 'week' || rawRange === 'day' ? rawRange : 'month';
+  const rawMonth = params.get(MONTH_PARAM) ?? '';
+  const rawDay = params.get(CALENDAR_DAY_PARAM) ?? '';
+
+  // Memoised on the params, not rebuilt per render: `CalendarView` derives its
+  // whole grid from this `Date`, and a fresh object every render would redo that
+  // work on every keystroke elsewhere on the page.
+  const anchor = useMemo(() => {
+    const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDay);
+    if (d) return new Date(Number(d[1]), Number(d[2]) - 1, Number(d[3]));
+    const m = /^(\d{4})-(\d{2})$/.exec(rawMonth);
+    return m ? new Date(Number(m[1]), Number(m[2]) - 1, 1) : monthStart(new Date());
+  }, [rawDay, rawMonth]);
+
+  /** One writer for both params, so they can never disagree about which month is
+   *  on screen. */
+  const write = useCallback(
+    (nextRange: CalendarRange, nextAnchor: Date) => {
+      setParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          if (nextRange === 'month') p.delete(CALENDAR_RANGE_PARAM);
+          else p.set(CALENDAR_RANGE_PARAM, nextRange);
+          if (DAYLESS.has(nextRange)) p.delete(CALENDAR_DAY_PARAM);
+          else p.set(CALENDAR_DAY_PARAM, isoOf(nextAnchor));
+          const first = monthStart(nextAnchor);
+          if (first.getTime() === monthStart(new Date()).getTime()) p.delete(MONTH_PARAM);
+          else p.set(MONTH_PARAM, `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}`);
+          return p;
+        },
+        { replace: true },
+      );
+    },
+    [setParams],
+  );
+
+  const setAnchor = useCallback((next: Date) => write(range, next), [range, write]);
+
+  const setRange = useCallback(
+    (next: CalendarRange) => {
+      // Zooming in re-anchors on **today** whenever today is inside the window
+      // you're leaving: "Day" on the current month means today, not the 1st, and
+      // "Month" from this year means this month. A window you paged away from
+      // holds no today, so it keeps its own anchor and zooms into its start.
+      const today = new Date();
+      const cells = periodCells(range, anchor);
+      const stamp = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+      const holdsToday = stamp >= cells[0].from && stamp <= cells[cells.length - 1].to;
+      write(next, holdsToday ? today : anchor);
+    },
+    [anchor, range, write],
+  );
+
+  return { range, anchor, setRange, setAnchor };
 }
 
 /**

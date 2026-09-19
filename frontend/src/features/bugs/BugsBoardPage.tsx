@@ -1,14 +1,15 @@
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Activity, CalendarRange, LayoutGrid, List } from 'lucide-react';
+import { Activity, CalendarDays, CalendarRange, LayoutGrid, List } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button, Checkbox } from '@/components/ui';
 import { AssigneeBadge } from '@/components/AssigneeBadge';
-import { BoardSkeleton, ListSkeleton, TimelineSkeleton } from '@/components/Skeletons';
+import { BoardSkeleton, CalendarSkeleton, ListSkeleton, TimelineSkeleton } from '@/components/Skeletons';
 import { cn } from '@/lib/utils';
 import { t } from '@/i18n';
 import { BOARD_GUTTER, IssueBoardLayout } from '@/components/IssueBoardLayout';
 import { IssueTimelineView } from '@/features/issues/IssueTimelineView';
+import { IssueCalendarView } from '@/features/issues/IssueCalendarView';
 import { SortMenu } from '@/features/issues/SortMenu';
 import { applyIssueSort, useIssueSort } from '@/features/issues/useIssueSort';
 import { SavedViewBar } from '@/features/saved-views/SavedViewBar';
@@ -16,7 +17,13 @@ import { useSavedView } from '@/features/saved-views/useSavedView';
 import { teamScope } from '@/features/saved-views/scope';
 import { Icon } from '@/components/Icon';
 import { BackLink } from '@/components/BackLink';
-import { BoardCard, BoardCardAge, KanbanBoard, KanbanCardToolbar } from '@/components/KanbanBoard';
+import {
+  BoardCard,
+  BoardCardAge,
+  KanbanBoard,
+  KanbanCardToolbar,
+  SubtaskCount,
+} from '@/components/KanbanBoard';
 import { LabelChips } from '@/features/labels/LabelChips';
 import { FilterMenu, type FilterCategory } from '@/components/FilterMenu';
 import { applyBoardView, useBoardView, useFilterParams, useSearchParam, type BoardView } from '@/components/filterParams';
@@ -94,9 +101,12 @@ export function BugCard({
       metaTrailing={
         <>
           <CarryOverBadge count={bug.carryOverCount} />
+          <SubtaskCount done={bug.subtaskDoneCount} total={bug.subtaskCount} />
           <BoardCardAge createdAt={bug.createdAt} />
         </>
       }
+      // See the task card: a bar on a leaf would only restate the column.
+      progress={bug.subtaskCount ? bug.progress : undefined}
     />
   );
 }
@@ -220,7 +230,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
     search: search || undefined,
     status: filters.status as BugStatus[] | undefined,
     severity: filters.severity as BugSeverity[] | undefined,
-    // Assignee, creator and the two date windows — the block every board shares.
+    // Assignee, creator and the three date windows — the block every board shares.
     ...issueSharedFilterParams(filters),
     // A ?projectId= in the URL scopes the whole board; the filter narrows within it.
     projectId: projectId ? [projectId] : filters.projectId,
@@ -359,6 +369,7 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           { value: 'board', label: t('tasks.viewBoard'), icon: <LayoutGrid /> },
           { value: 'list', label: t('tasks.viewList'), icon: <List /> },
           { value: 'timeline', label: t('boards.viewTimeline'), icon: <CalendarRange /> },
+          { value: 'calendar', label: t('boards.viewCalendar'), icon: <CalendarDays /> },
           { value: 'stability', label: t('bugs.viewStability'), icon: <Activity /> },
         ],
       }}
@@ -385,6 +396,8 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
           <ListSkeleton inset />
         ) : view === 'timeline' ? (
           <TimelineSkeleton />
+        ) : view === 'calendar' ? (
+          <CalendarSkeleton />
         ) : (
           <BoardSkeleton columns={columns.length || 4} />
         )
@@ -450,6 +463,10 @@ export function BugsBoardPage({ teamId, teamName, titleIcon, shareTeam }: BugsBo
             // ⌘/middle-click instead of being swallowed by a click handler.
             selection={bulkEnabled ? selection : undefined}
           />
+        </div>
+      ) : view === 'calendar' ? (
+        <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6 pt-1', BOARD_GUTTER)}>
+          <IssueCalendarView items={bugs} issueType={TeamIssueType.BUG} />
         </div>
       ) : (
         <div className={cn('min-h-0 flex-1 overflow-y-auto pb-6 pt-1', BOARD_GUTTER)}>
@@ -566,6 +583,11 @@ function BugRow({
           title and the assignee first. */}
       <IssueCycleChip cycle={cycle} className="hidden shrink-0 sm:flex" />
       <LabelChips keys={bug.labelKeys} labels={labels} max={3} className="hidden shrink-0 sm:flex" />
+      <SubtaskCount
+        done={bug.subtaskDoneCount}
+        total={bug.subtaskCount}
+        className="hidden shrink-0 text-[11px] tabular-nums text-muted-foreground sm:flex"
+      />
       {bug.shortId && (
         <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{bug.shortId}</span>
       )}
