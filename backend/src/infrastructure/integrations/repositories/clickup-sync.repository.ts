@@ -24,6 +24,11 @@ export class ClickUpSyncRepository implements IClickUpSyncRepository {
       spaceId: d.spaceId ?? '',
       spaceName: d.spaceName ?? '',
       enabled: d.enabled ?? false,
+      // A document saved before this field existed reads back as push-on: the
+      // whole point of adding it is that shipping it must not silently stop a
+      // board that was already pushing to ClickUp.
+      pushEnabled: d.pushEnabled ?? true,
+      pullEnabled: d.pullEnabled ?? false,
       statusMap: (d.statusMap ?? []).map((p) => ({
         key: p.key,
         clickupStatus: p.clickupStatus ?? '',

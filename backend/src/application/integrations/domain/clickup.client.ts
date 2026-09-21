@@ -97,6 +97,8 @@ export interface ClickUpTask {
   /** The workspace's own readable id (`DEV-123`) when the feature is on; '' otherwise. */
   customId: string;
   name: string;
+  /** Plain text — ClickUp's description arrives as markdown; read raw. */
+  description: string;
   url: string;
   status: string;
   statusColor: string;
@@ -155,6 +157,7 @@ interface RawTask {
   id?: string;
   custom_id?: string | null;
   name?: string;
+  description?: string | null;
   url?: string;
   status?: { status?: string; color?: string; type?: string } | null;
   assignees?: { username?: string; email?: string }[] | null;
@@ -307,6 +310,27 @@ export class ClickUpClient {
   }
 
   /**
+   * Every task currently in a list — the one-time backfill when a board turns
+   * pull-on, so it starts from what's already there rather than only what
+   * arrives after. Paginated (ClickUp pages at 100); stops at `last_page` or a
+   * hard 50-page ceiling, 5,000 tasks past which a backfill has no business going.
+   */
+  async listTasks(token: string, listId: string): Promise<ClickUpTask[]> {
+    const out: ClickUpTask[] = [];
+    for (let page = 0; page < 50; page++) {
+      const data = await this.call<{ tasks?: RawTask[]; last_page?: boolean }>(
+        token,
+        `/list/${encodeURIComponent(listId)}/task?archived=false&page=${page}`,
+      );
+      const tasks = data.tasks ?? [];
+      if (!tasks.length) break;
+      out.push(...tasks.map((t) => this.toTask(t)));
+      if (data.last_page) break;
+    }
+    return out;
+  }
+
+  /**
    * Who can be assigned in a list.
    *
    * Assignees travel as numeric ClickUp member ids, and nothing in our data
@@ -451,6 +475,7 @@ export class ClickUpClient {
       id: String(raw.id ?? ''),
       customId: raw.custom_id ?? '',
       name: raw.name ?? '',
+      description: raw.description ?? '',
       url: raw.url ?? '',
       status: raw.status?.status ?? '',
       statusColor: raw.status?.color ?? '',

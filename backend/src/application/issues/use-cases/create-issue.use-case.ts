@@ -23,6 +23,10 @@ export interface CreateIssueRequest {
   createdBy: string;
   createdByName: string;
   dto: CreateIssueDto;
+  /** True when the caller already has its own ClickUp link in hand — a task
+   *  pulled in FROM ClickUp, where pushing one straight back would mint a
+   *  second, duplicate ClickUp task for the one that just arrived. */
+  skipClickUpPush?: boolean;
 }
 
 @Injectable()
@@ -43,6 +47,7 @@ export class CreateIssueUseCase
     createdBy,
     createdByName,
     dto,
+    skipClickUpPush,
   }: CreateIssueRequest): Promise<Result<IssueEntity>> {
     // A personal issue is always a private task (bugs are never personal).
     const kind = dto.personal ? IssueKind.TASK : dto.kind;
@@ -148,8 +153,9 @@ export class CreateIssueUseCase
 
     // If this issue's team is bound to a ClickUp list, mint the matching ClickUp
     // task now — that's what "automatic for the whole team" means: no button, no
-    // per-issue opt-in. Best-effort like the webhooks below it.
-    await this.clickup.issueCreated(issue);
+    // per-issue opt-in. Best-effort like the webhooks below it. Skipped when the
+    // issue was itself just pulled in from ClickUp (see `skipClickUpPush`).
+    if (!skipClickUpPush) await this.clickup.issueCreated(issue);
 
     // Preserve the bug's outbound webhooks (best-effort, never blocks the response).
     if (isBug) {

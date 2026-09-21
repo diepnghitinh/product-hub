@@ -49,6 +49,7 @@ export function ClickUpTool() {
   const { data, isLoading } = useClickUpSettings();
   const disconnect = useDisconnectClickUp();
   const setEnabled = useSetClickUpEnabled();
+  const [reconnecting, setReconnecting] = useState(false);
 
   if (isLoading) return <RowsSkeleton />;
 
@@ -140,20 +141,35 @@ export function ClickUpTool() {
               )}
             </div>
 
-            <Button
-              variant="destructive"
-              loading={disconnect.isPending}
-              onClick={() => {
-                if (!confirm(t('settings.clickupDisconnectConfirm'))) return;
-                disconnect.mutate(undefined, {
-                  onSuccess: () => toast.success(t('settings.clickupDisconnected')),
-                  onError: (e) => toast.error((e as Error).message),
-                });
-              }}
-            >
-              <Unplug className="mr-1.5 size-4" />
-              {t('settings.clickupDisconnect')}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" onClick={() => setReconnecting((v) => !v)}>
+                <Plug className="mr-1.5 size-4" />
+                {t('settings.clickupReconnect')}
+              </Button>
+              <Button
+                variant="destructive"
+                loading={disconnect.isPending}
+                onClick={() => {
+                  if (!confirm(t('settings.clickupDisconnectConfirm'))) return;
+                  disconnect.mutate(undefined, {
+                    onSuccess: () => toast.success(t('settings.clickupDisconnected')),
+                    onError: (e) => toast.error((e as Error).message),
+                  });
+                }}
+              >
+                <Unplug className="mr-1.5 size-4" />
+                {t('settings.clickupDisconnect')}
+              </Button>
+            </div>
+
+            {reconnecting && (
+              <div className="space-y-3 rounded-xl border border-dashed p-4">
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {t('settings.clickupReconnectHint')}
+                </p>
+                <ConnectForm variant="inline" onConnected={() => setReconnecting(false)} />
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -176,7 +192,15 @@ export function ClickUpTool() {
  * know their numeric workspace id, and because a token that doesn't work should
  * fail on its own, with its own message, before anything is stored.
  */
-function ConnectForm() {
+function ConnectForm({
+  variant = 'card',
+  onConnected,
+}: {
+  /** `inline` drops the Card chrome — used when this renders inside another
+   *  Card (the "Reconnect" panel on an already-connected workspace). */
+  variant?: 'card' | 'inline';
+  onConnected?: () => void;
+}) {
   const probe = useProbeClickUp();
   const connect = useConnectClickUp();
   const [apiToken, setApiToken] = useState('');
@@ -214,11 +238,59 @@ function ConnectForm() {
               ? `${t('settings.clickupConnected')} — ${settings.webhookWarning}`
               : t('settings.clickupConnected'),
           );
+          onConnected?.();
         },
         onError: (e) => toast.error((e as Error).message),
       },
     );
   }
+
+  const fields = (
+    <>
+      <Field label={t('settings.clickupToken')} htmlFor="clickup-token">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input
+            id="clickup-token"
+            type="password"
+            autoComplete="off"
+            value={apiToken}
+            onChange={(e) => {
+              setApiToken(e.target.value);
+              // Editing the token invalidates the list it produced — offering
+              // a workspace found by a different token would connect the wrong
+              // pair, and the server would then (rightly) refuse it.
+              setWorkspaces(null);
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && onProbe()}
+            placeholder="pk_12345678_ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            className="min-w-0 flex-1 font-mono text-xs"
+          />
+          <Button variant="secondary" loading={probe.isPending} onClick={onProbe}>
+            {t('settings.clickupCheck')}
+          </Button>
+        </div>
+      </Field>
+
+      {workspaces && (
+        <>
+          <Field label={t('settings.clickupWorkspace')} htmlFor="clickup-workspace">
+            <Select
+              id="clickup-workspace"
+              value={workspaceId}
+              onValueChange={setWorkspaceId}
+              options={workspaces.map((w) => ({ value: w.id, label: w.name }))}
+            />
+          </Field>
+          <Button loading={connect.isPending} onClick={onConnect} disabled={!workspaceId}>
+            <Plug className="mr-1.5 size-4" />
+            {t('settings.clickupConnect')}
+          </Button>
+        </>
+      )}
+    </>
+  );
+
+  if (variant === 'inline') return <div className="space-y-4">{fields}</div>;
 
   return (
     <Card>
@@ -226,48 +298,7 @@ function ConnectForm() {
         <CardTitle className="text-base">{t('settings.clickupConnect')}</CardTitle>
         <CardDescription>{t('settings.clickupTokenHint')}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <Field label={t('settings.clickupToken')} htmlFor="clickup-token">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              id="clickup-token"
-              type="password"
-              autoComplete="off"
-              value={apiToken}
-              onChange={(e) => {
-                setApiToken(e.target.value);
-                // Editing the token invalidates the list it produced — offering
-                // a workspace found by a different token would connect the wrong
-                // pair, and the server would then (rightly) refuse it.
-                setWorkspaces(null);
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && onProbe()}
-              placeholder="pk_12345678_ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-              className="min-w-0 flex-1 font-mono text-xs"
-            />
-            <Button variant="secondary" loading={probe.isPending} onClick={onProbe}>
-              {t('settings.clickupCheck')}
-            </Button>
-          </div>
-        </Field>
-
-        {workspaces && (
-          <>
-            <Field label={t('settings.clickupWorkspace')} htmlFor="clickup-workspace">
-              <Select
-                id="clickup-workspace"
-                value={workspaceId}
-                onValueChange={setWorkspaceId}
-                options={workspaces.map((w) => ({ value: w.id, label: w.name }))}
-              />
-            </Field>
-            <Button loading={connect.isPending} onClick={onConnect} disabled={!workspaceId}>
-              <Plug className="mr-1.5 size-4" />
-              {t('settings.clickupConnect')}
-            </Button>
-          </>
-        )}
-      </CardContent>
+      <CardContent className="space-y-4">{fields}</CardContent>
     </Card>
   );
 }

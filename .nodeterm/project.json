@@ -1,28 +1,49 @@
 {
   "version": 1,
-  "rev": 855,
-  "savedAt": "2026-08-08T07:25:51.585Z",
-  "id": "project-mrwvv6c7-1",
+  "rev": 1095,
+  "savedAt": "2026-09-06T06:27:17.914Z",
+  "id": "project-5cj7p",
   "name": "product-os",
   "color": "#0a84ff",
   "viewport": {
-    "x": -775.5368831493233,
-    "y": 765.7634141003854,
-    "zoom": 0.5657348741785023
+    "x": -2894.987508461836,
+    "y": 1161.2721604447152,
+    "zoom": 1
   },
   "nodes": [
     {
-      "id": "term-msivnphi-2",
+      "id": "term-mtijw7dc-c8a86bff",
       "kind": "terminal",
       "position": {
-        "x": 2262.319455930889,
-        "y": -947.3881468946927
+        "x": 3233.7914155424055,
+        "y": -455.75449500853904
       },
       "size": {
-        "width": 929,
-        "height": 882
+        "width": 600,
+        "height": 400
       },
-      "title": "Continue browser testing",
+      "title": "Docs editor paragraph scan và bullet type",
+      "titleAuto": true,
+      "color": "#d97757",
+      "group": null,
+      "tags": [],
+      "collapsed": false,
+      "cwd": ".",
+      "agentId": "claude",
+      "agentSessionId": "e365937c-5c89-4c01-ac56-4e0add225fcb"
+    },
+    {
+      "id": "term-mtn1vbdl-69d40be7",
+      "kind": "terminal",
+      "position": {
+        "x": 2974.987508461836,
+        "y": -1081.2721604447152
+      },
+      "size": {
+        "width": 600,
+        "height": 400
+      },
+      "title": "Claude Code",
       "titleAuto": true,
       "color": "#d97757",
       "group": null,

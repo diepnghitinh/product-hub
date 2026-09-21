@@ -752,8 +752,15 @@ export const ko: Record<I18nKey, string> = {
   'clickup.syncEnabledHint': '끄면 매핑은 유지되지만 모든 전송과 수신이 중단됩니다.',
   'clickup.syncDirectionNote':
     '제목, 설명, 날짜, 우선순위, 담당자는 ClickUp으로 전달됩니다. 돌아오는 것은 상태뿐이며, ClickUp에서 이곳의 작업을 이름 변경하거나 삭제할 수는 없습니다.',
+  'clickup.pushEnabled': 'ClickUp으로 전송',
+  'clickup.pushEnabledHint':
+    '기본값(켜짐): 이 보드의 새 항목과 수정 내용이 ClickUp으로 전송되며, 개별 항목의 "지금 전송"도 포함됩니다. 끄면 이 방향만 중단되고, 상태 수신과 (켜져 있다면) ClickUp 작업 가져오기는 계속 동작합니다.',
+  'clickup.pullEnabled': 'ClickUp의 새 작업 가져오기',
+  'clickup.pullEnabledHint':
+    '기본값(꺼짐): 여기에 연결되지 않은 ClickUp 작업은 무시됩니다. 켜면: 이 보드에 새 항목으로 추가되며, 켜는 순간 리스트에 있던 기존 작업도 함께 가져옵니다.',
   'clickup.bind': '보드 연결',
   'clickup.syncSaved': 'ClickUp 동기화를 저장했습니다.',
+  'clickup.pulledIn': 'ClickUp에서 기존 작업 {count}개를 가져왔습니다.',
   'clickup.unbind': '연결 해제',
   'clickup.unbindConfirm':
     '이 보드와 ClickUp의 동기화를 중단할까요? ClickUp 작업과 각 항목 옆의 연결은 그대로 유지됩니다.',
@@ -1199,6 +1206,9 @@ export const ko: Record<I18nKey, string> = {
   'settings.clickupNoWebhook':
     '웹훅을 등록하지 못해 연결된 작업이 자동으로 갱신되지 않습니다 — 각 행에서 직접 새로고침하세요. 인터넷에서 ClickUp이 접근할 수 없는 환경에서는 정상입니다.',
   'settings.clickupWaiting': '첫 작업 변경을 기다리는 중',
+  'settings.clickupReconnect': '다시 연결',
+  'settings.clickupReconnectHint':
+    '토큰을 다시 입력해 웹훅을 새로 등록합니다 — 새로운 이벤트 종류를 받기 시작할 때 필요합니다. 보드, 상태 매핑, 연결된 작업은 그대로 유지됩니다.',
   'settings.clickupDisconnect': 'ClickUp 연결 해제',
   'settings.clickupDisconnectConfirm':
     'ClickUp 연결을 해제할까요? 웹훅이 삭제되고 토큰이 지워지며, 연결된 작업이 이슈와 백로그 항목에서 모두 사라집니다. ClickUp 쪽은 아무것도 바뀌지 않습니다.',

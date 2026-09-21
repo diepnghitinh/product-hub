@@ -27,6 +27,7 @@ import {
 } from '../repositories/clickup-link.repository';
 import { IClickUpSyncRepository } from '../repositories/clickup-sync.repository';
 import { ourStatusFor } from '../domain/clickup-status-map';
+import { PullClickUpTaskUseCase } from './clickup-sync.use-cases';
 import {
   ClickUpApiError,
   ClickUpClient,
@@ -1099,6 +1100,7 @@ export class ReceiveClickUpEventUseCase {
     @Inject(ITeamRepository) private readonly teams: ITeamRepository,
     @Inject(IUserRepository) private readonly users: IUserRepository,
     private readonly client: ClickUpClient,
+    private readonly pull: PullClickUpTaskUseCase,
   ) {}
 
   async execute(input: {
@@ -1125,10 +1127,15 @@ export class ReceiveClickUpEventUseCase {
 
     const tenantId = settings.tenantId;
     const existing = await this.links.findByTaskId(tenantId, event.taskId);
-    // Authentic, but about a task nobody here linked. Nothing to do, and not
-    // worth writing a delivery summary about.
+    // Authentic, but about a task nobody here linked yet. Not worth a delivery
+    // summary unless it turns into a pull — most untracked tasks belong to
+    // lists nobody bound at all.
     if (!existing.length) {
-      return Result.ok({ authentic: true, updated: 0, summary: 'no linked record' });
+      const pulled = event.deleted ? '' : await this.tryPull(tenantId, config, event.taskId);
+      if (!pulled) return Result.ok({ authentic: true, updated: 0, summary: 'no linked record' });
+      settings.recordClickUpDelivery(pulled);
+      await this.settingsRepo.save(settings);
+      return Result.ok({ authentic: true, updated: 0, summary: pulled });
     }
 
     let updated = 0;
@@ -1167,6 +1174,45 @@ export class ReceiveClickUpEventUseCase {
     settings.recordClickUpDelivery(summary);
     await this.settingsRepo.save(settings);
     return Result.ok({ authentic: true, updated, summary });
+  }
+
+  /**
+   * An untracked task, on the chance it belongs to a board that pulls.
+   *
+   * One extra read — the task itself — because the event carries a task id,
+   * not a list id, and a list id is the only way to find the binding. Empty
+   * string for every way this can be a no-op (nothing pulls yet, the read
+   * failed, no binding matches its list): most untracked tasks belong to lists
+   * nobody bound at all, and that has to stay silent, not a warning.
+   */
+  private async tryPull(
+    tenantId: string,
+    config: ClickUpConfig,
+    taskId: string,
+  ): Promise<string> {
+    const bindings = await this.bindings.findAllForTenant(tenantId);
+    if (!bindings.some((b) => b.enabled && b.pullEnabled)) return '';
+
+    let task: ClickUpTask;
+    try {
+      task = await this.client.getTask(config.apiToken, taskId, {
+        workspaceId: config.workspaceId,
+      });
+    } catch {
+      return '';
+    }
+    const binding = bindings.find((b) => b.enabled && b.pullEnabled && b.listId === task.listId);
+    if (!binding) return '';
+
+    const result = await this.pull.execute({
+      tenantId,
+      scope: binding.scope,
+      scopeId: binding.scopeId,
+      task,
+      statusMap: binding.statusMap,
+    });
+    if (result.isFailure || !result.getValue()) return '';
+    return `${task.name || taskId} · pulled in from ClickUp`;
   }
 
   /**

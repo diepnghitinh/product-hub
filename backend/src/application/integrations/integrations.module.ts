@@ -34,6 +34,7 @@ import {
   GetClickUpListStatusesUseCase,
   GetClickUpSpacesUseCase,
   GetClickUpSyncUseCase,
+  PullClickUpTaskUseCase,
   SaveClickUpSyncUseCase,
 } from './use-cases/clickup-sync.use-cases';
 
@@ -60,6 +61,7 @@ const useCases = [
   GetClickUpListsUseCase,
   GetClickUpListStatusesUseCase,
   GetClickUpSyncUseCase,
+  PullClickUpTaskUseCase,
   SaveClickUpSyncUseCase,
   DeleteClickUpSyncUseCase,
 ];

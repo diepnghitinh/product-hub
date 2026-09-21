@@ -87,6 +87,7 @@ export const CLICKUP_SYNC_SCOPES: ClickUpSyncScope[] = [
  * whereas a re-read is idempotent and self-healing.
  */
 export const CLICKUP_WEBHOOK_EVENTS = [
+  'taskCreated',
   'taskUpdated',
   'taskStatusUpdated',
   'taskAssigneeUpdated',

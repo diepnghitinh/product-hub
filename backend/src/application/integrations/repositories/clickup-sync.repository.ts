@@ -21,6 +21,17 @@ export interface ClickUpSyncBinding {
    */
   enabled: boolean;
   /**
+   * On (default): this board's new items and edits are pushed to ClickUp — what
+   * `enabled` alone used to mean. Off stops just that direction; status still
+   * comes back, and `pullEnabled` (below) keeps pulling in ClickUp's own tasks.
+   */
+  pushEnabled: boolean;
+  /**
+   * Off (default): a task created in ClickUp with no existing link is ignored.
+   * On: it becomes a new record on this board — opt-in per board, never global.
+   */
+  pullEnabled: boolean;
+  /**
    * Our columns → ClickUp's statuses. Stored explicitly (see
    * `clickup-status-map.ts`) and read through `reconcileMap`, because the board's
    * columns can change after this was saved.
@@ -40,6 +51,8 @@ export interface SaveClickUpSyncData {
   spaceId: string;
   spaceName: string;
   enabled: boolean;
+  pushEnabled: boolean;
+  pullEnabled: boolean;
   statusMap: ClickUpStatusPair[];
 }
 

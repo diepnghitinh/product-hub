@@ -46,9 +46,12 @@ function present(
     spaceId: b?.spaceId ?? '',
     spaceName: b?.spaceName ?? '',
     enabled: b?.enabled ?? false,
+    pushEnabled: b?.pushEnabled ?? false,
+    pullEnabled: b?.pullEnabled ?? false,
     statusMap: view.statusMap,
     listStatuses: view.listStatuses.map((s) => ({ name: s.name, color: s.color, type: s.type })),
     columns: view.columns,
+    pulled: view.pulled,
   };
 }
 

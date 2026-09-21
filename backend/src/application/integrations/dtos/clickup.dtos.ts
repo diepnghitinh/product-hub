@@ -391,6 +391,24 @@ export class SaveClickUpSyncDto {
   enabled: boolean;
 
   @ApiProperty({
+    description:
+      'On (default): this board’s new items and edits are pushed to ClickUp. Off ' +
+      'stops just that direction — status still comes back, and pulling in ' +
+      'ClickUp’s own tasks (if on) keeps working.',
+  })
+  @IsBoolean()
+  pushEnabled: boolean;
+
+  @ApiProperty({
+    description:
+      'Off (default): a ClickUp task with no existing link is ignored. On: it ' +
+      'becomes a new record on this board, and turning it on pulls in the list’s ' +
+      'existing tasks too.',
+  })
+  @IsBoolean()
+  pullEnabled: boolean;
+
+  @ApiProperty({
     type: [ClickUpStatusPairDto],
     description: 'One row per board column. A row left blank means that column does not sync.',
   })
@@ -432,6 +450,12 @@ export class ClickUpSyncResponseDto {
   @ApiProperty()
   enabled: boolean;
 
+  @ApiProperty()
+  pushEnabled: boolean;
+
+  @ApiProperty()
+  pullEnabled: boolean;
+
   @ApiProperty({ type: [ClickUpStatusPairDto] })
   statusMap: ClickUpStatusPairDto[];
 
@@ -446,6 +470,13 @@ export class ClickUpSyncResponseDto {
     example: [{ key: 'in-progress', label: 'In progress' }],
   })
   columns: { key: string; label: string }[];
+
+  @ApiProperty({
+    description:
+      'How many existing ClickUp tasks this save just pulled in. 0 outside the ' +
+      'exact moment pullEnabled flips from off to on.',
+  })
+  pulled: number;
 }
 
 /** Pin one of our people to one ClickUp member. `memberId: 0` clears the pin. */

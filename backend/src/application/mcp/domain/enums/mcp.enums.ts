@@ -22,6 +22,9 @@ export enum McpEntity {
 export enum McpTool {
   CREATE_ISSUE = 'create_issue',
   CREATE_BACKLOG_ITEM = 'create_backlog_item',
+  UPDATE_BACKLOG_ITEM_STATUS = 'update_backlog_item_status',
+  ADD_BACKLOG_ITEM_COMMENT = 'add_backlog_item_comment',
+  ADD_BACKLOG_ITEM_ATTACHMENT = 'add_backlog_item_attachment',
   CREATE_DOC = 'create_doc',
   /** A page written into a doc that already existed — its own row, because the
    *  doc's history row is about the day it was started, not about this page. */

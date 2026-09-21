@@ -3,7 +3,11 @@ import { v4 as uuid } from 'uuid';
 import { IUsecaseExecute } from '@core/interfaces';
 import { Result } from '@shared/logic/result';
 import { randomRef } from '@module-shared/utils/short-id.util';
-import { sanitizeStoredFiles } from '@application/storage/domain/stored-file.type';
+import {
+  MAX_ATTACHMENTS,
+  sanitizeStoredFiles,
+  type StoredFile,
+} from '@application/storage/domain/stored-file.type';
 import { IClickUpSync } from '@application/integrations/clickup-sync.port';
 import { IAppSettingsRepository } from '@application/app-settings/repositories/app-settings.repository';
 import { IIssueRepository } from '@application/issues/repositories/issue.repository';
@@ -32,7 +36,7 @@ import { tenantTemplates } from './roadmap-template.use-cases';
  * roadmap is what would actually break a URL. 31^7 ≈ 27.5 billion, so the retry
  * loop is a formality; the widened suffix is the backstop if it somehow isn't.
  */
-function mintItemRef(taken: Set<string>): string {
+export function mintItemRef(taken: Set<string>): string {
   for (let i = 0; i < 5; i++) {
     const ref = randomRef(ROADMAP_ITEM_REF_PREFIX);
     if (!taken.has(ref)) {
@@ -239,6 +243,10 @@ export interface AddRoadmapItemRequest {
   id: string;
   tenantId: string;
   item: Partial<Omit<RoadmapItemData, 'id'>> & { title: string };
+  /** True when the caller already owns this item's ClickUp link — an item
+   *  pulled in FROM ClickUp, where pushing it straight back out would mint a
+   *  second, duplicate ClickUp task for the one that just arrived. */
+  skipClickUpPush?: boolean;
 }
 
 /**
@@ -261,6 +269,7 @@ export class AddRoadmapItemUseCase
     id,
     tenantId,
     item,
+    skipClickUpPush,
   }: AddRoadmapItemRequest): Promise<Result<{ roadmap: RoadmapEntity; item: RoadmapItemData }>> {
     const roadmap = await this.roadmaps.findById(id);
     if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
@@ -319,8 +328,148 @@ export class AddRoadmapItemUseCase
 
     roadmap.replaceItems([...roadmap.items, created]);
     await this.roadmaps.update(roadmap);
-    await this.clickup.roadmapItemsChanged(tenantId, id, [created]);
+    if (!skipClickUpPush) await this.clickup.roadmapItemsChanged(tenantId, id, [created]);
     return Result.ok({ roadmap, item: created });
+  }
+}
+
+export interface UpdateRoadmapItemStatusRequest {
+  id: string;
+  itemId: string;
+  tenantId: string;
+  phase?: string;
+  status?: RoadmapItemStatus;
+}
+
+/**
+ * Patch one item's column and/or lifecycle status in place. Same reasoning as
+ * `AddRoadmapItemUseCase`: a caller that only knows "move this one item" — MCP
+ * — must not read the array, edit one entry and write the whole thing back,
+ * since two of those racing could drop an unrelated edit. This loads fresh,
+ * patches the one item by id, and saves.
+ */
+@Injectable()
+export class UpdateRoadmapItemUseCase
+  implements
+    IUsecaseExecute<
+      UpdateRoadmapItemStatusRequest,
+      Result<{ roadmap: RoadmapEntity; item: RoadmapItemData }>
+    >
+{
+  constructor(
+    @Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository,
+    @Inject(IClickUpSync) private readonly clickup: IClickUpSync,
+    @Inject(IAppSettingsRepository) private readonly settings: IAppSettingsRepository,
+  ) {}
+  async execute({
+    id,
+    itemId,
+    tenantId,
+    phase,
+    status,
+  }: UpdateRoadmapItemStatusRequest): Promise<
+    Result<{ roadmap: RoadmapEntity; item: RoadmapItemData }>
+  > {
+    const roadmap = await this.roadmaps.findById(id);
+    if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
+
+    const existing = roadmap.items.find((i) => i.id === itemId);
+    if (!existing) return Result.fail('Backlog item not found');
+
+    // The resolved set, not `roadmap.columns` — same reason AddRoadmapItemUseCase
+    // checks against it: a templated roadmap's own array is dormant.
+    let nextPhase = existing.phase;
+    if (phase !== undefined) {
+      const { columns } = resolveRoadmapColumns(
+        roadmap,
+        await tenantTemplates(this.settings, tenantId),
+      );
+      if (!columns.some((c) => c.key === phase)) {
+        return Result.fail(
+          `Unknown column "${phase}". This roadmap has: ${columns.map((c) => c.key).join(', ')}`,
+        );
+      }
+      nextPhase = phase;
+    }
+
+    const nextStatus = status ?? existing.status;
+    // Same "first stamp wins" rule the bulk replace and create paths follow: a
+    // status corrected backward (Done → In progress) never erases when the item
+    // actually started or finished.
+    const isStarted =
+      nextStatus === RoadmapItemStatus.IN_PROGRESS || nextStatus === RoadmapItemStatus.DONE;
+    const isCompleted = nextStatus === RoadmapItemStatus.DONE;
+    const now = new Date().toISOString();
+    const updated: RoadmapItemData = {
+      ...existing,
+      phase: nextPhase,
+      status: nextStatus,
+      startedAt: existing.startedAt ?? (isStarted ? now : undefined),
+      completedAt: existing.completedAt ?? (isCompleted ? now : undefined),
+    };
+
+    roadmap.replaceItems(roadmap.items.map((i) => (i.id === itemId ? updated : i)));
+    await this.roadmaps.update(roadmap);
+    // Only a column move is mirrored to ClickUp — same rule differsForSync
+    // enforces everywhere else, so a status-only change doesn't fire a write.
+    if (differsForSync(existing, updated)) {
+      await this.clickup.roadmapItemsChanged(tenantId, id, [updated]);
+    }
+    return Result.ok({ roadmap, item: updated });
+  }
+}
+
+export interface AddRoadmapItemAttachmentRequest {
+  id: string;
+  itemId: string;
+  tenantId: string;
+  file: StoredFile;
+}
+
+/**
+ * Append one file to a backlog item's attachments, in place. Same reasoning as
+ * `UpdateRoadmapItemUseCase`: a caller that only knows "attach this to that one
+ * item" — MCP — must not read the array, edit one entry and write the whole
+ * thing back. This loads fresh, appends to the one item's own list, and saves.
+ *
+ * Attachments never enter `differsForSync` — the roadmap↔ClickUp mirror has
+ * never carried files — so this never fires a sync push.
+ */
+@Injectable()
+export class AddRoadmapItemAttachmentUseCase
+  implements
+    IUsecaseExecute<
+      AddRoadmapItemAttachmentRequest,
+      Result<{ roadmap: RoadmapEntity; item: RoadmapItemData }>
+    >
+{
+  constructor(@Inject(IRoadmapRepository) private readonly roadmaps: IRoadmapRepository) {}
+
+  async execute({
+    id,
+    itemId,
+    tenantId,
+    file,
+  }: AddRoadmapItemAttachmentRequest): Promise<
+    Result<{ roadmap: RoadmapEntity; item: RoadmapItemData }>
+  > {
+    const roadmap = await this.roadmaps.findById(id);
+    if (!roadmap || roadmap.tenantId !== tenantId) return Result.fail('Roadmap not found');
+
+    const existing = roadmap.items.find((i) => i.id === itemId);
+    if (!existing) return Result.fail('Backlog item not found');
+
+    const attachments = existing.attachments ?? [];
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      return Result.fail(
+        `This item already has ${MAX_ATTACHMENTS} attachments, the most one can hold.`,
+      );
+    }
+
+    const updated: RoadmapItemData = { ...existing, attachments: [...attachments, file] };
+    roadmap.replaceItems(roadmap.items.map((i) => (i.id === itemId ? updated : i)));
+    await this.roadmaps.update(roadmap);
+    return Result.ok({ roadmap, item: updated });
   }
 }
 

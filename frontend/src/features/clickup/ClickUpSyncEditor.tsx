@@ -65,6 +65,12 @@ export function ClickUpSyncEditor({
   const [spaceId, setSpaceId] = useState('');
   const [listId, setListId] = useState('');
   const [enabled, setEnabled] = useState(true);
+  /** On by default — mirrors `enabled`'s old meaning. Off stops this board's
+   *  items from writing to ClickUp; status-back and pulling keep working. */
+  const [pushEnabled, setPushEnabled] = useState(true);
+  /** Opt-in per board, default off — an untracked ClickUp task becomes a new
+   *  record here only once this is switched on. */
+  const [pullEnabled, setPullEnabled] = useState(false);
   /** column key → ClickUp status name ('' = this column doesn't sync). */
   const [map, setMap] = useState<Record<string, string>>({});
 
@@ -84,6 +90,8 @@ export function ClickUpSyncEditor({
       data.listId,
       data.spaceId,
       data.enabled,
+      data.pushEnabled,
+      data.pullEnabled,
       data.statusMap.map((p) => `${p.key}:${p.clickupStatus}`).join(','),
     ].join('|');
     if (seededFrom.current === stamp) return;
@@ -91,6 +99,8 @@ export function ClickUpSyncEditor({
     setSpaceId(data.spaceId);
     setListId(data.listId);
     setEnabled(data.bound ? data.enabled : true);
+    setPushEnabled(data.bound ? data.pushEnabled : true);
+    setPullEnabled(data.bound ? data.pullEnabled : false);
     setMap(Object.fromEntries(data.statusMap.map((p) => [p.key, p.clickupStatus])));
   }, [data]);
 
@@ -120,6 +130,8 @@ export function ClickUpSyncEditor({
     !!data &&
     (listId !== data.listId ||
       enabled !== (data.bound ? data.enabled : true) ||
+      pushEnabled !== (data.bound ? data.pushEnabled : true) ||
+      pullEnabled !== (data.bound ? data.pullEnabled : false) ||
       columns.some((c) => (map[c.key] ?? '') !== (savedMap[c.key] ?? '')));
 
   /**
@@ -175,15 +187,22 @@ export function ClickUpSyncEditor({
     const list = lists.data?.find((l) => l.id === listId);
     const space = spaces.data?.find((s) => s.id === spaceId);
     try {
-      await save.mutateAsync({
+      const result = await save.mutateAsync({
         listId,
         listName: list?.name ?? data?.listName ?? '',
         spaceId: spaceId || data?.spaceId || '',
         spaceName: space?.name ?? data?.spaceName ?? '',
         enabled,
+        pushEnabled,
+        pullEnabled,
         statusMap: columns.map((c) => ({ key: c.key, clickupStatus: map[c.key] ?? '' })),
       });
-      toast.success(t('clickup.syncSaved'));
+      toast.success(t('clickup.syncSaved'), {
+        description:
+          result.pulled > 0
+            ? t('clickup.pulledIn').replace('{count}', String(result.pulled))
+            : undefined,
+      });
     } catch (e) {
       toast.error((e as Error).message);
       throw e;
@@ -296,6 +315,34 @@ export function ClickUpSyncEditor({
               checked={enabled}
               onCheckedChange={setEnabled}
               aria-label={t('clickup.syncEnabled')}
+            />
+          </div>
+
+          <div className="flex items-start justify-between gap-4 rounded-xl border px-3 py-2.5 sm:px-4">
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-sm font-medium">{t('clickup.pushEnabled')}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {t('clickup.pushEnabledHint')}
+              </p>
+            </div>
+            <Switch
+              checked={pushEnabled}
+              onCheckedChange={setPushEnabled}
+              aria-label={t('clickup.pushEnabled')}
+            />
+          </div>
+
+          <div className="flex items-start justify-between gap-4 rounded-xl border px-3 py-2.5 sm:px-4">
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-sm font-medium">{t('clickup.pullEnabled')}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {t('clickup.pullEnabledHint')}
+              </p>
+            </div>
+            <Switch
+              checked={pullEnabled}
+              onCheckedChange={setPullEnabled}
+              aria-label={t('clickup.pullEnabled')}
             />
           </div>
 

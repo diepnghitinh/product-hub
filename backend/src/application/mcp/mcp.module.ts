@@ -7,9 +7,13 @@ import { ApplicationRoadmapsModule } from '@application/roadmaps/roadmaps.module
 import { ApplicationDocsModule } from '@application/docs/docs.module';
 import { ApplicationProjectsModule } from '@application/projects/projects.module';
 import { ApplicationReportsModule } from '@application/reports/reports.module';
+import { ApplicationActivityModule } from '@application/activity/activity.module';
+import { ApplicationStorageModule } from '@application/storage/storage.module';
 import {
   GetMcpContextUseCase,
   GetMcpEventsUseCase,
+  McpAddBacklogItemAttachmentUseCase,
+  McpAddBacklogItemCommentUseCase,
   McpAddTestCasesUseCase,
   McpCreateBacklogItemUseCase,
   McpCreateDocPageUseCase,
@@ -22,11 +26,14 @@ import {
   McpListTestFeaturesUseCase,
   McpSearchIssuesUseCase,
   McpSetTestCaseResultUseCase,
+  McpUpdateBacklogItemStatusUseCase,
 } from './use-cases';
 
 const useCases = [
   GetMcpContextUseCase,
   GetMcpEventsUseCase,
+  McpAddBacklogItemAttachmentUseCase,
+  McpAddBacklogItemCommentUseCase,
   McpAddTestCasesUseCase,
   McpCreateBacklogItemUseCase,
   McpCreateDocPageUseCase,
@@ -39,6 +46,7 @@ const useCases = [
   McpListTestFeaturesUseCase,
   McpSearchIssuesUseCase,
   McpSetTestCaseResultUseCase,
+  McpUpdateBacklogItemStatusUseCase,
 ];
 
 @Module({
@@ -54,6 +62,12 @@ const useCases = [
     ApplicationDocsModule,
     ApplicationProjectsModule,
     ApplicationReportsModule,
+    // For CreateRoadmapItemCommentUseCase — add_backlog_item_comment delegates
+    // to it rather than writing the Comment collection a second way.
+    ApplicationActivityModule,
+    // For UploadMediaUseCase — add_backlog_item_attachment stores through the
+    // same pipeline the app's own uploader uses, tenant caps included.
+    ApplicationStorageModule,
   ],
   providers: [...useCases],
   exports: [...useCases],

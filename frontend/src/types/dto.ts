@@ -1011,11 +1011,20 @@ export interface ClickUpSyncDto {
   spaceName: string;
   /** Off keeps the mapping but stops every push and every inbound move. */
   enabled: boolean;
+  /** On (default): this board's new items and edits are pushed to ClickUp. Off
+   *  stops just that direction — status still comes back, and pulling in
+   *  ClickUp's own tasks (if on) keeps working. */
+  pushEnabled: boolean;
+  /** Off (default): an untracked ClickUp task is ignored. On: it becomes a new
+   *  record here, and turning it on pulls in the list's existing tasks too. */
+  pullEnabled: boolean;
   statusMap: ClickUpStatusPairDto[];
   /** What the bound list offers, so each row can render a real picker. */
   listStatuses: ClickUpListStatusDto[];
   /** Our columns in board order — the left-hand label of each row. */
   columns: { key: string; label: string }[];
+  /** How many existing ClickUp tasks the last save just pulled in. */
+  pulled: number;
 }
 
 /** One seat in the connected ClickUp workspace — an option a row can be pinned to. */

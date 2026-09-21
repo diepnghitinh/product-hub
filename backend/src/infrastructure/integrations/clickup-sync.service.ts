@@ -161,6 +161,7 @@ export class ClickUpSyncService extends IClickUpSync {
     if (!config.enabled) return 'The ClickUp integration is paused.';
     const binding = await this.sync.findForScope(tenantId, scope, scopeId);
     if (!binding?.listId) return 'This board is not connected to a ClickUp list.';
+    if (!binding.pushEnabled) return 'Push to ClickUp is turned off for this board.';
     return 'Syncing is turned off for this board.';
   }
 
@@ -345,7 +346,7 @@ export class ClickUpSyncService extends IClickUpSync {
     if (!config?.enabled || !config.apiToken) return null;
 
     const binding = await this.sync.findForScope(tenantId, scope, scopeId);
-    if (!binding?.enabled || !binding.listId) return null;
+    if (!binding?.enabled || !binding.pushEnabled || !binding.listId) return null;
 
     return { tenantId, config, binding };
   }

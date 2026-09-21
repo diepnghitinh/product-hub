@@ -12,10 +12,13 @@ import { IssueKind } from '@application/issues/domain/enums/issue.enums';
 import { GetTeamsUseCase } from '@application/teams/use-cases/team.use-cases';
 import { TeamEntity } from '@application/teams/domain/entities/team.entity';
 import {
+  AddRoadmapItemAttachmentUseCase,
   AddRoadmapItemUseCase,
   GetRoadmapsUseCase,
+  UpdateRoadmapItemUseCase,
 } from '@application/roadmaps/use-cases/roadmap.use-cases';
 import { GetRoadmapTemplatesUseCase } from '@application/roadmaps/use-cases/roadmap-template.use-cases';
+import { RoadmapEntity } from '@application/roadmaps/domain/entities/roadmap.entity';
 import {
   findRoadmapItem,
   riceScore,
@@ -44,6 +47,10 @@ import { DocViewer } from '@application/docs/repositories/doc.repository';
 import { GetProjectsUseCase } from '@application/projects/use-cases';
 import { QueryProjectDto } from '@application/projects/dtos/query-project.dto';
 import { GetProjectStatsUseCase } from '@application/reports/use-cases';
+import { CreateRoadmapItemCommentUseCase } from '@application/activity/use-cases/roadmap-item-comment.use-cases';
+import { UploadMediaUseCase } from '@application/storage/use-cases/upload-media.use-case';
+import { MAX_ATTACHMENTS } from '@application/storage/domain/stored-file.type';
+import { plainSnippet } from '@module-shared/utils/plain-text.util';
 import { McpEventEntity } from '../domain/entities/mcp-event.entity';
 import { McpEntity, McpTool } from '../domain/enums/mcp.enums';
 import { docBodyToHtml, htmlToReadableText, stripEchoedTitle } from '../domain/mcp-doc-body';
@@ -65,6 +72,8 @@ import {
   teamChoices,
 } from '../domain/mcp-resolve';
 import {
+  McpAddBacklogItemAttachmentDto,
+  McpAddBacklogItemCommentDto,
   McpCreateBacklogItemDto,
   McpCreateDocDto,
   McpCreateDocPageDto,
@@ -73,9 +82,12 @@ import {
   McpGetIssueDto,
   McpListDocsDto,
   McpSearchIssuesDto,
+  McpUpdateBacklogItemStatusDto,
 } from '../dtos/mcp.dtos';
 import {
+  McpAttachmentResponseDto,
   McpBacklogItemResponseDto,
+  McpCommentResponseDto,
   McpContextResponseDto,
   McpDocPageResponseDto,
   McpDocResponseDto,
@@ -840,6 +852,403 @@ export class McpGetBacklogItemUseCase implements IUsecaseExecute<
     return Result.fail(
       `No backlog item ${ref}. Refs look like RM-6HCUHKX; list_workspace names the roadmaps.`,
     );
+  }
+}
+
+/**
+ * Move a backlog item's column and/or set its status — dragging a card, or
+ * marking it planned / in progress / done, without having to resend the rest
+ * of the item. Delegates to `UpdateRoadmapItemUseCase`, the same atomic
+ * single-item pattern `create_backlog_item` uses (see `AddRoadmapItemUseCase`),
+ * rather than the bulk `PUT /roadmaps/:id/items` the board itself drives —
+ * that endpoint replaces the whole array, which a caller that only knows one
+ * item's new status must not have to read, patch and write back.
+ */
+@Injectable()
+export class McpUpdateBacklogItemStatusUseCase implements IUsecaseExecute<
+  { actor: McpActor; dto: McpUpdateBacklogItemStatusDto },
+  Result<McpBacklogItemResponseDto>
+> {
+  constructor(
+    private readonly getRoadmaps: GetRoadmapsUseCase,
+    private readonly getTemplates: GetRoadmapTemplatesUseCase,
+    private readonly updateItem: UpdateRoadmapItemUseCase,
+    @Inject(IUserRepository) private readonly users: IUserRepository,
+    @Inject(IMcpEventRepository) private readonly events: IMcpEventRepository,
+  ) {}
+
+  async execute({
+    actor,
+    dto,
+  }: {
+    actor: McpActor;
+    dto: McpUpdateBacklogItemStatusDto;
+  }): Promise<Result<McpBacklogItemResponseDto>> {
+    if (!dto.phase && !dto.status) {
+      return Result.fail('Send a phase, a status, or both — there is nothing to change otherwise.');
+    }
+
+    const roadmaps = (await this.getRoadmaps.execute({ tenantId: actor.tenantId })).getValue();
+    const ref = dto.ref.trim();
+
+    // Same "ref, then exact title, then a unique partial" fallback
+    // get_backlog_item uses — an ambiguous partial names its candidates rather
+    // than guessing which item to move.
+    let match: { item: RoadmapItemData; roadmap: RoadmapEntity } | undefined;
+    for (const roadmap of roadmaps) {
+      const item = findRoadmapItem(roadmap.items, ref);
+      if (item) match = { item, roadmap };
+    }
+    if (!match) {
+      const wanted = ref.toLowerCase();
+      const scan = roadmaps.flatMap((roadmap) => roadmap.items.map((item) => ({ item, roadmap })));
+      const exact = scan.filter(({ item }) => item.title.trim().toLowerCase() === wanted);
+      const partial = exact.length
+        ? exact
+        : scan.filter(({ item }) => item.title.toLowerCase().includes(wanted));
+      if (partial.length === 1) {
+        match = partial[0];
+      } else if (partial.length > 1) {
+        return Result.fail(
+          `Several backlog items match "${ref}": ${partial
+            .map(({ item }) => `${item.shortId || item.id} (${item.title})`)
+            .join(', ')}. Use a ref.`,
+        );
+      }
+    }
+    if (!match) {
+      return Result.fail(
+        `No backlog item ${ref}. Refs look like RM-6HCUHKX; list_workspace names the roadmaps.`,
+      );
+    }
+    const { item, roadmap } = match;
+
+    let phase: string | undefined;
+    if (dto.phase) {
+      const templates = (await this.getTemplates.execute({ tenantId: actor.tenantId })).getValue();
+      const columns = columnsOf(roadmap, templates);
+      const resolved = resolvePhase(columns, dto.phase);
+      if (!resolved) {
+        return Result.fail(didYouMean('column', dto.phase, columns.map((c) => c.label)));
+      }
+      phase = resolved;
+    }
+
+    const updated = await this.updateItem.execute({
+      id: roadmap.id.toString(),
+      itemId: item.id,
+      tenantId: actor.tenantId,
+      phase,
+      status: dto.status,
+    });
+    if (updated.isFailure) return Result.fail(updated.error as string);
+
+    const { item: next } = updated.getValue();
+    const roadmapId = roadmap.id.toString();
+    const link = backlogItemLink(roadmapId, next.shortId || next.id);
+
+    const actorUser = await this.users.findById(actor.userId);
+    const event = McpEventEntity.create({
+      tenantId: actor.tenantId,
+      keyId: actor.keyId,
+      keyName: actor.keyName,
+      userId: actor.userId,
+      userName: actorUser?.name ?? actor.keyName,
+      clientName: actor.clientName,
+      tool: McpTool.UPDATE_BACKLOG_ITEM_STATUS,
+      entity: McpEntity.BACKLOG_ITEM,
+      entityId: next.id,
+      entityRef: next.shortId,
+      entityTitle: next.title,
+      contextLabel: roadmap.title,
+      link,
+    });
+    if (event.isSuccess) await this.events.append(event.getValue());
+
+    return Result.ok(toBacklogItemResponse(next, roadmapId, roadmap.title));
+  }
+}
+
+/**
+ * Post a comment on a backlog item's thread — the same thread its page shows
+ * in the app, so a note left here reaches anyone already watching the item.
+ * Delegates to `CreateRoadmapItemCommentUseCase`, the same use-case the app's
+ * own comment box calls. Mentions resolve like `create_issue`'s assignee
+ * does: one name, or several comma-separated, each looked up on its own so an
+ * unknown one fails with the real choices instead of silently dropping the
+ * ping.
+ */
+@Injectable()
+export class McpAddBacklogItemCommentUseCase implements IUsecaseExecute<
+  { actor: McpActor; dto: McpAddBacklogItemCommentDto },
+  Result<McpCommentResponseDto>
+> {
+  constructor(
+    private readonly getRoadmaps: GetRoadmapsUseCase,
+    private readonly createComment: CreateRoadmapItemCommentUseCase,
+    @Inject(IUserRepository) private readonly users: IUserRepository,
+    @Inject(IMcpEventRepository) private readonly events: IMcpEventRepository,
+  ) {}
+
+  async execute({
+    actor,
+    dto,
+  }: {
+    actor: McpActor;
+    dto: McpAddBacklogItemCommentDto;
+  }): Promise<Result<McpCommentResponseDto>> {
+    const roadmaps = (await this.getRoadmaps.execute({ tenantId: actor.tenantId })).getValue();
+    const ref = dto.ref.trim();
+
+    // Same "ref, then exact title, then a unique partial" fallback
+    // get_backlog_item uses — an ambiguous partial names its candidates rather
+    // than guessing which item to comment on.
+    let match: { item: RoadmapItemData; roadmap: RoadmapEntity } | undefined;
+    for (const roadmap of roadmaps) {
+      const item = findRoadmapItem(roadmap.items, ref);
+      if (item) match = { item, roadmap };
+    }
+    if (!match) {
+      const wanted = ref.toLowerCase();
+      const scan = roadmaps.flatMap((roadmap) => roadmap.items.map((item) => ({ item, roadmap })));
+      const exact = scan.filter(({ item }) => item.title.trim().toLowerCase() === wanted);
+      const partial = exact.length
+        ? exact
+        : scan.filter(({ item }) => item.title.toLowerCase().includes(wanted));
+      if (partial.length === 1) {
+        match = partial[0];
+      } else if (partial.length > 1) {
+        return Result.fail(
+          `Several backlog items match "${ref}": ${partial
+            .map(({ item }) => `${item.shortId || item.id} (${item.title})`)
+            .join(', ')}. Use a ref.`,
+        );
+      }
+    }
+    if (!match) {
+      return Result.fail(
+        `No backlog item ${ref}. Refs look like RM-6HCUHKX; list_workspace names the roadmaps.`,
+      );
+    }
+    const { item, roadmap } = match;
+
+    // One name, or several comma-separated — same parsing create_issue's
+    // assignee uses, each resolved on its own so an unknown one names the
+    // real people instead of quietly leaving the mention out.
+    const mentionIds: string[] = [];
+    const mentionNames: string[] = [];
+    const wantedNames = (dto.mentions ?? '')
+      .split(',')
+      .map((n) => n.trim())
+      .filter(Boolean);
+    if (wantedNames.length) {
+      const people = await this.users.findByTenant(actor.tenantId, ALL_USERS);
+      for (const name of wantedNames) {
+        const person = resolvePerson(people.data, name);
+        if (!person) {
+          return Result.fail(
+            didYouMean(
+              'mention',
+              name,
+              people.data.map((u) => u.name),
+            ),
+          );
+        }
+        mentionIds.push(person.id.toString());
+        mentionNames.push(person.name);
+      }
+    }
+
+    const actorUser = await this.users.findById(actor.userId);
+    const created = await this.createComment.execute({
+      tenantId: actor.tenantId,
+      roadmapId: roadmap.id.toString(),
+      itemId: item.id,
+      authorId: actor.userId,
+      authorName: actorUser?.name ?? actor.keyName,
+      dto: { body: dto.body, mentions: mentionIds.length ? mentionIds : undefined },
+    });
+    if (created.isFailure) return Result.fail(created.error as string);
+
+    const comment = created.getValue();
+    const roadmapId = roadmap.id.toString();
+    const link = backlogItemLink(roadmapId, item.shortId || item.id);
+
+    const event = McpEventEntity.create({
+      tenantId: actor.tenantId,
+      keyId: actor.keyId,
+      keyName: actor.keyName,
+      userId: actor.userId,
+      userName: actorUser?.name ?? actor.keyName,
+      clientName: actor.clientName,
+      tool: McpTool.ADD_BACKLOG_ITEM_COMMENT,
+      entity: McpEntity.BACKLOG_ITEM,
+      entityId: comment.id.toString(),
+      entityRef: item.shortId,
+      // The comment is what was written; the item is the context it landed on
+      // — the same shape create_doc_page's event takes, where the doc is context.
+      entityTitle: plainSnippet(comment.body, 80),
+      contextLabel: item.title,
+      link,
+    });
+    if (event.isSuccess) await this.events.append(event.getValue());
+
+    return Result.ok({
+      id: comment.id.toString(),
+      backlogItemRef: item.shortId || item.id,
+      backlogItemTitle: item.title,
+      authorId: comment.authorId,
+      authorName: comment.authorName,
+      body: comment.body,
+      mentionNames,
+      createdAt: comment.createdAt,
+      link,
+    });
+  }
+}
+
+/** Hard ceiling on the base64 payload MCP will decode, well under the app's
+ *  own per-kind upload caps — a JSON-RPC call is for a spec or a screenshot,
+ *  not a video; anything bigger goes through the app itself. */
+const MCP_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
+
+@Injectable()
+export class McpAddBacklogItemAttachmentUseCase implements IUsecaseExecute<
+  { actor: McpActor; dto: McpAddBacklogItemAttachmentDto },
+  Result<McpAttachmentResponseDto>
+> {
+  constructor(
+    private readonly getRoadmaps: GetRoadmapsUseCase,
+    private readonly uploadMedia: UploadMediaUseCase,
+    private readonly addAttachment: AddRoadmapItemAttachmentUseCase,
+    @Inject(IUserRepository) private readonly users: IUserRepository,
+    @Inject(IMcpEventRepository) private readonly events: IMcpEventRepository,
+  ) {}
+
+  async execute({
+    actor,
+    dto,
+  }: {
+    actor: McpActor;
+    dto: McpAddBacklogItemAttachmentDto;
+  }): Promise<Result<McpAttachmentResponseDto>> {
+    const roadmaps = (await this.getRoadmaps.execute({ tenantId: actor.tenantId })).getValue();
+    const ref = dto.ref.trim();
+
+    // Same "ref, then exact title, then a unique partial" fallback
+    // add_backlog_item_comment uses — an ambiguous partial names its
+    // candidates rather than guessing which item to attach to.
+    let match: { item: RoadmapItemData; roadmap: RoadmapEntity } | undefined;
+    for (const roadmap of roadmaps) {
+      const item = findRoadmapItem(roadmap.items, ref);
+      if (item) match = { item, roadmap };
+    }
+    if (!match) {
+      const wanted = ref.toLowerCase();
+      const scan = roadmaps.flatMap((roadmap) => roadmap.items.map((item) => ({ item, roadmap })));
+      const exact = scan.filter(({ item }) => item.title.trim().toLowerCase() === wanted);
+      const partial = exact.length
+        ? exact
+        : scan.filter(({ item }) => item.title.toLowerCase().includes(wanted));
+      if (partial.length === 1) {
+        match = partial[0];
+      } else if (partial.length > 1) {
+        return Result.fail(
+          `Several backlog items match "${ref}": ${partial
+            .map(({ item }) => `${item.shortId || item.id} (${item.title})`)
+            .join(', ')}. Use a ref.`,
+        );
+      }
+    }
+    if (!match) {
+      return Result.fail(
+        `No backlog item ${ref}. Refs look like RM-6HCUHKX; list_workspace names the roadmaps.`,
+      );
+    }
+    const { item, roadmap } = match;
+    if ((item.attachments?.length ?? 0) >= MAX_ATTACHMENTS) {
+      return Result.fail(
+        `${item.shortId || item.id} already has ${MAX_ATTACHMENTS} attachments, the most one ` +
+          `can hold — remove one from the app before adding another.`,
+      );
+    }
+
+    // A data: URI is accepted as a convenience — strip it and borrow its mime
+    // type when the caller didn't send one of its own.
+    let raw = dto.contentBase64.trim();
+    let contentType = dto.contentType?.trim() ?? '';
+    const dataUri = raw.match(/^data:([^;,]*)(;base64)?,([\s\S]*)$/);
+    if (dataUri) {
+      if (dataUri[1] && !contentType) contentType = dataUri[1];
+      raw = dataUri[3];
+    }
+    raw = raw.replace(/\s+/g, '');
+    if (!raw || !/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) {
+      return Result.fail('contentBase64 is not valid base64.');
+    }
+
+    const buffer = Buffer.from(raw, 'base64');
+    if (buffer.length === 0) return Result.fail('The decoded file is empty.');
+    if (buffer.length > MCP_ATTACHMENT_MAX_BYTES) {
+      return Result.fail(
+        `That file is ${Math.ceil(buffer.length / (1024 * 1024))}MB decoded — MCP attaches up ` +
+          `to ${MCP_ATTACHMENT_MAX_BYTES / (1024 * 1024)}MB. Attach anything bigger from the app.`,
+      );
+    }
+
+    let uploaded: { url: string; name: string; contentType: string; size: number };
+    try {
+      uploaded = await this.uploadMedia.execute(actor.tenantId, {
+        buffer,
+        contentType: contentType || 'application/octet-stream',
+        originalName: dto.fileName.trim(),
+        size: buffer.length,
+      });
+    } catch (err) {
+      return Result.fail(err instanceof Error ? err.message : 'Could not store that file.');
+    }
+
+    const added = await this.addAttachment.execute({
+      id: roadmap.id.toString(),
+      itemId: item.id,
+      tenantId: actor.tenantId,
+      file: uploaded,
+    });
+    if (added.isFailure) return Result.fail(added.error as string);
+    const { item: next } = added.getValue();
+
+    const actorUser = await this.users.findById(actor.userId);
+    const roadmapId = roadmap.id.toString();
+    const link = backlogItemLink(roadmapId, next.shortId || next.id);
+
+    const event = McpEventEntity.create({
+      tenantId: actor.tenantId,
+      keyId: actor.keyId,
+      keyName: actor.keyName,
+      userId: actor.userId,
+      userName: actorUser?.name ?? actor.keyName,
+      clientName: actor.clientName,
+      tool: McpTool.ADD_BACKLOG_ITEM_ATTACHMENT,
+      entity: McpEntity.BACKLOG_ITEM,
+      entityId: next.id,
+      entityRef: next.shortId,
+      // The file is what was added; the item is the context it landed on —
+      // same shape add_backlog_item_comment's event takes.
+      entityTitle: uploaded.name,
+      contextLabel: next.title,
+      link,
+    });
+    if (event.isSuccess) await this.events.append(event.getValue());
+
+    return Result.ok({
+      backlogItemRef: next.shortId || next.id,
+      backlogItemTitle: next.title,
+      name: uploaded.name,
+      contentType: uploaded.contentType,
+      size: uploaded.size,
+      url: uploaded.url,
+      link,
+    });
   }
 }
 

@@ -11,6 +11,8 @@ import {
 import { TestResult } from '@application/reports/domain/enums/test-result.enum';
 import { TestType } from '@application/reports/domain/enums/test-type.enum';
 import {
+  McpAddBacklogItemAttachmentDto,
+  McpAddBacklogItemCommentDto,
   McpAddTestCasesDto,
   McpCreateBacklogItemDto,
   McpCreateDocDto,
@@ -23,10 +25,13 @@ import {
   McpListTestFeaturesDto,
   McpSearchIssuesDto,
   McpSetTestCaseResultDto,
+  McpUpdateBacklogItemStatusDto,
 } from '@application/mcp/dtos/mcp.dtos';
 import {
   McpAddTestCasesResponseDto,
+  McpAttachmentResponseDto,
   McpBacklogItemResponseDto,
+  McpCommentResponseDto,
   McpContextResponseDto,
   McpDocPageResponseDto,
   McpDocResponseDto,
@@ -38,6 +43,8 @@ import {
 import {
   GetMcpContextUseCase,
   McpActor,
+  McpAddBacklogItemAttachmentUseCase,
+  McpAddBacklogItemCommentUseCase,
   McpAddTestCasesUseCase,
   McpCreateBacklogItemUseCase,
   McpCreateDocPageUseCase,
@@ -50,6 +57,7 @@ import {
   McpListTestFeaturesUseCase,
   McpSearchIssuesUseCase,
   McpSetTestCaseResultUseCase,
+  McpUpdateBacklogItemStatusUseCase,
 } from '@application/mcp/use-cases';
 
 /** Version advertised to the client during the MCP handshake. */
@@ -101,6 +109,9 @@ export class McpServerFactory {
     private readonly getContext: GetMcpContextUseCase,
     private readonly createIssue: McpCreateIssueUseCase,
     private readonly createBacklogItem: McpCreateBacklogItemUseCase,
+    private readonly updateBacklogItemStatus: McpUpdateBacklogItemStatusUseCase,
+    private readonly addBacklogItemComment: McpAddBacklogItemCommentUseCase,
+    private readonly addBacklogItemAttachment: McpAddBacklogItemAttachmentUseCase,
     private readonly createDoc: McpCreateDocUseCase,
     private readonly listDocs: McpListDocsUseCase,
     private readonly createDocPage: McpCreateDocPageUseCase,
@@ -148,6 +159,9 @@ export class McpServerFactory {
     this.registerGetBacklogItem(server, run);
     this.registerCreateIssue(server, run);
     this.registerCreateBacklogItem(server, run);
+    this.registerUpdateBacklogItemStatus(server, run);
+    this.registerAddBacklogItemComment(server, run);
+    this.registerAddBacklogItemAttachment(server, run);
     this.registerListDocs(server, run);
     this.registerCreateDoc(server, run);
     this.registerCreateDocPage(server, run);
@@ -332,6 +346,106 @@ export class McpServerFactory {
               `Added ${item.shortId} "${item.title}" to ${item.roadmapTitle} → ${item.phase}`,
               `RICE ${item.riceScore} · status ${item.status}`,
               this.url(item.link),
+            ].join('\n'),
+        ),
+    );
+  }
+
+  private registerUpdateBacklogItemStatus(server: McpServer, run: Run): void {
+    registerTool<McpUpdateBacklogItemStatusDto>(
+      server,
+      'update_backlog_item_status',
+      {
+        title: 'Move or update a backlog item',
+        description:
+          'Change a roadmap backlog item’s column and/or lifecycle status — moving it between ' +
+          'Now/Next/Later (or marking it planned / in progress / done). The two are independent: ' +
+          'send either, or both, in one call. Use get_backlog_item first if you only have a title, ' +
+          'to confirm which item you mean.',
+        inputSchema: {
+          ref: z.string().min(1).describe('Backlog item ref (RM-6HCUHKX), id, or its exact title'),
+          phase: z
+            .string()
+            .optional()
+            .describe('Column key or label to move it to — Now / Next / Later'),
+          status: z.nativeEnum(RoadmapItemStatus).optional(),
+        },
+      },
+      (dto) =>
+        run<McpBacklogItemResponseDto>(
+          (actor) => this.updateBacklogItemStatus.execute({ actor, dto }),
+          (item) =>
+            [
+              `Updated ${item.shortId} "${item.title}" — ${item.roadmapTitle} → ${item.phase}`,
+              `status ${item.status}`,
+              this.url(item.link),
+            ].join('\n'),
+        ),
+    );
+  }
+
+  private registerAddBacklogItemComment(server: McpServer, run: Run): void {
+    registerTool<McpAddBacklogItemCommentDto>(
+      server,
+      'add_backlog_item_comment',
+      {
+        title: 'Comment on a backlog item',
+        description:
+          'Post a comment on a roadmap backlog item’s thread — the same thread its page shows in ' +
+          'the app, visible to anyone already watching the item. `mentions` accepts name(s) or ' +
+          'email(s), comma-separated for several. Top-level only: there is no tool yet to read back ' +
+          'existing comments, so replying to a specific one isn’t possible.',
+        inputSchema: {
+          ref: z.string().min(1).describe('Backlog item ref (RM-6HCUHKX), id, or its exact title'),
+          body: z.string().min(1).describe('The comment text'),
+          mentions: z
+            .string()
+            .optional()
+            .describe('Person name(s) or email(s) to mention — comma-separated for several'),
+        },
+      },
+      (dto) =>
+        run<McpCommentResponseDto>(
+          (actor) => this.addBacklogItemComment.execute({ actor, dto }),
+          (c) =>
+            [
+              `Commented on ${c.backlogItemRef} "${c.backlogItemTitle}"` +
+                (c.mentionNames.length ? ` — mentioned ${c.mentionNames.join(', ')}` : ''),
+              this.url(c.link),
+            ].join('\n'),
+        ),
+    );
+  }
+
+  private registerAddBacklogItemAttachment(server: McpServer, run: Run): void {
+    registerTool<McpAddBacklogItemAttachmentDto>(
+      server,
+      'add_backlog_item_attachment',
+      {
+        title: 'Attach a file to a backlog item',
+        description:
+          'Attach a file to a roadmap backlog item — the same row its page shows. There is no ' +
+          'binary channel here, so send the bytes as base64 in `contentBase64` (a `data:...;base64,` ' +
+          'URI also works). Meant for a spec, a screenshot, a short report — up to 20MB decoded; ' +
+          'anything bigger has to go through the app itself.',
+        inputSchema: {
+          ref: z.string().min(1).describe('Backlog item ref (RM-6HCUHKX), id, or its exact title'),
+          fileName: z.string().min(1).describe('Filename, with its extension'),
+          contentBase64: z.string().min(1).describe('The file’s bytes, base64-encoded'),
+          contentType: z
+            .string()
+            .optional()
+            .describe('MIME type; guessed from the filename when omitted'),
+        },
+      },
+      (dto) =>
+        run<McpAttachmentResponseDto>(
+          (actor) => this.addBacklogItemAttachment.execute({ actor, dto }),
+          (a) =>
+            [
+              `Attached "${a.name}" (${Math.max(1, Math.round(a.size / 1024))}KB) to ` +
+                `${a.backlogItemRef} "${a.backlogItemTitle}"`,
+              this.url(a.link),
             ].join('\n'),
         ),
     );

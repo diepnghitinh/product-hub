@@ -287,6 +287,60 @@ export class McpBacklogItemResponseDto {
   link: string;
 }
 
+/** A posted comment, echoed back to confirm what was said and where it landed. */
+export class McpCommentResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ example: 'RM-6HCUHKX' })
+  backlogItemRef: string;
+
+  @ApiProperty()
+  backlogItemTitle: string;
+
+  @ApiProperty()
+  authorId: string;
+
+  @ApiProperty()
+  authorName: string;
+
+  @ApiProperty()
+  body: string;
+
+  @ApiProperty({ type: [String], description: 'Names resolved from the mentions sent in' })
+  mentionNames: string[];
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty({ description: 'In-app path to the backlog item carrying this comment' })
+  link: string;
+}
+
+/** A file just stored on a backlog item, echoed back with where it landed. */
+export class McpAttachmentResponseDto {
+  @ApiProperty({ example: 'RM-6HCUHKX' })
+  backlogItemRef: string;
+
+  @ApiProperty()
+  backlogItemTitle: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  contentType: string;
+
+  @ApiProperty({ description: 'Bytes' })
+  size: number;
+
+  @ApiProperty({ description: 'Public URL of the stored file' })
+  url: string;
+
+  @ApiProperty({ description: 'In-app path to the backlog item carrying this attachment' })
+  link: string;
+}
+
 /**
  * One feature under test, with the tally its cases add up to.
  *

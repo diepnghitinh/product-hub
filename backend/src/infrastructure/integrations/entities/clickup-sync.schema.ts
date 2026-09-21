@@ -12,6 +12,12 @@ export interface ClickUpSyncDoc {
   spaceId: string;
   spaceName: string;
   enabled: boolean;
+  /** On (default): this board's new items and edits are pushed to ClickUp. Off
+   *  stops just that direction; the inbound ones keep running. */
+  pushEnabled: boolean;
+  /** Off (default): new ClickUp tasks in this list are ignored. On: a task
+   *  created in ClickUp with no existing link becomes a new record here. */
+  pullEnabled: boolean;
   statusMap: { key: string; clickupStatus: string }[];
   createdAt: Date;
   updatedAt: Date;
@@ -28,6 +34,8 @@ export const ClickUpSyncSchema = new Schema<ClickUpSyncDoc>(
     spaceId: { type: String, default: '' },
     spaceName: { type: String, default: '' },
     enabled: { type: Boolean, default: true },
+    pushEnabled: { type: Boolean, default: true },
+    pullEnabled: { type: Boolean, default: false },
     // Stored as given, including the '' entries: a column deliberately left
     // unmapped is a decision, and dropping it would make the row reappear as an
     // unanswered question every time the form is opened.

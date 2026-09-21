@@ -89,6 +89,8 @@ export interface SaveClickUpSyncPayload {
   spaceId?: string;
   spaceName?: string;
   enabled: boolean;
+  pushEnabled: boolean;
+  pullEnabled: boolean;
   statusMap: ClickUpStatusPairDto[];
 }
 

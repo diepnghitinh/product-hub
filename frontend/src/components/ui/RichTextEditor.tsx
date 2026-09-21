@@ -18,6 +18,7 @@ import { DividerTool } from '@/lib/editor/DividerTool';
 import { MentionMenu } from '@/lib/editor/MentionMenu';
 import { SlashMenu } from '@/lib/editor/SlashMenu';
 import { StrikeTool } from '@/lib/editor/StrikeTool';
+import { ListOrderedTool, ListUnorderedTool } from '@/lib/editor/ListStyleTool';
 import { bindInlineShortcuts } from '@/lib/editor/inlineShortcuts';
 import { bindInsertLine } from '@/lib/editor/insertLine';
 import { bindBlockInputRules } from '@/lib/editor/inputRules';
@@ -378,6 +379,8 @@ export function RichTextEditor({
           inlineCode: InlineCode,
           underline: Underline,
           strikethrough: StrikeTool,
+          listOrdered: ListOrderedTool,
+          listUnordered: ListUnorderedTool,
           ...(minimalRef.current
             ? {}
             : {

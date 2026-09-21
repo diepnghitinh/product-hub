@@ -299,6 +299,81 @@ export class McpGetBacklogItemDto {
   ref: string;
 }
 
+/**
+ * Move a backlog item's column and/or set its lifecycle status. The two are
+ * independent — a card can change column without its status moving, or the
+ * other way round — so both are optional and either (or both) may be sent.
+ */
+export class McpUpdateBacklogItemStatusDto {
+  @ApiProperty({ example: 'RM-6HCUHKX', description: 'Backlog item ref, uuid, or exact title' })
+  @IsString()
+  @IsNotEmpty()
+  ref: string;
+
+  @ApiPropertyOptional({ description: 'Column key or label to move it to — Now / Next / Later' })
+  @IsOptional()
+  @IsString()
+  phase?: string;
+
+  @ApiPropertyOptional({ enum: RoadmapItemStatus })
+  @IsOptional()
+  @IsEnum(RoadmapItemStatus)
+  status?: RoadmapItemStatus;
+}
+
+/**
+ * Post a top-level comment on a backlog item's thread — the same thread its
+ * page shows in the app. There is no tool yet to list existing comments, so
+ * every comment lands at the root rather than as a reply.
+ */
+export class McpAddBacklogItemCommentDto {
+  @ApiProperty({ example: 'RM-6HCUHKX', description: 'Backlog item ref, uuid, or exact title' })
+  @IsString()
+  @IsNotEmpty()
+  ref: string;
+
+  @ApiProperty({ example: 'Reach looks optimistic given last quarter — can we revisit?' })
+  @IsString()
+  @IsNotEmpty()
+  body: string;
+
+  @ApiPropertyOptional({
+    description: 'Person name(s) or email(s) to mention — comma-separated for several',
+  })
+  @IsOptional()
+  @IsString()
+  mentions?: string;
+}
+
+/**
+ * Attach a file to a backlog item — the same row its page shows. MCP has no
+ * binary channel, so the bytes travel as base64 in the call itself; capped
+ * well under the app's own upload ceiling, so this is for a spec, a mock, a
+ * short report — not a video. A `data:...;base64,` URI is also accepted, and
+ * its mime type is used when `contentType` is omitted.
+ */
+export class McpAddBacklogItemAttachmentDto {
+  @ApiProperty({ example: 'RM-6HCUHKX', description: 'Backlog item ref, uuid, or exact title' })
+  @IsString()
+  @IsNotEmpty()
+  ref: string;
+
+  @ApiProperty({ example: 'forecast.pdf', description: 'Filename, with its extension' })
+  @IsString()
+  @IsNotEmpty()
+  fileName: string;
+
+  @ApiProperty({ description: "The file's bytes, base64-encoded — up to 20MB decoded" })
+  @IsString()
+  @IsNotEmpty()
+  contentBase64: string;
+
+  @ApiPropertyOptional({ description: 'MIME type; guessed from the filename when omitted' })
+  @IsOptional()
+  @IsString()
+  contentType?: string;
+}
+
 /* ── Testing ──────────────────────────────────────────────────────────────── */
 
 /** The features (feature reports) of one testing project. */

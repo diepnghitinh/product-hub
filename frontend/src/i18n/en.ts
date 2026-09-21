@@ -768,8 +768,15 @@ export const en = {
   'clickup.syncEnabledHint': 'Off keeps the mapping but stops every push and every inbound move.',
   'clickup.syncDirectionNote':
     'Title, description, dates, priority and assignees are pushed to ClickUp. Only the status comes back — nothing in ClickUp can rename or delete work here.',
+  'clickup.pushEnabled': 'Push to ClickUp',
+  'clickup.pushEnabledHint':
+    'On (default): new items and edits on this board are pushed to ClickUp, including "Push now" on a single item. Off stops just that direction — status still comes back, and pulling ClickUp’s own tasks in (if on) keeps working.',
+  'clickup.pullEnabled': 'Pull new tasks from ClickUp',
+  'clickup.pullEnabledHint':
+    'Off (default): a ClickUp task with no link here is ignored. On: it becomes a new record on this board — and turning this on pulls in the list’s existing tasks too.',
   'clickup.bind': 'Bind board',
   'clickup.syncSaved': 'ClickUp sync saved.',
+  'clickup.pulledIn': 'Pulled in {count} existing tasks from ClickUp.',
   'clickup.unbind': 'Unbind',
   'clickup.unbindConfirm':
     'Stop syncing this board with ClickUp? The ClickUp tasks and the links beside each item stay exactly as they are.',
@@ -1231,6 +1238,9 @@ export const en = {
   'settings.clickupNoWebhook':
     'We could not register the webhook, so links will not update on their own — refresh a link by hand from its row. This is normal on a machine ClickUp cannot reach from the internet.',
   'settings.clickupWaiting': 'Waiting for the first task change',
+  'settings.clickupReconnect': 'Reconnect',
+  'settings.clickupReconnectHint':
+    'Re-enter your token to re-register the webhook — this is what picks up a new event type we start listening for. Your boards, status mappings and linked tasks are left exactly as they are.',
   'settings.clickupDisconnect': 'Disconnect ClickUp',
   'settings.clickupDisconnectConfirm':
     'Disconnect ClickUp? The webhook is removed, the token is deleted, and every linked task disappears from your issues and backlog items. Nothing in ClickUp is touched.',
